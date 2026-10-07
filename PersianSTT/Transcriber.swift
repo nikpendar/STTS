@@ -20,8 +20,19 @@ final class Transcriber: ObservableObject {
     /// The first ggml-*.bin found in the bundled Models folder is used.
     private static func findModel() -> URL? {
         Bundle.main.urls(forResourcesWithExtension: "bin", subdirectory: "Models")?
+            .filter { $0.lastPathComponent.hasPrefix("ggml-") }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
             .first
+    }
+
+    /// whisper.cpp loads ggml-<name>-encoder.mlmodelc (next to the .bin) to run the encoder on the Neural Engine.
+    private static func hasCoreMLEncoder(for model: URL) -> Bool {
+        var name = model.deletingPathExtension().lastPathComponent
+        if let range = name.range(of: #"-q\d_[\dk]$"#, options: .regularExpression) {
+            name.removeSubrange(range)
+        }
+        let encoder = model.deletingLastPathComponent().appendingPathComponent("\(name)-encoder.mlmodelc")
+        return FileManager.default.fileExists(atPath: encoder.path)
     }
 
     private func loadModel() async {
@@ -31,10 +42,13 @@ final class Transcriber: ObservableObject {
             return
         }
         modelName = url.lastPathComponent
+        if Self.hasCoreMLEncoder(for: url) {
+            status = "در حال بارگذاری مدل… اجرای اول Neural Engine ممکن است چند دقیقه طول بکشد."
+        }
         do {
             let path = url.path
             whisper = try await Task.detached { try WhisperContext(path: path) }.value
-            status = "آماده"
+            status = Self.hasCoreMLEncoder(for: url) ? "آماده (Neural Engine)" : "آماده"
         } catch {
             status = error.localizedDescription
         }

@@ -7,9 +7,17 @@ on:
     inputs:
       model:
         description: "Whisper model (base-q5_1, small-q5_1, large-v3-turbo-q5_0)"
-        default: base-q5_1
+        default: large-v3-turbo-q5_0
+      coreml:
+        description: "Run the encoder on the Neural Engine (Core ML)"
+        type: boolean
+        default: true
   push:
     branches: [main]
+
+env:
+  MODEL: ${{ github.event.inputs.model || 'large-v3-turbo-q5_0' }}
+  COREML: ${{ github.event_name == 'push' || github.event.inputs.coreml == 'true' }}
 
 jobs:
   build:
@@ -20,7 +28,25 @@ jobs:
       - name: Download whisper.xcframework and model
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash ./setup.sh "${{ github.event.inputs.model || 'base-q5_1' }}"
+        run: bash ./setup.sh "$MODEL"
+
+      - uses: actions/setup-python@v6
+        if: env.COREML == 'true'
+        with:
+          python-version: "3.11"
+
+      - name: Convert encoder to Core ML (int8)
+        if: env.COREML == 'true'
+        run: |
+          # whisper.cpp looks for ggml-<name>-encoder.mlmodelc next to ggml-<name>[-qX_Y].bin
+          NAME="$(echo "$MODEL" | sed -E 's/-q[0-9]_[0-9k]$//')"
+          pip install --quiet torch coremltools openai-whisper ane_transformers
+          git clone --depth 1 https://github.com/ggml-org/whisper.cpp "$RUNNER_TEMP/whisper.cpp"
+          python scripts/convert_encoder_coreml.py "$RUNNER_TEMP/whisper.cpp" "$NAME" "$RUNNER_TEMP/encoder.mlpackage" --int8
+          xcrun coremlc compile "$RUNNER_TEMP/encoder.mlpackage" "$RUNNER_TEMP"
+          rm -rf "PersianSTT/Models/ggml-$NAME-encoder.mlmodelc"
+          mv "$RUNNER_TEMP/encoder.mlmodelc" "PersianSTT/Models/ggml-$NAME-encoder.mlmodelc"
+          du -sh PersianSTT/Models/*
 
       - name: Build
         run: |
@@ -34,8 +60,9 @@ jobs:
           mkdir -p Payload
           cp -R build/Release-iphoneos/PersianSTT.app Payload/
           zip -qry PersianSTT.ipa Payload
+          ls -lh PersianSTT.ipa
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: PersianSTT-ipa
           path: PersianSTT.ipa
