@@ -16,9 +16,13 @@ if [ ! -d "$FW_DIR/whisper.xcframework" ]; then
   echo "Finding latest whisper.cpp release..."
   AUTH=()
   if [ -n "${GITHUB_TOKEN:-}" ]; then AUTH=(-H "Authorization: Bearer $GITHUB_TOKEN"); fi
-  URL="$(curl -fsSL ${AUTH[@]+"${AUTH[@]}"} https://api.github.com/repos/ggml-org/whisper.cpp/releases/latest \
-    | grep -o '"browser_download_url": *"[^"]*xcframework\.zip"' \
-    | head -n1 | sed 's/.*"\(https[^"]*\)"/\1/')"
+  # Newest release that ships an xcframework asset (not every release does).
+  URL="$(curl -fsSL ${AUTH[@]+"${AUTH[@]}"} "https://api.github.com/repos/ggml-org/whisper.cpp/releases?per_page=20" \
+    | python3 -c 'import json,sys
+for r in json.load(sys.stdin):
+    for a in r.get("assets", []):
+        if a["name"].endswith("xcframework.zip"):
+            print(a["browser_download_url"]); sys.exit()' || true)"
   if [ -z "$URL" ]; then
     echo "Could not find an xcframework asset in the latest whisper.cpp release." >&2
     exit 1
