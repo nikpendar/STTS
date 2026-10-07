@@ -34,9 +34,13 @@ actor WhisperContext {
     }
 
     /// `samples` must be 16 kHz mono Float32 PCM.
-    func transcribe(samples: [Float]) throws -> String {
+    /// `shortenAudioContext` limits the encoder to the recorded length instead of a full
+    /// 30 s window. It must stay off when a Core ML encoder is loaded: that encoder has a
+    /// fixed 30 s input and always produces the full context.
+    func transcribe(samples: [Float], shortenAudioContext: Bool) throws -> String {
         var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
         let threads = max(1, min(8, ProcessInfo.processInfo.activeProcessorCount - 2))
+        let audioContext = shortenAudioContext ? Self.audioContext(sampleCount: samples.count) : 0
 
         let code: Int32 = "fa".withCString { lang in
             params.language = lang
@@ -47,6 +51,7 @@ actor WhisperContext {
             params.print_timestamps = false
             params.print_special = false
             params.n_threads = Int32(threads)
+            params.audio_ctx = audioContext
             return samples.withUnsafeBufferPointer { buf in
                 whisper_full(context, params, buf.baseAddress, Int32(buf.count))
             }
@@ -60,5 +65,15 @@ actor WhisperContext {
             }
         }
         return text
+    }
+
+    /// The encoder produces 50 frames per second of audio, 1500 for a full 30 s window.
+    /// Returns 0 (full window) for clips near or over 30 s, which are decoded in 30 s chunks.
+    private static func audioContext(sampleCount: Int) -> Int32 {
+        let seconds = Double(sampleCount) / 16_000
+        guard seconds < 28 else { return 0 }
+        // Margin past the end of speech; very small contexts make Whisper hallucinate.
+        let frames = Int(seconds * 50) + 128
+        return Int32(min(1500, max(384, frames)))
     }
 }

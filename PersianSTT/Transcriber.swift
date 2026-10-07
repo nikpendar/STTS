@@ -10,6 +10,7 @@ final class Transcriber: ObservableObject {
     @Published var modelName = ""
 
     private var whisper: WhisperContext?
+    private var usesCoreML = false
     private var recorder: AVAudioRecorder?
     private let recordingURL = FileManager.default.temporaryDirectory.appendingPathComponent("recording.wav")
 
@@ -48,7 +49,8 @@ final class Transcriber: ObservableObject {
         do {
             let path = url.path
             whisper = try await Task.detached { try WhisperContext(path: path) }.value
-            status = Self.hasCoreMLEncoder(for: url) ? "آماده (Neural Engine)" : "آماده"
+            usesCoreML = Self.hasCoreMLEncoder(for: url)
+            status = usesCoreML ? "آماده (Neural Engine)" : "آماده"
         } catch {
             status = error.localizedDescription
         }
@@ -130,7 +132,7 @@ final class Transcriber: ObservableObject {
             do {
                 let start = Date()
                 let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
-                let result = try await whisper.transcribe(samples: samples)
+                let result = try await whisper.transcribe(samples: samples, shortenAudioContext: !usesCoreML)
                 text = result.trimmingCharacters(in: .whitespacesAndNewlines)
                 let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
                 let elapsed = Date().timeIntervalSince(start)
