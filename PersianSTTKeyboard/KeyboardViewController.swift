@@ -14,7 +14,6 @@ final class KeyboardViewController: UIInputViewController {
     private let observer = DarwinObserver()
     private let statusLabel = UILabel()
     private let micButton = UIButton(type: .system)
-    private let globeButton = UIButton(type: .system)
     private var timeout: DispatchWorkItem?
     private var previewTimer: Timer?
     private var previewIndex = 0
@@ -53,6 +52,12 @@ final class KeyboardViewController: UIInputViewController {
         let states: [String: State] = [
             "noSession": .noSession, "ready": .ready, "recording": .recording, "transcribing": .transcribing,
         ]
+        if name == "emoji" {
+            layer = .emoji
+            buildCharacterKeys()
+            state = .ready
+            return
+        }
         if let fixed = states[name] {
             state = fixed
             return
@@ -106,7 +111,7 @@ final class KeyboardViewController: UIInputViewController {
                 if self?.state == .transcribing { self?.transcriptionFailed() }
             }
         case .noSession, .checking:
-            openApp()
+            open(DictationBridge.sessionURL)
         case .starting, .transcribing:
             break
         }
@@ -136,7 +141,7 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Extensions cannot call UIApplication.open, so the host's UIApplication is found
     /// through the responder chain and its open method is called dynamically.
-    private func openApp() {
+    private func open(_ url: URL) {
         guard hasFullAccess else { return }
         typealias OpenURL = @convention(c) (
             AnyObject, Selector, NSURL, NSDictionary, (@convention(block) (Bool) -> Void)?) -> Void
@@ -146,7 +151,7 @@ final class KeyboardViewController: UIInputViewController {
             if NSStringFromClass(type(of: current)).contains("UIApplication"),
                current.responds(to: selector) {
                 let open = unsafeBitCast(current.method(for: selector), to: OpenURL.self)
-                open(current, selector, DictationBridge.sessionURL as NSURL, NSDictionary(), nil)
+                open(current, selector, url as NSURL, NSDictionary(), nil)
                 return
             }
             responder = current.next
@@ -168,13 +173,17 @@ final class KeyboardViewController: UIInputViewController {
 
     // MARK: - UI
 
-    private enum Layer { case letters, symbols }
+    private enum Layer { case letters, symbols, emoji }
+
+    private static let emojis: [String] = Array(
+        "😀😃😄😁😆😅😂🤣🙂🙃😉😊😇🥰😍🤩😘😗😚😙😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶🥴😵🤯🤠🥳😎🤓🧐😕😟🙁😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👻👽🤖😺😸😹😻😼😽🙀😿😾🙈🙉🙊💋💌💘💝💖💗💓💞💕💟❣💔🧡💛💚💙💜🤎🖤🤍💯💢💥💫💦💨🕳💬💭💤👋🤚🖐✋🖖👌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪🌹🌷🌸🌼🌻🌺🍀🍁🍂🌱🌲🌳🌴🌵☀🌙⭐🌟✨⚡🔥🌈☁❄💧🌊🍎🍊🍋🍉🍇🍓🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥕🌽🍞🧀🍕🍔🍟🌭🥗🍿🍰🎂🍫🍬🍭🍩🍪☕🍵🥤🎉🎊🎁🎈🏆⚽🏀🎵🎶📱💻⌚📷💡📚✏📌📎✂🔒🔑❤✅❌❓❗⚠🇮🇷"
+    ).map(String.init)
 
     /// Persian layout of Apple's iOS keyboard.
     private static let letterRows: [[String]] = [
-        ["ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"],
+        ["ض", "ص", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"],
         ["ش", "س", "ی", "ب", "ل", "ا", "ت", "ن", "م", "ک", "گ"],
-        ["ظ", "ط", "ژ", "ز", "ر", "ذ", "د", "پ", "و"],
+        ["ظ", "ط", "ژ", "ز", "ر", "ذ", "د", "پ", "و", "ث"],
     ]
     private static let symbolRows: [[String]] = [
         ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"],
@@ -185,9 +194,12 @@ final class KeyboardViewController: UIInputViewController {
     private var layer = Layer.letters
     private var characterKeys: [[KeyView]] = []
     private let statusHeight: CGFloat = 26
-    private let backspaceKey = KeyView(symbol: "delete.left")
+    private let backspaceKey = KeyView(symbol: "delete.right")
+    private let settingsKey = KeyView(symbol: "gearshape")
+    private let emojiKey = KeyView(symbol: "face.smiling")
+    private let emojiScroll = UIScrollView()
     private let layerKey = KeyView(title: "۱۲۳", fontSize: 16)
-    private let zwnjKey = KeyView(title: "نیم‌فاصله", fontSize: 13)
+    private let zwnjKey = KeyView(title: "<|>", fontSize: 17)
     private let spaceKey = KeyView(title: "فاصله", fontSize: 15)
     private let returnKey = KeyView(symbol: "return")
     private var repeatTimer: Timer?
@@ -233,20 +245,32 @@ final class KeyboardViewController: UIInputViewController {
         micButton.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
         view.addSubview(micButton)
 
-        globeButton.setImage(UIImage(systemName: "globe",
-                                     withConfiguration: UIImage.SymbolConfiguration(pointSize: 20)), for: .normal)
-        globeButton.tintColor = .label
-        globeButton.backgroundColor = .clear
-        globeButton.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
-        view.addSubview(globeButton)
+        // Symbols keep the same direction on every device, whatever the host app's language.
+        view.semanticContentAttribute = .forceRightToLeft
+
+        emojiScroll.backgroundColor = .clear
+        emojiScroll.showsVerticalScrollIndicator = false
+        emojiScroll.isHidden = true
+        view.addSubview(emojiScroll)
+        for emoji in Self.emojis {
+            let key = KeyView(title: emoji, fontSize: 28)
+            key.addAction(UIAction { [weak self] _ in
+                self?.textDocumentProxy.insertText(emoji)
+            }, for: .touchUpInside)
+            emojiScroll.addSubview(key)
+        }
 
         backspaceKey.addTarget(self, action: #selector(backspaceDown), for: .touchDown)
         backspaceKey.addTarget(self, action: #selector(backspaceUp), for: [.touchUpInside, .touchUpOutside, .touchCancel])
         layerKey.addTarget(self, action: #selector(toggleLayer), for: .touchUpInside)
+        emojiKey.addTarget(self, action: #selector(toggleEmoji), for: .touchUpInside)
+        settingsKey.addAction(UIAction { [weak self] _ in
+            self?.open(DictationBridge.settingsURL)
+        }, for: .touchUpInside)
         zwnjKey.addTarget(self, action: #selector(insertZWNJ), for: .touchUpInside)
         spaceKey.addTarget(self, action: #selector(insertSpace), for: .touchUpInside)
         returnKey.addTarget(self, action: #selector(insertReturn), for: .touchUpInside)
-        for key in [backspaceKey, layerKey, zwnjKey, spaceKey, returnKey] {
+        for key in [backspaceKey, layerKey, settingsKey, emojiKey, zwnjKey, spaceKey, returnKey] {
             view.addSubview(key)
         }
         buildCharacterKeys()
@@ -259,7 +283,13 @@ final class KeyboardViewController: UIInputViewController {
 
     private func buildCharacterKeys() {
         characterKeys.flatMap { $0 }.forEach { $0.removeFromSuperview() }
-        let rows = layer == .letters ? Self.letterRows : Self.symbolRows
+        let rows: [[String]]
+        switch layer {
+        case .letters: rows = Self.letterRows
+        case .symbols: rows = Self.symbolRows
+        case .emoji: rows = []
+        }
+        emojiScroll.isHidden = layer != .emoji
         characterKeys = rows.map { row in
             row.map { character in
                 let key = KeyView(title: character, fontSize: 23)
@@ -270,7 +300,8 @@ final class KeyboardViewController: UIInputViewController {
                 return key
             }
         }
-        layerKey.title = layer == .letters ? "۱۲۳" : "الفبا"
+        layerKey.title = layer == .symbols ? "الفبا" : "۱۲۳"
+        emojiKey.symbol = layer == .emoji ? "keyboard" : "face.smiling"
         view.setNeedsLayout()
     }
 
@@ -283,6 +314,20 @@ final class KeyboardViewController: UIInputViewController {
         let rowHeight = (bounds.height - statusHeight - 4) / 4
         statusLabel.frame = CGRect(x: 12, y: 0, width: bounds.width - 24, height: statusHeight)
 
+        let backspaceY = statusHeight + 2 * rowHeight
+        backspaceKey.frame = CGRect(x: bounds.width - 1.5 * unit, y: backspaceY, width: 1.5 * unit, height: rowHeight)
+
+        // Emoji grid: fills the three key rows, minus the backspace column.
+        emojiScroll.frame = CGRect(x: 0, y: statusHeight, width: bounds.width - 1.5 * unit, height: 3 * rowHeight)
+        let columns = 8
+        let cell = emojiScroll.frame.width / CGFloat(columns)
+        for (index, key) in emojiScroll.subviews.compactMap({ $0 as? KeyView }).enumerated() {
+            key.frame = CGRect(x: CGFloat(index % columns) * cell, y: CGFloat(index / columns) * rowHeight,
+                               width: cell, height: rowHeight)
+        }
+        let emojiRows = (Self.emojis.count + columns - 1) / columns
+        emojiScroll.contentSize = CGSize(width: emojiScroll.frame.width, height: CGFloat(emojiRows) * rowHeight)
+
         for (index, row) in characterKeys.enumerated() {
             let y = statusHeight + CGFloat(index) * rowHeight
             let isLast = index == characterKeys.count - 1
@@ -293,24 +338,20 @@ final class KeyboardViewController: UIInputViewController {
                 key.frame = CGRect(x: x, y: y, width: keyWidth, height: rowHeight)
                 x += keyWidth
             }
-            if isLast {
-                backspaceKey.frame = CGRect(x: bounds.width - 1.5 * unit, y: y, width: 1.5 * unit, height: rowHeight)
-            }
         }
 
-        // Bottom row, left to right: 123, globe, ZWNJ, space, return, mic in the corner.
+        // Bottom row, left to right: 123, settings, emoji, ZWNJ, space, return, mic in the corner.
         let y = statusHeight + 3 * rowHeight
-        let showGlobe = previewState != nil || needsInputModeSwitchKey
-        globeButton.isHidden = !showGlobe
         var x: CGFloat = 0
         func place(_ view: UIView, _ width: CGFloat) {
             view.frame = CGRect(x: x, y: y, width: width, height: rowHeight)
             x += width
         }
-        let fixed = 1.5 * unit + (showGlobe ? 1.25 * unit : 0) + 1.75 * unit + 1.75 * unit + 1.5 * unit
+        let fixed = 1.5 * unit + 3 * 1.25 * unit + 1.75 * unit + 1.5 * unit
         place(layerKey, 1.5 * unit)
-        if showGlobe { place(globeButton, 1.25 * unit) }
-        place(zwnjKey, 1.75 * unit)
+        place(settingsKey, 1.25 * unit)
+        place(emojiKey, 1.25 * unit)
+        place(zwnjKey, 1.25 * unit)
         place(spaceKey, bounds.width - fixed)
         place(returnKey, 1.75 * unit)
         place(micButton, 1.5 * unit)
@@ -322,7 +363,12 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func toggleLayer() {
-        layer = layer == .letters ? .symbols : .letters
+        layer = layer == .symbols ? .letters : .symbols
+        buildCharacterKeys()
+    }
+
+    @objc private func toggleEmoji() {
+        layer = layer == .emoji ? .letters : .emoji
         buildCharacterKeys()
     }
 
@@ -368,6 +414,14 @@ private final class KeyView: UIControl {
         set { label.text = newValue }
     }
 
+    var symbol: String? {
+        didSet {
+            imageView.image = symbol.flatMap {
+                UIImage(systemName: $0, withConfiguration: UIImage.SymbolConfiguration(pointSize: 19))
+            }
+        }
+    }
+
     init(title: String? = nil, symbol: String? = nil, fontSize: CGFloat = 20) {
         super.init(frame: .zero)
         backgroundColor = .clear
@@ -385,12 +439,12 @@ private final class KeyView: UIControl {
         label.minimumScaleFactor = 0.6
         addSubview(label)
 
-        if let symbol {
-            imageView.image = UIImage(systemName: symbol,
-                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 19))
-            imageView.tintColor = .label
-            imageView.contentMode = .center
-            addSubview(imageView)
+        imageView.tintColor = .label
+        imageView.contentMode = .center
+        addSubview(imageView)
+        self.symbol = symbol
+        imageView.image = symbol.flatMap {
+            UIImage(systemName: $0, withConfiguration: UIImage.SymbolConfiguration(pointSize: 19))
         }
     }
 

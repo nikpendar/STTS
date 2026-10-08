@@ -56,7 +56,7 @@ jobs:
           xcrun simctl io "$DEVICE" screenshot shots/3-app-ready-dark.png
 
           n=4
-          for state in noSession ready recording transcribing; do
+          for state in noSession ready recording transcribing emoji; do
             shoot "kb-$state" light -keyboardPreview "$state"
             sleep 4
             xcrun simctl io "$DEVICE" screenshot "shots/$n-keyboard-$state.png"

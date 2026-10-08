@@ -18,6 +18,8 @@ enum DictationBridge {
 
     /// Opens the app and starts a keyboard session.
     static let sessionURL = URL(string: "persianstt://session")!
+    /// Opens the app from the keyboard's settings key.
+    static let settingsURL = URL(string: "persianstt://settings")!
 
     static func post(_ name: String) {
         CFNotificationCenterPostNotification(
