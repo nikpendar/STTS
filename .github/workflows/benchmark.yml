@@ -1,0 +1,144 @@
+# Measures Persian accuracy (WER/CER), size and speed of candidate Whisper models
+# on the FLEURS fa_ir test set, with the same greedy decoding the app uses.
+name: Persian benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      clips:
+        description: Number of FLEURS fa_ir test clips
+        default: "80"
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download FLEURS fa_ir test subset
+        run: |
+          base=https://huggingface.co/datasets/google/fleurs/resolve/main/data/fa_ir
+          curl -fsSL -o test.tsv "$base/test.tsv"
+          curl -fsSL -o test.tar.gz "$base/audio/test.tar.gz"
+          tar xzf test.tar.gz
+          mkdir -p clips
+          head -n "${{ inputs.clips }}" test.tsv | while IFS=$'\t' read -r id file raw norm rest; do
+            src=$(find test -name "$file" | head -1)
+            [ -n "$src" ] || continue
+            cp "$src" "clips/$file"
+            printf '%s\t%s\n' "$file" "$raw" >> clips/refs.tsv
+          done
+          wc -l clips/refs.tsv
+          python3 - <<'PY'
+          import wave, glob
+          total = sum(wave.open(f).getnframes() / wave.open(f).getframerate() for f in glob.glob("clips/*.wav"))
+          open("clips/audio_seconds", "w").write(f"{total:.1f}")
+          print("audio seconds", total)
+          PY
+      - name: List Persian fine-tuned Whisper models
+        run: |
+          {
+            echo "## Persian fine-tuned Whisper models on Hugging Face (by downloads)"
+            curl -fsSL "https://huggingface.co/api/models?search=whisper&filter=fa&sort=downloads&direction=-1&limit=40" |
+              python3 -c "import json,sys; [print(f\"- {m['id']} ({m.get('downloads',0)} downloads)\") for m in json.load(sys.stdin)]"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clips
+          path: clips
+
+  bench:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { label: base-q5_1, file: base-q5_1 }
+          - { label: small-q5_1, file: small-q5_1 }
+          - { label: medium-q5_0, file: medium-q5_0 }
+          - { label: large-v3-turbo-q5_0 (current), file: large-v3-turbo-q5_0 }
+          - { label: large-v3-turbo-q8_0, file: large-v3-turbo-q8_0 }
+          - { label: large-v3-turbo-q4_0, file: large-v3-turbo, quant: q4_0 }
+          - { label: large-v3-turbo-q3_k, file: large-v3-turbo, quant: q3_k }
+          - { label: large-v3-turbo-q5_0 beam 5, file: large-v3-turbo-q5_0, beam: 5 }
+          - { label: large-v3-turbo-q5_0 Persian prompt, file: large-v3-turbo-q5_0, prompt: "سلام. این یک متن فارسی است، با نقطه‌گذاری درست." }
+          - { label: large-v3-q5_0, file: large-v3-q5_0 }
+    name: ${{ matrix.label }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: clips
+          path: clips
+      - name: Cache whisper.cpp build
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: whisper.cpp
+          key: whisper-cpp-v1.7.5-linux
+      - name: Build whisper.cpp
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v1.7.5 https://github.com/ggml-org/whisper.cpp
+          cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF
+          cmake --build whisper.cpp/build -j 4
+      - name: Get model
+        run: |
+          curl -fsSL -o model.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${{ matrix.file }}.bin"
+          if [ -n "${{ matrix.quant }}" ]; then
+            q=$(find whisper.cpp/build/bin -name '*quantize*' -type f | head -1)
+            "$q" model.bin model-q.bin "${{ matrix.quant }}"
+            mv model-q.bin model.bin
+          fi
+          ls -la model.bin
+      - name: Transcribe
+        run: |
+          cli=whisper.cpp/build/bin/whisper-cli
+          args=(-m model.bin -l fa -t 4 -nt -np -otxt -bs "${{ matrix.beam || 1 }}" -bo 1)
+          if [ -n "${{ matrix.prompt }}" ]; then args+=(--prompt "${{ matrix.prompt }}"); fi
+          files=()
+          for f in clips/*.wav; do files+=(-f "$f"); done
+          start=$(date +%s.%N)
+          "$cli" "${args[@]}" "${files[@]}"
+          end=$(date +%s.%N)
+          echo "SECONDS_TAKEN=$(echo "$end - $start" | bc)" >> "$GITHUB_ENV"
+      - name: Score
+        run: |
+          mkdir -p result
+          python3 scripts/wer.py clips/refs.tsv clips "${{ matrix.label }}" "$SECONDS_TAKEN" \
+            "$(stat -c %s model.bin)" "$(cat clips/audio_seconds)" "result/${{ strategy.job-index }}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ strategy.job-index }}
+          path: result
+
+  report:
+    needs: bench
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          merge-multiple: true
+          path: results
+      - name: Summarize
+        run: |
+          python3 - <<'PY' | tee results.md >> "$GITHUB_STEP_SUMMARY"
+          import json, glob
+          rows = sorted((json.load(open(f)) for f in glob.glob("results/*.json")), key=lambda r: r["wer"])
+          print("| model | WER % | CER % | size MB | time / audio (4 CPU cores) |")
+          print("|---|---|---|---|---|")
+          for r in rows:
+              print(f"| {r['model']} | {r['wer']} | {r['cer']} | {r['size_mb']} | {r['rtf']} |")
+          for r in rows[:3]:
+              print(f"\n### {r['model']}")
+              for s in r["samples"][:3]:
+                  print(f"- ref: {s['ref']}\n  hyp: {s['hyp']}")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report
+          path: |
+            results.md
+            results
