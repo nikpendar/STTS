@@ -44,6 +44,7 @@ jobs:
           for domain in -g com.apple.Preferences; do
             xcrun simctl spawn "$DEVICE" defaults write $domain KeyboardLastUsed "$KB"
             xcrun simctl spawn "$DEVICE" defaults write $domain KeyboardsCurrentAndNext -array "$KB" "$KB"
+            xcrun simctl spawn "$DEVICE" defaults write $domain DidShowContinuousPathIntroduction -bool true
           done
           xcrun simctl spawn "$DEVICE" defaults write com.apple.Preferences HardwareKeyboardLastSeen -bool false
           xcrun simctl shutdown "$DEVICE"
@@ -55,7 +56,7 @@ jobs:
           xcrun simctl spawn "$DEVICE" defaults read -g KeyboardsCurrentAndNext || true
           mkdir -p out
           xcrun simctl spawn "$DEVICE" log stream --level debug \
-            --predicate 'process CONTAINS "PersianSTTKeyboard" OR eventMessage CONTAINS "PersianSTT" OR eventMessage CONTAINS "keyboard-service"' \
+            --predicate 'process == "PersianSTT" OR process CONTAINS "PersianSTTKeyboard" OR process == "kbd" OR process == "InputUI" OR eventMessage CONTAINS "PersianSTT" OR eventMessage CONTAINS[c] "inputmode"' \
             > out/log.txt 2>&1 &
           LOG=$!
           sleep 3
@@ -66,7 +67,7 @@ jobs:
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian || echo "no crash reports"
           cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ 2>/dev/null || true
           echo "===== log (filtered)"
-          grep -v "constructing bundle record" out/log.txt | grep -iE "PersianSTTKeyboard|xpcservice|PersianSTT.Keyboard" | cut -c1-400 | head -150
+          grep -v "constructing bundle record" out/log.txt | grep -iE "inputmode|extension|PersianSTTKeyboard|xpcservice|PersianSTT.Keyboard|fail|error" | grep -v "Memorystatus\|Carplay\|cfprefsd" | cut -c1-400 | head -200
 
       - name: Commit results
         if: always()
