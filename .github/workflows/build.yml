@@ -19,6 +19,7 @@ on:
       - ".github/workflows/benchmark.yml"
       - ".github/workflows/hf-search.yml"
       - ".github/workflows/screenshots.yml"
+      - ".github/workflows/keyboard-test.yml"
       - "scripts/wer.py"
       - "scripts/to_pcm16.py"
       - "scripts/prepare_hf_model.py"

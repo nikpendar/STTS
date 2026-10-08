@@ -1,0 +1,75 @@
+# Installs the app in the iOS Simulator, enables the dictation keyboard as the only
+# keyboard, focuses a text field and records whether the extension launches.
+# The screenshot and system log go to the `keyboard-test` branch.
+name: Keyboard test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keyboard:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download whisper.xcframework and model
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash ./setup.sh base-q5_1
+
+      - name: Build for the simulator
+        run: |
+          xcodebuild -project PersianSTT.xcodeproj -target PersianSTT \
+            -configuration Release -sdk iphonesimulator ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 5
+          ls build/Release-iphonesimulator/PersianSTT.app/PlugIns
+
+      - name: Run the keyboard
+        run: |
+          set -x
+          APP=build/Release-iphonesimulator/PersianSTT.app
+          ID=com.example.PersianSTT
+          KB=com.example.PersianSTT.Keyboard
+          DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" "$APP"
+          # Only the dictation keyboard, so it is the one shown for any text field.
+          xcrun simctl spawn "$DEVICE" defaults write -g AppleKeyboards -array "$KB"
+          xcrun simctl spawn "$DEVICE" defaults write -g AppleKeyboardsExpanded -int 1
+          xcrun simctl spawn "$DEVICE" defaults write com.apple.Preferences HardwareKeyboardLastSeen -bool false
+          xcrun simctl shutdown "$DEVICE"
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          open -a Simulator --args -CurrentDeviceUDID "$DEVICE"
+          sleep 10
+          xcrun simctl spawn "$DEVICE" defaults read -g AppleKeyboards || true
+          mkdir -p out
+          xcrun simctl spawn "$DEVICE" log stream --level debug \
+            --predicate 'process CONTAINS "PersianSTTKeyboard" OR eventMessage CONTAINS "PersianSTT" OR eventMessage CONTAINS "keyboard-service"' \
+            > out/log.txt 2>&1 &
+          LOG=$!
+          sleep 3
+          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1
+          sleep 15
+          xcrun simctl io "$DEVICE" screenshot out/keyboard-test.png
+          kill $LOG || true
+          ls ~/Library/Logs/DiagnosticReports/ | grep -i persian || echo "no crash reports"
+          cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ 2>/dev/null || true
+          echo "===== log (filtered)"
+          grep -iE "PersianSTTKeyboard|error|fail|denied|crash|terminat|principal" out/log.txt | head -150
+
+      - name: Commit results
+        if: always()
+        run: |
+          cd out
+          git init -q -b keyboard-test
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -qm "Keyboard test for ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" keyboard-test
