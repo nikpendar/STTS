@@ -24,17 +24,13 @@ jobs:
           head -n "${{ inputs.clips }}" test.tsv | while IFS=$'\t' read -r id file raw norm rest; do
             src=$(find test -name "$file" | head -1)
             [ -n "$src" ] || continue
-            # FLEURS ships 32-bit float WAV; whisper.cpp expects 16 kHz 16-bit PCM.
-            ffmpeg -loglevel error -y -i "$src" -ar 16000 -ac 1 -c:a pcm_s16le "clips/$file" < /dev/null
+            # FLEURS ships 32-bit float WAV; whisper.cpp expects 16-bit PCM.
+            python3 scripts/to_pcm16.py "$src" "clips/$file" >> durations
             printf '%s\t%s\n' "$file" "$raw" >> clips/refs.tsv
           done
           wc -l clips/refs.tsv
-          python3 - <<'PY'
-          import wave, glob
-          total = sum(wave.open(f).getnframes() / wave.open(f).getframerate() for f in glob.glob("clips/*.wav"))
-          open("clips/audio_seconds", "w").write(f"{total:.1f}")
-          print("audio seconds", total)
-          PY
+          awk '{ s += $1 } END { printf "%.1f", s }' durations > clips/audio_seconds
+          echo "audio seconds: $(cat clips/audio_seconds)"
       - name: List Persian fine-tuned Whisper models
         run: |
           {
