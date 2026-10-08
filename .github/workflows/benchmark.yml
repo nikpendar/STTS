@@ -24,7 +24,8 @@ jobs:
           head -n "${{ inputs.clips }}" test.tsv | while IFS=$'\t' read -r id file raw norm rest; do
             src=$(find test -name "$file" | head -1)
             [ -n "$src" ] || continue
-            cp "$src" "clips/$file"
+            # FLEURS ships 32-bit float WAV; whisper.cpp expects 16 kHz 16-bit PCM.
+            ffmpeg -loglevel error -y -i "$src" -ar 16000 -ac 1 -c:a pcm_s16le "clips/$file" < /dev/null
             printf '%s\t%s\n' "$file" "$raw" >> clips/refs.tsv
           done
           wc -l clips/refs.tsv
