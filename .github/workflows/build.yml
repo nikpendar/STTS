@@ -14,6 +14,13 @@ on:
         default: false
   push:
     branches: [main]
+    # Benchmark tooling does not change the app.
+    paths-ignore:
+      - ".github/workflows/benchmark.yml"
+      - ".github/workflows/hf-search.yml"
+      - ".github/workflows/screenshots.yml"
+      - "scripts/wer.py"
+      - "scripts/to_pcm16.py"
 
 env:
   MODEL: ${{ github.event.inputs.model || 'large-v3-turbo-q5_0' }}

@@ -1,0 +1,33 @@
+# Lists Hugging Face models matching a search, printed to the job log.
+name: HF model search
+
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: Search terms
+        default: whisper persian
+      filter:
+        description: Tag filter (e.g. fa)
+        default: ""
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Search
+        env:
+          QUERY: ${{ inputs.query }}
+          FILTER: ${{ inputs.filter }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.parse, urllib.request
+          params = {"search": os.environ["QUERY"], "sort": "downloads", "direction": "-1", "limit": "60", "full": "true"}
+          if os.environ["FILTER"]:
+              params["filter"] = os.environ["FILTER"]
+          url = "https://huggingface.co/api/models?" + urllib.parse.urlencode(params)
+          for m in json.load(urllib.request.urlopen(url)):
+              files = [s["rfilename"] for s in m.get("siblings", [])]
+              ggml = [f for f in files if f.endswith(".bin") and "ggml" in f]
+              print(f"RESULT {m['id']} | downloads={m.get('downloads', 0)} | likes={m.get('likes', 0)} | ggml={ggml[:3]} | safetensors={any(f.endswith('.safetensors') for f in files)}")
+          PY
