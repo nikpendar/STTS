@@ -27,6 +27,12 @@ jobs:
             CODE_SIGNING_ALLOWED=NO build | tail -n 5
           ls build/Release-iphonesimulator/PersianSTT.app/PlugIns
 
+      - name: Install idb
+        run: |
+          brew tap facebook/fb
+          brew install idb-companion
+          pip3 install --break-system-packages fb-idb
+
       - name: Run the keyboard
         run: |
           set -x
@@ -56,13 +62,24 @@ jobs:
           xcrun simctl spawn "$DEVICE" defaults read -g KeyboardsCurrentAndNext || true
           mkdir -p out
           xcrun simctl spawn "$DEVICE" log stream --level debug \
-            --predicate 'process == "PersianSTT" OR process CONTAINS "PersianSTTKeyboard" OR process == "kbd" OR process == "InputUI" OR eventMessage CONTAINS "PersianSTT" OR eventMessage CONTAINS[c] "inputmode"' \
+            --predicate 'process == "PersianSTT" OR process CONTAINS "PersianSTTKeyboard" OR process == "kbd" OR process == "InputUI" OR eventMessage CONTAINS "PersianSTT" OR eventMessage CONTAINS[c] "inputmode" OR eventMessage CONTAINS[c] "keyboard-service" OR (process == "runningboardd" AND eventMessage CONTAINS "Keyboard")' \
             > out/log.txt 2>&1 &
           LOG=$!
           sleep 3
           xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1
           sleep 15
           xcrun simctl io "$DEVICE" screenshot out/keyboard-test.png
+          # Tap the globe key (bottom-left) to switch to the next keyboard, which is ours.
+          idb_companion --udid "$DEVICE" > out/idb.txt 2>&1 &
+          sleep 5
+          idb connect localhost 10882 || idb connect "$DEVICE" || true
+          idb ui describe-all --udid "$DEVICE" | head -c 4000 || true
+          idb ui tap --udid "$DEVICE" 42 833 || true
+          sleep 10
+          xcrun simctl io "$DEVICE" screenshot out/keyboard-test-2.png
+          idb ui tap --udid "$DEVICE" 42 833 || true
+          sleep 8
+          xcrun simctl io "$DEVICE" screenshot out/keyboard-test-3.png
           kill $LOG || true
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian || echo "no crash reports"
           cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ 2>/dev/null || true
