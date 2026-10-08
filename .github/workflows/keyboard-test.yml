@@ -41,6 +41,10 @@ jobs:
           # Only the dictation keyboard, so it is the one shown for any text field.
           xcrun simctl spawn "$DEVICE" defaults write -g AppleKeyboards -array "$KB"
           xcrun simctl spawn "$DEVICE" defaults write -g AppleKeyboardsExpanded -int 1
+          for domain in -g com.apple.Preferences; do
+            xcrun simctl spawn "$DEVICE" defaults write $domain KeyboardLastUsed "$KB"
+            xcrun simctl spawn "$DEVICE" defaults write $domain KeyboardsCurrentAndNext -array "$KB" "$KB"
+          done
           xcrun simctl spawn "$DEVICE" defaults write com.apple.Preferences HardwareKeyboardLastSeen -bool false
           xcrun simctl shutdown "$DEVICE"
           xcrun simctl boot "$DEVICE"
@@ -48,6 +52,7 @@ jobs:
           open -a Simulator --args -CurrentDeviceUDID "$DEVICE"
           sleep 10
           xcrun simctl spawn "$DEVICE" defaults read -g AppleKeyboards || true
+          xcrun simctl spawn "$DEVICE" defaults read -g KeyboardsCurrentAndNext || true
           mkdir -p out
           xcrun simctl spawn "$DEVICE" log stream --level debug \
             --predicate 'process CONTAINS "PersianSTTKeyboard" OR eventMessage CONTAINS "PersianSTT" OR eventMessage CONTAINS "keyboard-service"' \
@@ -61,7 +66,7 @@ jobs:
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian || echo "no crash reports"
           cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ 2>/dev/null || true
           echo "===== log (filtered)"
-          grep -iE "PersianSTTKeyboard|error|fail|denied|crash|terminat|principal" out/log.txt | head -150
+          grep -v "constructing bundle record" out/log.txt | grep -iE "PersianSTTKeyboard|xpcservice|PersianSTT.Keyboard" | cut -c1-400 | head -150
 
       - name: Commit results
         if: always()
