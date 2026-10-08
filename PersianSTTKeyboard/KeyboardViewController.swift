@@ -110,14 +110,19 @@ final class KeyboardViewController: UIInputViewController {
         statusLabel.text = "متنی تشخیص داده نشد. دوباره امتحان کنید."
     }
 
-    /// Extensions cannot call UIApplication.shared; the host's UIApplication is reached
-    /// through the responder chain instead.
+    /// Extensions cannot call UIApplication.open, so the host's UIApplication is found
+    /// through the responder chain and its open method is called dynamically.
     private func openApp() {
         guard hasFullAccess else { return }
+        typealias OpenURL = @convention(c) (
+            AnyObject, Selector, NSURL, NSDictionary, (@convention(block) (Bool) -> Void)?) -> Void
+        let selector = NSSelectorFromString("openURL:options:completionHandler:")
         var responder: UIResponder? = self
         while let current = responder {
-            if let application = current as? UIApplication {
-                application.open(DictationBridge.sessionURL, options: [:], completionHandler: nil)
+            if NSStringFromClass(type(of: current)).contains("UIApplication"),
+               current.responds(to: selector) {
+                let open = unsafeBitCast(current.method(for: selector), to: OpenURL.self)
+                open(current, selector, DictationBridge.sessionURL as NSURL, NSDictionary(), nil)
                 return
             }
             responder = current.next
