@@ -6,8 +6,11 @@ on:
   workflow_dispatch:
     inputs:
       clips:
-        description: Number of FLEURS fa_ir test clips
+        description: Number of test clips
         default: "80"
+      dataset:
+        description: fleurs (FLEURS fa_ir test) or cv17 (Common Voice 17 fa test)
+        default: fleurs
       models:
         description: >-
           JSON list of {label, file (whisper.cpp ggml name) or hf (Hugging Face repo), quant, beam, prompt}
@@ -22,6 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Download FLEURS fa_ir test subset
+        if: inputs.dataset == 'fleurs'
         run: |
           base=https://huggingface.co/datasets/google/fleurs/resolve/main/data/fa_ir
           curl -fsSL -o test.tsv "$base/test.tsv"
@@ -38,6 +42,14 @@ jobs:
           wc -l clips/refs.tsv
           awk '{ s += $1 } END { printf "%.1f", s }' durations > clips/audio_seconds
           echo "audio seconds: $(cat clips/audio_seconds)"
+      - name: Download Common Voice 17 fa test subset
+        if: inputs.dataset == 'cv17'
+        run: |
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          base=https://huggingface.co/datasets/fsicoli/common_voice_17_0/resolve/main
+          curl -fsSL -o test.tsv "$base/transcript/fa/test.tsv"
+          curl -fsSL -o test.tar "$base/audio/fa/test/fa_test_0.tar"
+          python3 scripts/prepare_cv.py test.tsv test.tar "${{ inputs.clips }}" clips
       - name: List Persian fine-tuned Whisper models
         run: |
           {
