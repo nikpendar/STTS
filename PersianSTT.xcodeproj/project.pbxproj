@@ -12,11 +12,26 @@
 		A10000000000000000000003 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* Transcriber.swift */; };
 		A10000000000000000000004 /* WhisperContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* WhisperContext.swift */; };
 		A10000000000000000000005 /* AudioLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AudioLoader.swift */; };
+		A1000000000000000000000A /* KeyboardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* KeyboardSession.swift */; };
+		A1000000000000000000000B /* DictationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* DictationBridge.swift */; };
+		A1000000000000000000000C /* DictationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* DictationBridge.swift */; };
+		A1000000000000000000000D /* KeyboardViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* KeyboardViewController.swift */; };
+		A1000000000000000000000E /* PersianSTTKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* PersianSTTKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A10000000000000000000009 /* DictateIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* DictateIntent.swift */; };
 		A10000000000000000000006 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* Models */; };
 		A10000000000000000000007 /* whisper.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* whisper.xcframework */; };
 		A10000000000000000000008 /* whisper.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* whisper.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A90000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A60000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A40000000000000000000002;
+			remoteInfo = PersianSTTKeyboard;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		A50000000000000000000004 /* Embed Frameworks */ = {
@@ -30,6 +45,17 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A50000000000000000000005 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A1000000000000000000000E /* PersianSTTKeyboard.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +64,12 @@
 		A20000000000000000000003 /* Transcriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcriber.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* WhisperContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperContext.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AudioLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLoader.swift; sourceTree = "<group>"; };
+		A2000000000000000000000A /* KeyboardSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardSession.swift; sourceTree = "<group>"; };
+		A2000000000000000000000B /* DictationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationBridge.swift; sourceTree = "<group>"; };
+		A2000000000000000000000C /* KeyboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewController.swift; sourceTree = "<group>"; };
+		A2000000000000000000000D /* PersianSTTKeyboard.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PersianSTTKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2000000000000000000000E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A2000000000000000000000F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000000000000000000009 /* DictateIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictateIntent.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
 		A20000000000000000000007 /* whisper.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = whisper.xcframework; sourceTree = "<group>"; };
@@ -53,6 +85,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A5000000000000000000000B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -60,6 +99,8 @@
 			isa = PBXGroup;
 			children = (
 				A30000000000000000000002 /* PersianSTT */,
+				A30000000000000000000005 /* PersianSTTKeyboard */,
+				A30000000000000000000006 /* Shared */,
 				A30000000000000000000003 /* Frameworks */,
 				A30000000000000000000004 /* Products */,
 			);
@@ -74,6 +115,8 @@
 				A20000000000000000000004 /* WhisperContext.swift */,
 				A20000000000000000000005 /* AudioLoader.swift */,
 				A20000000000000000000009 /* DictateIntent.swift */,
+				A2000000000000000000000A /* KeyboardSession.swift */,
+				A2000000000000000000000E /* Info.plist */,
 				A20000000000000000000006 /* Models */,
 			);
 			path = PersianSTT;
@@ -91,8 +134,26 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000008 /* PersianSTT.app */,
+				A2000000000000000000000D /* PersianSTTKeyboard.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A30000000000000000000005 /* PersianSTTKeyboard */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000000C /* KeyboardViewController.swift */,
+				A2000000000000000000000F /* Info.plist */,
+			);
+			path = PersianSTTKeyboard;
+			sourceTree = "<group>";
+		};
+		A30000000000000000000006 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000000B /* DictationBridge.swift */,
+			);
+			path = Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -106,15 +167,33 @@
 				A50000000000000000000003 /* Frameworks */,
 				A50000000000000000000002 /* Resources */,
 				A50000000000000000000004 /* Embed Frameworks */,
+				A50000000000000000000005 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A9000000000000000000000A /* PBXTargetDependency */,
 			);
 			name = PersianSTT;
 			productName = PersianSTT;
 			productReference = A20000000000000000000008 /* PersianSTT.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A40000000000000000000002 /* PersianSTTKeyboard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A70000000000000000000003 /* Build configuration list for PBXNativeTarget "PersianSTTKeyboard" */;
+			buildPhases = (
+				A5000000000000000000000A /* Sources */,
+				A5000000000000000000000B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PersianSTTKeyboard;
+			productName = PersianSTTKeyboard;
+			productReference = A2000000000000000000000D /* PersianSTTKeyboard.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -127,6 +206,9 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					A40000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					A40000000000000000000002 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -146,6 +228,7 @@
 			projectRoot = "";
 			targets = (
 				A40000000000000000000001 /* PersianSTT */,
+				A40000000000000000000002 /* PersianSTTKeyboard */,
 			);
 		};
 /* End PBXProject section */
@@ -172,10 +255,29 @@
 				A10000000000000000000004 /* WhisperContext.swift in Sources */,
 				A10000000000000000000005 /* AudioLoader.swift in Sources */,
 				A10000000000000000000009 /* DictateIntent.swift in Sources */,
+				A1000000000000000000000A /* KeyboardSession.swift in Sources */,
+				A1000000000000000000000B /* DictationBridge.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A5000000000000000000000A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000000000000000000000D /* KeyboardViewController.swift in Sources */,
+				A1000000000000000000000C /* DictationBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A9000000000000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A40000000000000000000002 /* PersianSTTKeyboard */;
+			targetProxy = A90000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A80000000000000000000001 /* Debug */ = {
@@ -229,6 +331,7 @@
 					"$(PROJECT_DIR)/Frameworks",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PersianSTT/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "گفتار به متن";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "برای تبدیل صدای شما به متن، به میکروفون نیاز است. صدا فقط روی همین گوشی پردازش می‌شود.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -261,6 +364,7 @@
 					"$(PROJECT_DIR)/Frameworks",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PersianSTT/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "گفتار به متن";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "برای تبدیل صدای شما به متن، به میکروفون نیاز است. صدا فقط روی همین گوشی پردازش می‌شود.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -276,6 +380,56 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		A80000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PersianSTTKeyboard/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "دیکته‌ی فارسی";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.PersianSTT.Keyboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		A80000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = PersianSTTKeyboard/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "دیکته‌ی فارسی";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.PersianSTT.Keyboard;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -298,6 +452,15 @@
 			buildConfigurations = (
 				A80000000000000000000003 /* Debug */,
 				A80000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A70000000000000000000003 /* Build configuration list for PBXNativeTarget "PersianSTTKeyboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A80000000000000000000005 /* Debug */,
+				A80000000000000000000006 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -20,9 +20,9 @@ actor WhisperContext {
 
     init(path: String) throws {
         var params = whisper_context_default_params()
-        #if targetEnvironment(simulator)
+        // CPU only: the keyboard session transcribes while the app is in the background,
+        // where iOS does not allow GPU (Metal) work.
         params.use_gpu = false
-        #endif
         guard let ctx = whisper_init_from_file_with_params(path, params) else {
             throw WhisperError.cannotLoadModel
         }

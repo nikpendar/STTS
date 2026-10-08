@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @ObservedObject private var model = Transcriber.shared
+    @ObservedObject private var keyboard = KeyboardSession.shared
     @State private var showImporter = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -50,6 +51,18 @@ struct ContentView: View {
                         .disabled(model.text.isEmpty)
                 }
 
+                VStack(spacing: 6) {
+                    Button(keyboard.isActive ? "پایان جلسه‌ی کیبورد" : "شروع جلسه‌ی کیبورد") {
+                        keyboard.isActive ? keyboard.stop() : keyboard.start()
+                    }
+                    .buttonStyle(.bordered)
+                    if !keyboard.message.isEmpty {
+                        Text(keyboard.message)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 if !model.modelName.isEmpty {
                     Text("مدل: \(model.modelName)")
                         .font(.caption2)
@@ -60,6 +73,11 @@ struct ContentView: View {
             .navigationTitle("گفتار به متن")
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.audio]) { result in
                 model.importFile(result)
+            }
+            .onOpenURL { url in
+                if url.host == "session" {
+                    keyboard.start()
+                }
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {

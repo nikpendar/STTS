@@ -168,7 +168,9 @@ final class Transcriber: ObservableObject {
         recorder = nil
         isRecording = false
         isQuickDictation = false
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if !KeyboardSession.shared.isActive {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
         transcribe(url: recordingURL)
     }
 
@@ -188,6 +190,17 @@ final class Transcriber: ObservableObject {
         case .failure(let error):
             status = error.localizedDescription
         }
+    }
+
+    /// Used by the keyboard session, which records its own audio.
+    func transcribe(samples: [Float]) async throws -> String {
+        if whisper == nil {
+            await loadTask?.value
+        }
+        guard let whisper else { throw WhisperError.cannotLoadModel }
+        let result = try await whisper.transcribe(samples: samples, shortenAudioContext: !usesCoreML)
+        text = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text
     }
 
     /// Transcribes, then copies the text to the clipboard so it can be pasted into any app.

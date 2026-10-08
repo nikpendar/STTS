@@ -1,0 +1,167 @@
+import AVFoundation
+import UIKit
+
+/// Keeps the microphone open while the app is in the background so the dictation keyboard
+/// can record and get transcripts without leaving the text field. Keyboard extensions
+/// cannot use the microphone themselves, and the model is too large for one.
+@MainActor
+final class KeyboardSession: ObservableObject {
+    static let shared = KeyboardSession()
+    static let idleTimeout: TimeInterval = 10 * 60
+
+    @Published private(set) var isActive = false
+    @Published private(set) var message = ""
+
+    private let engine = AVAudioEngine()
+    private let observer = DarwinObserver()
+    private let collector = SampleCollector()
+    private var idleTimer: Timer?
+    private var isCapturing = false
+
+    private init() {
+        observer.observe(DictationBridge.ping) { [weak self] in
+            MainActor.assumeIsolated {
+                if self?.isActive == true { DictationBridge.post(DictationBridge.alive) }
+            }
+        }
+        observer.observe(DictationBridge.start) { [weak self] in
+            MainActor.assumeIsolated { self?.startCapture() }
+        }
+        observer.observe(DictationBridge.stop) { [weak self] in
+            MainActor.assumeIsolated { self?.finishCapture() }
+        }
+    }
+
+    func start() {
+        guard !isActive else {
+            resetIdleTimer()
+            return
+        }
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .default,
+                                    options: [.mixWithOthers, .defaultToSpeaker, .allowBluetooth])
+            try session.setActive(true)
+
+            let input = engine.inputNode
+            let inFormat = input.outputFormat(forBus: 0)
+            guard let outFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                                sampleRate: AudioLoader.sampleRate,
+                                                channels: 1, interleaved: false),
+                  let converter = AVAudioConverter(from: inFormat, to: outFormat) else {
+                throw AudioLoaderError.unsupportedFormat
+            }
+            let collector = self.collector
+            input.installTap(onBus: 0, bufferSize: 4096, format: inFormat) { buffer, _ in
+                let capacity = AVAudioFrameCount(Double(buffer.frameLength) * outFormat.sampleRate / inFormat.sampleRate) + 64
+                guard let out = AVAudioPCMBuffer(pcmFormat: outFormat, frameCapacity: capacity) else { return }
+                var consumed = false
+                _ = converter.convert(to: out, error: nil) { _, status in
+                    if consumed {
+                        status.pointee = .noDataNow
+                        return nil
+                    }
+                    consumed = true
+                    status.pointee = .haveData
+                    return buffer
+                }
+                if let channel = out.floatChannelData?[0] {
+                    collector.append(channel, count: Int(out.frameLength))
+                }
+            }
+            engine.prepare()
+            try engine.start()
+            isActive = true
+            message = "کیبورد آماده است. به اپ قبلی برگردید."
+            resetIdleTimer()
+            DictationBridge.post(DictationBridge.alive)
+        } catch {
+            message = "شروع جلسه ناموفق بود: \(error.localizedDescription)"
+            stop()
+        }
+    }
+
+    func stop() {
+        idleTimer?.invalidate()
+        idleTimer = nil
+        engine.inputNode.removeTap(onBus: 0)
+        engine.stop()
+        _ = collector.end()
+        isCapturing = false
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if isActive {
+            message = "جلسه‌ی کیبورد تمام شد."
+        }
+        isActive = false
+    }
+
+    private func resetIdleTimer() {
+        idleTimer?.invalidate()
+        idleTimer = Timer.scheduledTimer(withTimeInterval: Self.idleTimeout, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.stop() }
+        }
+    }
+
+    private func startCapture() {
+        guard isActive else { return }
+        collector.begin()
+        isCapturing = true
+        resetIdleTimer()
+        DictationBridge.post(DictationBridge.recording)
+    }
+
+    private func finishCapture() {
+        guard isActive, isCapturing else { return }
+        isCapturing = false
+        let samples = collector.end()
+        resetIdleTimer()
+        guard samples.count > Int(AudioLoader.sampleRate / 2) else {
+            DictationBridge.post(DictationBridge.failed)
+            return
+        }
+        Task {
+            do {
+                let text = try await Transcriber.shared.transcribe(samples: samples)
+                guard !text.isEmpty else {
+                    DictationBridge.post(DictationBridge.failed)
+                    return
+                }
+                UIPasteboard.general.string = text
+                DictationBridge.post(DictationBridge.done)
+            } catch {
+                DictationBridge.post(DictationBridge.failed)
+            }
+        }
+    }
+}
+
+/// Collects converted samples from the audio thread while a recording is in progress.
+private final class SampleCollector: @unchecked Sendable {
+    private let lock = NSLock()
+    private var samples: [Float] = []
+    private var capturing = false
+
+    func begin() {
+        lock.lock()
+        samples.removeAll(keepingCapacity: true)
+        capturing = true
+        lock.unlock()
+    }
+
+    func end() -> [Float] {
+        lock.lock()
+        defer { lock.unlock() }
+        capturing = false
+        let result = samples
+        samples = []
+        return result
+    }
+
+    func append(_ pointer: UnsafePointer<Float>, count: Int) {
+        lock.lock()
+        if capturing {
+            samples.append(contentsOf: UnsafeBufferPointer(start: pointer, count: count))
+        }
+        lock.unlock()
+    }
+}
