@@ -13,6 +13,9 @@ on:
       readmes:
         description: Space-separated repo ids whose model cards are printed instead of searching
         default: ""
+      api:
+        description: Space-separated Hugging Face API paths to print, e.g. models/openai/whisper-small
+        default: ""
 
 jobs:
   search:
@@ -28,8 +31,18 @@ jobs:
             curl -fsSL "https://huggingface.co/$repo/raw/main/README.md" | head -c 6000 || echo "(no README)"
             echo
           done
+      - name: API
+        if: inputs.api != ''
+        env:
+          PATHS: ${{ inputs.api }}
+        run: |
+          for path in $PATHS; do
+            echo "===== $path"
+            curl -fsSL "https://huggingface.co/api/$path" | head -c 8000 || echo "(failed)"
+            echo
+          done
       - name: Search
-        if: inputs.readmes == ''
+        if: inputs.readmes == '' && inputs.api == ''
         env:
           QUERY: ${{ inputs.query }}
           FILTER: ${{ inputs.filter }}
