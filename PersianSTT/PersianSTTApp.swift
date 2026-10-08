@@ -4,7 +4,11 @@ import SwiftUI
 struct PersianSTTApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if let state = UserDefaults.standard.string(forKey: "keyboardPreview") {
+                KeyboardPreview(state: state)
+            } else {
+                ContentView()
+            }
         }
     }
 }

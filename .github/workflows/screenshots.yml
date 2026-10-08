@@ -1,0 +1,87 @@
+# Runs the app in the iOS Simulator and commits screenshots and a short keyboard video
+# to the `screenshots` branch.
+name: Screenshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  screenshots:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download whisper.xcframework and model
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash ./setup.sh large-v3-turbo-q5_0
+
+      - name: Build for the simulator
+        run: |
+          xcodebuild -project PersianSTT.xcodeproj -target PersianSTT \
+            -configuration Debug -sdk iphonesimulator ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 5
+
+      - name: Take screenshots
+        run: |
+          set -x
+          APP=build/Debug-iphonesimulator/PersianSTT.app
+          ID=com.example.PersianSTT
+          DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
+          echo "Device: $DEVICE"
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl status_bar "$DEVICE" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl install "$DEVICE" "$APP"
+          mkdir -p shots
+
+          shoot() { # name, appearance, launch args...
+            local name="$1" appearance="$2"; shift 2
+            xcrun simctl ui "$DEVICE" appearance "$appearance"
+            xcrun simctl terminate "$DEVICE" "$ID" || true
+            xcrun simctl launch "$DEVICE" "$ID" "$@"
+          }
+
+          shoot app-loading light
+          sleep 2
+          xcrun simctl io "$DEVICE" screenshot shots/1-app-loading.png
+          sleep 60
+          xcrun simctl io "$DEVICE" screenshot shots/2-app-ready.png
+
+          shoot dark dark
+          sleep 60
+          xcrun simctl io "$DEVICE" screenshot shots/3-app-ready-dark.png
+
+          n=4
+          for state in noSession ready recording transcribing; do
+            shoot "kb-$state" light -keyboardPreview "$state"
+            sleep 4
+            xcrun simctl io "$DEVICE" screenshot "shots/$n-keyboard-$state.png"
+            n=$((n+1))
+          done
+
+          shoot kb-dark dark -keyboardPreview recording
+          sleep 4
+          xcrun simctl io "$DEVICE" screenshot "shots/$n-keyboard-recording-dark.png"
+
+          shoot kb-cycle light -keyboardPreview cycle
+          sleep 2
+          xcrun simctl io "$DEVICE" recordVideo --codec h264 --force shots/keyboard.mp4 &
+          REC=$!
+          sleep 9
+          kill -INT $REC
+          wait $REC || true
+          ls -lh shots
+
+      - name: Commit to the screenshots branch
+        run: |
+          cd shots
+          git init -q -b screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Screenshots for ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" screenshots

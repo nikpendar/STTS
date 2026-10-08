@@ -16,6 +16,12 @@ final class KeyboardViewController: UIInputViewController {
     private let micButton = UIButton(type: .system)
     private let globeButton = UIButton(type: .system)
     private var timeout: DispatchWorkItem?
+    private var previewTimer: Timer?
+    private var previewIndex = 0
+
+    /// Screenshot support when the keyboard is shown inside the app: fixes the displayed
+    /// state ("noSession", "ready", "recording", "transcribing", or "cycle" for all of them).
+    var previewState: String?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,12 +42,35 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        if let previewState {
+            showPreview(previewState)
+            return
+        }
         checkSession()
     }
 
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
-        globeButton.isHidden = !needsInputModeSwitchKey
+        globeButton.isHidden = previewState == nil && !needsInputModeSwitchKey
+    }
+
+    private func showPreview(_ name: String) {
+        let states: [String: State] = [
+            "noSession": .noSession, "ready": .ready, "recording": .recording, "transcribing": .transcribing,
+        ]
+        if let fixed = states[name] {
+            state = fixed
+            return
+        }
+        let cycle: [State] = [.noSession, .ready, .recording, .transcribing, .ready]
+        state = cycle[0]
+        previewTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.previewIndex = (self.previewIndex + 1) % cycle.count
+                self.state = cycle[self.previewIndex]
+            }
+        }
     }
 
     // MARK: - Session
