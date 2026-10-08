@@ -40,7 +40,7 @@ def main():
     for line in open(refs_path, encoding="utf-8"):
         name, ref = line.rstrip("\n").split("\t", 1)
         try:
-            hyp = open(f"{hyp_dir}/{name}.txt", encoding="utf-8").read()
+            hyp = open(f"{hyp_dir}/{name}.txt", encoding="utf-8", errors="replace").read()
         except FileNotFoundError:
             hyp = ""
         r, h = normalize(ref), normalize(hyp)
