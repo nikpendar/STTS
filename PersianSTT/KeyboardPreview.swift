@@ -19,7 +19,7 @@ struct KeyboardPreview: View {
                 .padding(.horizontal)
             Spacer()
             KeyboardHost(state: state)
-                .frame(height: 260)
+                .frame(height: 262)
                 .background(Color(.systemGray5))
         }
         .padding(.top)

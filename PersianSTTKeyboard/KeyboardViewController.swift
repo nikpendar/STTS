@@ -49,11 +49,6 @@ final class KeyboardViewController: UIInputViewController {
         checkSession()
     }
 
-    override func viewWillLayoutSubviews() {
-        super.viewWillLayoutSubviews()
-        globeButton.isHidden = previewState == nil && !needsInputModeSwitchKey
-    }
-
     private func showPreview(_ name: String) {
         let states: [String: State] = [
             "noSession": .noSession, "ready": .ready, "recording": .recording, "transcribing": .transcribing,
@@ -173,81 +168,245 @@ final class KeyboardViewController: UIInputViewController {
 
     // MARK: - UI
 
+    private enum Layer { case letters, symbols }
+
+    /// Persian layout of Apple's iOS keyboard.
+    private static let letterRows: [[String]] = [
+        ["ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"],
+        ["ش", "س", "ی", "ب", "ل", "ا", "ت", "ن", "م", "ک", "گ"],
+        ["ظ", "ط", "ژ", "ز", "ر", "ذ", "د", "پ", "و"],
+    ]
+    private static let symbolRows: [[String]] = [
+        ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"],
+        ["-", "/", ":", "؛", "(", ")", "«", "»", "@", "﷼"],
+        ["آ", "ئ", "ء", "أ", ".", "،", "؟", "!"],
+    ]
+
+    private var layer = Layer.letters
+    private var characterKeys: [[KeyView]] = []
+    private let statusHeight: CGFloat = 26
+    private let backspaceKey = KeyView(symbol: "delete.left")
+    private let layerKey = KeyView(title: "۱۲۳", fontSize: 16)
+    private let zwnjKey = KeyView(title: "نیم‌فاصله", fontSize: 13)
+    private let spaceKey = KeyView(title: "فاصله", fontSize: 15)
+    private let returnKey = KeyView(symbol: "return")
+    private var repeatTimer: Timer?
+
     private func render() {
         let title: String
         let symbol: String
-        var tint = UIColor.systemBlue
+        var tint = UIColor.label
         switch state {
         case .checking:
-            title = "در حال اتصال…"; symbol = "ellipsis.circle"
+            title = "در حال اتصال…"; symbol = "mic"
         case .noSession:
-            title = "شروع جلسه (یک بار باز شدن اپ)"; symbol = "arrow.up.forward.app"
+            title = "برای شروع جلسه، میکروفون را بزنید (اپ یک بار باز می‌شود)"; symbol = "mic.slash"
         case .ready:
-            title = "برای صحبت بزنید"; symbol = "mic.circle.fill"
+            title = ""; symbol = "mic.fill"
         case .starting:
-            title = "…"; symbol = "mic.circle"
+            title = "…"; symbol = "mic"
         case .recording:
-            title = "در حال ضبط، برای پایان بزنید"; symbol = "stop.circle.fill"; tint = .systemRed
+            title = "در حال ضبط، برای پایان میکروفون را بزنید"; symbol = "stop.circle.fill"; tint = .systemRed
         case .transcribing:
-            title = "در حال تبدیل به متن…"; symbol = "waveform.circle"
+            title = "در حال تبدیل به متن…"; symbol = "waveform"
         }
         statusLabel.text = title
         micButton.setImage(UIImage(systemName: symbol,
-                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 64)), for: .normal)
+                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)),
+                           for: .normal)
         micButton.tintColor = tint
         micButton.isEnabled = state != .transcribing && state != .starting
     }
 
     private func buildUI() {
-        statusLabel.font = .preferredFont(forTextStyle: .subheadline)
+        view.backgroundColor = .clear
+        inputView?.backgroundColor = .clear
+
+        statusLabel.font = .preferredFont(forTextStyle: .footnote)
         statusLabel.textColor = .secondaryLabel
         statusLabel.textAlignment = .center
-        statusLabel.numberOfLines = 2
-        statusLabel.semanticContentAttribute = .forceRightToLeft
+        statusLabel.adjustsFontSizeToFitWidth = true
+        statusLabel.minimumScaleFactor = 0.7
+        view.addSubview(statusLabel)
 
+        micButton.backgroundColor = .clear
         micButton.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
+        view.addSubview(micButton)
 
-        globeButton.setImage(UIImage(systemName: "globe"), for: .normal)
+        globeButton.setImage(UIImage(systemName: "globe",
+                                     withConfiguration: UIImage.SymbolConfiguration(pointSize: 20)), for: .normal)
+        globeButton.tintColor = .label
+        globeButton.backgroundColor = .clear
         globeButton.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
+        view.addSubview(globeButton)
 
-        let space = keyButton(title: "فاصله") { $0.textDocumentProxy.insertText(" ") }
-        let backspace = keyButton(symbol: "delete.left") { $0.textDocumentProxy.deleteBackward() }
-        let newline = keyButton(symbol: "return") { $0.textDocumentProxy.insertText("\n") }
-
-        let bottomRow = UIStackView(arrangedSubviews: [globeButton, space, backspace, newline])
-        bottomRow.spacing = 8
-        bottomRow.distribution = .fill
-        space.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        for view in [globeButton, backspace, newline] {
-            view.widthAnchor.constraint(equalToConstant: 52).isActive = true
+        backspaceKey.addTarget(self, action: #selector(backspaceDown), for: .touchDown)
+        backspaceKey.addTarget(self, action: #selector(backspaceUp), for: [.touchUpInside, .touchUpOutside, .touchCancel])
+        layerKey.addTarget(self, action: #selector(toggleLayer), for: .touchUpInside)
+        zwnjKey.addTarget(self, action: #selector(insertZWNJ), for: .touchUpInside)
+        spaceKey.addTarget(self, action: #selector(insertSpace), for: .touchUpInside)
+        returnKey.addTarget(self, action: #selector(insertReturn), for: .touchUpInside)
+        for key in [backspaceKey, layerKey, zwnjKey, spaceKey, returnKey] {
+            view.addSubview(key)
         }
+        buildCharacterKeys()
 
-        let stack = UIStackView(arrangedSubviews: [statusLabel, micButton, bottomRow])
-        stack.axis = .vertical
-        stack.spacing = 10
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
-            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 8),
-            stack.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -6),
-            bottomRow.heightAnchor.constraint(equalToConstant: 42),
-        ])
-        let height = view.heightAnchor.constraint(equalToConstant: 230)
+        let height = view.heightAnchor.constraint(equalToConstant: 262)
         height.priority = .defaultHigh
         height.isActive = true
         render()
     }
 
-    private func keyButton(title: String? = nil, symbol: String? = nil,
-                           action: @escaping (KeyboardViewController) -> Void) -> UIButton {
-        var config = UIButton.Configuration.gray()
-        config.title = title
-        if let symbol { config.image = UIImage(systemName: symbol) }
-        let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
-            if let self { action(self) }
-        })
-        return button
+    private func buildCharacterKeys() {
+        characterKeys.flatMap { $0 }.forEach { $0.removeFromSuperview() }
+        let rows = layer == .letters ? Self.letterRows : Self.symbolRows
+        characterKeys = rows.map { row in
+            row.map { character in
+                let key = KeyView(title: character, fontSize: 23)
+                key.addAction(UIAction { [weak self] _ in
+                    self?.textDocumentProxy.insertText(character)
+                }, for: .touchUpInside)
+                view.addSubview(key)
+                return key
+            }
+        }
+        layerKey.title = layer == .letters ? "۱۲۳" : "الفبا"
+        view.setNeedsLayout()
+    }
+
+    /// Keys are laid out on a grid of 12 columns, like the system keyboard. Each key's frame
+    /// covers its whole cell so there are no dead zones between keys.
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let bounds = view.bounds
+        let unit = bounds.width / 12
+        let rowHeight = (bounds.height - statusHeight - 4) / 4
+        statusLabel.frame = CGRect(x: 12, y: 0, width: bounds.width - 24, height: statusHeight)
+
+        for (index, row) in characterKeys.enumerated() {
+            let y = statusHeight + CGFloat(index) * rowHeight
+            let isLast = index == characterKeys.count - 1
+            let available = isLast ? bounds.width - 1.5 * unit : bounds.width
+            let keyWidth = min(unit, available / CGFloat(row.count))
+            var x = (available - keyWidth * CGFloat(row.count)) / 2
+            for key in row {
+                key.frame = CGRect(x: x, y: y, width: keyWidth, height: rowHeight)
+                x += keyWidth
+            }
+            if isLast {
+                backspaceKey.frame = CGRect(x: bounds.width - 1.5 * unit, y: y, width: 1.5 * unit, height: rowHeight)
+            }
+        }
+
+        // Bottom row, left to right: 123, globe, ZWNJ, space, return, mic in the corner.
+        let y = statusHeight + 3 * rowHeight
+        let showGlobe = previewState != nil || needsInputModeSwitchKey
+        globeButton.isHidden = !showGlobe
+        var x: CGFloat = 0
+        func place(_ view: UIView, _ width: CGFloat) {
+            view.frame = CGRect(x: x, y: y, width: width, height: rowHeight)
+            x += width
+        }
+        let fixed = 1.5 * unit + (showGlobe ? 1.25 * unit : 0) + 1.75 * unit + 1.75 * unit + 1.5 * unit
+        place(layerKey, 1.5 * unit)
+        if showGlobe { place(globeButton, 1.25 * unit) }
+        place(zwnjKey, 1.75 * unit)
+        place(spaceKey, bounds.width - fixed)
+        place(returnKey, 1.75 * unit)
+        place(micButton, 1.5 * unit)
+    }
+
+    override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        view.setNeedsLayout()
+    }
+
+    @objc private func toggleLayer() {
+        layer = layer == .letters ? .symbols : .letters
+        buildCharacterKeys()
+    }
+
+    @objc private func insertSpace() {
+        textDocumentProxy.insertText(" ")
+    }
+
+    /// Zero-width non-joiner (نیم‌فاصله), as in می‌شود.
+    @objc private func insertZWNJ() {
+        textDocumentProxy.insertText("\u{200C}")
+    }
+
+    @objc private func insertReturn() {
+        textDocumentProxy.insertText("\n")
+    }
+
+    @objc private func backspaceDown() {
+        textDocumentProxy.deleteBackward()
+        repeatTimer?.invalidate()
+        repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
+                    MainActor.assumeIsolated { self?.textDocumentProxy.deleteBackward() }
+                }
+            }
+        }
+    }
+
+    @objc private func backspaceUp() {
+        repeatTimer?.invalidate()
+        repeatTimer = nil
+    }
+}
+
+/// A key with a transparent background. It shows a faint highlight only while pressed.
+private final class KeyView: UIControl {
+    private let label = UILabel()
+    private let imageView = UIImageView()
+    private let highlight = UIView()
+
+    var title: String? {
+        get { label.text }
+        set { label.text = newValue }
+    }
+
+    init(title: String? = nil, symbol: String? = nil, fontSize: CGFloat = 20) {
+        super.init(frame: .zero)
+        backgroundColor = .clear
+        highlight.backgroundColor = UIColor.label.withAlphaComponent(0.12)
+        highlight.layer.cornerRadius = 6
+        highlight.isUserInteractionEnabled = false
+        highlight.alpha = 0
+        addSubview(highlight)
+
+        label.text = title
+        label.font = .systemFont(ofSize: fontSize)
+        label.textColor = .label
+        label.textAlignment = .center
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.6
+        addSubview(label)
+
+        if let symbol {
+            imageView.image = UIImage(systemName: symbol,
+                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 19))
+            imageView.tintColor = .label
+            imageView.contentMode = .center
+            addSubview(imageView)
+        }
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let inner = bounds.insetBy(dx: 2.5, dy: 4)
+        highlight.frame = inner
+        label.frame = inner.insetBy(dx: 1, dy: 0)
+        imageView.frame = inner
+    }
+
+    override var isHighlighted: Bool {
+        didSet { highlight.alpha = isHighlighted ? 1 : 0 }
     }
 }
