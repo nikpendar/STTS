@@ -8,6 +8,13 @@ on:
       clips:
         description: Number of FLEURS fa_ir test clips
         default: "80"
+      models:
+        description: >-
+          JSON list of {label, file (whisper.cpp ggml name) or hf (Hugging Face repo), quant, beam, prompt}
+        default: >-
+          [{"label":"base-q5_1","file":"base-q5_1"},{"label":"small-q5_1","file":"small-q5_1"},
+          {"label":"medium-q5_0","file":"medium-q5_0"},{"label":"large-v3-turbo-q5_0","file":"large-v3-turbo-q5_0"},
+          {"label":"large-v3-turbo-q4_0","file":"large-v3-turbo","quant":"q4_0"},{"label":"large-v3-q5_0","file":"large-v3-q5_0"}]
 
 jobs:
   prepare:
@@ -49,17 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { label: base-q5_1, file: base-q5_1 }
-          - { label: small-q5_1, file: small-q5_1 }
-          - { label: medium-q5_0, file: medium-q5_0 }
-          - { label: large-v3-turbo-q5_0 (current), file: large-v3-turbo-q5_0 }
-          - { label: large-v3-turbo-q8_0, file: large-v3-turbo-q8_0 }
-          - { label: large-v3-turbo-q4_0, file: large-v3-turbo, quant: q4_0 }
-          - { label: large-v3-turbo-q3_k, file: large-v3-turbo, quant: q3_k }
-          - { label: large-v3-turbo-q5_0 beam 5, file: large-v3-turbo-q5_0, beam: 5 }
-          - { label: large-v3-turbo-q5_0 Persian prompt, file: large-v3-turbo-q5_0, prompt: "سلام. این یک متن فارسی است، با نقطه‌گذاری درست." }
-          - { label: large-v3-q5_0, file: large-v3-q5_0 }
+        include: ${{ fromJSON(inputs.models) }}
     name: ${{ matrix.label }}
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +78,18 @@ jobs:
           cmake --build whisper.cpp/build -j 4
       - name: Get model
         run: |
-          curl -fsSL -o model.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${{ matrix.file }}.bin"
+          if [ -n "${{ matrix.hf }}" ]; then
+            # Fine-tuned Hugging Face checkpoint: convert to ggml (f16), quantized below.
+            pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch transformers safetensors huggingface_hub numpy
+            git clone -q --depth 1 https://github.com/openai/whisper openai-whisper
+            python3 scripts/prepare_hf_model.py "${{ matrix.hf }}" hf-model
+            mkdir -p converted
+            python3 whisper.cpp/models/convert-h5-to-ggml.py hf-model openai-whisper converted
+            mv converted/ggml-model.bin model.bin
+            rm -rf hf-model
+          else
+            curl -fsSL -o model.bin "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${{ matrix.file }}.bin"
+          fi
           if [ -n "${{ matrix.quant }}" ]; then
             q=$(find whisper.cpp/build/bin -name '*quantize*' -type f | head -1)
             "$q" model.bin model-q.bin "${{ matrix.quant }}"
