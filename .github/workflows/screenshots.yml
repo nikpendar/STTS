@@ -29,7 +29,7 @@ jobs:
         run: |
           set -x
           APP=build/Debug-iphonesimulator/PersianSTT.app
-          ID=com.example.PersianSTT
+          ID=ir.nikpendar.PersianSTT
           DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
           echo "Device: $DEVICE"
           xcrun simctl boot "$DEVICE"

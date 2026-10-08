@@ -39,8 +39,8 @@ jobs:
         run: |
           set -x
           APP=build/Release-iphonesimulator/PersianSTT.app
-          ID=com.example.PersianSTT
-          KB=com.example.PersianSTT.Keyboard
+          ID=ir.nikpendar.PersianSTT
+          KB=ir.nikpendar.PersianSTT.Keyboard
           DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
           defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
           xcrun simctl boot "$DEVICE"
