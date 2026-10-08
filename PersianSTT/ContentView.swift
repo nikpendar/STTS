@@ -3,8 +3,9 @@ import UIKit
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @StateObject private var model = Transcriber()
+    @ObservedObject private var model = Transcriber.shared
     @State private var showImporter = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
@@ -59,6 +60,11 @@ struct ContentView: View {
             .navigationTitle("گفتار به متن")
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.audio]) { result in
                 model.importFile(result)
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    model.appDidBecomeActive()
+                }
             }
         }
         .environment(\.layoutDirection, .rightToLeft)

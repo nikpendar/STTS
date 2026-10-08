@@ -1,21 +1,30 @@
 import AVFoundation
 import Foundation
+import UIKit
 
 @MainActor
 final class Transcriber: ObservableObject {
+    /// Shared so the dictation shortcut (DictateIntent) can drive the same instance as the UI.
+    static let shared = Transcriber()
+
     @Published var text = ""
     @Published var status = "در حال بارگذاری مدل…"
     @Published var isRecording = false
     @Published var isBusy = true
     @Published var modelName = ""
+    /// Recording that stops by itself after a pause, started from the dictation shortcut.
+    @Published var isQuickDictation = false
 
     private var whisper: WhisperContext?
     private var usesCoreML = false
+    private var loadTask: Task<Void, Never>?
     private var recorder: AVAudioRecorder?
+    private var meterTask: Task<Void, Never>?
+    private var quickDictationPending = false
     private let recordingURL = FileManager.default.temporaryDirectory.appendingPathComponent("recording.wav")
 
-    init() {
-        Task { await loadModel() }
+    private init() {
+        loadTask = Task { await loadModel() }
     }
 
     /// The first ggml-*.bin found in the bundled Models folder is used.
@@ -50,29 +59,52 @@ final class Transcriber: ObservableObject {
             let path = url.path
             whisper = try await Task.detached { try WhisperContext(path: path) }.value
             usesCoreML = Self.hasCoreMLEncoder(for: url)
-            status = usesCoreML ? "آماده (Neural Engine)" : "آماده"
+            if !isRecording {
+                status = usesCoreML ? "آماده (Neural Engine)" : "آماده"
+            }
         } catch {
             status = error.localizedDescription
         }
-        isBusy = false
+        if !isRecording {
+            isBusy = false
+        }
     }
+
+    // MARK: - Dictation shortcut
+
+    /// Called by DictateIntent. Recording can only start once the app is in the foreground,
+    /// so the request is kept until `appDidBecomeActive()` if needed.
+    func requestQuickDictation() {
+        quickDictationPending = true
+        if UIApplication.shared.applicationState == .active {
+            appDidBecomeActive()
+        }
+    }
+
+    func appDidBecomeActive() {
+        guard quickDictationPending, !isRecording else { return }
+        quickDictationPending = false
+        Task { await startRecording(quick: true) }
+    }
+
+    // MARK: - Recording
 
     func toggleRecording() async {
         if isRecording {
             stopAndTranscribe()
         } else {
-            await startRecording()
+            await startRecording(quick: false)
         }
     }
 
-    private func startRecording() async {
+    private func startRecording(quick: Bool) async {
         guard await AVAudioApplication.requestRecordPermission() else {
             status = "دسترسی به میکروفون داده نشده است. از تنظیمات آیفون فعالش کنید."
             return
         }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .measurement)
+            try session.setCategory(.record, mode: .default)
             try session.setActive(true)
             let settings: [String: Any] = [
                 AVFormatIDKey: Int(kAudioFormatLinearPCM),
@@ -83,23 +115,60 @@ final class Transcriber: ObservableObject {
                 AVLinearPCMIsBigEndianKey: false,
             ]
             let recorder = try AVAudioRecorder(url: recordingURL, settings: settings)
+            recorder.isMeteringEnabled = quick
             guard recorder.record() else {
                 status = "شروع ضبط ناموفق بود."
                 return
             }
             self.recorder = recorder
             isRecording = true
-            status = "در حال ضبط… برای پایان دوباره بزنید."
+            isQuickDictation = quick
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            if quick {
+                status = "در حال گوش دادن… بعد از مکث خودکار تمام می‌شود."
+                watchForSilence()
+            } else {
+                status = "در حال ضبط… برای پایان دوباره بزنید."
+            }
         } catch {
             status = "خطا در ضبط: \(error.localizedDescription)"
         }
     }
 
+    /// Stops a quick dictation after speech followed by a pause, or when nothing is said.
+    private func watchForSilence() {
+        meterTask?.cancel()
+        meterTask = Task { [weak self] in
+            let started = Date()
+            var heardSpeech = false
+            var silence: TimeInterval = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                guard let self, let recorder = self.recorder, recorder.isRecording else { return }
+                recorder.updateMeters()
+                if recorder.averagePower(forChannel: 0) > -40 {
+                    heardSpeech = true
+                    silence = 0
+                } else {
+                    silence += 0.1
+                }
+                let elapsed = Date().timeIntervalSince(started)
+                if (heardSpeech && silence >= 1.8) || (!heardSpeech && silence >= 8) || elapsed >= 60 {
+                    self.stopAndTranscribe()
+                    return
+                }
+            }
+        }
+    }
+
     private func stopAndTranscribe() {
+        meterTask?.cancel()
+        meterTask = nil
         recorder?.stop()
         recorder = nil
         isRecording = false
-        try? AVAudioSession.sharedInstance().setActive(false)
+        isQuickDictation = false
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         transcribe(url: recordingURL)
     }
 
@@ -121,14 +190,19 @@ final class Transcriber: ObservableObject {
         }
     }
 
+    /// Transcribes, then copies the text to the clipboard so it can be pasted into any app.
     private func transcribe(url: URL) {
-        guard let whisper else {
-            status = "مدل بارگذاری نشده است."
-            return
-        }
         isBusy = true
-        status = "در حال تبدیل به متن…"
         Task {
+            if whisper == nil {
+                status = "در حال بارگذاری مدل…"
+                await loadTask?.value
+            }
+            guard let whisper else {
+                isBusy = false
+                return
+            }
+            status = "در حال تبدیل به متن…"
             do {
                 let start = Date()
                 let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
@@ -136,7 +210,13 @@ final class Transcriber: ObservableObject {
                 text = result.trimmingCharacters(in: .whitespacesAndNewlines)
                 let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
                 let elapsed = Date().timeIntervalSince(start)
-                status = String(format: "%.1f ثانیه صدا در %.1f ثانیه تبدیل شد", audioSeconds, elapsed)
+                var summary = String(format: "%.1f ثانیه صدا در %.1f ثانیه تبدیل شد", audioSeconds, elapsed)
+                if !text.isEmpty {
+                    UIPasteboard.general.string = text
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    summary += " و در کلیپ‌بورد کپی شد"
+                }
+                status = summary
             } catch {
                 status = error.localizedDescription
             }

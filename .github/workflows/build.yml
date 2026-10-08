@@ -9,15 +9,15 @@ on:
         description: "Whisper model (base-q5_1, small-q5_1, large-v3-turbo-q5_0)"
         default: large-v3-turbo-q5_0
       coreml:
-        description: "Run the encoder on the Neural Engine (Core ML)"
+        description: "Run the encoder on the Neural Engine (Core ML). Too heavy for 4 GB iPhones with turbo."
         type: boolean
-        default: true
+        default: false
   push:
     branches: [main]
 
 env:
   MODEL: ${{ github.event.inputs.model || 'large-v3-turbo-q5_0' }}
-  COREML: ${{ github.event_name == 'push' || github.event.inputs.coreml == 'true' }}
+  COREML: ${{ github.event.inputs.coreml == 'true' }}
 
 jobs:
   build:

@@ -12,6 +12,7 @@
 		A10000000000000000000003 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* Transcriber.swift */; };
 		A10000000000000000000004 /* WhisperContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* WhisperContext.swift */; };
 		A10000000000000000000005 /* AudioLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AudioLoader.swift */; };
+		A10000000000000000000009 /* DictateIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* DictateIntent.swift */; };
 		A10000000000000000000006 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* Models */; };
 		A10000000000000000000007 /* whisper.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* whisper.xcframework */; };
 		A10000000000000000000008 /* whisper.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* whisper.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -37,6 +38,7 @@
 		A20000000000000000000003 /* Transcriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcriber.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* WhisperContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperContext.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AudioLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLoader.swift; sourceTree = "<group>"; };
+		A20000000000000000000009 /* DictateIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictateIntent.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
 		A20000000000000000000007 /* whisper.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = whisper.xcframework; sourceTree = "<group>"; };
 		A20000000000000000000008 /* PersianSTT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PersianSTT.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -71,6 +73,7 @@
 				A20000000000000000000003 /* Transcriber.swift */,
 				A20000000000000000000004 /* WhisperContext.swift */,
 				A20000000000000000000005 /* AudioLoader.swift */,
+				A20000000000000000000009 /* DictateIntent.swift */,
 				A20000000000000000000006 /* Models */,
 			);
 			path = PersianSTT;
@@ -168,6 +171,7 @@
 				A10000000000000000000003 /* Transcriber.swift in Sources */,
 				A10000000000000000000004 /* WhisperContext.swift in Sources */,
 				A10000000000000000000005 /* AudioLoader.swift in Sources */,
+				A10000000000000000000009 /* DictateIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
