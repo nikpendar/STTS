@@ -23,6 +23,8 @@ on:
       - "scripts/to_pcm16.py"
       - "scripts/prepare_hf_model.py"
       - "scripts/prepare_cv.py"
+      - "scripts/export_nemo_ctc.py"
+      - "scripts/sherpa_transcribe.py"
 
 env:
   MODEL: ${{ github.event.inputs.model || 'large-v3-turbo-q5_0' }}

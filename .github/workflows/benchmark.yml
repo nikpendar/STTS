@@ -90,6 +90,14 @@ jobs:
           cmake --build whisper.cpp/build -j 4
       - name: Get model
         run: |
+          if [ -n "${{ matrix.nemo }}" ]; then
+            # NeMo FastConformer: export the CTC branch to ONNX for sherpa-onnx.
+            pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch "nemo_toolkit[asr]" onnx onnxruntime sherpa-onnx huggingface_hub
+            python3 -c "from huggingface_hub import snapshot_download; snapshot_download('${{ matrix.nemo }}', local_dir='nemo-model')"
+            python3 scripts/export_nemo_ctc.py nemo-model/*.nemo nemo-onnx
+            cp nemo-onnx/${{ matrix.onnx || 'model.int8.onnx' }} model.bin
+            exit 0
+          fi
           if [ -n "${{ matrix.hf }}" ]; then
             # Fine-tuned Hugging Face checkpoint: convert to ggml (f16), quantized below.
             pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch transformers safetensors huggingface_hub numpy
@@ -116,7 +124,11 @@ jobs:
           files=()
           for f in clips/*.wav; do files+=(-f "$f"); done
           start=$(date +%s.%N)
-          "$cli" "${args[@]}" "${files[@]}"
+          if [ -n "${{ matrix.nemo }}" ]; then
+            python3 scripts/sherpa_transcribe.py model.bin nemo-onnx/tokens.txt clips 80
+          else
+            "$cli" "${args[@]}" "${files[@]}"
+          fi
           end=$(date +%s.%N)
           echo "SECONDS_TAKEN=$(echo "$end - $start" | bc)" >> "$GITHUB_ENV"
       - name: Score
