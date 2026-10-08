@@ -8,6 +8,12 @@ on:
       model:
         description: "Whisper model (base-q5_1, small-q5_1, large-v3-turbo-q5_0)"
         default: large-v3-turbo-q5_0
+      hf:
+        description: "Persian fine-tuned Hugging Face model to convert instead (empty = use the model above)"
+        default: ""
+      quant:
+        description: "Quantization for the Hugging Face model"
+        default: q4_0
       coreml:
         description: "Run the encoder on the Neural Engine (Core ML). Too heavy for 4 GB iPhones with turbo."
         type: boolean
@@ -30,9 +36,39 @@ on:
 env:
   MODEL: ${{ github.event.inputs.model || 'large-v3-turbo-q5_0' }}
   COREML: ${{ github.event.inputs.coreml == 'true' }}
+  HF: ${{ github.event.inputs.hf || '' }}
+  QUANT: ${{ github.event.inputs.quant || 'q4_0' }}
 
 jobs:
+  # Converts a fine-tuned Hugging Face Whisper checkpoint to a quantized ggml model.
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        if: env.HF != ''
+      - name: Convert and quantize
+        if: env.HF != ''
+        run: |
+          git clone -q --depth 1 --branch v1.7.5 https://github.com/ggml-org/whisper.cpp
+          cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF
+          cmake --build whisper.cpp/build -j 4
+          pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch transformers safetensors huggingface_hub numpy
+          git clone -q --depth 1 https://github.com/openai/whisper openai-whisper
+          python3 scripts/prepare_hf_model.py "$HF" hf-model
+          mkdir -p converted out
+          python3 whisper.cpp/models/convert-h5-to-ggml.py hf-model openai-whisper converted
+          NAME="$(basename "$HF" | tr '[:upper:]' '[:lower:]')"
+          "$(find whisper.cpp/build/bin -name '*quantize*' -type f | head -1)" converted/ggml-model.bin "out/ggml-$NAME-$QUANT.bin" "$QUANT"
+          ls -la out
+      - uses: actions/upload-artifact@v5
+        if: env.HF != ''
+        with:
+          name: hf-model
+          path: out/*.bin
+          retention-days: 1
+
   build:
+    needs: convert
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
@@ -40,7 +76,21 @@ jobs:
       - name: Download whisper.xcframework and model
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash ./setup.sh "$MODEL"
+        # With a Hugging Face model, only the framework is needed here; the small base model is replaced below.
+        run: bash ./setup.sh "$([ -n "$HF" ] && echo base-q5_1 || echo "$MODEL")"
+
+      - uses: actions/download-artifact@v5
+        if: env.HF != ''
+        with:
+          name: hf-model
+          path: hf-model
+
+      - name: Use the converted model
+        if: env.HF != ''
+        run: |
+          find PersianSTT/Models -name 'ggml-*.bin' -delete
+          mv hf-model/*.bin PersianSTT/Models/
+          ls -la PersianSTT/Models
 
       - uses: actions/setup-python@v6
         if: env.COREML == 'true'
