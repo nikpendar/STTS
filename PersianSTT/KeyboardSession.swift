@@ -22,6 +22,8 @@ final class KeyboardSession: ObservableObject {
     private let collector = SampleCollector()
     private var idleTimer: Timer?
     private var isCapturing = false
+    /// Identifies the current dictation, so a cancelled one cannot report a late result.
+    private var dictationID = 0
 
     private init() {
         observer.observe(DictationBridge.ping) { [weak self] in
@@ -34,6 +36,9 @@ final class KeyboardSession: ObservableObject {
         }
         observer.observe(DictationBridge.stop) { [weak self] in
             MainActor.assumeIsolated { self?.finishCapture() }
+        }
+        observer.observe(DictationBridge.cancel) { [weak self] in
+            MainActor.assumeIsolated { self?.cancelDictation() }
         }
         // A call or Siri pauses the engine; it is restarted when the interruption ends.
         NotificationCenter.default.addObserver(
@@ -146,6 +151,8 @@ final class KeyboardSession: ObservableObject {
         isCapturing = false
         let samples = collector.end()
         resetIdleTimer()
+        dictationID += 1
+        let id = dictationID
         guard samples.count > Int(AudioLoader.sampleRate / 2) else {
             DictationBridge.post(DictationBridge.failed)
             return
@@ -153,6 +160,7 @@ final class KeyboardSession: ObservableObject {
         Task {
             do {
                 let text = try await Transcriber.shared.transcribe(samples: samples)
+                guard id == dictationID else { return }
                 guard !text.isEmpty else {
                     DictationBridge.post(DictationBridge.failed)
                     return
@@ -160,9 +168,18 @@ final class KeyboardSession: ObservableObject {
                 UIPasteboard.general.string = text
                 DictationBridge.post(DictationBridge.done)
             } catch {
-                DictationBridge.post(DictationBridge.failed)
+                if id == dictationID { DictationBridge.post(DictationBridge.failed) }
             }
         }
+    }
+
+    private func cancelDictation() {
+        dictationID += 1
+        if isCapturing {
+            isCapturing = false
+            _ = collector.end()
+        }
+        Transcriber.shared.cancelTranscription()
     }
 }
 

@@ -12,6 +12,8 @@ enum DictationBridge {
     static let start = "com.persianstt.start"
     static let recording = "com.persianstt.recording"
     static let stop = "com.persianstt.stop"
+    /// Keyboard abandons the transcription in progress.
+    static let cancel = "com.persianstt.cancel"
     /// App finished: the transcript is on the pasteboard (`done`), or nothing was recognized (`failed`).
     static let done = "com.persianstt.done"
     static let failed = "com.persianstt.failed"

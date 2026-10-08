@@ -14,6 +14,7 @@ final class KeyboardViewController: UIInputViewController {
     private let observer = DarwinObserver()
     private let statusLabel = UILabel()
     private let micButton = UIButton(type: .system)
+    private let spinner = UIActivityIndicatorView(style: .medium)
     private var timeout: DispatchWorkItem?
     private var previewTimer: Timer?
     private var previewIndex = 0
@@ -112,7 +113,13 @@ final class KeyboardViewController: UIInputViewController {
             }
         case .noSession, .checking:
             open(DictationBridge.sessionURL)
-        case .starting, .transcribing:
+        case .transcribing:
+            // Stop the transcription; the app discards it.
+            cancelTimeout()
+            DictationBridge.post(DictationBridge.cancel)
+            state = .ready
+            statusLabel.text = "تبدیل لغو شد."
+        case .starting:
             break
         }
     }
@@ -220,14 +227,19 @@ final class KeyboardViewController: UIInputViewController {
         case .recording:
             title = "در حال ضبط، برای پایان میکروفون را بزنید"; symbol = "stop.circle.fill"; tint = .systemRed
         case .transcribing:
-            title = "در حال تبدیل به متن…"; symbol = "waveform"
+            title = "در حال تبدیل به متن… برای لغو، میکروفون را بزنید"; symbol = ""
         }
         statusLabel.text = title
-        micButton.setImage(UIImage(systemName: symbol,
+        if state == .transcribing {
+            spinner.startAnimating()
+        } else {
+            spinner.stopAnimating()
+        }
+        micButton.setImage(symbol.isEmpty ? nil : UIImage(systemName: symbol,
                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)),
                            for: .normal)
         micButton.tintColor = tint
-        micButton.isEnabled = state != .transcribing && state != .starting
+        micButton.isEnabled = state != .starting
     }
 
     private func buildUI() {
@@ -244,6 +256,10 @@ final class KeyboardViewController: UIInputViewController {
         micButton.backgroundColor = .clear
         micButton.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
         view.addSubview(micButton)
+        spinner.hidesWhenStopped = true
+        spinner.color = .label
+        spinner.isUserInteractionEnabled = false
+        view.addSubview(spinner)
 
         // Symbols keep the same direction on every device, whatever the host app's language.
         view.semanticContentAttribute = .forceRightToLeft
@@ -355,6 +371,7 @@ final class KeyboardViewController: UIInputViewController {
         place(spaceKey, bounds.width - fixed)
         place(returnKey, 1.75 * unit)
         place(micButton, 1.5 * unit)
+        spinner.center = CGPoint(x: micButton.frame.midX, y: micButton.frame.midY)
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {

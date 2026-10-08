@@ -59,6 +59,9 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R build/Release-iphoneos/PersianSTT.app Payload/
+          # The dictation keyboard must be embedded, or iOS never lists it.
+          ls Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex
+          plutil -p Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/Info.plist
           zip -qry PersianSTT.ipa Payload
           ls -lh PersianSTT.ipa
 

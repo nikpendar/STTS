@@ -4,11 +4,13 @@ import whisper
 enum WhisperError: LocalizedError {
     case cannotLoadModel
     case transcriptionFailed(Int32)
+    case cancelled
 
     var errorDescription: String? {
         switch self {
         case .cannotLoadModel: return "بارگذاری مدل ناموفق بود."
         case .transcriptionFailed(let code): return "تبدیل ناموفق بود (کد \(code))."
+        case .cancelled: return "تبدیل لغو شد."
         }
     }
 }
@@ -17,6 +19,8 @@ enum WhisperError: LocalizedError {
 /// since a whisper context must not be used from two threads at once.
 actor WhisperContext {
     private let context: OpaquePointer
+    /// Set from any thread to stop the transcription in progress.
+    nonisolated let abort = AbortFlag()
 
     init(path: String) throws {
         var params = whisper_context_default_params()
@@ -42,6 +46,13 @@ actor WhisperContext {
         let threads = max(1, min(8, ProcessInfo.processInfo.activeProcessorCount - 2))
         let audioContext = shortenAudioContext ? Self.audioContext(sampleCount: samples.count) : 0
 
+        abort.clear()
+        params.abort_callback = { data in
+            guard let data else { return false }
+            return Unmanaged<AbortFlag>.fromOpaque(data).takeUnretainedValue().isSet
+        }
+        params.abort_callback_user_data = Unmanaged.passUnretained(abort).toOpaque()
+
         let code: Int32 = "fa".withCString { lang in
             params.language = lang
             params.translate = false
@@ -56,7 +67,9 @@ actor WhisperContext {
                 whisper_full(context, params, buf.baseAddress, Int32(buf.count))
             }
         }
-        guard code == 0 else { throw WhisperError.transcriptionFailed(code) }
+        guard code == 0 else {
+            throw abort.isSet ? WhisperError.cancelled : WhisperError.transcriptionFailed(code)
+        }
 
         var text = ""
         for i in 0..<whisper_full_n_segments(context) {
@@ -75,5 +88,28 @@ actor WhisperContext {
         // Margin past the end of speech; very small contexts make Whisper hallucinate.
         let frames = Int(seconds * 50) + 128
         return Int32(min(1500, max(384, frames)))
+    }
+}
+
+final class AbortFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+
+    var isSet: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func set() {
+        lock.lock()
+        value = true
+        lock.unlock()
+    }
+
+    func clear() {
+        lock.lock()
+        value = false
+        lock.unlock()
     }
 }

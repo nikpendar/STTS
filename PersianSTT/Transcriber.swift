@@ -192,6 +192,11 @@ final class Transcriber: ObservableObject {
         }
     }
 
+    /// Stops the transcription in progress; it then throws `WhisperError.cancelled`.
+    func cancelTranscription() {
+        whisper?.abort.set()
+    }
+
     /// Used by the keyboard session, which records its own audio.
     func transcribe(samples: [Float]) async throws -> String {
         if whisper == nil {
