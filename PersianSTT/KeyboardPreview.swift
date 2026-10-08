@@ -10,33 +10,31 @@ struct KeyboardPreview: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("کیبورد دیکته‌ی فارسی")
                 .font(.headline)
-            KeyboardPreviewField(state: state)
-                .frame(height: 44)
+                .padding(.horizontal)
+            Text("متن دیکته‌شده اینجا نوشته می‌شود")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .padding(.horizontal, 10)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(.separator)))
+                .padding(.horizontal)
             Spacer()
+            KeyboardHost(state: state)
+                .frame(height: 260)
+                .background(Color(.systemGray5))
         }
-        .padding()
+        .padding(.top)
         .environment(\.layoutDirection, .rightToLeft)
     }
 }
 
-private struct KeyboardPreviewField: UIViewRepresentable {
+private struct KeyboardHost: UIViewControllerRepresentable {
     let state: String
 
-    func makeUIView(context: Context) -> PreviewTextField {
-        let field = PreviewTextField()
-        field.keyboard.previewState = state
-        field.placeholder = "متن دیکته‌شده اینجا نوشته می‌شود"
-        field.textAlignment = .right
-        field.borderStyle = .roundedRect
-        DispatchQueue.main.async { field.becomeFirstResponder() }
-        return field
+    func makeUIViewController(context: Context) -> KeyboardViewController {
+        let keyboard = KeyboardViewController()
+        keyboard.previewState = state
+        return keyboard
     }
 
-    func updateUIView(_ uiView: PreviewTextField, context: Context) {}
-}
-
-final class PreviewTextField: UITextField {
-    let keyboard = KeyboardViewController()
-
-    override var inputViewController: UIInputViewController? { keyboard }
+    func updateUIViewController(_ uiViewController: KeyboardViewController, context: Context) {}
 }
