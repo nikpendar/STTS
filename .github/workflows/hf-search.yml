@@ -10,12 +10,26 @@ on:
       filter:
         description: Tag filter (e.g. fa)
         default: ""
+      readmes:
+        description: Space-separated repo ids whose model cards are printed instead of searching
+        default: ""
 
 jobs:
   search:
     runs-on: ubuntu-latest
     steps:
+      - name: Model cards
+        if: inputs.readmes != ''
+        env:
+          REPOS: ${{ inputs.readmes }}
+        run: |
+          for repo in $REPOS; do
+            echo "===== $repo"
+            curl -fsSL "https://huggingface.co/$repo/raw/main/README.md" | head -c 6000 || echo "(no README)"
+            echo
+          done
       - name: Search
+        if: inputs.readmes == ''
         env:
           QUERY: ${{ inputs.query }}
           FILTER: ${{ inputs.filter }}
