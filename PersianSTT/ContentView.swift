@@ -73,6 +73,13 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    if keyboard.isActive {
+                        Text(keyboard.keyboardLaunchedAt.map {
+                            "کیبورد اجرا شد: \($0.formatted(date: .omitted, time: .standard))"
+                        } ?? "کیبورد در این جلسه هنوز اجرا نشده است.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 if !model.modelName.isEmpty {

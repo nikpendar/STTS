@@ -16,6 +16,8 @@ final class KeyboardSession: ObservableObject {
 
     @Published private(set) var isActive = false
     @Published private(set) var message = ""
+    /// When the keyboard extension last started while the app was running.
+    @Published private(set) var keyboardLaunchedAt: Date?
 
     private let engine = AVAudioEngine()
     private let observer = DarwinObserver()
@@ -39,6 +41,9 @@ final class KeyboardSession: ObservableObject {
         }
         observer.observe(DictationBridge.cancel) { [weak self] in
             MainActor.assumeIsolated { self?.cancelDictation() }
+        }
+        observer.observe(DictationBridge.launched) { [weak self] in
+            MainActor.assumeIsolated { self?.keyboardLaunchedAt = Date() }
         }
         // A call or Siri pauses the engine; it is restarted when the interruption ends.
         NotificationCenter.default.addObserver(

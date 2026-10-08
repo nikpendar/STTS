@@ -25,6 +25,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        DictationBridge.post(DictationBridge.launched)
         buildUI()
         observer.observe(DictationBridge.alive) { [weak self] in
             MainActor.assumeIsolated { self?.sessionIsAlive() }
