@@ -27,12 +27,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO build | tail -n 5
           ls build/Release-iphonesimulator/PersianSTT.app/PlugIns
 
-      - name: Install idb
+      - name: Install AXe (simulator taps)
+        continue-on-error: true
         run: |
-          brew tap facebook/fb
-          brew trust facebook/fb || true
-          brew install idb-companion
-          pip3 install --break-system-packages fb-idb
+          brew tap cameroncooke/axe
+          brew trust cameroncooke/axe || true
+          brew install axe
+          axe --version
 
       - name: Run the keyboard
         run: |
@@ -71,14 +72,12 @@ jobs:
           sleep 15
           xcrun simctl io "$DEVICE" screenshot out/keyboard-test.png
           # Tap the globe key (bottom-left) to switch to the next keyboard, which is ours.
-          idb_companion --udid "$DEVICE" > out/idb.txt 2>&1 &
-          sleep 5
-          idb connect localhost 10882 || idb connect "$DEVICE" || true
-          idb ui describe-all --udid "$DEVICE" | head -c 4000 || true
-          idb ui tap --udid "$DEVICE" 42 833 || true
+          axe describe-ui --udid "$DEVICE" > out/ui.json 2>&1 || true
+          axe tap -x 42 -y 833 --udid "$DEVICE" || true
           sleep 10
           xcrun simctl io "$DEVICE" screenshot out/keyboard-test-2.png
-          idb ui tap --udid "$DEVICE" 42 833 || true
+          axe describe-ui --udid "$DEVICE" > out/ui-2.json 2>&1 || true
+          axe tap -x 42 -y 833 --udid "$DEVICE" || true
           sleep 8
           xcrun simctl io "$DEVICE" screenshot out/keyboard-test-3.png
           kill $LOG || true
