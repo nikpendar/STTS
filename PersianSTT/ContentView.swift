@@ -6,6 +6,7 @@ struct ContentView: View {
     @ObservedObject private var model = Transcriber.shared
     @ObservedObject private var keyboard = KeyboardSession.shared
     @State private var showImporter = false
+    @AppStorage(KeyboardSession.idleMinutesKey) private var sessionMinutes = KeyboardSession.defaultIdleMinutes
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -56,6 +57,17 @@ struct ContentView: View {
                         keyboard.isActive ? keyboard.stop() : keyboard.start()
                     }
                     .buttonStyle(.bordered)
+                    Picker("مدت جلسه", selection: $sessionMinutes) {
+                        Text("۱۰ دقیقه").tag(10)
+                        Text("۳۰ دقیقه").tag(30)
+                        Text("۱ ساعت").tag(60)
+                        Text("بدون محدودیت").tag(0)
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: sessionMinutes) { _, _ in keyboard.idleMinutesChanged() }
+                    Text("جلسه بعد از این مدت بی‌استفاده بسته می‌شود. جلسه‌ی باز باتری مصرف می‌کند.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                     if !keyboard.message.isEmpty {
                         Text(keyboard.message)
                             .font(.caption)

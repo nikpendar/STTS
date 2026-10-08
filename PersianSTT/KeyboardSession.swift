@@ -7,7 +7,12 @@ import UIKit
 @MainActor
 final class KeyboardSession: ObservableObject {
     static let shared = KeyboardSession()
-    static let idleTimeout: TimeInterval = 10 * 60
+    /// Minutes without dictation before the session closes; 0 keeps it open until stopped.
+    static let idleMinutesKey = "keyboardSessionMinutes"
+    static let defaultIdleMinutes = 30
+    static var idleMinutes: Int {
+        UserDefaults.standard.object(forKey: idleMinutesKey) as? Int ?? defaultIdleMinutes
+    }
 
     @Published private(set) var isActive = false
     @Published private(set) var message = ""
@@ -30,6 +35,29 @@ final class KeyboardSession: ObservableObject {
         observer.observe(DictationBridge.stop) { [weak self] in
             MainActor.assumeIsolated { self?.finishCapture() }
         }
+        // A call or Siri pauses the engine; it is restarted when the interruption ends.
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            guard raw.flatMap(AVAudioSession.InterruptionType.init) == .ended else { return }
+            MainActor.assumeIsolated { self?.resume() }
+        }
+    }
+
+    private func resume() {
+        guard isActive, !engine.isRunning else { return }
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+            try engine.start()
+        } catch {
+            stop()
+        }
+    }
+
+    /// Applies a changed session length to a running session.
+    func idleMinutesChanged() {
+        if isActive { resetIdleTimer() }
     }
 
     func start() {
@@ -97,7 +125,10 @@ final class KeyboardSession: ObservableObject {
 
     private func resetIdleTimer() {
         idleTimer?.invalidate()
-        idleTimer = Timer.scheduledTimer(withTimeInterval: Self.idleTimeout, repeats: false) { [weak self] _ in
+        idleTimer = nil
+        let minutes = Self.idleMinutes
+        guard minutes > 0 else { return }
+        idleTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(minutes * 60), repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { self?.stop() }
         }
     }
