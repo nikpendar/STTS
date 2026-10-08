@@ -9,8 +9,8 @@ on:
         description: "Whisper model (base-q5_1, small-q5_1, large-v3-turbo-q5_0)"
         default: large-v3-turbo-q5_0
       hf:
-        description: "Persian fine-tuned Hugging Face model to convert instead (empty = use the model above)"
-        default: ""
+        description: "Persian fine-tuned Hugging Face model to bundle (none = use the model above)"
+        default: farbodbij/whisper-medium-Persian
       quant:
         description: "Quantization for the Hugging Face model"
         default: q4_0
@@ -36,7 +36,9 @@ on:
 env:
   MODEL: ${{ github.event.inputs.model || 'large-v3-turbo-q5_0' }}
   COREML: ${{ github.event.inputs.coreml == 'true' }}
-  HF: ${{ github.event.inputs.hf || '' }}
+  # Default: Persian fine-tuned Whisper medium, q4_0 (444 MB). FLEURS WER 11.3%, Common Voice 20.2%,
+  # against 20.6% / 46.1% for stock turbo q5_0 (574 MB). Pass hf=none to bundle the model input instead.
+  HF: ${{ github.event.inputs.hf == 'none' && '' || github.event.inputs.hf || 'farbodbij/whisper-medium-Persian' }}
   QUANT: ${{ github.event.inputs.quant || 'q4_0' }}
 
 jobs:
