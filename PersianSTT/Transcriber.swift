@@ -17,6 +17,10 @@ final class Transcriber: ObservableObject {
 
     private var whisper: WhisperContext?
     private var usesCoreML = false
+    /// Stock OpenAI models (ggml-base, ggml-large-v3-turbo, ...) tolerate a shortened encoder
+    /// window. Fine-tuned models (ggml-whisper-...) repeat and hallucinate with it: on FLEURS
+    /// the Persian medium model went from 11.3% to 20.6% WER, and on Common Voice it broke down.
+    private var shortensAudioContext = false
     private var loadTask: Task<Void, Never>?
     private var recorder: AVAudioRecorder?
     private var meterTask: Task<Void, Never>?
@@ -59,6 +63,8 @@ final class Transcriber: ObservableObject {
             let path = url.path
             whisper = try await Task.detached { try WhisperContext(path: path) }.value
             usesCoreML = Self.hasCoreMLEncoder(for: url)
+            let stock = ["tiny", "base", "small", "medium", "large"].contains { url.lastPathComponent.hasPrefix("ggml-\($0)") }
+            shortensAudioContext = stock && !usesCoreML
             if !isRecording {
                 status = usesCoreML ? "آماده (Neural Engine)" : "آماده"
             }
@@ -203,7 +209,7 @@ final class Transcriber: ObservableObject {
             await loadTask?.value
         }
         guard let whisper else { throw WhisperError.cannotLoadModel }
-        let result = try await whisper.transcribe(samples: samples, shortenAudioContext: !usesCoreML)
+        let result = try await whisper.transcribe(samples: samples, shortenAudioContext: shortensAudioContext)
         text = result.trimmingCharacters(in: .whitespacesAndNewlines)
         return text
     }
@@ -224,7 +230,7 @@ final class Transcriber: ObservableObject {
             do {
                 let start = Date()
                 let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
-                let result = try await whisper.transcribe(samples: samples, shortenAudioContext: !usesCoreML)
+                let result = try await whisper.transcribe(samples: samples, shortenAudioContext: shortensAudioContext)
                 text = result.trimmingCharacters(in: .whitespacesAndNewlines)
                 let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
                 let elapsed = Date().timeIntervalSince(start)
