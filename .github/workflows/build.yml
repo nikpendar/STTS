@@ -126,6 +126,12 @@ jobs:
           # The dictation keyboard must be embedded, or iOS never lists it.
           ls Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex
           plutil -p Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/Info.plist
+          # Ad-hoc sign nested code (framework, keyboard, app) so the bundle has the usual
+          # signed layout; Sideloadly replaces these signatures with the Apple ID's.
+          for fw in Payload/PersianSTT.app/Frameworks/*.framework; do codesign --force --sign - "$fw"; done
+          codesign --force --sign - Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex
+          codesign --force --sign - Payload/PersianSTT.app
+          codesign -dv Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex 2>&1 | head -5
           zip -qry PersianSTT.ipa Payload
           ls -lh PersianSTT.ipa
 
