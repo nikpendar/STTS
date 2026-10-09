@@ -197,6 +197,16 @@ final class KeyboardViewController: UIInputViewController {
         ["ش", "س", "ی", "ب", "ل", "ا", "ت", "ن", "م", "ک", "گ"],
         ["ظ", "ط", "ژ", "ز", "ر", "ذ", "د", "پ", "و", "ث"],
     ]
+    private static let englishRows: [[String]] = [
+        ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+        ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+        ["z", "x", "c", "v", "b", "n", "m"],
+    ]
+    private static let englishSymbolRows: [[String]] = [
+        ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+        ["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""],
+        [".", ",", "?", "!", "'", "#", "%"],
+    ]
     private static let symbolRows: [[String]] = [
         ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"],
         ["-", "/", ":", "؛", "(", ")", "«", "»", "@", "﷼"],
@@ -204,6 +214,14 @@ final class KeyboardViewController: UIInputViewController {
     ]
 
     private var layer = Layer.letters
+    /// English QWERTY instead of Persian; switched by swiping left or right on the space bar.
+    private static let englishKey = "keyboardEnglish"
+    private var isEnglish = UserDefaults.standard.bool(forKey: KeyboardViewController.englishKey) {
+        didSet { UserDefaults.standard.set(isEnglish, forKey: Self.englishKey) }
+    }
+    /// One-shot capital letter in the English layout.
+    private var isShifted = false
+    private let shiftKey = KeyView(symbol: "shift")
     private var characterKeys: [[KeyView]] = []
     private let statusHeight: CGFloat = 26
     private let backspaceKey = KeyView(symbol: "delete.right")
@@ -284,6 +302,9 @@ final class KeyboardViewController: UIInputViewController {
         }, for: .touchUpInside)
         zwnjKey.addTarget(self, action: #selector(insertZWNJ), for: .touchUpInside)
         spaceKey.addTarget(self, action: #selector(insertSpace), for: .touchUpInside)
+        spaceKey.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(spaceSwiped(_:))))
+        shiftKey.addTarget(self, action: #selector(toggleShift), for: .touchUpInside)
+        view.addSubview(shiftKey)
         returnKey.addTarget(self, action: #selector(insertReturn), for: .touchUpInside)
         for key in [backspaceKey, layerKey, settingsKey, emojiKey, zwnjKey, spaceKey, returnKey] {
             view.addSubview(key)
@@ -300,8 +321,8 @@ final class KeyboardViewController: UIInputViewController {
         characterKeys.flatMap { $0 }.forEach { $0.removeFromSuperview() }
         let rows: [[String]]
         switch layer {
-        case .letters: rows = Self.letterRows
-        case .symbols: rows = Self.symbolRows
+        case .letters: rows = isEnglish ? Self.englishRows : Self.letterRows
+        case .symbols: rows = isEnglish ? Self.englishSymbolRows : Self.symbolRows
         case .emoji:
             rows = []
             buildEmojiKeysIfNeeded()
@@ -311,15 +332,47 @@ final class KeyboardViewController: UIInputViewController {
             row.map { character in
                 let key = KeyView(title: character, fontSize: 23)
                 key.addAction(UIAction { [weak self] _ in
-                    self?.textDocumentProxy.insertText(character)
+                    guard let self else { return }
+                    self.textDocumentProxy.insertText(self.isShifted ? character.uppercased() : character)
+                    if self.isShifted { self.setShifted(false) }
                 }, for: .touchUpInside)
                 view.addSubview(key)
                 return key
             }
         }
-        layerKey.title = layer == .symbols ? "الفبا" : "۱۲۳"
+        if isEnglish {
+            layerKey.title = layer == .symbols ? "ABC" : "123"
+            spaceKey.title = "space"
+        } else {
+            layerKey.title = layer == .symbols ? "الفبا" : "۱۲۳"
+            spaceKey.title = "فاصله"
+        }
+        shiftKey.isHidden = !(isEnglish && layer == .letters)
+        setShifted(false)
         emojiKey.symbol = layer == .emoji ? "keyboard" : "face.smiling"
         view.setNeedsLayout()
+    }
+
+    private func setShifted(_ shifted: Bool) {
+        isShifted = shifted
+        shiftKey.symbol = shifted ? "shift.fill" : "shift"
+        guard isEnglish, layer == .letters else { return }
+        for key in characterKeys.flatMap({ $0 }) {
+            key.title = shifted ? key.title?.uppercased() : key.title?.lowercased()
+        }
+    }
+
+    @objc private func toggleShift() {
+        setShifted(!isShifted)
+    }
+
+    /// A horizontal swipe on the space bar switches between Persian and English, like SwiftKey.
+    @objc private func spaceSwiped(_ pan: UIPanGestureRecognizer) {
+        guard pan.state == .ended, abs(pan.translation(in: view).x) > 40 else { return }
+        isEnglish.toggle()
+        if layer == .emoji { layer = .letters }
+        buildCharacterKeys()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     /// The ~250 emoji keys are created the first time the panel opens, not when the keyboard
@@ -359,12 +412,16 @@ final class KeyboardViewController: UIInputViewController {
         let emojiRows = (Self.emojis.count + columns - 1) / columns
         emojiScroll.contentSize = CGSize(width: emojiScroll.frame.width, height: CGFloat(emojiRows) * rowHeight)
 
+        // In English the shift key takes the left end of the third row, mirroring backspace.
+        shiftKey.frame = CGRect(x: 0, y: backspaceY, width: 1.5 * unit, height: rowHeight)
+        let shiftWidth = shiftKey.isHidden ? 0 : 1.5 * unit
         for (index, row) in characterKeys.enumerated() {
             let y = statusHeight + CGFloat(index) * rowHeight
             let isLast = index == characterKeys.count - 1
-            let available = isLast ? bounds.width - 1.5 * unit : bounds.width
+            let start = isLast ? shiftWidth : 0
+            let available = isLast ? bounds.width - 1.5 * unit - shiftWidth : bounds.width
             let keyWidth = min(unit, available / CGFloat(row.count))
-            var x = (available - keyWidth * CGFloat(row.count)) / 2
+            var x = start + (available - keyWidth * CGFloat(row.count)) / 2
             for key in row {
                 key.frame = CGRect(x: x, y: y, width: keyWidth, height: rowHeight)
                 x += keyWidth
