@@ -1,5 +1,6 @@
 # Builds an unsigned PersianSTT.ipa on a GitHub macOS runner (no local Mac/Xcode needed).
-# Install the resulting .ipa on an iPhone with Sideloadly or AltStore, which sign it with your Apple ID.
+# Install the resulting .ipa with AltServer (Option-click > Sideload .ipa). With a free Apple ID,
+# Sideloadly signs the keyboard extension with the app's profile and iOS kills it at launch.
 name: Build unsigned IPA
 
 on:
@@ -139,7 +140,7 @@ jobs:
           done
           plutil -lint "$APP/fa.lproj/InfoPlist.strings" "$KB/fa.lproj/InfoPlist.strings"
           # Ad-hoc sign nested code (framework, keyboard, app) so the bundle has the usual
-          # signed layout; Sideloadly replaces these signatures with the Apple ID's.
+          # signed layout; AltServer replaces these signatures with the Apple ID's.
           for fw in Payload/PersianSTT.app/Frameworks/*.framework; do codesign --force --sign - "$fw"; done
           codesign --force --sign - Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex
           codesign --force --sign - Payload/PersianSTT.app

@@ -1,46 +1,39 @@
 # PersianSTT: تبدیل آفلاین گفتار فارسی به متن روی آیفون
 
-موتور: whisper.cpp با مدل Whisper کوانتیزه، زبان ثابت روی فارسی. پس از نصب، هیچ اتصال اینترنتی لازم نیست.
+موتور: whisper.cpp روی CPU، زبان ثابت روی فارسی. پس از نصب، هیچ اتصال اینترنتی لازم نیست.
 
-## پیش‌نیاز
-- مک با Xcode 16 یا جدیدتر
-- آیفون با iOS 17 یا بالاتر و کابل
-- یک Apple ID (حساب رایگان کافی است)
+مدل پیش‌فرض: `farbodbij/whisper-medium-Persian` با کوانتیزه‌ی q4_0 (۴۴۴ مگابایت، IPA حدود ۳۹۳ مگابایت).
+خطای کلمه روی FLEURS فارسی ۱۱.۳٪ و روی Common Voice ۲۰.۲٪، در برابر ۲۰.۶٪ و ۴۶.۱٪ برای large-v3-turbo معمولی.
 
-## ساخت و اجرا
-1. پوشه‌ی `persian-stt` را روی مک قرار دهید و در Terminal اجرا کنید:
-   ```
-   cd persian-stt
-   ./setup.sh
-   ```
-   این اسکریپت `whisper.xcframework` و مدل `ggml-base-q5_1.bin` (حدود ۵۷ مگابایت) را دانلود می‌کند.
-2. `PersianSTT.xcodeproj` را در Xcode باز کنید.
-3. هدف PersianSTT > Signing & Capabilities:
-   - Team: حساب Apple ID خودتان را انتخاب کنید.
-   - Bundle Identifier: آن را یکتا کنید، مثلاً `com.yourname.PersianSTT`.
-4. آیفون را وصل کنید، آن را به‌عنوان مقصد اجرا انتخاب کنید و Run (⌘R) را بزنید.
-5. بار اول روی آیفون: Settings > Privacy & Security > Developer Mode را روشن کنید، و در Settings > General > VPN & Device Management به گواهی توسعه‌دهنده اعتماد کنید.
+## ساخت
+نیازی به Xcode نیست. هر push به `main` در GitHub Actions یک `PersianSTT.ipa` امضانشده می‌سازد
+(`.github/workflows/build.yml`). فایل را از بخش Artifacts همان اجرا دانلود و از zip خارج کنید.
 
-برای سرعت واقعی، در Product > Scheme > Edit Scheme > Run گزینه‌ی Build Configuration را روی Release بگذارید. در حالت Debug کد Swift بهینه نمی‌شود، ولی بیشتر محاسبات داخل whisper.xcframework انجام می‌شود که همیشه بهینه‌شده است.
+ورودی‌های اجرای دستی:
+- `hf`: مدل fine-tune شده از Hugging Face که تبدیل و داخل برنامه قرار می‌گیرد؛ `none` یعنی از `model` استفاده شود.
+- `quant`: نوع کوانتیزه برای مدل Hugging Face (پیش‌فرض q4_0).
+- `model`: مدل ggml رسمی whisper.cpp، وقتی `hf=none` باشد.
 
-با حساب رایگان، اپ پس از ۷ روز منقضی می‌شود و باید دوباره از Xcode اجرا شود.
+## نصب روی آیفون
+با AltServer (مک یا ویندوز) و Apple ID رایگان:
+1. AltServer را از altstore.io نصب کنید و AltStore را روی گوشی نصب کنید.
+2. گوشی را وصل کنید، Option را نگه دارید، روی آیکون AltServer کلیک کنید و Sideload .ipa… را بزنید.
+3. هر ۷ روز در AltStore گزینه‌ی Refresh All را بزنید.
+
+Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کیبورد را با پروفایل خود برنامه امضا می‌کند و iOS آن را
+هنگام اجرا می‌بندد (AMFI: has entitlements but is not a main binary).
 
 ## استفاده
-- «ضبط صدا» را بزنید، صحبت کنید، و «توقف و تبدیل» را بزنید.
-- «انتخاب فایل صوتی» هر فایل m4a/wav/mp3 را تبدیل می‌کند، مثلاً از Voice Memos که در Files ذخیره شده است.
-
-## تغییر مدل
-دقت مدل base برای فارسی متوسط است. برای دقت بیشتر:
-```
-./setup.sh small-q5_1            # حدود ۱۸۱ مگابایت
-./setup.sh large-v3-turbo-q5_0   # حدود ۵۴۷ مگابایت، بهترین دقت، آیفون ۱۳ یا جدیدتر
-```
-اسکریپت مدل قبلی را حذف می‌کند. سپس در Xcode دوباره Run بزنید.
+- در برنامه: «ضبط صدا» یا «انتخاب فایل صوتی». متن خودکار کپی می‌شود.
+- کیبورد «دیکته‌ی فارسی»: در Settings > General > Keyboard > Keyboards اضافه کنید و Full Access را روشن کنید.
+  در برنامه «شروع جلسه‌ی کیبورد» را بزنید؛ سپس در هر برنامه‌ای با میکروفون کیبورد دیکته کنید.
 
 ## ساختار
-- `PersianSTT/WhisperContext.swift`: فراخوانی whisper.cpp با زبان `fa`
-- `PersianSTT/AudioLoader.swift`: تبدیل هر فایل صوتی به PCM تک‌کاناله‌ی ۱۶ کیلوهرتز
-- `PersianSTT/Transcriber.swift`: ضبط میکروفون و مدیریت وضعیت
-- `PersianSTT/ContentView.swift`: رابط کاربری راست‌به‌چپ
-- `PersianSTT/Models/`: فایل مدل `.bin` (توسط setup.sh پر می‌شود)
-- `Frameworks/whisper.xcframework`: توسط setup.sh دانلود می‌شود
+- `PersianSTT/WhisperContext.swift`: فراخوانی whisper.cpp، لغو تبدیل، کوتاه کردن پنجره‌ی صدا فقط برای مدل‌های رسمی
+- `PersianSTT/Transcriber.swift`: ضبط و تبدیل داخل برنامه
+- `PersianSTT/KeyboardSession.swift`: جلسه‌ی میکروفون پس‌زمینه برای کیبورد
+- `PersianSTTKeyboard/KeyboardViewController.swift`: کیبورد فارسی با دکمه‌ی میکروفون
+- `Shared/DictationBridge.swift`: ارتباط کیبورد و برنامه؛ فرمان‌ها با Darwin notification و متن از راه سوکت 127.0.0.1
+  (برنامه‌ی پس‌زمینه نمی‌تواند در کلیپ‌بورد بنویسد و App Group با حساب رایگان در دسترس نیست)
+- `.github/workflows/benchmark.yml` و `scripts/wer.py`: سنجش WER مدل‌ها روی FLEURS و Common Voice
+- `.github/workflows/keyboard-test.yml`: اجرای کیبورد در شبیه‌ساز و ثبت لاگ
