@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import UIKit
 
 /// Messages between the keyboard extension and the app.
 ///
@@ -139,5 +140,47 @@ enum TranscriptClient {
         }
         connection.start(queue: queue)
         queue.asyncAfter(deadline: .now() + 3) { finish(nil) }
+    }
+}
+
+/// Key background and outline colors, chosen in the app and applied by the keyboard.
+/// The app writes them to a named pasteboard (shared by apps of the same team, and written while
+/// the app is in the foreground); the keyboard reads it with Full Access and keeps a copy.
+struct KeyStyle: Codable, Equatable {
+    struct RGBA: Codable, Equatable {
+        var r, g, b, a: Double
+        var color: UIColor { UIColor(red: r, green: g, blue: b, alpha: a) }
+    }
+
+    var fill: RGBA
+    var stroke: RGBA
+
+    static let standard = KeyStyle(fill: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.18),
+                                   stroke: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.45))
+    private static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyStyle")
+    private static let pasteboardType = "public.json"
+    static let defaultsKey = "keyStyle"
+
+    /// App side: saves the style and hands it to the keyboard.
+    func save() {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        UserDefaults.standard.set(data, forKey: Self.defaultsKey)
+        UIPasteboard(name: Self.pasteboardName, create: true)?.setData(data, forPasteboardType: Self.pasteboardType)
+    }
+
+    /// Keyboard side: the app's latest style, else the last one seen, else the standard style.
+    static func load() -> KeyStyle {
+        if let data = UIPasteboard(name: pasteboardName, create: false)?.data(forPasteboardType: pasteboardType),
+           let style = try? JSONDecoder().decode(KeyStyle.self, from: data) {
+            UserDefaults.standard.set(data, forKey: defaultsKey)
+            return style
+        }
+        return saved
+    }
+
+    /// The style stored in this process's own defaults.
+    static var saved: KeyStyle {
+        UserDefaults.standard.data(forKey: defaultsKey)
+            .flatMap { try? JSONDecoder().decode(KeyStyle.self, from: $0) } ?? standard
     }
 }

@@ -46,6 +46,7 @@ final class KeyboardViewController: UIInputViewController {
             showPreview(previewState)
             return
         }
+        applyKeyStyle(KeyStyle.load())
         checkSession()
     }
 
@@ -336,6 +337,7 @@ final class KeyboardViewController: UIInputViewController {
                     self.textDocumentProxy.insertText(self.isShifted ? character.uppercased() : character)
                     if self.isShifted { self.setShifted(false) }
                 }, for: .touchUpInside)
+                key.apply(keyStyle)
                 view.addSubview(key)
                 return key
             }
@@ -351,6 +353,16 @@ final class KeyboardViewController: UIInputViewController {
         setShifted(false)
         emojiKey.symbol = layer == .emoji ? "keyboard" : "face.smiling"
         view.setNeedsLayout()
+    }
+
+    private var keyStyle = KeyStyle.standard
+
+    private func applyKeyStyle(_ style: KeyStyle) {
+        keyStyle = style
+        let functionKeys = [backspaceKey, layerKey, settingsKey, emojiKey, zwnjKey, spaceKey, returnKey, shiftKey]
+        for key in functionKeys + characterKeys.flatMap({ $0 }) {
+            key.apply(style)
+        }
     }
 
     private func setShifted(_ shifted: Bool) {
@@ -492,8 +504,10 @@ final class KeyboardViewController: UIInputViewController {
     }
 }
 
-/// A key with a transparent background. It shows a faint highlight only while pressed.
+/// A key with an optional background and outline (see `KeyStyle`) and a faint highlight
+/// while pressed. Emoji keys keep no background.
 private final class KeyView: UIControl {
+    private let face = UIView()
     private let label = UILabel()
     private let imageView = UIImageView()
     private let highlight = UIView()
@@ -514,6 +528,9 @@ private final class KeyView: UIControl {
     init(title: String? = nil, symbol: String? = nil, fontSize: CGFloat = 20) {
         super.init(frame: .zero)
         backgroundColor = .clear
+        face.layer.cornerRadius = 6
+        face.isUserInteractionEnabled = false
+        addSubview(face)
         highlight.backgroundColor = UIColor.label.withAlphaComponent(0.12)
         highlight.layer.cornerRadius = 6
         highlight.isUserInteractionEnabled = false
@@ -541,10 +558,17 @@ private final class KeyView: UIControl {
         fatalError("init(coder:) has not been implemented")
     }
 
+    func apply(_ style: KeyStyle) {
+        face.backgroundColor = style.fill.color
+        face.layer.borderColor = style.stroke.color.cgColor
+        face.layer.borderWidth = style.stroke.a > 0 ? 1 : 0
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         let inner = bounds.insetBy(dx: 2.5, dy: 4)
         highlight.frame = inner
+        face.frame = inner
         label.frame = inner.insetBy(dx: 1, dy: 0)
         imageView.frame = inner
     }

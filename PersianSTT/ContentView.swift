@@ -7,6 +7,7 @@ struct ContentView: View {
     @ObservedObject private var model = Transcriber.shared
     @ObservedObject private var keyboard = KeyboardSession.shared
     @State private var showImporter = false
+    @State private var showKeyStyle = false
     @AppStorage(KeyboardSession.idleMinutesKey) private var sessionMinutes = KeyboardSession.defaultIdleMinutes
     @AppStorage(KeyboardSession.noiseSuppressionKey) private var noiseSuppression = true
     @Environment(\.scenePhase) private var scenePhase
@@ -86,6 +87,9 @@ struct ContentView: View {
                     }
                 }
 
+                Button("ظاهر کیبورد") { showKeyStyle = true }
+                    .font(.footnote)
+
                 if !model.modelName.isEmpty {
                     Text("مدل: \(model.modelName)")
                         .font(.caption2)
@@ -97,6 +101,9 @@ struct ContentView: View {
             .fileImporter(isPresented: $showImporter, allowedContentTypes: [.audio]) { result in
                 model.importFile(result)
             }
+            .sheet(isPresented: $showKeyStyle) { KeyStyleView() }
+            // Rewrites the shared pasteboard copy, which a reinstall or reboot can clear.
+            .onAppear { KeyStyle.saved.save() }
             .onOpenURL { url in
                 if url.host == "session" {
                     keyboard.start()
@@ -109,5 +116,70 @@ struct ContentView: View {
             }
         }
         .environment(\.layoutDirection, .rightToLeft)
+    }
+}
+
+/// Colour and opacity of the keyboard's key background and outline. The keyboard reads the
+/// style from a named pasteboard each time it appears.
+struct KeyStyleView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var style = KeyStyle.saved
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    HStack {
+                        Spacer()
+                        Text("ب")
+                            .font(.title2)
+                            .frame(width: 44, height: 50)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Color(style.fill.color)))
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(style.stroke.color), lineWidth: 1))
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                }
+                Section("پس‌زمینه‌ی دکمه") {
+                    ColorPicker("رنگ", selection: colorBinding(\.fill), supportsOpacity: false)
+                    opacitySlider(\.fill)
+                }
+                Section("دور دکمه") {
+                    ColorPicker("رنگ", selection: colorBinding(\.stroke), supportsOpacity: false)
+                    opacitySlider(\.stroke)
+                }
+                Button("بازگشت به پیش‌فرض") { style = .standard }
+            }
+            .navigationTitle("ظاهر کیبورد")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("تمام") { dismiss() } }
+            }
+            .onChange(of: style) { _, new in new.save() }
+        }
+        .environment(\.layoutDirection, .rightToLeft)
+    }
+
+    private func colorBinding(_ path: WritableKeyPath<KeyStyle, KeyStyle.RGBA>) -> Binding<Color> {
+        Binding {
+            let c = style[keyPath: path]
+            return Color(red: c.r, green: c.g, blue: c.b)
+        } set: { color in
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+            style[keyPath: path].r = Double(r)
+            style[keyPath: path].g = Double(g)
+            style[keyPath: path].b = Double(b)
+        }
+    }
+
+    private func opacitySlider(_ path: WritableKeyPath<KeyStyle, KeyStyle.RGBA>) -> some View {
+        HStack {
+            Text("شفافیت")
+            Slider(value: Binding { style[keyPath: path].a } set: { style[keyPath: path].a = $0 }, in: 0...1)
+            Text("\(Int(style[keyPath: path].a * 100))٪")
+                .monospacedDigit()
+                .frame(width: 44)
+        }
     }
 }
