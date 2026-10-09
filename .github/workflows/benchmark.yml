@@ -121,15 +121,17 @@ jobs:
           cli=whisper.cpp/build/bin/whisper-cli
           args=(-m model.bin -l fa -t 4 -nt -np -otxt -bs "${{ matrix.beam || 1 }}" -bo 1)
           if [ -n "${{ matrix.prompt }}" ]; then args+=(--prompt "${{ matrix.prompt }}"); fi
+          if [ -n "${{ matrix.fa }}" ]; then args+=(-fa); fi
           files=()
           for f in clips/*.wav; do files+=(-f "$f"); done
           start=$(date +%s.%N)
           if [ -n "${{ matrix.nemo }}" ]; then
             python3 scripts/sherpa_transcribe.py model.bin nemo-onnx/tokens.txt clips 80
           elif [ -n "${{ matrix.appctx }}" ]; then
-            # Same shortened encoder window as the app (WhisperContext.audioContext).
+            # Same shortened encoder window as the app (WhisperContext.audioContext);
+            # ctxmin raises the floor (384 frames in the app, 1500 = the full 30 s window).
             for f in clips/*.wav; do
-              ac=$(python3 -c "import wave,sys; w=wave.open(sys.argv[1]); s=w.getnframes()/w.getframerate(); print(0 if s>=28 else min(1500,max(384,int(s*50)+128)))" "$f")
+              ac=$(python3 -c "import wave,sys; w=wave.open(sys.argv[1]); s=w.getnframes()/w.getframerate(); m=int(sys.argv[2]); print(0 if s>=28 else min(1500,max(m,int(s*50)+128)))" "$f" "${{ matrix.ctxmin || 384 }}")
               "$cli" "${args[@]}" -ac "$ac" -f "$f" 2>/dev/null
             done
           else
