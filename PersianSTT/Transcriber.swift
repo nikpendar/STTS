@@ -110,7 +110,12 @@ final class Transcriber: ObservableObject {
         }
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.record, mode: .default)
+            // voiceChat mode turns on Apple's voice processing (noise suppression) for the recorder.
+            if KeyboardSession.noiseSuppression {
+                try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
+            } else {
+                try session.setCategory(.record, mode: .default)
+            }
             try session.setActive(true)
             let settings: [String: Any] = [
                 AVFormatIDKey: Int(kAudioFormatLinearPCM),

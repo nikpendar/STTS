@@ -13,6 +13,12 @@ final class KeyboardSession: ObservableObject {
     static var idleMinutes: Int {
         UserDefaults.standard.object(forKey: idleMinutesKey) as? Int ?? defaultIdleMinutes
     }
+    /// Apple's voice processing on the microphone: noise suppression and echo cancellation.
+    /// It also lets the user pick Voice Isolation in the system microphone-mode menu.
+    static let noiseSuppressionKey = "noiseSuppression"
+    static var noiseSuppression: Bool {
+        UserDefaults.standard.object(forKey: noiseSuppressionKey) as? Bool ?? true
+    }
 
     @Published private(set) var isActive = false
     @Published private(set) var message = ""
@@ -61,6 +67,13 @@ final class KeyboardSession: ObservableObject {
         }
     }
 
+    /// Restarts a running session so a changed noise-suppression setting takes effect.
+    func noiseSuppressionChanged() {
+        guard isActive else { return }
+        stop()
+        start()
+    }
+
     /// Applies a changed session length to a running session.
     func idleMinutesChanged() {
         if isActive { resetIdleTimer() }
@@ -78,6 +91,12 @@ final class KeyboardSession: ObservableObject {
             try session.setActive(true)
 
             let input = engine.inputNode
+            try input.setVoiceProcessingEnabled(Self.noiseSuppression)
+            if Self.noiseSuppression {
+                // Voice processing ducks other audio by default; keep music and videos at their volume.
+                input.voiceProcessingOtherAudioDuckingConfiguration =
+                    AVAudioVoiceProcessingOtherAudioDuckingConfiguration(enableAdvancedDucking: false, duckingLevel: .min)
+            }
             let inFormat = input.outputFormat(forBus: 0)
             guard let outFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
                                                 sampleRate: AudioLoader.sampleRate,

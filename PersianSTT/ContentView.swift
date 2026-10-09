@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 import UIKit
 import UniformTypeIdentifiers
 
@@ -7,6 +8,7 @@ struct ContentView: View {
     @ObservedObject private var keyboard = KeyboardSession.shared
     @State private var showImporter = false
     @AppStorage(KeyboardSession.idleMinutesKey) private var sessionMinutes = KeyboardSession.defaultIdleMinutes
+    @AppStorage(KeyboardSession.noiseSuppressionKey) private var noiseSuppression = true
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -68,6 +70,15 @@ struct ContentView: View {
                     Text("جلسه بعد از این مدت بی‌استفاده بسته می‌شود. جلسه‌ی باز باتری مصرف می‌کند.")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
+                    Toggle("حذف نویز", isOn: $noiseSuppression)
+                        .onChange(of: noiseSuppression) { _, _ in keyboard.noiseSuppressionChanged() }
+                    if noiseSuppression && keyboard.isActive {
+                        // Voice Isolation keeps only the nearest voice; iOS offers it only while voice processing is on.
+                        Button("فقط صدای من (Voice Isolation)") {
+                            AVCaptureDevice.showSystemUserInterface(.microphoneModes)
+                        }
+                        .font(.caption)
+                    }
                     if !keyboard.message.isEmpty {
                         Text(keyboard.message)
                             .font(.caption)
