@@ -126,6 +126,18 @@ jobs:
           # The dictation keyboard must be embedded, or iOS never lists it.
           ls Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex
           plutil -p Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/Info.plist
+          # AltServer names Apple App IDs after CFBundleDisplayName and rejects non-ASCII names,
+          # so Info.plist gets English names and the Persian ones move to InfoPlist.strings.
+          APP=Payload/PersianSTT.app
+          KB=$APP/PlugIns/PersianSTTKeyboard.appex
+          plutil -replace CFBundleDisplayName -string "PersianSTT" "$APP/Info.plist"
+          plutil -replace CFBundleDisplayName -string "Persian Dictation" "$KB/Info.plist"
+          for lang in Base en fa; do
+            mkdir -p "$APP/$lang.lproj" "$KB/$lang.lproj"
+            printf '"CFBundleDisplayName" = "%s";\n' "گفتار به متن" > "$APP/$lang.lproj/InfoPlist.strings"
+            printf '"CFBundleDisplayName" = "%s";\n' "دیکته‌ی فارسی" > "$KB/$lang.lproj/InfoPlist.strings"
+          done
+          plutil -lint "$APP/fa.lproj/InfoPlist.strings" "$KB/fa.lproj/InfoPlist.strings"
           # Ad-hoc sign nested code (framework, keyboard, app) so the bundle has the usual
           # signed layout; Sideloadly replaces these signatures with the Apple ID's.
           for fw in Payload/PersianSTT.app/Frameworks/*.framework; do codesign --force --sign - "$fw"; done
