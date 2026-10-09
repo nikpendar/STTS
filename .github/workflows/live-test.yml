@@ -99,16 +99,16 @@ jobs:
           dump out/ui-1.json || true
           read MX MY < <(python3 find.py dictationMic out/ui-1.json || echo "383 817")
           axe tap -x "$MX" -y "$MY" --udid "$DEVICE"
-          for t in 3 6 9 12 15 18; do
-            sleep 3
-            xcrun simctl io "$DEVICE" screenshot "out/2-recording-${t}s.png"
-          done
+          # One screenshot only: each one costs the 3-core runner seconds of CPU and skews pass times.
+          sleep 16
+          xcrun simctl io "$DEVICE" screenshot out/2-recording-16s.png
+          sleep 3
           dump out/ui-2.json || true
           read OX OY < <(python3 find.py dictationOrb out/ui-2.json || echo "201 760")
           axe tap -x "$OX" -y "$OY" --udid "$DEVICE"
           sleep 1
           xcrun simctl io "$DEVICE" screenshot out/3-processing.png
-          sleep 12
+          sleep 20
           xcrun simctl io "$DEVICE" screenshot out/4-done.png
           dump out/ui-4.json || true
           python3 - <<'PY'
