@@ -210,6 +210,7 @@ final class KeyboardViewController: UIInputViewController {
     private let settingsKey = KeyView(symbol: "gearshape")
     private let emojiKey = KeyView(symbol: "face.smiling")
     private let emojiScroll = UIScrollView()
+    private var emojiKeysBuilt = false
     private let layerKey = KeyView(title: "۱۲۳", fontSize: 16)
     private let zwnjKey = KeyView(title: "<|>", fontSize: 17)
     private let spaceKey = KeyView(title: "فاصله", fontSize: 15)
@@ -273,13 +274,6 @@ final class KeyboardViewController: UIInputViewController {
         emojiScroll.showsVerticalScrollIndicator = false
         emojiScroll.isHidden = true
         view.addSubview(emojiScroll)
-        for emoji in Self.emojis {
-            let key = KeyView(title: emoji, fontSize: 28)
-            key.addAction(UIAction { [weak self] _ in
-                self?.textDocumentProxy.insertText(emoji)
-            }, for: .touchUpInside)
-            emojiScroll.addSubview(key)
-        }
 
         backspaceKey.addTarget(self, action: #selector(backspaceDown), for: .touchDown)
         backspaceKey.addTarget(self, action: #selector(backspaceUp), for: [.touchUpInside, .touchUpOutside, .touchCancel])
@@ -308,7 +302,9 @@ final class KeyboardViewController: UIInputViewController {
         switch layer {
         case .letters: rows = Self.letterRows
         case .symbols: rows = Self.symbolRows
-        case .emoji: rows = []
+        case .emoji:
+            rows = []
+            buildEmojiKeysIfNeeded()
         }
         emojiScroll.isHidden = layer != .emoji
         characterKeys = rows.map { row in
@@ -324,6 +320,20 @@ final class KeyboardViewController: UIInputViewController {
         layerKey.title = layer == .symbols ? "الفبا" : "۱۲۳"
         emojiKey.symbol = layer == .emoji ? "keyboard" : "face.smiling"
         view.setNeedsLayout()
+    }
+
+    /// The ~250 emoji keys are created the first time the panel opens, not when the keyboard
+    /// loads, so switching to this keyboard stays as quick as switching to the system ones.
+    private func buildEmojiKeysIfNeeded() {
+        guard !emojiKeysBuilt else { return }
+        emojiKeysBuilt = true
+        for emoji in Self.emojis {
+            let key = KeyView(title: emoji, fontSize: 28)
+            key.addAction(UIAction { [weak self] _ in
+                self?.textDocumentProxy.insertText(emoji)
+            }, for: .touchUpInside)
+            emojiScroll.addSubview(key)
+        }
     }
 
     /// Keys are laid out on a grid of 12 columns, like the system keyboard. Each key's frame
