@@ -203,15 +203,15 @@ final class Transcriber: ObservableObject {
         whisper?.abort.set()
     }
 
-    /// Used by the keyboard session, which records its own audio.
+    /// Used by the keyboard session, which records its own audio. The result goes only to the
+    /// keyboard, not to the app's text box.
     func transcribe(samples: [Float]) async throws -> String {
         if whisper == nil {
             await loadTask?.value
         }
         guard let whisper else { throw WhisperError.cannotLoadModel }
         let result = try await whisper.transcribe(samples: samples, shortenAudioContext: shortensAudioContext)
-        text = result.trimmingCharacters(in: .whitespacesAndNewlines)
-        return text
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Transcribes, then copies the text to the clipboard so it can be pasted into any app.

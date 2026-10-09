@@ -22,6 +22,7 @@ final class KeyboardSession: ObservableObject {
     private let engine = AVAudioEngine()
     private let observer = DarwinObserver()
     private let collector = SampleCollector()
+    private let server = TranscriptServer()
     private var idleTimer: Timer?
     private var isCapturing = false
     /// Identifies the current dictation, so a cancelled one cannot report a late result.
@@ -109,6 +110,7 @@ final class KeyboardSession: ObservableObject {
             }
             engine.prepare()
             try engine.start()
+            server.start()
             isActive = true
             message = "کیبورد آماده است. به اپ قبلی برگردید."
             resetIdleTimer()
@@ -126,6 +128,7 @@ final class KeyboardSession: ObservableObject {
         engine.stop()
         _ = collector.end()
         isCapturing = false
+        server.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if isActive {
             message = "جلسه‌ی کیبورد تمام شد."
@@ -170,7 +173,7 @@ final class KeyboardSession: ObservableObject {
                     DictationBridge.post(DictationBridge.failed)
                     return
                 }
-                UIPasteboard.general.string = text
+                server.publish(text)
                 DictationBridge.post(DictationBridge.done)
             } catch {
                 if id == dictationID { DictationBridge.post(DictationBridge.failed) }

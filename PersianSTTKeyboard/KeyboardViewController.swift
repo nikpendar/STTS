@@ -134,10 +134,15 @@ final class KeyboardViewController: UIInputViewController {
     private func insertTranscript() {
         guard state == .transcribing else { return }
         cancelTimeout()
-        if let text = UIPasteboard.general.string, !text.isEmpty {
-            textDocumentProxy.insertText(text)
+        TranscriptClient.fetch { [weak self] text in
+            guard let self, self.state == .transcribing else { return }
+            if let text, !text.isEmpty {
+                self.textDocumentProxy.insertText(text)
+                self.state = .ready
+            } else {
+                self.transcriptionFailed()
+            }
         }
-        state = .ready
     }
 
     private func transcriptionFailed() {
