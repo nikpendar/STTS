@@ -40,7 +40,10 @@ actor WhisperContext {
     /// frames) instead of a full 30 s window; 0 keeps the full window. It must be 0 when a Core ML
     /// encoder is loaded: that encoder has a fixed 30 s input and always produces the full context.
     /// Setting `abort` from any thread stops this transcription, even before it has started.
-    func transcribe(samples: [Float], minimumAudioContext: Int, abort: AbortFlag) throws -> String {
+    /// `preview` is for live text while the user is still speaking: one segment, no timestamps,
+    /// no temperature fallback and a token cap. Without these a pass over the first second or two
+    /// of a recording could loop on repeated tokens for close to a minute.
+    func transcribe(samples: [Float], minimumAudioContext: Int, abort: AbortFlag, preview: Bool = false) throws -> String {
         guard !abort.isSet else { throw WhisperError.cancelled }
         var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
         let threads = max(1, min(8, ProcessInfo.processInfo.activeProcessorCount - 2))
@@ -63,6 +66,12 @@ actor WhisperContext {
             params.print_special = false
             params.n_threads = Int32(threads)
             params.audio_ctx = audioContext
+            if preview {
+                params.single_segment = true
+                params.no_timestamps = true
+                params.temperature_inc = 0
+                params.max_tokens = Int32(Double(samples.count) / 16_000 * 10) + 16
+            }
             return samples.withUnsafeBufferPointer { buf in
                 whisper_full(context, params, buf.baseAddress, Int32(buf.count))
             }

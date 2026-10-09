@@ -251,7 +251,7 @@ final class KeyboardSession: ObservableObject {
                 let started = Date()
                 let text: String
                 do {
-                    text = try await Transcriber.shared.transcribe(samples: piece, abort: abort)
+                    text = try await Transcriber.shared.transcribe(samples: piece, abort: abort, preview: cut == nil)
                 } catch {
                     log.info("live pass failed after \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s: \(error.localizedDescription, privacy: .public)")
                     continue

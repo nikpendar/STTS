@@ -207,14 +207,15 @@ final class Transcriber: ObservableObject {
 
     /// Used by the keyboard session, which records its own audio. The result goes only to the
     /// keyboard, not to the app's text box. Setting `abort` stops it with `WhisperError.cancelled`.
-    func transcribe(samples: [Float], abort: AbortFlag) async throws -> String {
+    func transcribe(samples: [Float], abort: AbortFlag, preview: Bool = false) async throws -> String {
         if whisper == nil {
             await loadTask?.value
         }
         guard let whisper else { throw WhisperError.cannotLoadModel }
         let start = Date()
-        let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext, abort: abort)
-        learnSpeed(sampleCount: samples.count, elapsed: Date().timeIntervalSince(start))
+        let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext, abort: abort,
+                                              preview: preview)
+        if !preview { learnSpeed(sampleCount: samples.count, elapsed: Date().timeIntervalSince(start)) }
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 

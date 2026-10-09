@@ -126,11 +126,15 @@ jobs:
               print("no UI dump", e)
           PY
 
-          # Landscape: Simulator's Rotate Left shortcut.
-          osascript -e 'tell application "Simulator" to activate' \
-                    -e 'tell application "System Events" to keystroke (ASCII character 28) using command down' || true
-          sleep 5
-          xcrun simctl io "$DEVICE" screenshot out/5-landscape.png
+          # English layout: swipe along the space bar.
+          axe swipe --start-x 190 --start-y 817 --end-x 290 --end-y 817 --udid "$DEVICE" || true
+          sleep 2
+          xcrun simctl io "$DEVICE" screenshot out/5-english.png
+          # Landscape: the test build allows only landscape with -testLandscape.
+          xcrun simctl terminate "$DEVICE" "$ID" || true
+          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav" -testLandscape 1
+          sleep 12
+          xcrun simctl io "$DEVICE" screenshot out/6-landscape.png
           kill $LOG || true
           echo "===== log"
           grep -E "live |final pass|recording started|test audio" out/log.txt | cut -c1-300 || true
