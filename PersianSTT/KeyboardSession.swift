@@ -1,5 +1,8 @@
 import AVFoundation
 import UIKit
+import os
+
+private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "dictation")
 
 /// Keeps the microphone open while the app is in the background so the dictation keyboard
 /// can record and get transcripts without leaving the text field. Keyboard extensions
@@ -87,9 +90,20 @@ final class KeyboardSession: ObservableObject {
         if isActive { resetIdleTimer() }
     }
 
+    /// CI only: launch argument `-testAudio <path>` plays this file into recordings instead of
+    /// the microphone, so the simulator can test dictation end to end.
+    private let testAudio = UserDefaults.standard.string(forKey: "testAudio")
+    private var testFeed: Task<Void, Never>?
+
     func start() {
         guard !isActive else {
             resetIdleTimer()
+            return
+        }
+        if testAudio != nil {
+            server.start()
+            isActive = true
+            DictationBridge.post(DictationBridge.alive)
             return
         }
         do {
@@ -177,7 +191,29 @@ final class KeyboardSession: ObservableObject {
         isCapturing = true
         resetIdleTimer()
         DictationBridge.post(DictationBridge.recording)
+        log.info("recording started, live text \(Self.liveTranscription)")
         if Self.liveTranscription { startLiveTranscription(id: dictationID) }
+        if let testAudio { feedTestAudio(testAudio) }
+    }
+
+    /// Appends the test file to the recording in real time, 0.1 s at a time.
+    private func feedTestAudio(_ path: String) {
+        guard let samples = try? AudioLoader.loadSamples(url: URL(fileURLWithPath: path)) else {
+            log.error("cannot read test audio \(path, privacy: .public)")
+            return
+        }
+        let chunk = Int(AudioLoader.sampleRate) / 10
+        let collector = self.collector
+        testFeed?.cancel()
+        testFeed = Task.detached {
+            var start = 0
+            while start < samples.count, !Task.isCancelled {
+                let end = min(start + chunk, samples.count)
+                samples[start..<end].withUnsafeBufferPointer { collector.append($0.baseAddress!, count: $0.count) }
+                start = end
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+        }
     }
 
     /// Live mode: text of the pieces already committed, and how many samples they cover.
@@ -209,8 +245,10 @@ final class KeyboardSession: ObservableObject {
                 let tail = self.collector.snapshot(from: self.committedCount)
                 let cut = tail.count >= rate * 10 ? Self.pause(in: tail) : nil
                 let piece = cut.map { Array(tail[..<$0]) } ?? tail
+                let started = Date()
                 guard let text = try? await Transcriber.shared.transcribe(samples: piece, abort: abort),
                       self.isCapturing, self.dictationID == id else { continue }
+                log.info("live pass: \(Double(piece.count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s audio in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s, cut \(cut ?? -1), \(text.count) chars")
                 if let cut {
                     self.committedText = Self.join(self.committedText, text)
                     self.committedCount += cut
@@ -258,6 +296,7 @@ final class KeyboardSession: ObservableObject {
     private func finishCapture() {
         guard isActive, isCapturing else { return }
         isCapturing = false
+        testFeed?.cancel()
         let samples = collector.end()
         resetIdleTimer()
         dictationID += 1
@@ -277,7 +316,9 @@ final class KeyboardSession: ObservableObject {
                     let estimate = Transcriber.shared.estimatedSeconds(sampleCount: rest.count)
                     server.publish(DictationBridge.estimatePrefix + String(format: "%.1f", estimate))
                     DictationBridge.post(DictationBridge.progress)
+                    let started = Date()
                     text = Self.join(prefix, try await Transcriber.shared.transcribe(samples: rest, abort: abort))
+                    log.info("final pass: \(Double(rest.count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s audio in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s, estimate \(estimate, format: .fixed(precision: 1)) s")
                 }
                 guard id == dictationID else { return }
                 guard !text.isEmpty else {

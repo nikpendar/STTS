@@ -72,6 +72,12 @@ struct ContentView: View {
                     SettingLabel("رنگ دور دکمه", symbol: "square", color: .indigo)
                 }
                 opacitySlider(\.stroke)
+                ColorPicker(selection: textColorBinding, supportsOpacity: false) {
+                    SettingLabel("رنگ حروف", symbol: "textformat", color: .teal)
+                }
+                if style.text != nil {
+                    opacitySlider(\.text!)
+                }
                 Button("بازگشت به پیش‌فرض") { style = .standard }
             } header: {
                 Text("ظاهر دکمه‌ها")
@@ -176,6 +182,17 @@ struct ContentView: View {
         }
     }
 
+    /// Letters follow the system colour until a colour is picked.
+    private var textColorBinding: Binding<Color> {
+        Binding {
+            style.text.map { Color(red: $0.r, green: $0.g, blue: $0.b) } ?? Color(.label)
+        } set: { color in
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+            style.text = KeyStyle.RGBA(r: Double(r), g: Double(g), b: Double(b), a: style.text?.a ?? 1)
+        }
+    }
+
     private func opacitySlider(_ path: WritableKeyPath<KeyStyle, KeyStyle.RGBA>) -> some View {
         HStack {
             Image(systemName: "circle.lefthalf.filled")
@@ -241,6 +258,7 @@ private struct KeyPreview: View {
             ForEach(["ض", "ص", "ق", "ف", "غ", "ع"], id: \.self) { letter in
                 Text(letter)
                     .font(.title3)
+                    .foregroundStyle(Color(style.textColor))
                     .frame(maxWidth: .infinity, minHeight: 42)
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color(style.fill.color)))
                     .overlay(RoundedRectangle(cornerRadius: 6)

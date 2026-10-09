@@ -14,6 +14,9 @@ struct KeyboardTestView: View {
                 .padding()
             Spacer()
         }
-        .onAppear { focused = true }
+        .onAppear {
+            focused = true
+            if UserDefaults.standard.string(forKey: "testAudio") != nil { KeyboardSession.shared.start() }
+        }
     }
 }

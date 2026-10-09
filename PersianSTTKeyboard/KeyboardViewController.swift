@@ -12,14 +12,17 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private let observer = DarwinObserver()
-    private let statusLabel = UILabel()
     private let micButton = UIButton(type: .system)
     /// Holds every key; hidden while dictating, when the keyboard shrinks to `orb`.
     private let keysView = UIView()
     private let orb = DictationOrbView()
     private var heightConstraint: NSLayoutConstraint?
-    private static let fullHeight: CGFloat = 262
-    private static let compactHeight: CGFloat = 190
+    /// Row height: as low as keys stay comfortable to hit, lower in landscape.
+    private var rowHeight: CGFloat { isLandscape ? 32 : 40 }
+    private var fullHeight: CGFloat { 4 * rowHeight + 4 }
+    private var compactHeight: CGFloat { isLandscape ? 120 : 150 }
+    private var isLandscape: Bool { UIScreen.main.bounds.width > UIScreen.main.bounds.height }
+    private var messageTimer: Timer?
     private var recordingStart = Date()
     private var isCompact = false
     private var timeout: DispatchWorkItem?
@@ -93,9 +96,15 @@ final class KeyboardViewController: UIInputViewController {
     // MARK: - Session
 
     private func checkSession() {
-        guard hasFullAccess else {
+        // The simulator test cannot switch on Full Access.
+        #if targetEnvironment(simulator)
+        let fullAccess = true
+        #else
+        let fullAccess = hasFullAccess
+        #endif
+        guard fullAccess else {
             state = .noSession
-            statusLabel.text = "در تنظیمات کیبورد، Allow Full Access را روشن کنید."
+            showStatus("Allow Full Access را روشن کنید")
             return
         }
         state = .checking
@@ -139,7 +148,7 @@ final class KeyboardViewController: UIInputViewController {
             DictationBridge.post(DictationBridge.cancel)
             replaceLiveText(with: "")
             state = .ready
-            statusLabel.text = "تبدیل لغو شد."
+            showStatus("لغو شد", transient: true)
         case .starting:
             break
         }
@@ -198,7 +207,7 @@ final class KeyboardViewController: UIInputViewController {
         cancelTimeout()
         liveText = ""
         state = .ready
-        statusLabel.text = "متنی تشخیص داده نشد. دوباره امتحان کنید."
+        showStatus("متنی تشخیص داده نشد", transient: true)
     }
 
     /// Extensions cannot call UIApplication.open, so the host's UIApplication is found
@@ -218,7 +227,19 @@ final class KeyboardViewController: UIInputViewController {
             }
             responder = current.next
         }
-        statusLabel.text = "اپ «گفتار به متن» را باز کنید و «شروع جلسه‌ی کیبورد» را بزنید."
+        showStatus("اپ را باز کنید و جلسه را شروع کنید")
+    }
+
+    /// Messages show on the space bar, so the keyboard needs no status row. A transient one
+    /// disappears after a few seconds.
+    private func showStatus(_ text: String?, transient: Bool = false) {
+        messageTimer?.invalidate()
+        messageTimer = nil
+        spaceKey.message = text
+        guard transient, text != nil else { return }
+        messageTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.spaceKey.message = nil }
+        }
     }
 
     private func schedule(after seconds: TimeInterval, _ work: @escaping () -> Void) {
@@ -241,27 +262,31 @@ final class KeyboardViewController: UIInputViewController {
         "😀😃😄😁😆😅😂🤣🙂🙃😉😊😇🥰😍🤩😘😗😚😙😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶🥴😵🤯🤠🥳😎🤓🧐😕😟🙁😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👻👽🤖😺😸😹😻😼😽🙀😿😾🙈🙉🙊💋💌💘💝💖💗💓💞💕💟❣💔🧡💛💚💙💜🤎🖤🤍💯💢💥💫💦💨🕳💬💭💤👋🤚🖐✋🖖👌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪🌹🌷🌸🌼🌻🌺🍀🍁🍂🌱🌲🌳🌴🌵☀🌙⭐🌟✨⚡🔥🌈☁❄💧🌊🍎🍊🍋🍉🍇🍓🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥕🌽🍞🧀🍕🍔🍟🌭🥗🍿🍰🎂🍫🍬🍭🍩🍪☕🍵🥤🎉🎊🎁🎈🏆⚽🏀🎵🎶📱💻⌚📷💡📚✏📌📎✂🔒🔑❤✅❌❓❗⚠🇮🇷"
     ).map(String.init)
 
+    /// Every key has the same width except space, and the keys fill the whole width. A layer
+    /// has `columns` keys per row: Persian 11, English 10. The third row ends with backspace
+    /// (and in English letters starts with shift), so it has one or two letters fewer.
     /// Persian layout of Apple's iOS keyboard.
     private static let letterRows: [[String]] = [
         ["ض", "ص", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"],
         ["ش", "س", "ی", "ب", "ل", "ا", "ت", "ن", "م", "ک", "گ"],
         ["ظ", "ط", "ژ", "ز", "ر", "ذ", "د", "پ", "و", "ث"],
     ]
+    private static let symbolRows: [[String]] = [
+        ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰", "٪"],
+        ["-", "/", ":", "؛", "(", ")", "«", "»", "@", "﷼", "\""],
+        ["آ", "ئ", "ء", "أ", "ؤ", "ة", ".", "،", "؟", "!"],
+    ]
     private static let englishRows: [[String]] = [
         ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-        ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-        ["z", "x", "c", "v", "b", "n", "m"],
+        ["a", "s", "d", "f", "g", "h", "j", "k", "l", "'"],
+        ["z", "x", "c", "v", "b", "n", "m", ","],
     ]
     private static let englishSymbolRows: [[String]] = [
         ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
         ["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""],
-        [".", ",", "?", "!", "'", "#", "%"],
+        [".", ",", "?", "!", "'", "#", "%", "*", "+"],
     ]
-    private static let symbolRows: [[String]] = [
-        ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"],
-        ["-", "/", ":", "؛", "(", ")", "«", "»", "@", "﷼"],
-        ["آ", "ئ", "ء", "أ", ".", "،", "؟", "!"],
-    ]
+    private var columns: Int { isEnglish ? 10 : 11 }
 
     private var layer = Layer.letters
     /// English QWERTY instead of Persian; switched by swiping left or right on the space bar.
@@ -273,7 +298,6 @@ final class KeyboardViewController: UIInputViewController {
     private var isShifted = false
     private let shiftKey = KeyView(symbol: "shift")
     private var characterKeys: [[KeyView]] = []
-    private let statusHeight: CGFloat = 26
     private let backspaceKey = KeyView(symbol: "delete.right")
     private let settingsKey = KeyView(symbol: "gearshape")
     private let emojiKey = KeyView(symbol: "face.smiling")
@@ -288,22 +312,22 @@ final class KeyboardViewController: UIInputViewController {
     private func render() {
         let title: String
         let symbol: String
-        var tint = UIColor.label
+        var tint = keyStyle.textColor
         switch state {
         case .checking:
-            title = "در حال اتصال…"; symbol = "mic"
+            title = ""; symbol = "mic"
         case .noSession:
-            title = "برای شروع جلسه، میکروفون را بزنید (اپ یک بار باز می‌شود)"; symbol = "mic.slash"
+            title = "برای شروع جلسه، میکروفون را بزنید"; symbol = "mic.slash"
         case .ready:
             title = ""; symbol = "mic.fill"
         case .starting:
-            title = "…"; symbol = "mic"
+            title = ""; symbol = "mic"
         case .recording:
             title = ""; symbol = "mic.fill"; tint = .systemRed
         case .transcribing:
             title = ""; symbol = "mic.fill"
         }
-        statusLabel.text = title
+        showStatus(title.isEmpty ? nil : title)
         micButton.setImage(UIImage(systemName: symbol,
                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)),
                            for: .normal)
@@ -323,7 +347,7 @@ final class KeyboardViewController: UIInputViewController {
     private func setCompact(_ compact: Bool) {
         guard isCompact != compact else { return }
         isCompact = compact
-        heightConstraint?.constant = compact ? Self.compactHeight : Self.fullHeight
+        heightConstraint?.constant = compact ? compactHeight : fullHeight
         if compact {
             orb.alpha = 0
             orb.isHidden = false
@@ -346,19 +370,17 @@ final class KeyboardViewController: UIInputViewController {
         view.backgroundColor = .clear
         inputView?.backgroundColor = .clear
 
-        statusLabel.font = .preferredFont(forTextStyle: .footnote)
-        statusLabel.textColor = .secondaryLabel
-        statusLabel.textAlignment = .center
-        statusLabel.adjustsFontSizeToFitWidth = true
-        statusLabel.minimumScaleFactor = 0.7
         view.addSubview(keysView)
-        keysView.addSubview(statusLabel)
 
         micButton.backgroundColor = .clear
+        micButton.accessibilityIdentifier = "dictationMic"
+        micButton.accessibilityLabel = "Dictate"
         micButton.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
         keysView.addSubview(micButton)
 
         orb.isHidden = true
+        orb.accessibilityIdentifier = "dictationOrb"
+        orb.isAccessibilityElement = true
         orb.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
         view.addSubview(orb)
 
@@ -388,7 +410,7 @@ final class KeyboardViewController: UIInputViewController {
         }
         buildCharacterKeys()
 
-        let height = view.heightAnchor.constraint(equalToConstant: Self.fullHeight)
+        let height = view.heightAnchor.constraint(equalToConstant: fullHeight)
         height.priority = .defaultHigh
         height.isActive = true
         heightConstraint = height
@@ -422,9 +444,11 @@ final class KeyboardViewController: UIInputViewController {
         if isEnglish {
             layerKey.title = layer == .symbols ? "ABC" : "123"
             spaceKey.title = "space"
+            zwnjKey.title = "."
         } else {
             layerKey.title = layer == .symbols ? "الفبا" : "۱۲۳"
             spaceKey.title = "فاصله"
+            zwnjKey.title = "<|>"
         }
         shiftKey.isHidden = !(isEnglish && layer == .letters)
         setShifted(false)
@@ -440,6 +464,7 @@ final class KeyboardViewController: UIInputViewController {
         for key in functionKeys + characterKeys.flatMap({ $0 }) {
             key.apply(style)
         }
+        render()
     }
 
     private func setShifted(_ shifted: Bool) {
@@ -478,63 +503,63 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    /// Keys are laid out on a grid of 12 columns, like the system keyboard. Each key's frame
-    /// covers its whole cell so there are no dead zones between keys.
+    /// Keys sit on a grid of `columns` equal cells across the whole width (inside the safe area,
+    /// which is only non-zero beside the notch in landscape). Each key's frame covers its whole
+    /// cell so there are no dead zones between keys.
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        if !isCompact, let height = heightConstraint, height.constant != fullHeight {
+            height.constant = fullHeight
+        }
         orb.frame = view.bounds
         // Keys keep the full-height layout while hidden, so they do not squeeze during the animation.
-        let bounds = CGRect(x: 0, y: 0, width: view.bounds.width, height: max(view.bounds.height, Self.fullHeight))
-        keysView.frame = CGRect(x: 0, y: view.bounds.height - bounds.height, width: bounds.width, height: bounds.height)
-        let unit = bounds.width / 12
-        let rowHeight = (bounds.height - statusHeight - 4) / 4
-        statusLabel.frame = CGRect(x: 12, y: 0, width: bounds.width - 24, height: statusHeight)
+        let height = max(view.bounds.height, fullHeight)
+        keysView.frame = CGRect(x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
+        let insets = view.safeAreaInsets
+        let left = insets.left
+        let width = view.bounds.width - insets.left - insets.right
+        let row = (height - 4) / 4
+        let unit = width / CGFloat(columns)
+        let top: CGFloat = 2
 
-        let backspaceY = statusHeight + 2 * rowHeight
-        backspaceKey.frame = CGRect(x: bounds.width - 1.5 * unit, y: backspaceY, width: 1.5 * unit, height: rowHeight)
+        let thirdY = top + 2 * row
+        backspaceKey.frame = CGRect(x: left + width - unit, y: thirdY, width: unit, height: row)
+        shiftKey.frame = CGRect(x: left, y: thirdY, width: unit, height: row)
 
         // Emoji grid: fills the three key rows, minus the backspace column.
-        emojiScroll.frame = CGRect(x: 0, y: statusHeight, width: bounds.width - 1.5 * unit, height: 3 * rowHeight)
-        let columns = 8
-        let cell = emojiScroll.frame.width / CGFloat(columns)
+        emojiScroll.frame = CGRect(x: left, y: top, width: width - unit, height: 3 * row)
+        let emojiColumns = isLandscape ? 14 : 8
+        let cell = emojiScroll.frame.width / CGFloat(emojiColumns)
         for (index, key) in emojiScroll.subviews.compactMap({ $0 as? KeyView }).enumerated() {
-            key.frame = CGRect(x: CGFloat(index % columns) * cell, y: CGFloat(index / columns) * rowHeight,
-                               width: cell, height: rowHeight)
+            key.frame = CGRect(x: CGFloat(index % emojiColumns) * cell, y: CGFloat(index / emojiColumns) * row,
+                               width: cell, height: row)
         }
-        let emojiRows = (Self.emojis.count + columns - 1) / columns
-        emojiScroll.contentSize = CGSize(width: emojiScroll.frame.width, height: CGFloat(emojiRows) * rowHeight)
+        let emojiRows = (Self.emojis.count + emojiColumns - 1) / emojiColumns
+        emojiScroll.contentSize = CGSize(width: emojiScroll.frame.width, height: CGFloat(emojiRows) * row)
 
-        // In English the shift key takes the left end of the third row, mirroring backspace.
-        shiftKey.frame = CGRect(x: 0, y: backspaceY, width: 1.5 * unit, height: rowHeight)
-        let shiftWidth = shiftKey.isHidden ? 0 : 1.5 * unit
-        for (index, row) in characterKeys.enumerated() {
-            let y = statusHeight + CGFloat(index) * rowHeight
-            let isLast = index == characterKeys.count - 1
-            let start = isLast ? shiftWidth : 0
-            let available = isLast ? bounds.width - 1.5 * unit - shiftWidth : bounds.width
-            let keyWidth = min(unit, available / CGFloat(row.count))
-            var x = start + (available - keyWidth * CGFloat(row.count)) / 2
-            for key in row {
-                key.frame = CGRect(x: x, y: y, width: keyWidth, height: rowHeight)
-                x += keyWidth
+        for (index, keys) in characterKeys.enumerated() {
+            let y = top + CGFloat(index) * row
+            var x = left + (index == 2 && !shiftKey.isHidden ? unit : 0)
+            for key in keys {
+                key.frame = CGRect(x: x, y: y, width: unit, height: row)
+                x += unit
             }
         }
 
-        // Bottom row, left to right: 123, settings, emoji, ZWNJ, space, return, mic in the corner.
-        let y = statusHeight + 3 * rowHeight
-        var x: CGFloat = 0
-        func place(_ view: UIView, _ width: CGFloat) {
-            view.frame = CGRect(x: x, y: y, width: width, height: rowHeight)
-            x += width
+        // Bottom row, left to right: 123, settings, emoji, ZWNJ, space, return, mic.
+        let y = top + 3 * row
+        var x = left
+        func place(_ view: UIView, _ keyWidth: CGFloat) {
+            view.frame = CGRect(x: x, y: y, width: keyWidth, height: row)
+            x += keyWidth
         }
-        let fixed = 1.5 * unit + 3 * 1.25 * unit + 1.75 * unit + 1.5 * unit
-        place(layerKey, 1.5 * unit)
-        place(settingsKey, 1.25 * unit)
-        place(emojiKey, 1.25 * unit)
-        place(zwnjKey, 1.25 * unit)
-        place(spaceKey, bounds.width - fixed)
-        place(returnKey, 1.75 * unit)
-        place(micButton, 1.5 * unit)
+        place(layerKey, unit)
+        place(settingsKey, unit)
+        place(emojiKey, unit)
+        place(zwnjKey, unit)
+        place(spaceKey, width - 6 * unit)
+        place(returnKey, unit)
+        place(micButton, unit)
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -556,9 +581,9 @@ final class KeyboardViewController: UIInputViewController {
         textDocumentProxy.insertText(" ")
     }
 
-    /// Zero-width non-joiner (نیم‌فاصله), as in می‌شود.
+    /// Zero-width non-joiner (نیم‌فاصله), as in می‌شود; a full stop in English.
     @objc private func insertZWNJ() {
-        textDocumentProxy.insertText("\u{200C}")
+        textDocumentProxy.insertText(isEnglish ? "." : "\u{200C}")
     }
 
     @objc private func insertReturn() {
@@ -591,9 +616,32 @@ private final class KeyView: UIControl {
     private let imageView = UIImageView()
     private let highlight = UIView()
 
+    private var textColor = UIColor.label
+    private var storedTitle: String?
+
     var title: String? {
-        get { label.text }
-        set { label.text = newValue }
+        get { storedTitle }
+        set {
+            storedTitle = newValue
+            updateLabel()
+        }
+    }
+
+    /// Shown instead of the title, smaller and dimmer (the space bar's status messages).
+    var message: String? {
+        didSet { updateLabel() }
+    }
+
+    private func updateLabel() {
+        if let message {
+            label.text = message
+            label.font = .systemFont(ofSize: 12)
+            label.textColor = textColor.withAlphaComponent(0.6)
+        } else {
+            label.text = storedTitle
+            label.font = .systemFont(ofSize: fontSize)
+            label.textColor = textColor
+        }
     }
 
     var symbol: String? {
@@ -604,7 +652,11 @@ private final class KeyView: UIControl {
         }
     }
 
+    private let fontSize: CGFloat
+
     init(title: String? = nil, symbol: String? = nil, fontSize: CGFloat = 20) {
+        self.fontSize = fontSize
+        storedTitle = title
         super.init(frame: .zero)
         backgroundColor = .clear
         face.layer.cornerRadius = 6
@@ -616,12 +668,10 @@ private final class KeyView: UIControl {
         highlight.alpha = 0
         addSubview(highlight)
 
-        label.text = title
-        label.font = .systemFont(ofSize: fontSize)
-        label.textColor = .label
         label.textAlignment = .center
         label.adjustsFontSizeToFitWidth = true
-        label.minimumScaleFactor = 0.6
+        label.minimumScaleFactor = 0.5
+        updateLabel()
         addSubview(label)
 
         imageView.tintColor = .label
@@ -641,6 +691,9 @@ private final class KeyView: UIControl {
         face.backgroundColor = style.fill.color
         face.layer.borderColor = style.stroke.color.cgColor
         face.layer.borderWidth = style.stroke.a > 0 ? 1 : 0
+        textColor = style.textColor
+        imageView.tintColor = textColor
+        updateLabel()
     }
 
     override func layoutSubviews() {

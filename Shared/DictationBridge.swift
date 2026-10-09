@@ -165,9 +165,14 @@ struct KeyStyle: Codable, Equatable {
 
     var fill: RGBA
     var stroke: RGBA
+    /// Letter and symbol colour; nil follows the system (black in light mode, white in dark).
+    var text: RGBA?
+
+    var textColor: UIColor { text?.color ?? .label }
 
     static let standard = KeyStyle(fill: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.18),
-                                   stroke: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.45))
+                                   stroke: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.45),
+                                   text: nil)
     private static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyStyle")
     private static let pasteboardType = "public.json"
     static let defaultsKey = "keyStyle"

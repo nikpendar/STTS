@@ -1,0 +1,137 @@
+# Dictation end to end in the iOS Simulator: the app plays a spoken test file into a
+# keyboard session (launch argument -testAudio), the keyboard records and should show live
+# text before the final one. Screenshots (portrait and landscape) and the app's log go to
+# the `live-test` branch.
+name: Live dictation test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  live:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download whisper.xcframework and model
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash ./setup.sh base-q5_1
+
+      - name: Build for the simulator
+        run: |
+          xcodebuild -project PersianSTT.xcodeproj -target PersianSTT \
+            -configuration Release -sdk iphonesimulator ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 5
+
+      - name: Install AXe (simulator taps)
+        run: |
+          brew tap cameroncooke/axe
+          brew trust cameroncooke/axe || true
+          brew install axe
+
+      - name: Make the test recording
+        run: |
+          mkdir -p out
+          say -o speech.aiff "This is a test of live dictation. The keyboard should show these words while I am still talking. After a short pause I keep speaking so that the recording is long enough to be cut into pieces. One, two, three, four, five, six, seven, eight, nine, ten. That is the end of the test."
+          afconvert -f WAVE -d LEI16@16000 -c 1 speech.aiff "$PWD/speech.wav"
+          afinfo speech.wav | grep -i duration
+
+      - name: Dictate in the simulator
+        run: |
+          set -x
+          APP=build/Release-iphonesimulator/PersianSTT.app
+          ID=ir.nikpendar.PersianSTT
+          KB=ir.nikpendar.PersianSTT.Keyboard
+          DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" "$APP"
+          xcrun simctl spawn "$DEVICE" defaults write -g AppleKeyboards -array "$KB"
+          xcrun simctl spawn "$DEVICE" defaults write -g AppleKeyboardsExpanded -int 1
+          for domain in -g com.apple.Preferences; do
+            xcrun simctl spawn "$DEVICE" defaults write $domain KeyboardLastUsed "$KB"
+            xcrun simctl spawn "$DEVICE" defaults write $domain KeyboardsCurrentAndNext -array "$KB" "$KB"
+            xcrun simctl spawn "$DEVICE" defaults write $domain DidShowContinuousPathIntroduction -bool true
+          done
+          xcrun simctl shutdown "$DEVICE"
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          open -a Simulator --args -CurrentDeviceUDID "$DEVICE"
+          sleep 10
+
+          # Finds an element's centre in AXe's UI dump by its accessibility identifier or label.
+          cat > find.py <<'PY'
+          import json, re, sys
+          target = sys.argv[1]
+          def walk(node):
+              if isinstance(node, dict):
+                  values = [str(v) for v in node.values() if isinstance(v, str)]
+                  if target in values:
+                      f = node.get("frame")
+                      if isinstance(f, dict):
+                          print(int(f["x"] + f["width"] / 2), int(f["y"] + f["height"] / 2)); sys.exit(0)
+                      m = re.findall(r"[-\d.]+", str(node.get("AXFrame", "")))
+                      if len(m) == 4:
+                          x, y, w, h = map(float, m); print(int(x + w / 2), int(y + h / 2)); sys.exit(0)
+                  for v in node.values(): walk(v)
+              elif isinstance(node, list):
+                  for v in node: walk(v)
+          try:
+              walk(json.load(open(sys.argv[2])))
+          except Exception as e:
+              print("parse error", e, file=sys.stderr)
+          sys.exit(1)
+          PY
+
+          xcrun simctl spawn "$DEVICE" log stream --level info \
+            --predicate 'subsystem == "ir.nikpendar.PersianSTT" OR process CONTAINS "PersianSTTKeyboard"' > out/log.txt 2>&1 &
+          LOG=$!
+          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav"
+          sleep 15
+          xcrun simctl io "$DEVICE" screenshot out/1-keyboard.png
+          axe describe-ui --udid "$DEVICE" > out/ui-1.json 2>&1 || true
+          if ! python3 find.py dictationMic out/ui-1.json; then
+            axe tap -x 42 -y 833 --udid "$DEVICE" || true
+            sleep 8
+            axe describe-ui --udid "$DEVICE" > out/ui-1.json 2>&1 || true
+            xcrun simctl io "$DEVICE" screenshot out/1-keyboard.png
+          fi
+          read MX MY < <(python3 find.py dictationMic out/ui-1.json || echo "370 760")
+          axe tap -x "$MX" -y "$MY" --udid "$DEVICE"
+          for t in 3 6 9 12 15 18; do
+            sleep 3
+            xcrun simctl io "$DEVICE" screenshot "out/2-recording-${t}s.png"
+          done
+          axe describe-ui --udid "$DEVICE" > out/ui-2.json 2>&1 || true
+          read OX OY < <(python3 find.py dictationOrb out/ui-2.json || echo "196 700")
+          axe tap -x "$OX" -y "$OY" --udid "$DEVICE"
+          sleep 1
+          xcrun simctl io "$DEVICE" screenshot out/3-processing.png
+          sleep 12
+          xcrun simctl io "$DEVICE" screenshot out/4-done.png
+          axe describe-ui --udid "$DEVICE" > out/ui-4.json 2>&1 || true
+
+          # Landscape: Simulator's Rotate Left shortcut.
+          osascript -e 'tell application "Simulator" to activate' \
+                    -e 'tell application "System Events" to keystroke (ASCII character 28) using command down' || true
+          sleep 5
+          xcrun simctl io "$DEVICE" screenshot out/5-landscape.png
+          kill $LOG || true
+          echo "===== log"
+          grep -E "live pass|final pass|recording started|test audio" out/log.txt | cut -c1-300 || true
+
+      - name: Commit results
+        if: always()
+        run: |
+          cd out
+          git init -q -b live-test
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -qm "Live test for ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" live-test
