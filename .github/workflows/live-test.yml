@@ -133,7 +133,7 @@ jobs:
           xcrun simctl io "$DEVICE" screenshot out/5-landscape.png
           kill $LOG || true
           echo "===== log"
-          grep -E "live pass|final pass|recording started|test audio" out/log.txt | cut -c1-300 || true
+          grep -E "live |final pass|recording started|test audio" out/log.txt | cut -c1-300 || true
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian && cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ || echo "no crash reports"
 
       - name: Commit results

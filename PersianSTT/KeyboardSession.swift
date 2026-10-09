@@ -234,6 +234,8 @@ final class KeyboardSession: ObservableObject {
         liveAbort = AbortFlag()
         let abort = liveAbort
         liveTask = Task { [weak self] in
+            log.info("live loop started")
+            defer { log.info("live loop ended") }
             var passedCount = 0
             while let self, self.isCapturing, self.dictationID == id, !abort.isSet {
                 let count = self.collector.count
@@ -242,12 +244,19 @@ final class KeyboardSession: ObservableObject {
                     continue
                 }
                 passedCount = count
+                log.info("live pass starting at \(Double(count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s")
                 let tail = self.collector.snapshot(from: self.committedCount)
                 let cut = tail.count >= rate * 10 ? Self.pause(in: tail) : nil
                 let piece = cut.map { Array(tail[..<$0]) } ?? tail
                 let started = Date()
-                guard let text = try? await Transcriber.shared.transcribe(samples: piece, abort: abort),
-                      self.isCapturing, self.dictationID == id else { continue }
+                let text: String
+                do {
+                    text = try await Transcriber.shared.transcribe(samples: piece, abort: abort)
+                } catch {
+                    log.info("live pass failed after \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s: \(error.localizedDescription, privacy: .public)")
+                    continue
+                }
+                guard self.isCapturing, self.dictationID == id else { continue }
                 log.info("live pass: \(Double(piece.count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s audio in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s, cut \(cut ?? -1), \(text.count) chars")
                 if let cut {
                     self.committedText = Self.join(self.committedText, text)
