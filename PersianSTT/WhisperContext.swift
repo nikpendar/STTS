@@ -1,5 +1,8 @@
 import Foundation
+import os
 import whisper
+
+private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "whisper")
 
 enum WhisperError: LocalizedError {
     case cannotLoadModel
@@ -72,9 +75,13 @@ actor WhisperContext {
                 params.temperature_inc = 0
                 params.max_tokens = Int32(Double(samples.count) / 16_000 * 10) + 16
             }
-            return samples.withUnsafeBufferPointer { buf in
+            let started = Date()
+            let qos = qos_class_self().rawValue
+            let code = samples.withUnsafeBufferPointer { buf in
                 whisper_full(context, params, buf.baseAddress, Int32(buf.count))
             }
+            log.info("whisper_full: \(samples.count / 16_000) s, ctx \(audioContext), preview \(preview), threads \(threads), qos \(qos), \(Date().timeIntervalSince(started), format: .fixed(precision: 2)) s, code \(code)")
+            return code
         }
         guard code == 0 else {
             throw abort.isSet ? WhisperError.cancelled : WhisperError.transcriptionFailed(code)
