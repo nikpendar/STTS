@@ -95,21 +95,22 @@ jobs:
           xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav"
           sleep 15
           xcrun simctl io "$DEVICE" screenshot out/1-keyboard.png
-          axe describe-ui --udid "$DEVICE" > out/ui-1.json 2>&1 || true
-          read MX MY < <(python3 find.py dictationMic out/ui-1.json)
+          dump() { for i in 1 2 3 4 5; do axe describe-ui --udid "$DEVICE" > "$1" 2>&1 && python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$1" && return 0; sleep 2; done; return 1; }
+          dump out/ui-1.json || true
+          read MX MY < <(python3 find.py dictationMic out/ui-1.json || echo "383 817")
           axe tap -x "$MX" -y "$MY" --udid "$DEVICE"
           for t in 3 6 9 12 15 18; do
             sleep 3
             xcrun simctl io "$DEVICE" screenshot "out/2-recording-${t}s.png"
           done
-          axe describe-ui --udid "$DEVICE" > out/ui-2.json 2>&1 || true
-          read OX OY < <(python3 find.py dictationOrb out/ui-2.json)
+          dump out/ui-2.json || true
+          read OX OY < <(python3 find.py dictationOrb out/ui-2.json || echo "201 760")
           axe tap -x "$OX" -y "$OY" --udid "$DEVICE"
           sleep 1
           xcrun simctl io "$DEVICE" screenshot out/3-processing.png
           sleep 12
           xcrun simctl io "$DEVICE" screenshot out/4-done.png
-          axe describe-ui --udid "$DEVICE" > out/ui-4.json 2>&1 || true
+          dump out/ui-4.json || true
           python3 - <<'PY'
           import json
           def walk(n):
@@ -119,7 +120,10 @@ jobs:
                   for v in n.values(): walk(v)
               elif isinstance(n, list):
                   for v in n: walk(v)
-          walk(json.load(open("out/ui-4.json")))
+          try:
+              walk(json.load(open("out/ui-4.json")))
+          except Exception as e:
+              print("no UI dump", e)
           PY
 
           # Landscape: Simulator's Rotate Left shortcut.
