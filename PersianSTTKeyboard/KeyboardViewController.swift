@@ -382,6 +382,8 @@ final class KeyboardViewController: UIInputViewController {
         keysView.addSubview(micButton)
 
         orb.isHidden = true
+        // The simulator renders animations on the CPU, which slowed transcription in the test tenfold.
+        orb.animates = testProxy == nil
         orb.accessibilityIdentifier = "dictationOrb"
         orb.isAccessibilityElement = true
         orb.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
@@ -826,10 +828,12 @@ private final class DictationOrbView: UIControl {
         ring.isHidden = hidden
     }
 
+    var animates = true
+
     private func setMotion(_ on: Bool) {
         gradient.removeAnimation(forKey: "spin")
         pulse.removeAnimation(forKey: "breathe")
-        guard on else { return }
+        guard on, animates else { return }
         let spin = CABasicAnimation(keyPath: "transform.rotation.z")
         spin.fromValue = 0
         spin.toValue = 2 * Double.pi
