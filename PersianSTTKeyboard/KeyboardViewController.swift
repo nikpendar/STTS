@@ -14,7 +14,14 @@ final class KeyboardViewController: UIInputViewController {
     private let observer = DarwinObserver()
     private let statusLabel = UILabel()
     private let micButton = UIButton(type: .system)
-    private let spinner = UIActivityIndicatorView(style: .medium)
+    /// Holds every key; hidden while dictating, when the keyboard shrinks to `orb`.
+    private let keysView = UIView()
+    private let orb = DictationOrbView()
+    private var heightConstraint: NSLayoutConstraint?
+    private static let fullHeight: CGFloat = 262
+    private static let compactHeight: CGFloat = 190
+    private var recordingStart = Date()
+    private var isCompact = false
     private var timeout: DispatchWorkItem?
     private var previewTimer: Timer?
     private var previewIndex = 0
@@ -35,6 +42,9 @@ final class KeyboardViewController: UIInputViewController {
             MainActor.assumeIsolated { self?.recordingStarted() }
         }
         observer.observe(DictationBridge.partial) { [weak self] in
+            MainActor.assumeIsolated { self?.fetchTranscript() }
+        }
+        observer.observe(DictationBridge.progress) { [weak self] in
             MainActor.assumeIsolated { self?.fetchTranscript() }
         }
         observer.observe(DictationBridge.done) { [weak self] in
@@ -114,6 +124,10 @@ final class KeyboardViewController: UIInputViewController {
         case .recording:
             state = .transcribing
             DictationBridge.post(DictationBridge.stop)
+            // A first guess; the app sends its own estimate once the final pass starts.
+            let recorded = Date().timeIntervalSince(recordingStart)
+            orb.resetProgress()
+            orb.startProgress(expected: min(15, max(2, recorded * 0.4)))
             schedule(after: 90) { [weak self] in
                 if self?.state == .transcribing { self?.transcriptionFailed() }
             }
@@ -134,6 +148,7 @@ final class KeyboardViewController: UIInputViewController {
     private func recordingStarted() {
         guard state == .starting else { return }
         cancelTimeout()
+        recordingStart = Date()
         state = .recording
         liveText = ""
     }
@@ -156,6 +171,13 @@ final class KeyboardViewController: UIInputViewController {
                 self.state = .ready
             } else if let message, message.hasPrefix(DictationBridge.partialPrefix), message.count > 1 {
                 self.replaceLiveText(with: String(message.dropFirst()))
+            } else if let message, message.hasPrefix(DictationBridge.estimatePrefix),
+                      let seconds = Double(message.dropFirst()) {
+                guard self.state == .transcribing else { return }
+                self.orb.startProgress(expected: seconds)
+                self.schedule(after: 2 * seconds + 30) { [weak self] in
+                    if self?.state == .transcribing { self?.transcriptionFailed() }
+                }
             } else if final {
                 // An earlier partial fetch may have picked up the final text and finished already.
                 self.transcriptionFailed()
@@ -277,21 +299,47 @@ final class KeyboardViewController: UIInputViewController {
         case .starting:
             title = "…"; symbol = "mic"
         case .recording:
-            title = "در حال ضبط، برای پایان میکروفون را بزنید"; symbol = "stop.circle.fill"; tint = .systemRed
+            title = ""; symbol = "mic.fill"; tint = .systemRed
         case .transcribing:
-            title = "در حال تبدیل به متن… برای لغو، میکروفون را بزنید"; symbol = ""
+            title = ""; symbol = "mic.fill"
         }
         statusLabel.text = title
-        if state == .transcribing {
-            spinner.startAnimating()
-        } else {
-            spinner.stopAnimating()
-        }
-        micButton.setImage(symbol.isEmpty ? nil : UIImage(systemName: symbol,
+        micButton.setImage(UIImage(systemName: symbol,
                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)),
                            for: .normal)
         micButton.tintColor = tint
         micButton.isEnabled = state != .starting
+
+        switch state {
+        case .starting: orb.mode = .starting
+        case .recording: orb.mode = .recording
+        case .transcribing: orb.mode = .processing
+        default: break
+        }
+        setCompact(state == .starting || state == .recording || state == .transcribing)
+    }
+
+    /// While dictating, the keys fade out and the keyboard shrinks to the orb with the mic.
+    private func setCompact(_ compact: Bool) {
+        guard isCompact != compact else { return }
+        isCompact = compact
+        heightConstraint?.constant = compact ? Self.compactHeight : Self.fullHeight
+        if compact {
+            orb.alpha = 0
+            orb.isHidden = false
+        } else {
+            keysView.alpha = 0
+            keysView.isHidden = false
+        }
+        UIView.animate(withDuration: 0.22, animations: {
+            self.keysView.alpha = compact ? 0 : 1
+            self.orb.alpha = compact ? 1 : 0
+            self.view.superview?.layoutIfNeeded()
+        }, completion: { _ in
+            // A later state change may have reversed this one while it animated.
+            self.keysView.isHidden = self.isCompact
+            self.orb.isHidden = !self.isCompact
+        })
     }
 
     private func buildUI() {
@@ -303,15 +351,16 @@ final class KeyboardViewController: UIInputViewController {
         statusLabel.textAlignment = .center
         statusLabel.adjustsFontSizeToFitWidth = true
         statusLabel.minimumScaleFactor = 0.7
-        view.addSubview(statusLabel)
+        view.addSubview(keysView)
+        keysView.addSubview(statusLabel)
 
         micButton.backgroundColor = .clear
         micButton.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
-        view.addSubview(micButton)
-        spinner.hidesWhenStopped = true
-        spinner.color = .label
-        spinner.isUserInteractionEnabled = false
-        view.addSubview(spinner)
+        keysView.addSubview(micButton)
+
+        orb.isHidden = true
+        orb.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
+        view.addSubview(orb)
 
         // Symbols keep the same direction on every device, whatever the host app's language.
         view.semanticContentAttribute = .forceRightToLeft
@@ -319,7 +368,7 @@ final class KeyboardViewController: UIInputViewController {
         emojiScroll.backgroundColor = .clear
         emojiScroll.showsVerticalScrollIndicator = false
         emojiScroll.isHidden = true
-        view.addSubview(emojiScroll)
+        keysView.addSubview(emojiScroll)
 
         backspaceKey.addTarget(self, action: #selector(backspaceDown), for: .touchDown)
         backspaceKey.addTarget(self, action: #selector(backspaceUp), for: [.touchUpInside, .touchUpOutside, .touchCancel])
@@ -332,16 +381,17 @@ final class KeyboardViewController: UIInputViewController {
         spaceKey.addTarget(self, action: #selector(insertSpace), for: .touchUpInside)
         spaceKey.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(spaceSwiped(_:))))
         shiftKey.addTarget(self, action: #selector(toggleShift), for: .touchUpInside)
-        view.addSubview(shiftKey)
+        keysView.addSubview(shiftKey)
         returnKey.addTarget(self, action: #selector(insertReturn), for: .touchUpInside)
         for key in [backspaceKey, layerKey, settingsKey, emojiKey, zwnjKey, spaceKey, returnKey] {
-            view.addSubview(key)
+            keysView.addSubview(key)
         }
         buildCharacterKeys()
 
-        let height = view.heightAnchor.constraint(equalToConstant: 262)
+        let height = view.heightAnchor.constraint(equalToConstant: Self.fullHeight)
         height.priority = .defaultHigh
         height.isActive = true
+        heightConstraint = height
         render()
     }
 
@@ -365,7 +415,7 @@ final class KeyboardViewController: UIInputViewController {
                     if self.isShifted { self.setShifted(false) }
                 }, for: .touchUpInside)
                 key.apply(keyStyle)
-                view.addSubview(key)
+                keysView.addSubview(key)
                 return key
             }
         }
@@ -432,7 +482,10 @@ final class KeyboardViewController: UIInputViewController {
     /// covers its whole cell so there are no dead zones between keys.
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        let bounds = view.bounds
+        orb.frame = view.bounds
+        // Keys keep the full-height layout while hidden, so they do not squeeze during the animation.
+        let bounds = CGRect(x: 0, y: 0, width: view.bounds.width, height: max(view.bounds.height, Self.fullHeight))
+        keysView.frame = CGRect(x: 0, y: view.bounds.height - bounds.height, width: bounds.width, height: bounds.height)
         let unit = bounds.width / 12
         let rowHeight = (bounds.height - statusHeight - 4) / 4
         statusLabel.frame = CGRect(x: 12, y: 0, width: bounds.width - 24, height: statusHeight)
@@ -482,7 +535,6 @@ final class KeyboardViewController: UIInputViewController {
         place(spaceKey, bounds.width - fixed)
         place(returnKey, 1.75 * unit)
         place(micButton, 1.5 * unit)
-        spinner.center = CGPoint(x: micButton.frame.midX, y: micButton.frame.midY)
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -602,5 +654,168 @@ private final class KeyView: UIControl {
 
     override var isHighlighted: Bool {
         didSet { highlight.alpha = isHighlighted ? 1 : 0 }
+    }
+}
+
+/// The compact dictation view: a turning, breathing gradient orb (like Siri's) with the mic in
+/// the middle while recording, and a ring around it that fills while the app transcribes.
+/// The whole view is one button: it stops the recording, or cancels the transcription.
+private final class DictationOrbView: UIControl {
+    enum Mode { case starting, recording, processing }
+
+    var mode = Mode.starting {
+        didSet { if mode != oldValue { update() } }
+    }
+
+    private let pulse = CALayer()
+    private let gradient = CAGradientLayer()
+    private let gradientMask = CAShapeLayer()
+    private let track = CAShapeLayer()
+    private let ring = CAShapeLayer()
+    private let icon = UIImageView()
+    private let caption = UILabel()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+
+        gradient.type = .conic
+        gradient.startPoint = CGPoint(x: 0.5, y: 0.5)
+        gradient.endPoint = CGPoint(x: 0.5, y: 0)
+        gradient.colors = [UIColor.systemPink, .systemPurple, .systemBlue, .systemTeal, .systemPink].map(\.cgColor)
+        gradient.mask = gradientMask
+        pulse.addSublayer(gradient)
+        layer.addSublayer(pulse)
+
+        for shape in [track, ring] {
+            shape.fillColor = UIColor.clear.cgColor
+            shape.lineWidth = 4
+            shape.lineCap = .round
+            layer.addSublayer(shape)
+        }
+        track.strokeColor = UIColor.systemGray.withAlphaComponent(0.3).cgColor
+        ring.strokeColor = UIColor.systemBlue.cgColor
+        ring.strokeEnd = 0
+
+        icon.image = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold))
+        icon.tintColor = .white
+        icon.contentMode = .center
+        icon.isUserInteractionEnabled = false
+        addSubview(icon)
+
+        caption.font = .preferredFont(forTextStyle: .footnote)
+        caption.textColor = .secondaryLabel
+        caption.textAlignment = .center
+        caption.adjustsFontSizeToFitWidth = true
+        caption.minimumScaleFactor = 0.7
+        addSubview(caption)
+        update()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let diameter = min(bounds.height - 64, 112)
+        let center = CGPoint(x: bounds.midX, y: (bounds.height - 30) / 2 + 4)
+        let orbFrame = CGRect(x: center.x - diameter / 2, y: center.y - diameter / 2, width: diameter, height: diameter)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        pulse.bounds = CGRect(origin: .zero, size: orbFrame.size)
+        pulse.position = center
+        gradient.frame = pulse.bounds
+        gradientMask.path = UIBezierPath(ovalIn: pulse.bounds).cgPath
+        let ringPath = UIBezierPath(arcCenter: center, radius: diameter / 2 + 8,
+                                    startAngle: -.pi / 2, endAngle: 1.5 * .pi, clockwise: true).cgPath
+        track.path = ringPath
+        ring.path = ringPath
+        CATransaction.commit()
+        icon.frame = orbFrame
+        caption.frame = CGRect(x: 16, y: bounds.height - 30, width: bounds.width - 32, height: 22)
+    }
+
+    /// Animations are dropped when the keyboard leaves the screen; restart them on return.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { update() }
+    }
+
+    private func update() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        switch mode {
+        case .starting:
+            gradient.opacity = 0.5
+            setMotion(false)
+            setRingHidden(true)
+            caption.text = "…"
+        case .recording:
+            gradient.opacity = 1
+            setMotion(true)
+            setRingHidden(true)
+            caption.text = "در حال گوش دادن… برای پایان بزنید"
+        case .processing:
+            gradient.opacity = 0.35
+            setMotion(false)
+            setRingHidden(false)
+            caption.text = "در حال تبدیل به متن… برای لغو بزنید"
+        }
+        CATransaction.commit()
+    }
+
+    private func setRingHidden(_ hidden: Bool) {
+        track.isHidden = hidden
+        ring.isHidden = hidden
+    }
+
+    private func setMotion(_ on: Bool) {
+        gradient.removeAnimation(forKey: "spin")
+        pulse.removeAnimation(forKey: "breathe")
+        guard on else { return }
+        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+        spin.fromValue = 0
+        spin.toValue = 2 * Double.pi
+        spin.duration = 3
+        spin.repeatCount = .infinity
+        gradient.add(spin, forKey: "spin")
+        let breathe = CABasicAnimation(keyPath: "transform.scale")
+        breathe.fromValue = 0.94
+        breathe.toValue = 1.06
+        breathe.duration = 0.9
+        breathe.autoreverses = true
+        breathe.repeatCount = .infinity
+        breathe.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        pulse.add(breathe, forKey: "breathe")
+    }
+
+    /// Fills the ring from where it is now to 95% over `expected` seconds; the rest is left for
+    /// the moment the text arrives.
+    func startProgress(expected: TimeInterval) {
+        let current = ring.presentation()?.strokeEnd ?? ring.strokeEnd
+        ring.removeAnimation(forKey: "progress")
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        ring.strokeEnd = 0.95
+        CATransaction.commit()
+        let fill = CABasicAnimation(keyPath: "strokeEnd")
+        fill.fromValue = min(current, 0.95)
+        fill.toValue = 0.95
+        fill.duration = max(0.5, expected)
+        fill.timingFunction = CAMediaTimingFunction(name: .linear)
+        ring.add(fill, forKey: "progress")
+    }
+
+    func resetProgress() {
+        ring.removeAnimation(forKey: "progress")
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        ring.strokeEnd = 0
+        CATransaction.commit()
+    }
+
+    override var isHighlighted: Bool {
+        didSet { pulse.opacity = isHighlighted ? 0.7 : 1 }
     }
 }

@@ -1,165 +1,166 @@
 import SwiftUI
 import AVFoundation
 import UIKit
-import UniformTypeIdentifiers
 
+/// The app is the settings page of the dictation keyboard: the background session the
+/// keyboard records through, speech options, the look of the keys, and setup steps.
 struct ContentView: View {
     @ObservedObject private var model = Transcriber.shared
     @ObservedObject private var keyboard = KeyboardSession.shared
-    @State private var showImporter = false
-    @State private var showKeyStyle = false
     @AppStorage(KeyboardSession.idleMinutesKey) private var sessionMinutes = KeyboardSession.defaultIdleMinutes
     @AppStorage(KeyboardSession.noiseSuppressionKey) private var noiseSuppression = true
     @AppStorage(KeyboardSession.liveTranscriptionKey) private var liveTranscription = true
+    @State private var style = KeyStyle.saved
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                ScrollView {
-                    Text(model.text.isEmpty ? "متن اینجا نمایش داده می‌شود." : model.text)
-                        .font(.title3)
-                        .foregroundStyle(model.text.isEmpty ? Color.secondary : Color.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                        .padding()
-                }
-                .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemBackground)))
+        Form {
+            Section {
+                header
+            }
+            .listRowBackground(Color.clear)
 
-                HStack {
-                    if model.isBusy && !model.isRecording {
-                        ProgressView()
-                    }
-                    Text(model.status)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Button {
-                    Task { await model.toggleRecording() }
+            Section {
+                Picker(selection: $sessionMinutes) {
+                    Text("۱۰ دقیقه").tag(10)
+                    Text("۳۰ دقیقه").tag(30)
+                    Text("۱ ساعت").tag(60)
+                    Text("هرگز").tag(0)
                 } label: {
-                    Label(model.isRecording ? "توقف و تبدیل" : "ضبط صدا",
-                          systemImage: model.isRecording ? "stop.circle.fill" : "mic.circle.fill")
-                        .font(.title2)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
+                    SettingLabel("بستن خودکار جلسه", symbol: "timer", color: .orange)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(model.isRecording ? Color.red : Color.accentColor)
-                .disabled(model.isBusy && !model.isRecording)
-
-                HStack {
-                    Button("انتخاب فایل صوتی") { showImporter = true }
-                        .disabled(model.isBusy || model.isRecording)
-                    Spacer()
-                    Button("کپی متن") { UIPasteboard.general.string = model.text }
-                        .disabled(model.text.isEmpty)
-                }
-
-                VStack(spacing: 6) {
-                    Button(keyboard.isActive ? "پایان جلسه‌ی کیبورد" : "شروع جلسه‌ی کیبورد") {
-                        keyboard.isActive ? keyboard.stop() : keyboard.start()
-                    }
-                    .buttonStyle(.bordered)
-                    Picker("مدت جلسه", selection: $sessionMinutes) {
-                        Text("۱۰ دقیقه").tag(10)
-                        Text("۳۰ دقیقه").tag(30)
-                        Text("۱ ساعت").tag(60)
-                        Text("بدون محدودیت").tag(0)
-                    }
-                    .pickerStyle(.segmented)
-                    .onChange(of: sessionMinutes) { _, _ in keyboard.idleMinutesChanged() }
-                    Text("جلسه بعد از این مدت بی‌استفاده بسته می‌شود. جلسه‌ی باز باتری مصرف می‌کند.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                    Toggle("نمایش متن هنگام صحبت", isOn: $liveTranscription)
-                    Toggle("حذف نویز", isOn: $noiseSuppression)
-                        .onChange(of: noiseSuppression) { _, _ in keyboard.noiseSuppressionChanged() }
-                    if noiseSuppression && keyboard.isActive {
-                        // Voice Isolation keeps only the nearest voice; iOS offers it only while voice processing is on.
-                        Button("فقط صدای من (Voice Isolation)") {
-                            AVCaptureDevice.showSystemUserInterface(.microphoneModes)
-                        }
-                        .font(.caption)
-                    }
-                    if !keyboard.message.isEmpty {
-                        Text(keyboard.message)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Button("ظاهر کیبورد") { showKeyStyle = true }
-                    .font(.footnote)
-
-                if !model.modelName.isEmpty {
-                    Text("مدل: \(model.modelName)")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
+                .onChange(of: sessionMinutes) { _, _ in keyboard.idleMinutesChanged() }
+            } header: {
+                Text("جلسه")
+            } footer: {
+                Text("جلسه بعد از این مدت بی‌استفاده بسته می‌شود. جلسه‌ی باز باتری مصرف می‌کند.")
             }
-            .padding()
-            .navigationTitle("گفتار به متن")
-            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.audio]) { result in
-                model.importFile(result)
-            }
-            .sheet(isPresented: $showKeyStyle) { KeyStyleView() }
-            // Rewrites the shared pasteboard copy, which a reinstall or reboot can clear.
-            .onAppear { KeyStyle.saved.save() }
-            .onOpenURL { url in
-                if url.host == "session" {
-                    keyboard.start()
-                }
-            }
-            .onChange(of: scenePhase) { _, phase in
-                if phase == .active {
-                    model.appDidBecomeActive()
-                }
-            }
-        }
-        .environment(\.layoutDirection, .rightToLeft)
-    }
-}
 
-/// Colour and opacity of the keyboard's key background and outline. The keyboard reads the
-/// style from a named pasteboard each time it appears.
-struct KeyStyleView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var style = KeyStyle.saved
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    HStack {
-                        Spacer()
-                        Text("ب")
-                            .font(.title2)
-                            .frame(width: 44, height: 50)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(Color(style.fill.color)))
-                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(style.stroke.color), lineWidth: 1))
-                        Spacer()
+            Section {
+                Toggle(isOn: $liveTranscription) {
+                    SettingLabel("نمایش متن هنگام صحبت", symbol: "text.bubble.fill", color: .blue)
+                }
+                Toggle(isOn: $noiseSuppression) {
+                    SettingLabel("حذف نویز", symbol: "waveform", color: .green)
+                }
+                .onChange(of: noiseSuppression) { _, _ in keyboard.noiseSuppressionChanged() }
+                if noiseSuppression {
+                    // Voice Isolation keeps only the nearest voice; iOS offers it only while voice processing is on.
+                    Button {
+                        AVCaptureDevice.showSystemUserInterface(.microphoneModes)
+                    } label: {
+                        SettingLabel("فقط صدای من", symbol: "person.wave.2.fill", color: .purple)
                     }
-                    .padding(.vertical, 8)
+                    .disabled(!keyboard.isActive)
                 }
-                Section("پس‌زمینه‌ی دکمه") {
-                    ColorPicker("رنگ", selection: colorBinding(\.fill), supportsOpacity: false)
-                    opacitySlider(\.fill)
+            } header: {
+                Text("گفتار")
+            } footer: {
+                Text(noiseSuppression
+                     ? "برای «فقط صدای من»، جلسه را شروع کنید و در منوی باز شده Voice Isolation را انتخاب کنید."
+                     : "نمایش متن هنگام صحبت باتری بیشتری مصرف می‌کند.")
+            }
+
+            Section {
+                KeyPreview(style: style)
+                    .listRowBackground(Color(.systemGray5))
+                ColorPicker(selection: colorBinding(\.fill), supportsOpacity: false) {
+                    SettingLabel("رنگ پس‌زمینه", symbol: "square.fill", color: .pink)
                 }
-                Section("دور دکمه") {
-                    ColorPicker("رنگ", selection: colorBinding(\.stroke), supportsOpacity: false)
-                    opacitySlider(\.stroke)
+                opacitySlider(\.fill)
+                ColorPicker(selection: colorBinding(\.stroke), supportsOpacity: false) {
+                    SettingLabel("رنگ دور دکمه", symbol: "square", color: .indigo)
                 }
+                opacitySlider(\.stroke)
                 Button("بازگشت به پیش‌فرض") { style = .standard }
-            }
-            .navigationTitle("ظاهر کیبورد")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("تمام") { dismiss() } }
+            } header: {
+                Text("ظاهر دکمه‌ها")
+            } footer: {
+                Text("تغییرها دفعه‌ی بعد که کیبورد باز شود اعمال می‌شوند.")
             }
             .onChange(of: style) { _, new in new.save() }
+
+            Section {
+                SetupStep(number: "۱", text: "Settings › General › Keyboard › Keyboards › Add New Keyboard")
+                SetupStep(number: "۲", text: "«دیکته‌ی فارسی» را انتخاب و Allow Full Access را روشن کنید.")
+                SetupStep(number: "۳", text: "در هر اپی با 🌐 به این کیبورد بروید و میکروفون را بزنید.")
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    SettingLabel("باز کردن تنظیمات آیفون", symbol: "gearshape.fill", color: .gray)
+                }
+            } header: {
+                Text("راه‌اندازی")
+            }
+
+            Section {
+                LabeledContent("مدل", value: model.modelName.isEmpty ? "—" : model.modelName)
+                LabeledContent("وضعیت مدل", value: model.status)
+            } header: {
+                Text("درباره")
+            }
         }
         .environment(\.layoutDirection, .rightToLeft)
+        // Rewrites the shared pasteboard copy of the key style, which a reinstall or reboot can clear.
+        .onAppear { style.save() }
+        .onOpenURL { url in
+            if url.host == "session" {
+                keyboard.start()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                model.appDidBecomeActive()
+            }
+        }
+    }
+
+    private var header: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(AngularGradient(colors: [.pink, .purple, .blue, .teal, .pink], center: .center))
+                    .opacity(keyboard.isActive ? 1 : 0.45)
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 88, height: 88)
+            .shadow(color: .purple.opacity(keyboard.isActive ? 0.4 : 0), radius: 14)
+
+            Text("دیکته‌ی فارسی")
+                .font(.title2.bold())
+            Text(statusText)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                keyboard.isActive ? keyboard.stop() : keyboard.start()
+            } label: {
+                Text(keyboard.isActive ? "پایان جلسه" : "شروع جلسه")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(keyboard.isActive ? .red : .accentColor)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    private var statusText: String {
+        if model.isBusy && model.modelName.isEmpty || model.status.hasPrefix("در حال بارگذاری") {
+            return "در حال بارگذاری مدل…"
+        }
+        if keyboard.isActive {
+            return "کیبورد آماده است. به اپ قبلی برگردید و با میکروفون کیبورد دیکته کنید."
+        }
+        return keyboard.message.isEmpty ? "برای دیکته با کیبورد، جلسه را شروع کنید." : keyboard.message
     }
 
     private func colorBinding(_ path: WritableKeyPath<KeyStyle, KeyStyle.RGBA>) -> Binding<Color> {
@@ -177,11 +178,75 @@ struct KeyStyleView: View {
 
     private func opacitySlider(_ path: WritableKeyPath<KeyStyle, KeyStyle.RGBA>) -> some View {
         HStack {
-            Text("شفافیت")
+            Image(systemName: "circle.lefthalf.filled")
+                .foregroundStyle(.secondary)
+                .frame(width: 29)
             Slider(value: Binding { style[keyPath: path].a } set: { style[keyPath: path].a = $0 }, in: 0...1)
             Text("\(Int(style[keyPath: path].a * 100))٪")
                 .monospacedDigit()
+                .foregroundStyle(.secondary)
                 .frame(width: 44)
         }
+    }
+}
+
+/// A settings row label with a white symbol on a coloured rounded square, as in iOS Settings.
+private struct SettingLabel: View {
+    let title: String
+    let symbol: String
+    let color: Color
+
+    init(_ title: String, symbol: String, color: Color) {
+        self.title = title
+        self.symbol = symbol
+        self.color = color
+    }
+
+    var body: some View {
+        Label {
+            Text(title).foregroundStyle(Color.primary)
+        } icon: {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 29, height: 29)
+                .background(RoundedRectangle(cornerRadius: 7).fill(color))
+        }
+    }
+}
+
+private struct SetupStep: View {
+    let number: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text(number)
+                .font(.footnote.bold())
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Color.accentColor))
+            Text(text)
+                .font(.subheadline)
+        }
+    }
+}
+
+/// A row of keys drawn with the chosen style, on a keyboard-like background.
+private struct KeyPreview: View {
+    let style: KeyStyle
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(["ض", "ص", "ق", "ف", "غ", "ع"], id: \.self) { letter in
+                Text(letter)
+                    .font(.title3)
+                    .frame(maxWidth: .infinity, minHeight: 42)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color(style.fill.color)))
+                    .overlay(RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color(style.stroke.color), lineWidth: style.stroke.a > 0 ? 1 : 0))
+            }
+        }
+        .padding(.vertical, 6)
     }
 }

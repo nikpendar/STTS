@@ -19,6 +19,8 @@ enum DictationBridge {
     static let cancel = "com.persianstt.cancel"
     /// App has a provisional transcript of the recording so far on `transcriptPort`.
     static let partial = "com.persianstt.partial"
+    /// App started the final pass; an estimate of how long it takes is on `transcriptPort`.
+    static let progress = "com.persianstt.progress"
     /// App finished: the transcript is ready on `transcriptPort` (`done`), or nothing was recognized (`failed`).
     static let done = "com.persianstt.done"
     static let failed = "com.persianstt.failed"
@@ -27,6 +29,8 @@ enum DictationBridge {
     /// partial result can arrive after the final one was published, so the keyboard goes by the prefix.
     static let partialPrefix = "P"
     static let finalPrefix = "F"
+    /// Estimated seconds for the final pass, for the keyboard's progress ring.
+    static let estimatePrefix = "E"
 
     /// Loopback port the app serves the latest transcript on.
     static let transcriptPort: NWEndpoint.Port = 47_861

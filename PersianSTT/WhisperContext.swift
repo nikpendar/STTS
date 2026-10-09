@@ -19,8 +19,6 @@ enum WhisperError: LocalizedError {
 /// since a whisper context must not be used from two threads at once.
 actor WhisperContext {
     private let context: OpaquePointer
-    /// Set from any thread to stop the transcription in progress.
-    nonisolated let abort = AbortFlag()
 
     init(path: String) throws {
         var params = whisper_context_default_params()
@@ -41,13 +39,14 @@ actor WhisperContext {
     /// `minimumAudioContext` limits the encoder to the recorded length (but not below this many
     /// frames) instead of a full 30 s window; 0 keeps the full window. It must be 0 when a Core ML
     /// encoder is loaded: that encoder has a fixed 30 s input and always produces the full context.
-    func transcribe(samples: [Float], minimumAudioContext: Int) throws -> String {
+    /// Setting `abort` from any thread stops this transcription, even before it has started.
+    func transcribe(samples: [Float], minimumAudioContext: Int, abort: AbortFlag) throws -> String {
+        guard !abort.isSet else { throw WhisperError.cancelled }
         var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
         let threads = max(1, min(8, ProcessInfo.processInfo.activeProcessorCount - 2))
         let audioContext = minimumAudioContext > 0
             ? Self.audioContext(sampleCount: samples.count, minimum: minimumAudioContext) : 0
 
-        abort.clear()
         params.abort_callback = { data in
             guard let data else { return false }
             return Unmanaged<AbortFlag>.fromOpaque(data).takeUnretainedValue().isSet

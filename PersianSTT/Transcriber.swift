@@ -205,20 +205,45 @@ final class Transcriber: ObservableObject {
         }
     }
 
-    /// Stops the transcription in progress; it then throws `WhisperError.cancelled`.
-    func cancelTranscription() {
-        whisper?.abort.set()
-    }
-
     /// Used by the keyboard session, which records its own audio. The result goes only to the
-    /// keyboard, not to the app's text box.
-    func transcribe(samples: [Float]) async throws -> String {
+    /// keyboard, not to the app's text box. Setting `abort` stops it with `WhisperError.cancelled`.
+    func transcribe(samples: [Float], abort: AbortFlag) async throws -> String {
         if whisper == nil {
             await loadTask?.value
         }
         guard let whisper else { throw WhisperError.cannotLoadModel }
-        let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext)
+        let start = Date()
+        let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext, abort: abort)
+        learnSpeed(sampleCount: samples.count, elapsed: Date().timeIntervalSince(start))
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: - Time estimate
+
+    /// Processing seconds per second of encoder window on this phone, learned from past
+    /// transcriptions; the keyboard's progress ring is driven by it.
+    private static let speedKey = "secondsPerWindowSecond"
+    private var speed = UserDefaults.standard.object(forKey: Transcriber.speedKey) as? Double ?? 0.5
+
+    /// Estimated seconds to transcribe `sampleCount` samples.
+    func estimatedSeconds(sampleCount: Int) -> Double {
+        speed * windowSeconds(sampleCount)
+    }
+
+    /// The encoder runs on a window of at least `minimumAudioContext` frames (50 per second),
+    /// and on full 30 s windows for long recordings or when the window is not shortened.
+    private func windowSeconds(_ sampleCount: Int) -> Double {
+        let seconds = Double(sampleCount) / AudioLoader.sampleRate
+        if minimumAudioContext == 0 || seconds >= 28 {
+            return 30 * max(1, (seconds / 30).rounded(.up))
+        }
+        return min(30, max(seconds + 2.56, Double(minimumAudioContext) / 50))
+    }
+
+    private func learnSpeed(sampleCount: Int, elapsed: TimeInterval) {
+        let observed = elapsed / windowSeconds(sampleCount)
+        speed = 0.7 * speed + 0.3 * observed
+        UserDefaults.standard.set(speed, forKey: Self.speedKey)
     }
 
     /// Transcribes, then copies the text to the clipboard so it can be pasted into any app.
@@ -237,7 +262,8 @@ final class Transcriber: ObservableObject {
             do {
                 let start = Date()
                 let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
-                let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext)
+                let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext,
+                                                          abort: AbortFlag())
                 text = result.trimmingCharacters(in: .whitespacesAndNewlines)
                 let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
                 let elapsed = Date().timeIntervalSince(start)

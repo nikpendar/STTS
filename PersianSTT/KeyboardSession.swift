@@ -144,7 +144,8 @@ final class KeyboardSession: ObservableObject {
     }
 
     func stop() {
-        liveTask?.cancel()
+        liveAbort.set()
+        finalAbort.set()
         liveTask = nil
         idleTimer?.invalidate()
         idleTimer = nil
@@ -179,32 +180,78 @@ final class KeyboardSession: ObservableObject {
         if Self.liveTranscription { startLiveTranscription(id: dictationID) }
     }
 
-    /// While recording, transcribes the audio so far whenever enough new speech has arrived.
+    /// Live mode: text of the pieces already committed, and how many samples they cover.
+    private var committedText = ""
+    private var committedCount = 0
+    /// Stops the live pass in progress, and the final pass.
+    private var liveAbort = AbortFlag()
+    private var finalAbort = AbortFlag()
+
+    /// While recording, transcribes the uncommitted part of the recording whenever enough new
+    /// audio has arrived. Once that part is 10 s long, everything up to a pause is committed,
+    /// so a pass never covers more than 20 s and the final pass only the last piece. Passes over
+    /// the whole recording got slower as it grew and fell behind on long dictations.
     private func startLiveTranscription(id: Int) {
-        let minimumNew = Int(AudioLoader.sampleRate * 1.5)
+        let rate = Int(AudioLoader.sampleRate)
+        committedText = ""
+        committedCount = 0
+        liveAbort = AbortFlag()
+        let abort = liveAbort
         liveTask = Task { [weak self] in
-            var transcribedCount = 0
-            while let self, self.isCapturing, self.dictationID == id, !Task.isCancelled {
+            var passedCount = 0
+            while let self, self.isCapturing, self.dictationID == id, !abort.isSet {
                 let count = self.collector.count
-                guard count >= Int(AudioLoader.sampleRate), count - transcribedCount >= minimumNew else {
+                guard count - self.committedCount >= rate, count - passedCount >= rate * 3 / 2 else {
                     try? await Task.sleep(nanoseconds: 300_000_000)
                     continue
                 }
-                transcribedCount = count
-                guard let text = try? await Transcriber.shared.transcribe(samples: self.collector.snapshot()),
-                      self.isCapturing, self.dictationID == id, !text.isEmpty else { continue }
-                self.server.publish(DictationBridge.partialPrefix + text)
+                passedCount = count
+                let tail = self.collector.snapshot(from: self.committedCount)
+                let cut = tail.count >= rate * 10 ? Self.pause(in: tail) : nil
+                let piece = cut.map { Array(tail[..<$0]) } ?? tail
+                guard let text = try? await Transcriber.shared.transcribe(samples: piece, abort: abort),
+                      self.isCapturing, self.dictationID == id else { continue }
+                if let cut {
+                    self.committedText = Self.join(self.committedText, text)
+                    self.committedCount += cut
+                }
+                let shown = cut == nil ? Self.join(self.committedText, text) : self.committedText
+                guard !shown.isEmpty else { continue }
+                self.server.publish(DictationBridge.partialPrefix + shown)
                 DictationBridge.post(DictationBridge.partial)
             }
         }
     }
 
+    /// Where to split a piece of at least 10 s: the latest pause after 6 s (0.3 s quieter than a
+    /// third of the average level), else, once the piece reaches 20 s, its quietest point after 10 s.
+    private static func pause(in samples: [Float]) -> Int? {
+        let frame = Int(AudioLoader.sampleRate) / 10
+        let levels = stride(from: 0, to: samples.count - frame + 1, by: frame).map { start in
+            var sum: Float = 0
+            for i in start..<(start + frame) { sum += samples[i] * samples[i] }
+            return (sum / Float(frame)).squareRoot()
+        }
+        guard levels.count > 64 else { return nil }
+        let quiet = levels.reduce(0, +) / Float(levels.count) / 3
+        for i in stride(from: levels.count - 3, through: 61, by: -1)
+        where levels[i - 1] < quiet && levels[i] < quiet && levels[i + 1] < quiet {
+            return i * frame + frame / 2
+        }
+        guard levels.count >= 200 else { return nil }
+        let quietest = (100..<200).min { levels[$0] < levels[$1] } ?? 150
+        return quietest * frame + frame / 2
+    }
+
+    private static func join(_ a: String, _ b: String) -> String {
+        a.isEmpty ? b : b.isEmpty ? a : a + " " + b
+    }
+
     /// Stops a live pass in progress and waits for it, so the final pass gets the model.
     private func stopLiveTranscription() async {
+        liveAbort.set()
         guard let task = liveTask else { return }
         liveTask = nil
-        task.cancel()
-        Transcriber.shared.cancelTranscription()
         await task.value
     }
 
@@ -215,16 +262,23 @@ final class KeyboardSession: ObservableObject {
         resetIdleTimer()
         dictationID += 1
         let id = dictationID
-        guard samples.count > Int(AudioLoader.sampleRate / 2) else {
-            Task { await stopLiveTranscription() }
-            DictationBridge.post(DictationBridge.failed)
-            return
-        }
+        let live = liveTask != nil
+        finalAbort = AbortFlag()
+        let abort = finalAbort
         Task {
             await stopLiveTranscription()
             guard id == dictationID else { return }
+            // With live text, only the piece after the last committed one is left to transcribe.
+            let prefix = live ? committedText : ""
+            let rest = live ? Array(samples[min(committedCount, samples.count)...]) : samples
             do {
-                let text = try await Transcriber.shared.transcribe(samples: samples)
+                var text = prefix
+                if rest.count > Int(AudioLoader.sampleRate / 2) {
+                    let estimate = Transcriber.shared.estimatedSeconds(sampleCount: rest.count)
+                    server.publish(DictationBridge.estimatePrefix + String(format: "%.1f", estimate))
+                    DictationBridge.post(DictationBridge.progress)
+                    text = Self.join(prefix, try await Transcriber.shared.transcribe(samples: rest, abort: abort))
+                }
                 guard id == dictationID else { return }
                 guard !text.isEmpty else {
                     DictationBridge.post(DictationBridge.failed)
@@ -240,13 +294,13 @@ final class KeyboardSession: ObservableObject {
 
     private func cancelDictation() {
         dictationID += 1
-        liveTask?.cancel()
+        liveAbort.set()
+        finalAbort.set()
         liveTask = nil
         if isCapturing {
             isCapturing = false
             _ = collector.end()
         }
-        Transcriber.shared.cancelTranscription()
     }
 }
 
@@ -269,11 +323,11 @@ private final class SampleCollector: @unchecked Sendable {
         return samples.count
     }
 
-    /// A copy of the recording so far, for a live pass.
-    func snapshot() -> [Float] {
+    /// A copy of the recording from sample `start` on, for a live pass.
+    func snapshot(from start: Int) -> [Float] {
         lock.lock()
         defer { lock.unlock() }
-        return samples
+        return Array(samples[min(start, samples.count)...])
     }
 
     func end() -> [Float] {
