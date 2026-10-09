@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var showKeyStyle = false
     @AppStorage(KeyboardSession.idleMinutesKey) private var sessionMinutes = KeyboardSession.defaultIdleMinutes
     @AppStorage(KeyboardSession.noiseSuppressionKey) private var noiseSuppression = true
+    @AppStorage(KeyboardSession.liveTranscriptionKey) private var liveTranscription = true
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -71,6 +72,7 @@ struct ContentView: View {
                     Text("جلسه بعد از این مدت بی‌استفاده بسته می‌شود. جلسه‌ی باز باتری مصرف می‌کند.")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
+                    Toggle("نمایش متن هنگام صحبت", isOn: $liveTranscription)
                     Toggle("حذف نویز", isOn: $noiseSuppression)
                         .onChange(of: noiseSuppression) { _, _ in keyboard.noiseSuppressionChanged() }
                     if noiseSuppression && keyboard.isActive {

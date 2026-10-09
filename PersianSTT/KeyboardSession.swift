@@ -20,6 +20,13 @@ final class KeyboardSession: ObservableObject {
         UserDefaults.standard.object(forKey: noiseSuppressionKey) as? Bool ?? true
     }
 
+    /// Transcribes while the user is still speaking, so the keyboard shows text as it comes.
+    /// Costs extra CPU: the recording so far is re-transcribed every time a pass finishes.
+    static let liveTranscriptionKey = "liveTranscription"
+    static var liveTranscription: Bool {
+        UserDefaults.standard.object(forKey: liveTranscriptionKey) as? Bool ?? true
+    }
+
     @Published private(set) var isActive = false
     @Published private(set) var message = ""
 
@@ -28,6 +35,7 @@ final class KeyboardSession: ObservableObject {
     private let collector = SampleCollector()
     private let server = TranscriptServer()
     private var idleTimer: Timer?
+    private var liveTask: Task<Void, Never>?
     private var isCapturing = false
     /// Identifies the current dictation, so a cancelled one cannot report a late result.
     private var dictationID = 0
@@ -136,6 +144,8 @@ final class KeyboardSession: ObservableObject {
     }
 
     func stop() {
+        liveTask?.cancel()
+        liveTask = nil
         idleTimer?.invalidate()
         idleTimer = nil
         engine.inputNode.removeTap(onBus: 0)
@@ -166,6 +176,36 @@ final class KeyboardSession: ObservableObject {
         isCapturing = true
         resetIdleTimer()
         DictationBridge.post(DictationBridge.recording)
+        if Self.liveTranscription { startLiveTranscription(id: dictationID) }
+    }
+
+    /// While recording, transcribes the audio so far whenever enough new speech has arrived.
+    private func startLiveTranscription(id: Int) {
+        let minimumNew = Int(AudioLoader.sampleRate * 1.5)
+        liveTask = Task { [weak self] in
+            var transcribedCount = 0
+            while let self, self.isCapturing, self.dictationID == id, !Task.isCancelled {
+                let count = self.collector.count
+                guard count >= Int(AudioLoader.sampleRate), count - transcribedCount >= minimumNew else {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    continue
+                }
+                transcribedCount = count
+                guard let text = try? await Transcriber.shared.transcribe(samples: self.collector.snapshot()),
+                      self.isCapturing, self.dictationID == id, !text.isEmpty else { continue }
+                self.server.publish(DictationBridge.partialPrefix + text)
+                DictationBridge.post(DictationBridge.partial)
+            }
+        }
+    }
+
+    /// Stops a live pass in progress and waits for it, so the final pass gets the model.
+    private func stopLiveTranscription() async {
+        guard let task = liveTask else { return }
+        liveTask = nil
+        task.cancel()
+        Transcriber.shared.cancelTranscription()
+        await task.value
     }
 
     private func finishCapture() {
@@ -176,10 +216,13 @@ final class KeyboardSession: ObservableObject {
         dictationID += 1
         let id = dictationID
         guard samples.count > Int(AudioLoader.sampleRate / 2) else {
+            Task { await stopLiveTranscription() }
             DictationBridge.post(DictationBridge.failed)
             return
         }
         Task {
+            await stopLiveTranscription()
+            guard id == dictationID else { return }
             do {
                 let text = try await Transcriber.shared.transcribe(samples: samples)
                 guard id == dictationID else { return }
@@ -187,7 +230,7 @@ final class KeyboardSession: ObservableObject {
                     DictationBridge.post(DictationBridge.failed)
                     return
                 }
-                server.publish(text)
+                server.publish(DictationBridge.finalPrefix + text)
                 DictationBridge.post(DictationBridge.done)
             } catch {
                 if id == dictationID { DictationBridge.post(DictationBridge.failed) }
@@ -197,6 +240,8 @@ final class KeyboardSession: ObservableObject {
 
     private func cancelDictation() {
         dictationID += 1
+        liveTask?.cancel()
+        liveTask = nil
         if isCapturing {
             isCapturing = false
             _ = collector.end()
@@ -216,6 +261,19 @@ private final class SampleCollector: @unchecked Sendable {
         samples.removeAll(keepingCapacity: true)
         capturing = true
         lock.unlock()
+    }
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return samples.count
+    }
+
+    /// A copy of the recording so far, for a live pass.
+    func snapshot() -> [Float] {
+        lock.lock()
+        defer { lock.unlock() }
+        return samples
     }
 
     func end() -> [Float] {

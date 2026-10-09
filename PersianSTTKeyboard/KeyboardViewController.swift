@@ -18,6 +18,8 @@ final class KeyboardViewController: UIInputViewController {
     private var timeout: DispatchWorkItem?
     private var previewTimer: Timer?
     private var previewIndex = 0
+    /// Provisional text typed during live transcription; replaced by later results.
+    private var liveText = ""
 
     /// Screenshot support when the keyboard is shown inside the app: fixes the displayed
     /// state ("noSession", "ready", "recording", "transcribing", or "cycle" for all of them).
@@ -31,6 +33,9 @@ final class KeyboardViewController: UIInputViewController {
         }
         observer.observe(DictationBridge.recording) { [weak self] in
             MainActor.assumeIsolated { self?.recordingStarted() }
+        }
+        observer.observe(DictationBridge.partial) { [weak self] in
+            MainActor.assumeIsolated { self?.fetchTranscript() }
         }
         observer.observe(DictationBridge.done) { [weak self] in
             MainActor.assumeIsolated { self?.insertTranscript() }
@@ -118,6 +123,7 @@ final class KeyboardViewController: UIInputViewController {
             // Stop the transcription; the app discards it.
             cancelTimeout()
             DictationBridge.post(DictationBridge.cancel)
+            replaceLiveText(with: "")
             state = .ready
             statusLabel.text = "تبدیل لغو شد."
         case .starting:
@@ -129,25 +135,46 @@ final class KeyboardViewController: UIInputViewController {
         guard state == .starting else { return }
         cancelTimeout()
         state = .recording
+        liveText = ""
     }
 
     private func insertTranscript() {
         guard state == .transcribing else { return }
         cancelTimeout()
-        TranscriptClient.fetch { [weak self] text in
-            guard let self, self.state == .transcribing else { return }
-            if let text, !text.isEmpty {
-                self.textDocumentProxy.insertText(text)
+        fetchTranscript(final: true)
+    }
+
+    /// Reads what the app is serving: a provisional result replaces the previous one, the
+    /// final one completes the dictation. `final` marks the fetch started by `done`.
+    private func fetchTranscript(final: Bool = false) {
+        TranscriptClient.fetch { [weak self] message in
+            guard let self, self.state == .recording || self.state == .transcribing else { return }
+            if let message, message.hasPrefix(DictationBridge.finalPrefix), message.count > 1 {
+                self.replaceLiveText(with: String(message.dropFirst()))
+                self.liveText = ""
+                self.cancelTimeout()
                 self.state = .ready
-            } else {
+            } else if let message, message.hasPrefix(DictationBridge.partialPrefix), message.count > 1 {
+                self.replaceLiveText(with: String(message.dropFirst()))
+            } else if final {
+                // An earlier partial fetch may have picked up the final text and finished already.
                 self.transcriptionFailed()
             }
         }
     }
 
+    /// Swaps the provisional text for `text`, deleting only the part that changed.
+    private func replaceLiveText(with text: String) {
+        let common = zip(liveText, text).prefix { $0 == $1 }.count
+        for _ in 0..<(liveText.count - common) { textDocumentProxy.deleteBackward() }
+        textDocumentProxy.insertText(String(text.dropFirst(common)))
+        liveText = text
+    }
+
     private func transcriptionFailed() {
         guard state == .transcribing else { return }
         cancelTimeout()
+        liveText = ""
         state = .ready
         statusLabel.text = "متنی تشخیص داده نشد. دوباره امتحان کنید."
     }
