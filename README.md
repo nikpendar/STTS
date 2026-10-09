@@ -29,7 +29,7 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
   در برنامه «شروع جلسه‌ی کیبورد» را بزنید؛ سپس در هر برنامه‌ای با میکروفون کیبورد دیکته کنید.
 
 ## ساختار
-- `PersianSTT/WhisperContext.swift`: فراخوانی whisper.cpp، لغو تبدیل، کوتاه کردن پنجره‌ی صدا فقط برای مدل‌های رسمی
+- `PersianSTT/WhisperContext.swift`: فراخوانی whisper.cpp، لغو تبدیل، کوتاه کردن پنجره‌ی صدا (حداقل ۲۰ ثانیه برای مدل‌های fine-tune)
 - `PersianSTT/Transcriber.swift`: ضبط و تبدیل داخل برنامه
 - `PersianSTT/KeyboardSession.swift`: جلسه‌ی میکروفون پس‌زمینه برای کیبورد
 - `PersianSTTKeyboard/KeyboardViewController.swift`: کیبورد فارسی با دکمه‌ی میکروفون

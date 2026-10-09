@@ -17,10 +17,12 @@ final class Transcriber: ObservableObject {
 
     private var whisper: WhisperContext?
     private var usesCoreML = false
-    /// Stock OpenAI models (ggml-base, ggml-large-v3-turbo, ...) tolerate a shortened encoder
-    /// window. Fine-tuned models (ggml-whisper-...) repeat and hallucinate with it: on FLEURS
-    /// the Persian medium model went from 11.3% to 20.6% WER, and on Common Voice it broke down.
-    private var shortensAudioContext = false
+    /// Smallest encoder window (frames, 50 per second) for short recordings; 0 means always 30 s.
+    /// Stock OpenAI models (ggml-base, ggml-large-v3-turbo, ...) tolerate 384. Fine-tuned models
+    /// (ggml-whisper-...) repeat and hallucinate below about 20 s: the Persian medium model went
+    /// from 11.3% to 20.6% WER on FLEURS at 384 and 12.7% at 750, but kept its accuracy at 1000
+    /// (FLEURS 11.0%, Common Voice 20.2%) while transcribing about 30% faster.
+    private var minimumAudioContext = 0
     private var loadTask: Task<Void, Never>?
     private var recorder: AVAudioRecorder?
     private var meterTask: Task<Void, Never>?
@@ -64,7 +66,7 @@ final class Transcriber: ObservableObject {
             whisper = try await Task.detached { try WhisperContext(path: path) }.value
             usesCoreML = Self.hasCoreMLEncoder(for: url)
             let stock = ["tiny", "base", "small", "medium", "large"].contains { url.lastPathComponent.hasPrefix("ggml-\($0)") }
-            shortensAudioContext = stock && !usesCoreML
+            minimumAudioContext = usesCoreML ? 0 : (stock ? 384 : 1000)
             if !isRecording {
                 status = usesCoreML ? "آماده (Neural Engine)" : "آماده"
             }
@@ -215,7 +217,7 @@ final class Transcriber: ObservableObject {
             await loadTask?.value
         }
         guard let whisper else { throw WhisperError.cannotLoadModel }
-        let result = try await whisper.transcribe(samples: samples, shortenAudioContext: shortensAudioContext)
+        let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext)
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -235,7 +237,7 @@ final class Transcriber: ObservableObject {
             do {
                 let start = Date()
                 let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
-                let result = try await whisper.transcribe(samples: samples, shortenAudioContext: shortensAudioContext)
+                let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext)
                 text = result.trimmingCharacters(in: .whitespacesAndNewlines)
                 let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
                 let elapsed = Date().timeIntervalSince(start)
