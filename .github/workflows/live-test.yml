@@ -41,6 +41,7 @@ jobs:
           afinfo speech.wav | grep -i duration
 
       - name: Dictate in the simulator
+        shell: bash
         run: |
           set -x
           APP=build/Release-iphonesimulator/PersianSTT.app
@@ -95,26 +96,31 @@ jobs:
           sleep 15
           xcrun simctl io "$DEVICE" screenshot out/1-keyboard.png
           axe describe-ui --udid "$DEVICE" > out/ui-1.json 2>&1 || true
-          if ! python3 find.py dictationMic out/ui-1.json; then
-            axe tap -x 42 -y 833 --udid "$DEVICE" || true
-            sleep 8
-            axe describe-ui --udid "$DEVICE" > out/ui-1.json 2>&1 || true
-            xcrun simctl io "$DEVICE" screenshot out/1-keyboard.png
-          fi
-          read MX MY < <(python3 find.py dictationMic out/ui-1.json || echo "370 760")
+          read MX MY < <(python3 find.py dictationMic out/ui-1.json)
           axe tap -x "$MX" -y "$MY" --udid "$DEVICE"
           for t in 3 6 9 12 15 18; do
             sleep 3
             xcrun simctl io "$DEVICE" screenshot "out/2-recording-${t}s.png"
           done
           axe describe-ui --udid "$DEVICE" > out/ui-2.json 2>&1 || true
-          read OX OY < <(python3 find.py dictationOrb out/ui-2.json || echo "196 700")
+          read OX OY < <(python3 find.py dictationOrb out/ui-2.json)
           axe tap -x "$OX" -y "$OY" --udid "$DEVICE"
           sleep 1
           xcrun simctl io "$DEVICE" screenshot out/3-processing.png
           sleep 12
           xcrun simctl io "$DEVICE" screenshot out/4-done.png
           axe describe-ui --udid "$DEVICE" > out/ui-4.json 2>&1 || true
+          python3 - <<'PY'
+          import json
+          def walk(n):
+              if isinstance(n, dict):
+                  if n.get("AXUniqueId") == "testField" or n.get("role") == "AXTextField":
+                      print("FIELD TEXT:", n.get("AXValue"))
+                  for v in n.values(): walk(v)
+              elif isinstance(n, list):
+                  for v in n: walk(v)
+          walk(json.load(open("out/ui-4.json")))
+          PY
 
           # Landscape: Simulator's Rotate Left shortcut.
           osascript -e 'tell application "Simulator" to activate' \
@@ -124,6 +130,7 @@ jobs:
           kill $LOG || true
           echo "===== log"
           grep -E "live pass|final pass|recording started|test audio" out/log.txt | cut -c1-300 || true
+          ls ~/Library/Logs/DiagnosticReports/ | grep -i persian && cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ || echo "no crash reports"
 
       - name: Commit results
         if: always()

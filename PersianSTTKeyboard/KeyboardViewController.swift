@@ -374,7 +374,7 @@ final class KeyboardViewController: UIInputViewController {
 
         micButton.backgroundColor = .clear
         micButton.accessibilityIdentifier = "dictationMic"
-        micButton.accessibilityLabel = "Dictate"
+        micButton.accessibilityLabel = "Persian dictation"
         micButton.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
         keysView.addSubview(micButton)
 
