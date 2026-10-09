@@ -2,27 +2,31 @@ import SwiftUI
 import UIKit
 
 /// A focused text field, so CI can check that the installed keyboard extension opens.
-/// Enabled with the launch argument `-keyboardTest 1`. With `-testAudio <path>` the field uses
-/// the dictation keyboard directly as its input view (switching keyboards in the simulator is
-/// unreliable) and a keyboard session starts that plays the file instead of the microphone.
+/// Enabled with the launch argument `-keyboardTest 1`. With `-testAudio <path>` the dictation
+/// keyboard is shown inside the app instead (switching keyboards in the simulator is
+/// unreliable), typing into a label, and a keyboard session starts that plays the file
+/// instead of the microphone.
 struct KeyboardTestView: View {
     @State private var text = ""
     @FocusState private var focused: Bool
+    @StateObject private var document = TestDocument()
     private let testAudio = UserDefaults.standard.string(forKey: "testAudio")
 
     var body: some View {
         VStack {
             if testAudio != nil {
-                HostedKeyboardField()
-                    .frame(height: 44)
+                Text(document.text.isEmpty ? "آزمون دیکته" : document.text)
+                    .accessibilityIdentifier("testField")
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .padding()
+                HostedKeyboard(document: document)
             } else {
                 TextField("آزمون کیبورد", text: $text)
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
                     .padding()
+                Spacer()
             }
-            Spacer()
         }
         .onAppear {
             focused = true
@@ -31,20 +35,43 @@ struct KeyboardTestView: View {
     }
 }
 
-private final class KeyboardTextField: UITextField {
-    private let keyboard = KeyboardViewController()
-    override var inputViewController: UIInputViewController? { keyboard }
+/// A minimal text document the hosted keyboard types into.
+final class TestDocument: NSObject, ObservableObject, UITextDocumentProxy {
+    @Published var text = ""
+
+    var documentContextBeforeInput: String? { text }
+    var documentContextAfterInput: String? { nil }
+    var selectedText: String? { nil }
+    var documentInputMode: UITextInputMode? { nil }
+    var documentIdentifier: UUID { UUID() }
+    var hasText: Bool { !text.isEmpty }
+
+    func insertText(_ text: String) { self.text += text }
+    func deleteBackward() { if !text.isEmpty { text.removeLast() } }
+    func adjustTextPosition(byCharacterOffset offset: Int) {}
+    func setMarkedText(_ markedText: String, selectedRange: NSRange) {}
+    func unmarkText() {}
 }
 
-private struct HostedKeyboardField: UIViewRepresentable {
-    func makeUIView(context: Context) -> UITextField {
-        let field = KeyboardTextField()
-        field.borderStyle = .roundedRect
-        field.placeholder = "آزمون دیکته"
-        field.accessibilityIdentifier = "testField"
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { field.becomeFirstResponder() }
-        return field
+private struct HostedKeyboard: UIViewControllerRepresentable {
+    let document: TestDocument
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        let container = UIViewController()
+        let keyboard = KeyboardViewController()
+        keyboard.testProxy = document
+        container.addChild(keyboard)
+        container.view.addSubview(keyboard.view)
+        keyboard.view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            keyboard.view.leadingAnchor.constraint(equalTo: container.view.leadingAnchor),
+            keyboard.view.trailingAnchor.constraint(equalTo: container.view.trailingAnchor),
+            keyboard.view.bottomAnchor.constraint(equalTo: container.view.safeAreaLayoutGuide.bottomAnchor),
+        ])
+        keyboard.didMove(toParent: container)
+        keyboard.view.backgroundColor = .systemGray5
+        return container
     }
 
-    func updateUIView(_ uiView: UITextField, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }

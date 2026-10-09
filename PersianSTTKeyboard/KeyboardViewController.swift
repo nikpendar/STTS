@@ -34,6 +34,9 @@ final class KeyboardViewController: UIInputViewController {
     /// Screenshot support when the keyboard is shown inside the app: fixes the displayed
     /// state ("noSession", "ready", "recording", "transcribing", or "cycle" for all of them).
     var previewState: String?
+    /// The simulator test hosts the keyboard inside the app, where it types into this instead.
+    var testProxy: UITextDocumentProxy?
+    private var proxy: UITextDocumentProxy { testProxy ?? textDocumentProxy }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -197,8 +200,8 @@ final class KeyboardViewController: UIInputViewController {
     /// Swaps the provisional text for `text`, deleting only the part that changed.
     private func replaceLiveText(with text: String) {
         let common = zip(liveText, text).prefix { $0 == $1 }.count
-        for _ in 0..<(liveText.count - common) { textDocumentProxy.deleteBackward() }
-        textDocumentProxy.insertText(String(text.dropFirst(common)))
+        for _ in 0..<(liveText.count - common) { proxy.deleteBackward() }
+        proxy.insertText(String(text.dropFirst(common)))
         liveText = text
     }
 
@@ -433,7 +436,7 @@ final class KeyboardViewController: UIInputViewController {
                 let key = KeyView(title: character, fontSize: 23)
                 key.addAction(UIAction { [weak self] _ in
                     guard let self else { return }
-                    self.textDocumentProxy.insertText(self.isShifted ? character.uppercased() : character)
+                    self.proxy.insertText(self.isShifted ? character.uppercased() : character)
                     if self.isShifted { self.setShifted(false) }
                 }, for: .touchUpInside)
                 key.apply(keyStyle)
@@ -497,7 +500,7 @@ final class KeyboardViewController: UIInputViewController {
         for emoji in Self.emojis {
             let key = KeyView(title: emoji, fontSize: 28)
             key.addAction(UIAction { [weak self] _ in
-                self?.textDocumentProxy.insertText(emoji)
+                self?.proxy.insertText(emoji)
             }, for: .touchUpInside)
             emojiScroll.addSubview(key)
         }
@@ -578,25 +581,25 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func insertSpace() {
-        textDocumentProxy.insertText(" ")
+        proxy.insertText(" ")
     }
 
     /// Zero-width non-joiner (نیم‌فاصله), as in می‌شود; a full stop in English.
     @objc private func insertZWNJ() {
-        textDocumentProxy.insertText(isEnglish ? "." : "\u{200C}")
+        proxy.insertText(isEnglish ? "." : "\u{200C}")
     }
 
     @objc private func insertReturn() {
-        textDocumentProxy.insertText("\n")
+        proxy.insertText("\n")
     }
 
     @objc private func backspaceDown() {
-        textDocumentProxy.deleteBackward()
+        proxy.deleteBackward()
         repeatTimer?.invalidate()
         repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
-                    MainActor.assumeIsolated { self?.textDocumentProxy.deleteBackward() }
+                    MainActor.assumeIsolated { self?.proxy.deleteBackward() }
                 }
             }
         }
