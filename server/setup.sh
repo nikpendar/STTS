@@ -14,7 +14,9 @@ pip install -q torch transformers peft accelerate safetensors huggingface_hub nu
 if [ ! -d whisper.cpp ]; then
   git clone -q --depth 1 --branch v1.7.5 https://github.com/ggml-org/whisper.cpp
 fi
-cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF > /dev/null
+# Without GGML_NATIVE=OFF, newer Apple clang stops on i8mm intrinsics in v1.7.5; only the
+# converter's quantize step runs here, so native CPU tuning does not matter.
+cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF -DGGML_NATIVE=OFF > /dev/null
 cmake --build whisper.cpp/build -j > /dev/null
 [ -d openai-whisper ] || git clone -q --depth 1 https://github.com/openai/whisper openai-whisper
 
