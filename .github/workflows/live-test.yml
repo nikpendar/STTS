@@ -94,9 +94,6 @@ jobs:
           # Training server; a corrected dictation should arrive in srv/samples.
           python3 server/server.py --port 8765 --data "$PWD/srv" --min-new 0 > out/server.log 2>&1 &
           TRAIN_ARGS=(-trainingUpload YES -trainingServer http://127.0.0.1:8765)
-          # This runner transcribes several times slower than a phone; a matching speed keeps the
-          # keyboard from giving up on the final pass.
-          TRAIN_ARGS+=(-secondsPerWindowSecond 3)
 
           xcrun simctl spawn "$DEVICE" log stream --level info \
             --predicate 'subsystem == "ir.nikpendar.PersianSTT" OR process CONTAINS "PersianSTTKeyboard"' > out/log.txt 2>&1 &
