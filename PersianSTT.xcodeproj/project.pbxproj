@@ -11,6 +11,7 @@
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* ContentView.swift */; };
 		A10000000000000000000003 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* Transcriber.swift */; };
 		A10000000000000000000021 /* PersonalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* PersonalModel.swift */; };
+		A10000000000000000000024 /* SpeedTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* SpeedTest.swift */; };
 		A10000000000000000000004 /* WhisperContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* WhisperContext.swift */; };
 		A10000000000000000000005 /* AudioLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AudioLoader.swift */; };
 		A1000000000000000000000F /* KeyboardPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* KeyboardPreview.swift */; };
@@ -69,6 +70,7 @@
 		A20000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* Transcriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcriber.swift; sourceTree = "<group>"; };
 		A20000000000000000000021 /* PersonalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalModel.swift; sourceTree = "<group>"; };
+		A20000000000000000000024 /* SpeedTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedTest.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* WhisperContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperContext.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AudioLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLoader.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* KeyboardPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardPreview.swift; sourceTree = "<group>"; };
@@ -123,6 +125,7 @@
 				A20000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000003 /* Transcriber.swift */,
 				A20000000000000000000021 /* PersonalModel.swift */,
+				A20000000000000000000024 /* SpeedTest.swift */,
 				A20000000000000000000004 /* WhisperContext.swift */,
 				A20000000000000000000005 /* AudioLoader.swift */,
 				A20000000000000000000009 /* DictateIntent.swift */,
@@ -267,6 +270,7 @@
 				A10000000000000000000002 /* ContentView.swift in Sources */,
 				A10000000000000000000003 /* Transcriber.swift in Sources */,
 				A10000000000000000000021 /* PersonalModel.swift in Sources */,
+				A10000000000000000000024 /* SpeedTest.swift in Sources */,
 				A10000000000000000000004 /* WhisperContext.swift in Sources */,
 				A10000000000000000000005 /* AudioLoader.swift in Sources */,
 				A10000000000000000000009 /* DictateIntent.swift in Sources */,

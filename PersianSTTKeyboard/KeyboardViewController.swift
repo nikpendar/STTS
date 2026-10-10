@@ -161,10 +161,10 @@ final class KeyboardViewController: UIInputViewController {
         case .recording:
             state = .transcribing
             DictationBridge.post(DictationBridge.stop)
-            // A first guess; the app sends its own estimate once the final pass starts.
+            // A first guess, until the app's own estimate arrives.
             let recorded = Date().timeIntervalSince(recordingStart)
-            orb.resetProgress()
-            orb.startProgress(expected: min(15, max(2, recorded * 0.4)))
+            orb.liveRing.reset()
+            orb.processingRing.begin(expected: min(15, max(2, recorded * 0.4)))
             schedule(after: 90) { [weak self] in
                 if self?.state == .transcribing { self?.transcriptionFailed() }
             }
@@ -186,6 +186,7 @@ final class KeyboardViewController: UIInputViewController {
         guard state == .starting else { return }
         cancelTimeout()
         recordingStart = Date()
+        orb.liveRing.reset()
         state = .recording
         liveText = ""
         // As iOS dictation does: a space after a word, none after a space, a bracket or a ZWNJ.
@@ -201,37 +202,54 @@ final class KeyboardViewController: UIInputViewController {
         fetchTranscript(final: true)
     }
 
-    /// Reads what the app is serving: a provisional result replaces the previous one, the
-    /// final one completes the dictation. `final` marks the fetch started by `done`.
+    /// Reads what the app is serving, oldest message first: a provisional result replaces the
+    /// previous one, the final one completes the dictation, estimates drive the rings. `final`
+    /// marks the fetch started by `done`.
     private func fetchTranscript(final: Bool = false) {
-        TranscriptClient.fetch { [weak self] message in
-            guard let self, self.state == .recording || self.state == .transcribing else { return }
-            if let message, message.hasPrefix(DictationBridge.finalPrefix), message.count > 1 {
-                // "F" + dictation id + newline + text.
-                let parts = message.dropFirst().split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
-                let text = String(parts.last ?? "")
-                self.replaceLiveText(with: text)
-                self.liveText = ""
-                if parts.count == 2, !text.isEmpty {
-                    self.report(self.edits.dictationFinished(id: String(parts[0]), text: text))
-                    log.info("following dictation \(parts[0], privacy: .public) for edits")
-                }
-                self.cancelTimeout()
-                self.state = .ready
-            } else if let message, message.hasPrefix(DictationBridge.partialPrefix), message.count > 1 {
-                self.replaceLiveText(with: String(message.dropFirst()))
-            } else if let message, message.hasPrefix(DictationBridge.estimatePrefix),
-                      let seconds = Double(message.dropFirst()) {
-                guard self.state == .transcribing else { return }
-                self.orb.startProgress(expected: seconds)
-                // Only a safety net for an app that died: a slow pass must still be able to finish.
-                self.schedule(after: max(90, 3 * seconds + 30)) { [weak self] in
-                    if self?.state == .transcribing { self?.transcriptionFailed() }
-                }
-            } else if final {
-                // An earlier partial fetch may have picked up the final text and finished already.
-                self.transcriptionFailed()
+        TranscriptClient.fetch { [weak self] batch in
+            guard let self else { return }
+            let messages = batch.map { $0.split(separator: DictationBridge.separator).map(String.init) } ?? []
+            for message in messages { self.handle(message) }
+            guard final, self.state == .transcribing else { return }
+            // An earlier fetch may have taken the final text and not be handled yet.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                if self?.state == .transcribing { self?.transcriptionFailed() }
             }
+        }
+    }
+
+    private func handle(_ message: String) {
+        guard state == .recording || state == .transcribing, let kind = message.first.map(String.init) else { return }
+        let body = String(message.dropFirst())
+        switch kind {
+        case DictationBridge.finalPrefix where !body.isEmpty:
+            // Dictation id + newline + text.
+            let parts = body.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+            let text = String(parts.last ?? "")
+            replaceLiveText(with: text)
+            liveText = ""
+            if parts.count == 2, !text.isEmpty {
+                report(edits.dictationFinished(id: String(parts[0]), text: text))
+                log.info("following dictation \(parts[0], privacy: .public) for edits")
+            }
+            cancelTimeout()
+            state = .ready
+        case DictationBridge.partialPrefix:
+            // Empty after a live pass that found nothing new.
+            if !body.isEmpty { replaceLiveText(with: body) }
+            if state == .recording { orb.liveTextArrived() }
+        case DictationBridge.livePrefix:
+            guard state == .recording, let seconds = Double(body) else { return }
+            orb.liveProgress(expected: seconds)
+        case DictationBridge.estimatePrefix:
+            guard state == .transcribing, let seconds = Double(body) else { return }
+            orb.processingRing.retarget(expected: seconds)
+            // Only a safety net for an app that died: a slow pass must still be able to finish.
+            schedule(after: max(90, 3 * seconds + 30)) { [weak self] in
+                if self?.state == .transcribing { self?.transcriptionFailed() }
+            }
+        default:
+            break
         }
     }
 
@@ -802,8 +820,114 @@ private final class KeyView: UIControl {
     }
 }
 
+/// A ring that fills towards an estimated end without ever standing still: evenly to 85% at
+/// the estimated time, then ever more slowly towards full. A new estimate carries on from where
+/// the ring is, and its position is computed rather than read back from Core Animation.
+private final class ProgressRing {
+    let track = CAShapeLayer()
+    let ring = CAShapeLayer()
+    private(set) var isRunning = false
+    private var from = 0.0
+    private var start: CFTimeInterval = 0
+    private var expected = 1.0
+
+    init(color: UIColor, width: CGFloat) {
+        for shape in [track, ring] {
+            shape.fillColor = UIColor.clear.cgColor
+            shape.lineWidth = width
+            shape.lineCap = .round
+        }
+        track.strokeColor = UIColor.systemGray.withAlphaComponent(0.3).cgColor
+        ring.strokeColor = color.cgColor
+        ring.strokeEnd = 0
+    }
+
+    var path: CGPath? {
+        get { ring.path }
+        set { track.path = newValue; ring.path = newValue }
+    }
+
+    var isHidden: Bool {
+        get { ring.isHidden }
+        set { track.isHidden = newValue; ring.isHidden = newValue }
+    }
+
+    private static func curve(_ x: Double) -> Double {
+        x <= 1 ? 0.85 * x : 0.85 + 0.15 * (1 - exp(-2 * (x - 1)))
+    }
+
+    private func value(at time: CFTimeInterval) -> Double {
+        guard isRunning else { return Double(ring.strokeEnd) }
+        return from + (1 - from) * Self.curve(max(0, time - start) / expected)
+    }
+
+    /// Starts from empty.
+    func begin(expected seconds: Double) {
+        isRunning = false
+        set(0)
+        retarget(expected: seconds)
+    }
+
+    /// Carries on from the current position, to be done in `seconds`.
+    func retarget(expected seconds: Double) {
+        let now = CACurrentMediaTime()
+        from = value(at: now)
+        start = now
+        expected = max(0.3, seconds)
+        isRunning = true
+        animate()
+    }
+
+    /// Fills the rest quickly, when the result has arrived.
+    func finish() {
+        guard isRunning else { return }
+        let current = value(at: CACurrentMediaTime())
+        isRunning = false
+        set(1)
+        let fill = CABasicAnimation(keyPath: "strokeEnd")
+        fill.fromValue = current
+        fill.toValue = 1
+        fill.duration = 0.2
+        ring.add(fill, forKey: "progress")
+    }
+
+    func reset() {
+        isRunning = false
+        set(0)
+    }
+
+    /// Animations are dropped when the view leaves the screen; this puts the ring back on course.
+    func resume() {
+        if isRunning { animate() }
+    }
+
+    private func set(_ value: Double) {
+        ring.removeAnimation(forKey: "progress")
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        ring.strokeEnd = CGFloat(value)
+        CATransaction.commit()
+    }
+
+    /// The curve from now on, sampled, up to the point where it is all but full.
+    private func animate() {
+        let now = CACurrentMediaTime()
+        let elapsed = max(0, now - start)
+        let duration = max(0.5, 4 * expected - elapsed)
+        let steps = 48
+        let values = (0...steps).map { i in value(at: now + duration * Double(i) / Double(steps)) }
+        set(values.last ?? 1)
+        let fill = CAKeyframeAnimation(keyPath: "strokeEnd")
+        fill.values = values
+        fill.duration = duration
+        fill.calculationMode = .linear
+        ring.add(fill, forKey: "progress")
+    }
+}
+
 /// The compact dictation view: a turning, breathing gradient orb (like Siri's) with the mic in
-/// the middle while recording, and a ring around it that fills while the app transcribes.
+/// the middle. While recording, a teal ring fills until the next piece of live text arrives;
+/// after the recording, a blue ring fills while the app transcribes.
 /// The whole view is one button: it stops the recording, or cancels the transcription.
 private final class DictationOrbView: UIControl {
     enum Mode { case starting, recording, processing }
@@ -815,8 +939,10 @@ private final class DictationOrbView: UIControl {
     private let pulse = CALayer()
     private let gradient = CAGradientLayer()
     private let gradientMask = CAShapeLayer()
-    private let track = CAShapeLayer()
-    private let ring = CAShapeLayer()
+    /// Live text while speaking.
+    let liveRing = ProgressRing(color: .systemTeal, width: 3)
+    /// The transcription after the recording.
+    let processingRing = ProgressRing(color: .systemBlue, width: 4)
     private let icon = UIImageView()
     private let caption = UILabel()
 
@@ -832,15 +958,10 @@ private final class DictationOrbView: UIControl {
         pulse.addSublayer(gradient)
         layer.addSublayer(pulse)
 
-        for shape in [track, ring] {
-            shape.fillColor = UIColor.clear.cgColor
-            shape.lineWidth = 4
-            shape.lineCap = .round
-            layer.addSublayer(shape)
+        for ring in [liveRing, processingRing] {
+            layer.addSublayer(ring.track)
+            layer.addSublayer(ring.ring)
         }
-        track.strokeColor = UIColor.systemGray.withAlphaComponent(0.3).cgColor
-        ring.strokeColor = UIColor.systemBlue.cgColor
-        ring.strokeEnd = 0
 
         icon.image = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold))
         icon.tintColor = .white
@@ -874,8 +995,8 @@ private final class DictationOrbView: UIControl {
         gradientMask.path = UIBezierPath(ovalIn: pulse.bounds).cgPath
         let ringPath = UIBezierPath(arcCenter: center, radius: diameter / 2 + 8,
                                     startAngle: -.pi / 2, endAngle: 1.5 * .pi, clockwise: true).cgPath
-        track.path = ringPath
-        ring.path = ringPath
+        liveRing.path = ringPath
+        processingRing.path = ringPath
         CATransaction.commit()
         icon.frame = orbFrame
         caption.frame = CGRect(x: 16, y: bounds.height - 30, width: bounds.width - 32, height: 22)
@@ -884,7 +1005,10 @@ private final class DictationOrbView: UIControl {
     /// Animations are dropped when the keyboard leaves the screen; restart them on return.
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        if window != nil { update() }
+        guard window != nil else { return }
+        update()
+        liveRing.resume()
+        processingRing.resume()
     }
 
     private func update() {
@@ -894,25 +1018,51 @@ private final class DictationOrbView: UIControl {
         case .starting:
             gradient.opacity = 0.5
             setMotion(false)
-            setRingHidden(true)
+            liveRing.isHidden = true
+            processingRing.isHidden = true
             caption.text = "…"
         case .recording:
             gradient.opacity = 1
             setMotion(true)
-            setRingHidden(true)
+            liveRing.isHidden = !liveRing.isRunning
+            processingRing.isHidden = true
             caption.text = "در حال گوش دادن… برای پایان بزنید"
         case .processing:
             gradient.opacity = 0.35
             setMotion(false)
-            setRingHidden(false)
+            liveRing.isHidden = true
+            processingRing.isHidden = false
             caption.text = "در حال تبدیل به متن… برای لغو بزنید"
         }
         CATransaction.commit()
     }
 
-    private func setRingHidden(_ hidden: Bool) {
-        track.isHidden = hidden
-        ring.isHidden = hidden
+    /// A live pass started, or its estimate changed: `seconds` until its text.
+    func liveProgress(expected seconds: Double) {
+        if liveRing.isRunning {
+            liveRing.retarget(expected: seconds)
+        } else {
+            liveRing.begin(expected: seconds)
+        }
+        if mode == .recording { setLiveRingVisible(true) }
+    }
+
+    /// The live text arrived: the ring fills and fades until the next pass.
+    func liveTextArrived() {
+        guard liveRing.isRunning else { return }
+        liveRing.finish()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            guard let self, !self.liveRing.isRunning else { return }
+            self.setLiveRingVisible(false)
+            self.liveRing.reset()
+        }
+    }
+
+    private func setLiveRingVisible(_ visible: Bool) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        liveRing.isHidden = !visible
+        CATransaction.commit()
     }
 
     var animates = true
@@ -937,30 +1087,6 @@ private final class DictationOrbView: UIControl {
         pulse.add(breathe, forKey: "breathe")
     }
 
-    /// Fills the ring from where it is now to 95% over `expected` seconds; the rest is left for
-    /// the moment the text arrives.
-    func startProgress(expected: TimeInterval) {
-        let current = ring.presentation()?.strokeEnd ?? ring.strokeEnd
-        ring.removeAnimation(forKey: "progress")
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        ring.strokeEnd = 0.95
-        CATransaction.commit()
-        let fill = CABasicAnimation(keyPath: "strokeEnd")
-        fill.fromValue = min(current, 0.95)
-        fill.toValue = 0.95
-        fill.duration = max(0.5, expected)
-        fill.timingFunction = CAMediaTimingFunction(name: .linear)
-        ring.add(fill, forKey: "progress")
-    }
-
-    func resetProgress() {
-        ring.removeAnimation(forKey: "progress")
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        ring.strokeEnd = 0
-        CATransaction.commit()
-    }
 
     override var isHighlighted: Bool {
         didSet { pulse.opacity = isHighlighted ? 0.7 : 1 }

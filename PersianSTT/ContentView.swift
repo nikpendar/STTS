@@ -8,6 +8,7 @@ struct ContentView: View {
     @ObservedObject private var model = Transcriber.shared
     @ObservedObject private var keyboard = KeyboardSession.shared
     @ObservedObject private var personal = PersonalModel.shared
+    @ObservedObject private var speed = SpeedTest.shared
     @AppStorage(PersonalModel.uploadKey) private var trainingUpload = false
     @AppStorage(PersonalModel.serverKey) private var trainingServer = PersonalModel.defaultServer
     @AppStorage(PersonalModel.autoUpdateKey) private var trainingAutoUpdate = false
@@ -64,6 +65,8 @@ struct ContentView: View {
                      ? "برای «فقط صدای من»، جلسه را شروع کنید و در منوی باز شده Voice Isolation را انتخاب کنید."
                      : "نمایش متن هنگام صحبت باتری بیشتری مصرف می‌کند.").font(.app(.footnote))
             }
+
+            speedSection
 
             Section {
                 KeyPreview(style: style)
@@ -168,6 +171,38 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
+    }
+
+    /// The speed test (`SpeedTest`) and the settings it picked.
+    private var speedSection: some View {
+        Section {
+            Button {
+                speed.run()
+            } label: {
+                SettingLabel(speed.isRunning ? "در حال آزمون…" : "آزمون سرعت", symbol: "speedometer", color: .red)
+            }
+            .disabled(speed.isRunning || !speed.hasRecording)
+            ForEach(speed.trials) { trial in
+                LabeledContent {
+                    Text(String(format: "%.1f ثانیه", trial.seconds) + (trial.sameText ? "" : "، متن متفاوت"))
+                        .monospacedDigit()
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(SpeedTest.describe(flashAttention: trial.flashAttention, threads: trial.threads))
+                        if !speed.isRunning && SpeedTest.describe(flashAttention: trial.flashAttention, threads: trial.threads) == SpeedTest.summary {
+                            Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
+                        }
+                    }
+                }
+                .font(.app(.subheadline))
+            }
+            LabeledContent("تنظیم در حال استفاده", value: SpeedTest.summary)
+        } header: {
+            Text("سرعت پردازش").font(.app(.footnote))
+        } footer: {
+            Text((speed.status.isEmpty ? "" : speed.status + "\n\n")
+                 + "آخرین دیکته‌ی شما با چند تنظیم پردازش می‌شود و سریع‌ترین برای دیکته‌های بعدی نگه داشته می‌شود. این تنظیم‌ها فقط زمان را عوض می‌کنند، نه متن را. آزمون حدود یک دقیقه طول می‌کشد.").font(.app(.footnote))
+        }
     }
 
     /// Learning from corrections: uploading them to the user's training server and installing

@@ -19,6 +19,9 @@ final class Transcriber: ObservableObject {
     @Published var isQuickDictation = false
 
     private var whisper: WhisperContext?
+    private var modelURL: URL?
+    /// The flash attention setting `whisper` was loaded with.
+    private var loadedFlashAttention = SpeedTest.flashAttention
     private var usesCoreML = false
     /// Smallest encoder window (frames, 50 per second) for short recordings; 0 means always 30 s.
     /// Stock OpenAI models (ggml-base, ggml-large-v3-turbo, ...) tolerate 384. Fine-tuned models
@@ -77,7 +80,10 @@ final class Transcriber: ObservableObject {
         }
         do {
             let path = url.path
-            whisper = try await Task.detached { try WhisperContext(path: path) }.value
+            let flashAttention = SpeedTest.flashAttention
+            whisper = try await Task.detached { try WhisperContext(path: path, flashAttention: flashAttention) }.value
+            modelURL = url
+            loadedFlashAttention = flashAttention
             usesCoreML = Self.hasCoreMLEncoder(for: url)
             let stock = ["tiny", "base", "small", "medium", "large"].contains { url.lastPathComponent.hasPrefix("ggml-\($0)") }
             minimumAudioContext = usesCoreML ? 0 : (stock ? 384 : 1000)
@@ -228,28 +234,79 @@ final class Transcriber: ObservableObject {
 
     /// Used by the keyboard session, which records its own audio. The result goes only to the
     /// keyboard, not to the app's text box. Setting `abort` stops it with `WhisperError.cancelled`.
-    func transcribe(samples: [Float], abort: AbortFlag, preview: Bool = false) async throws -> String {
+    /// `onEncoded` runs on the main actor once the encoder is done, with the seconds still expected.
+    func transcribe(samples: [Float], abort: AbortFlag, preview: Bool = false,
+                    onEncoded: ((Double) -> Void)? = nil) async throws -> String {
         if whisper == nil {
             await loadTask?.value
         }
         guard let whisper else { throw WhisperError.cannotLoadModel }
-        let start = Date()
-        let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext, abort: abort,
-                                              preview: preview)
-        if !preview { learnSpeed(sampleCount: samples.count, elapsed: Date().timeIntervalSince(start)) }
-        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+        let remaining = decodeSeconds(sampleCount: samples.count, preview: preview)
+        var encoded: (@Sendable () -> Void)?
+        if let onEncoded {
+            encoded = { DispatchQueue.main.async { MainActor.assumeIsolated { onEncoded(remaining) } } }
+        }
+        let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext,
+                                                  threads: SpeedTest.threads, abort: abort, preview: preview,
+                                                  onEncoded: encoded)
+        learnSpeed(sampleCount: samples.count, result: result, preview: preview)
+        return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: - Speed test
+
+    /// For `SpeedTest`: transcribes `samples` as the final pass does, with flash attention on or
+    /// off (loading the model again when that changes) and `threads` threads.
+    func measure(samples: [Float], flashAttention: Bool, threads: Int) async throws -> (text: String, seconds: Double) {
+        if whisper == nil {
+            await loadTask?.value
+        }
+        guard let url = modelURL else { throw WhisperError.cannotLoadModel }
+        if flashAttention != loadedFlashAttention || whisper == nil {
+            // One copy of the model at a time: a 4 GB phone has no room for two.
+            whisper = nil
+            let path = url.path
+            whisper = try await Task.detached { try WhisperContext(path: path, flashAttention: flashAttention) }.value
+            loadedFlashAttention = flashAttention
+        }
+        guard let whisper else { throw WhisperError.cannotLoadModel }
+        let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext,
+                                                  threads: threads, abort: AbortFlag())
+        return (result.text.trimmingCharacters(in: .whitespacesAndNewlines), result.totalSeconds)
+    }
+
+    /// Loads the model again if it was loaded with another flash attention setting than the saved one.
+    func useFlashAttentionSetting() {
+        if whisper == nil || loadedFlashAttention != SpeedTest.flashAttention { reloadModel() }
     }
 
     // MARK: - Time estimate
 
-    /// Processing seconds per second of encoder window on this phone, learned from past
-    /// transcriptions; the keyboard's progress ring is driven by it.
-    private static let speedKey = "secondsPerWindowSecond"
-    private var speed = UserDefaults.standard.object(forKey: Transcriber.speedKey) as? Double ?? 0.5
+    /// Seconds of processing on this phone, learned from past transcriptions, for the keyboard's
+    /// progress rings: the encoder per second of its window, and decoding per second of audio,
+    /// since the number of words grows with it. Live passes decode faster (`preview`).
+    private static let encodeSpeedKey = "encodeSecondsPerWindowSecond"
+    private static let decodeSpeedKey = "decodeSecondsPerAudioSecond"
+    private static let previewDecodeSpeedKey = "previewDecodeSecondsPerAudioSecond"
+    private var encodeSpeed = UserDefaults.standard.object(forKey: Transcriber.encodeSpeedKey) as? Double
+        // The one speed learned by earlier versions, mostly encoder time.
+        ?? (UserDefaults.standard.object(forKey: "secondsPerWindowSecond") as? Double).map { $0 * 0.8 } ?? 0.3
+    private var decodeSpeed = UserDefaults.standard.object(forKey: Transcriber.decodeSpeedKey) as? Double ?? 0.2
+    private var previewDecodeSpeed = UserDefaults.standard.object(forKey: Transcriber.previewDecodeSpeedKey) as? Double ?? 0.15
 
     /// Estimated seconds to transcribe `sampleCount` samples.
-    func estimatedSeconds(sampleCount: Int) -> Double {
-        speed * windowSeconds(sampleCount)
+    func estimatedSeconds(sampleCount: Int, preview: Bool = false) -> Double {
+        estimatedEncodeSeconds(sampleCount: sampleCount) + decodeSeconds(sampleCount: sampleCount, preview: preview)
+    }
+
+    /// The part of `estimatedSeconds` up to the end of the encoder.
+    func estimatedEncodeSeconds(sampleCount: Int) -> Double {
+        encodeSpeed * windowSeconds(sampleCount)
+    }
+
+    /// The part of `estimatedSeconds` after the encoder.
+    private func decodeSeconds(sampleCount: Int, preview: Bool) -> Double {
+        (preview ? previewDecodeSpeed : decodeSpeed) * Double(sampleCount) / AudioLoader.sampleRate
     }
 
     /// The encoder runs on a window of at least `minimumAudioContext` frames (50 per second),
@@ -262,10 +319,19 @@ final class Transcriber: ObservableObject {
         return min(30, max(seconds + 2.56, Double(minimumAudioContext) / 50))
     }
 
-    private func learnSpeed(sampleCount: Int, elapsed: TimeInterval) {
-        let observed = elapsed / windowSeconds(sampleCount)
-        speed = 0.7 * speed + 0.3 * observed
-        UserDefaults.standard.set(speed, forKey: Self.speedKey)
+    private func learnSpeed(sampleCount: Int, result: WhisperContext.Result, preview: Bool) {
+        let audio = Double(sampleCount) / AudioLoader.sampleRate
+        guard result.encodeSeconds > 0, audio > 0.5 else { return }
+        encodeSpeed = 0.7 * encodeSpeed + 0.3 * result.encodeSeconds / windowSeconds(sampleCount)
+        let decode = max(0, result.totalSeconds - result.encodeSeconds) / audio
+        if preview {
+            previewDecodeSpeed = 0.7 * previewDecodeSpeed + 0.3 * decode
+        } else {
+            decodeSpeed = 0.7 * decodeSpeed + 0.3 * decode
+        }
+        UserDefaults.standard.set(encodeSpeed, forKey: Self.encodeSpeedKey)
+        UserDefaults.standard.set(decodeSpeed, forKey: Self.decodeSpeedKey)
+        UserDefaults.standard.set(previewDecodeSpeed, forKey: Self.previewDecodeSpeedKey)
     }
 
     /// Transcribes, then copies the text to the clipboard so it can be pasted into any app.
@@ -285,8 +351,8 @@ final class Transcriber: ObservableObject {
                 let start = Date()
                 let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
                 let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext,
-                                                          abort: AbortFlag())
-                text = result.trimmingCharacters(in: .whitespacesAndNewlines)
+                                                          threads: SpeedTest.threads, abort: AbortFlag())
+                text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
                 let elapsed = Date().timeIntervalSince(start)
                 var summary = String(format: "%.1f ثانیه صدا در %.1f ثانیه تبدیل شد", audioSeconds, elapsed)

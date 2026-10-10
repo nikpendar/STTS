@@ -20,7 +20,7 @@ enum DictationBridge {
     static let cancel = "com.persianstt.cancel"
     /// App has a provisional transcript of the recording so far on `transcriptPort`.
     static let partial = "com.persianstt.partial"
-    /// App started the final pass; an estimate of how long it takes is on `transcriptPort`.
+    /// App has a new time estimate on `transcriptPort`, for a live pass or the final transcription.
     static let progress = "com.persianstt.progress"
     /// App finished: the transcript is ready on `transcriptPort` (`done`), or nothing was recognized (`failed`).
     static let done = "com.persianstt.done"
@@ -32,8 +32,12 @@ enum DictationBridge {
     /// Final transcript: "F" + dictation id + newline + text. The id lets the keyboard report
     /// the user's later edits of that text (`Correction`).
     static let finalPrefix = "F"
-    /// Estimated seconds for the final pass, for the keyboard's progress ring.
+    /// Seconds still expected for the final transcription, for the keyboard's processing ring.
     static let estimatePrefix = "E"
+    /// Seconds still expected for the live pass in progress, for the keyboard's live text ring.
+    static let livePrefix = "L"
+    /// Separates the messages of one fetch; each starts with one of the prefixes above.
+    static let separator: Character = "\u{1E}"
 
     /// Loopback port the app serves the latest transcript on.
     static let transcriptPort: NWEndpoint.Port = 47_861
@@ -77,11 +81,12 @@ final class DarwinObserver {
     }
 }
 
-/// App side: hands the latest transcript to the next connection on 127.0.0.1, then forgets it.
+/// App side: hands the messages published since the last connection on 127.0.0.1 to the next
+/// one, then forgets them. Of each kind (first character) only the newest is kept.
 final class TranscriptServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "TranscriptServer")
     private var listener: NWListener?
-    private var pending: Data?
+    private var pending: [String] = []
 
     func start() {
         queue.async { [self] in
@@ -103,17 +108,25 @@ final class TranscriptServer: @unchecked Sendable {
         queue.async { [self] in
             listener?.cancel()
             listener = nil
-            pending = nil
+            pending = []
         }
     }
 
+    /// Drops messages left from an earlier dictation.
+    func clear() {
+        queue.async { [self] in pending = [] }
+    }
+
     func publish(_ text: String) {
-        queue.async { [self] in pending = Data(text.utf8) }
+        queue.async { [self] in
+            pending.removeAll { $0.first == text.first }
+            pending.append(text)
+        }
     }
 
     private func serve(_ connection: NWConnection) {
-        let data = pending ?? Data()
-        pending = nil
+        let data = Data(pending.joined(separator: String(DictationBridge.separator)).utf8)
+        pending = []
         connection.start(queue: queue)
         connection.send(content: data, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in
             connection.cancel()
