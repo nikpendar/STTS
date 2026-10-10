@@ -1,0 +1,25 @@
+# Compiles the keyboard's word logic (suggestions, typo correction, spoken punctuation) with
+# Tests/KeyboardLogic on a Mac and runs the checks; no simulator or app build needed.
+name: Keyboard logic test
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - PersianSTTKeyboard/Lexicon.swift
+      - PersianSTTKeyboard/VoiceCommands.swift
+      - PersianSTTKeyboard/fa_words.txt
+      - PersianSTTKeyboard/fa_bigrams.bin
+      - Tests/KeyboardLogic/**
+      - .github/workflows/logic-test.yml
+
+jobs:
+  logic:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build and run
+        run: |
+          swiftc -O -module-name KeyboardLogic PersianSTTKeyboard/Lexicon.swift PersianSTTKeyboard/VoiceCommands.swift \
+            Tests/KeyboardLogic/main.swift -o logic-test
+          ./logic-test PersianSTTKeyboard
