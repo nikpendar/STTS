@@ -1,4 +1,7 @@
 import UIKit
+import os
+
+private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "keyboard")
 
 /// Dictation keyboard: records through the app's background session and types the
 /// transcript into the focused text field, so the field never loses focus.
@@ -36,7 +39,7 @@ final class KeyboardViewController: UIInputViewController {
     private var edits = EditTracker()
     private var editsTimer: Timer?
     /// Seconds without typing after which edits are reported even if the keyboard stays open.
-    var reportDelay: TimeInterval = 120
+    var reportDelay: TimeInterval = 300
 
     /// Screenshot support when the keyboard is shown inside the app: fixes the displayed
     /// state ("noSession", "ready", "recording", "transcribing", or "cycle" for all of them).
@@ -211,6 +214,7 @@ final class KeyboardViewController: UIInputViewController {
                 self.liveText = ""
                 if parts.count == 2, !text.isEmpty {
                     self.report(self.edits.dictationFinished(id: String(parts[0]), text: text))
+                    log.info("following dictation \(parts[0], privacy: .public) for edits")
                 }
                 self.cancelTimeout()
                 self.state = .ready
@@ -233,7 +237,8 @@ final class KeyboardViewController: UIInputViewController {
     /// Swaps the provisional text for `text`, deleting only the part that changed.
     private func replaceLiveText(with text: String) {
         let target = text.isEmpty ? "" : livePrefix + text
-        let common = zip(liveText, target).prefix { $0 == $1 }.count
+        // Characters compare equal across Unicode normalizations; the typed text must match exactly.
+        let common = zip(liveText, target).prefix { $0.unicodeScalars.elementsEqual($1.unicodeScalars) }.count
         for _ in 0..<(liveText.count - common) { deleteBackward() }
         insert(String(target.dropFirst(common)), dictated: true)
         liveText = target
@@ -261,7 +266,10 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Sends finished corrections to the app, and restarts the wait for the user to stop editing.
     private func report(_ corrections: [Correction]) {
-        corrections.forEach { $0.send() }
+        for correction in corrections {
+            log.info("sending correction for \(correction.id, privacy: .public)")
+            correction.send()
+        }
         editsTimer?.invalidate()
         editsTimer = nil
         guard edits.isTracking else { return }
@@ -273,7 +281,9 @@ final class KeyboardViewController: UIInputViewController {
     private func finishEdits() {
         editsTimer?.invalidate()
         editsTimer = nil
-        edits.finishAll().forEach { $0.send() }
+        guard edits.isTracking else { return }
+        log.info("edits finished")
+        report(edits.finishAll())
     }
 
     private func transcriptionFailed() {
