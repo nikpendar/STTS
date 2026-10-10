@@ -100,6 +100,8 @@ final class KeyboardSession: ObservableObject {
             resetIdleTimer()
             return
         }
+        // Loads the model now if nothing has yet, so the first live pass does not wait for it.
+        _ = Transcriber.shared
         if testAudio != nil {
             server.start()
             isActive = true
