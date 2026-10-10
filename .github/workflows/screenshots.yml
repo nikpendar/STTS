@@ -61,9 +61,10 @@ jobs:
           cat > find.py <<'PY'
           import json, re, sys
           target = sys.argv[1]
+          # The row's own label, not a container whose label lists every row.
           def walk(node):
               if isinstance(node, dict):
-                  if any(isinstance(v, str) and target in v for v in node.values()):
+                  if any(isinstance(v, str) and v.strip() == target for v in node.values()):
                       f = node.get("frame")
                       if isinstance(f, dict):
                           print(int(f["x"] + f["width"] / 2), int(f["y"] + f["height"] / 2)); sys.exit(0)
@@ -74,7 +75,7 @@ jobs:
           sys.exit(1)
           PY
           page=1
-          for label in "گفتار" "تایپ و پیشنهاد" "ظاهر دکمه‌ها" "یادگیری از اصلاح‌ها"; do
+          for label in "گفتار" "تایپ و پیشنهاد کلمه" "ظاهر دکمه‌ها" "یادگیری از اصلاح‌ها"; do
             shoot "page-$page" light
             sleep 6
             for i in 1 2 3 4 5; do
