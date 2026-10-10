@@ -17,13 +17,18 @@ jobs:
       - name: Download whisper.xcframework and model
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash ./setup.sh large-v3-turbo-q5_0
+        run: bash ./setup.sh base-q5_1
 
       - name: Build for the simulator
         run: |
           xcodebuild -project PersianSTT.xcodeproj -target PersianSTT \
             -configuration Debug -sdk iphonesimulator ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO build | tail -n 5
+
+      - name: Install AXe (simulator taps)
+        run: |
+          brew tap cameroncooke/axe
+          brew install axe
 
       - name: Take screenshots
         run: |
@@ -51,8 +56,39 @@ jobs:
           sleep 60
           xcrun simctl io "$DEVICE" screenshot shots/2-app-ready.png
 
+          # Settings pages: each row of the main page is tapped by its label.
+          cat > find.py <<'PY'
+          import json, re, sys
+          target = sys.argv[1]
+          def walk(node):
+              if isinstance(node, dict):
+                  if any(isinstance(v, str) and target in v for v in node.values()):
+                      f = node.get("frame")
+                      if isinstance(f, dict):
+                          print(int(f["x"] + f["width"] / 2), int(f["y"] + f["height"] / 2)); sys.exit(0)
+                  for v in node.values(): walk(v)
+              elif isinstance(node, list):
+                  for v in node: walk(v)
+          walk(json.load(open(sys.argv[2])))
+          sys.exit(1)
+          PY
+          page=1
+          for label in "گفتار" "تایپ و پیشنهاد" "ظاهر دکمه‌ها" "یادگیری از اصلاح‌ها"; do
+            shoot "page-$page" light
+            sleep 6
+            axe describe-ui --udid "$DEVICE" > ui.json || true
+            if read PX PY < <(python3 find.py "$label" ui.json); then
+              axe tap -x "$PX" -y "$PY" --udid "$DEVICE"
+              sleep 2
+              xcrun simctl io "$DEVICE" screenshot "shots/2-page-$page.png"
+            else
+              echo "::warning::row $label not found"
+            fi
+            page=$((page+1))
+          done
+
           shoot dark dark
-          sleep 60
+          sleep 20
           xcrun simctl io "$DEVICE" screenshot shots/3-app-ready-dark.png
 
           n=4
