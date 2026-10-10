@@ -183,6 +183,10 @@ jobs:
             xcrun simctl io "$DEVICE" screenshot out/5b-menu.png && axe touch -x "$EX" -y "$EY" --up --udid "$DEVICE" || true
           sleep 1
           xcrun simctl io "$DEVICE" screenshot out/5c-menu-open.png
+          # A touch outside the open menu closes it.
+          read CX CY < <(python3 find.py letter-0-9 out/ui-5b.json || echo "350 700")
+          axe tap -x "$CX" -y "$CY" --udid "$DEVICE"
+          sleep 1
 
           # A recording in which nobody speaks (the test audio plays only once) should be
           # dropped without transcribing it.

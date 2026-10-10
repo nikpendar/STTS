@@ -218,7 +218,7 @@ final class KeyboardSession: ObservableObject {
 
     private func startCapture() {
         guard isActive else { return }
-        collector.begin()
+        Self.ambientNoise = collector.begin()
         server.clear()
         isCapturing = true
         resetIdleTimer()
@@ -446,26 +446,37 @@ final class KeyboardSession: ObservableObject {
 
     /// Recording levels are kept per 0.1 s frame (`SampleCollector.levels`).
     private static let frame = Int(AudioLoader.sampleRate) / 10
+    /// Level of the room just before the current recording, if the microphone was on.
+    private static var ambientNoise: Float?
 
     /// Speech detection on the levels of 0.1 s frames. Speech lasts as long as frames stay above
     /// `quiet`: 15% of the recording's speech level (90th percentile), but at least three times
-    /// its noise floor (20th percentile). It needs 0.3 s of frames twice as loud, and above a
-    /// fixed floor (-48 dB) that silence stays under. Without the floors, the loudest tenth of a
-    /// silent recording counted as speech and was transcribed.
+    /// the noise floor. It needs 0.3 s of frames twice as loud, and above a fixed floor (-48 dB)
+    /// that silence stays under. Without the floors, the loudest tenth of a silent recording
+    /// counted as speech and was transcribed.
+    /// The noise floor is the quieter of the room before the recording (`SampleCollector`) and
+    /// the quietest 0.3 s of the recording: a percentile of the recording alone is speech when
+    /// someone talks without a pause, and then no speech was found at all.
     private struct Thresholds {
         let loud: Float
         let quiet: Float
 
-        init(_ levels: [Float]) {
+        init(_ levels: [Float], ambient: Float?) {
             guard !levels.isEmpty else {
                 loud = .infinity
                 quiet = .infinity
                 return
             }
             let sorted = levels.sorted()
-            func percentile(_ p: Double) -> Float { sorted[Int(Double(sorted.count - 1) * p)] }
-            let noise = max(percentile(0.2), 0.0003)
-            let quiet = max(0.15 * percentile(0.9), 3 * noise, 0.0015)
+            var quietest = sorted[0]
+            if levels.count >= 3 {
+                quietest = (1..<(levels.count - 1)).lazy.map { i -> Float in
+                    let a = levels[i - 1], b = levels[i], c = levels[i + 1]
+                    return max(min(a, b), min(max(a, b), c))
+                }.min() ?? quietest
+            }
+            let noise = max(min(quietest, ambient ?? .infinity), 0.0003)
+            let quiet = max(0.15 * sorted[Int(Double(sorted.count - 1) * 0.9)], 3 * noise, 0.0015)
             self.quiet = quiet
             loud = max(2 * quiet, 0.004)
         }
@@ -478,7 +489,7 @@ final class KeyboardSession: ObservableObject {
         let last = min(last ?? levels.count, levels.count)
         let first = min(max(0, first), last)
         guard last - first >= 3 else { return nil }
-        let t = Thresholds(levels)
+        let t = Thresholds(levels, ambient: ambientNoise)
         guard levels[first..<last].lazy.filter({ $0 >= t.loud }).count >= 3 else { return nil }
         // Median of three neighbours, so a lone click or crackle does not extend the speech.
         func smoothed(_ i: Int) -> Float {
@@ -653,24 +664,31 @@ final class KeyboardSession: ObservableObject {
 }
 
 /// Collects converted samples from the audio thread while a recording is in progress, and the
-/// level (RMS) of each 0.1 s of it, by which pauses are found.
+/// level (RMS) of each 0.1 s of it, by which pauses are found. Between recordings it keeps the
+/// levels of the last 3 s, the room's noise.
 private final class SampleCollector: @unchecked Sendable {
     private let lock = NSLock()
     private var samples: [Float] = []
     private var frameLevels: [Float] = []
+    private var ambient: [Float] = []
     private var frameSum: Float = 0
     private var frameCount = 0
     private var capturing = false
     private static let frame = Int(AudioLoader.sampleRate) / 10
 
-    func begin() {
+    /// Starts a recording; returns the room's level before it (the 30th percentile of the last
+    /// 3 s), or nil if the microphone was not on long enough.
+    func begin() -> Float? {
         lock.lock()
+        defer { lock.unlock() }
+        let sorted = ambient.sorted()
         samples.removeAll(keepingCapacity: true)
         frameLevels.removeAll(keepingCapacity: true)
+        ambient.removeAll(keepingCapacity: true)
         frameSum = 0
         frameCount = 0
         capturing = true
-        lock.unlock()
+        return sorted.count >= 10 ? sorted[sorted.count * 3 / 10] : nil
     }
 
     /// Levels of the complete 0.1 s frames so far.
@@ -704,17 +722,21 @@ private final class SampleCollector: @unchecked Sendable {
 
     func append(_ pointer: UnsafePointer<Float>, count: Int) {
         lock.lock()
-        if capturing {
-            let buffer = UnsafeBufferPointer(start: pointer, count: count)
-            samples.append(contentsOf: buffer)
-            for sample in buffer {
-                frameSum += sample * sample
-                frameCount += 1
-                if frameCount == Self.frame {
-                    frameLevels.append((frameSum / Float(Self.frame)).squareRoot())
-                    frameSum = 0
-                    frameCount = 0
+        let buffer = UnsafeBufferPointer(start: pointer, count: count)
+        if capturing { samples.append(contentsOf: buffer) }
+        for sample in buffer {
+            frameSum += sample * sample
+            frameCount += 1
+            if frameCount == Self.frame {
+                let level = (frameSum / Float(Self.frame)).squareRoot()
+                if capturing {
+                    frameLevels.append(level)
+                } else {
+                    ambient.append(level)
+                    if ambient.count > 30 { ambient.removeFirst() }
                 }
+                frameSum = 0
+                frameCount = 0
             }
         }
         lock.unlock()

@@ -1127,6 +1127,9 @@ private final class KeyView: UIControl {
         face.frame = inner
         label.frame = inner.insetBy(dx: 1, dy: 0)
         imageView.frame = inner
+        // Low landscape rows: a tall image shrinks instead of spilling out of the key.
+        let size = imageView.image?.size ?? .zero
+        imageView.contentMode = size.width > inner.width || size.height > inner.height ? .scaleAspectFit : .center
     }
 
     override var isHighlighted: Bool {
@@ -1487,11 +1490,11 @@ private enum KeyIcons {
 
     /// A symbol with three dots under it, for a key that also does something on a long press.
     static func menuKey(symbol: String) -> UIImage? {
-        guard let icon = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 17)) else {
+        guard let icon = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16)) else {
             return nil
         }
         let dot: CGFloat = 2.4, gap: CGFloat = 2.6
-        let size = CGSize(width: max(icon.size.width, 3 * dot + 2 * gap), height: icon.size.height + 3 + dot)
+        let size = CGSize(width: max(icon.size.width, 3 * dot + 2 * gap), height: icon.size.height + 2 + dot)
         return UIGraphicsImageRenderer(size: size).image { _ in
             icon.withTintColor(.black).draw(at: CGPoint(x: (size.width - icon.size.width) / 2, y: 0))
             UIColor.black.setFill()
