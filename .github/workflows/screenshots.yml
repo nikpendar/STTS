@@ -28,6 +28,7 @@ jobs:
       - name: Install AXe (simulator taps)
         run: |
           brew tap cameroncooke/axe
+          brew trust cameroncooke/axe || true
           brew install axe
 
       - name: Take screenshots
