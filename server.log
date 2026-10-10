@@ -1,0 +1,7 @@
+PersianSTT training server on http://iad20-gt1025-cf0e58f7-83c4-42fd-b224-f97bfb99a810-2602B96458C5.local:8765  (data: /Users/runner/work/STTS/STTS/srv)
+127.0.0.1 "GET /status HTTP/1.1" 200 -
+127.0.0.1 "GET /model/latest HTTP/1.1" 404 -
+127.0.0.1 "POST /samples HTTP/1.1" 200 -
+127.0.0.1 "GET /status HTTP/1.1" 200 -
+127.0.0.1 "GET /model/latest HTTP/1.1" 200 -
+127.0.0.1 "GET /model/1 HTTP/1.1" 200 -
