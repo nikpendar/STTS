@@ -108,7 +108,9 @@ jobs:
           # One screenshot only: each one costs the 3-core runner seconds of CPU and skews pass times.
           sleep 16
           xcrun simctl io "$DEVICE" screenshot out/2-recording-16s.png
-          sleep 3
+          # Stop once the speech has ended and the pass after the pause is done: the final pass
+          # should then be skipped. (Stopping mid-speech keeps a full pass in progress instead.)
+          for i in $(seq 90); do grep -q ", candidate, " out/log.txt && break; sleep 1; done
           dump out/ui-2.json || true
           read OX OY < <(python3 find.py dictationOrb out/ui-2.json || echo "201 760")
           axe tap -x "$OX" -y "$OY" --udid "$DEVICE"
