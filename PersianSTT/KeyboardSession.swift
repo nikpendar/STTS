@@ -37,6 +37,12 @@ final class KeyboardSession: ObservableObject {
     private let observer = DarwinObserver()
     private let collector = SampleCollector()
     private let server = TranscriptServer()
+    private lazy var corrections = CorrectionServer { [weak self] correction in
+        MainActor.assumeIsolated { self?.received(correction) }
+    }
+    /// Recent dictations by id, kept so a correction the keyboard reports later can be paired
+    /// with its recording.
+    private var recent: [(id: String, samples: [Float], text: String)] = []
     private var idleTimer: Timer?
     private var liveTask: Task<Void, Never>?
     private var isCapturing = false
@@ -102,8 +108,13 @@ final class KeyboardSession: ObservableObject {
         }
         // Loads the model now if nothing has yet, so the first live pass does not wait for it.
         _ = Transcriber.shared
+        Task {
+            await PersonalModel.shared.upload()
+            await PersonalModel.shared.check(automatic: true)
+        }
         if testAudio != nil {
             server.start()
+            corrections.start()
             isActive = true
             DictationBridge.post(DictationBridge.alive)
             return
@@ -149,6 +160,7 @@ final class KeyboardSession: ObservableObject {
             engine.prepare()
             try engine.start()
             server.start()
+            corrections.start()
             isActive = true
             message = "کیبورد آماده است. به اپ قبلی برگردید."
             resetIdleTimer()
@@ -170,6 +182,7 @@ final class KeyboardSession: ObservableObject {
         _ = collector.end()
         isCapturing = false
         server.stop()
+        corrections.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if isActive {
             message = "جلسه‌ی کیبورد تمام شد."
@@ -336,12 +349,25 @@ final class KeyboardSession: ObservableObject {
                     DictationBridge.post(DictationBridge.failed)
                     return
                 }
-                server.publish(DictationBridge.finalPrefix + text)
+                let dictation = UUID().uuidString
+                // Training uses recordings of up to 30 s (`PersonalModel.add`).
+                if samples.count <= 30 * Int(AudioLoader.sampleRate) {
+                    recent.append((dictation, samples, text))
+                    if recent.count > 8 { recent.removeFirst() }
+                }
+                server.publish(DictationBridge.finalPrefix + dictation + "\n" + text)
                 DictationBridge.post(DictationBridge.done)
             } catch {
                 if id == dictationID { DictationBridge.post(DictationBridge.failed) }
             }
         }
+    }
+
+    private func received(_ correction: Correction) {
+        guard let dictation = recent.first(where: { $0.id == correction.id }) else { return }
+        log.info("correction for \(correction.id, privacy: .public)")
+        PersonalModel.shared.add(id: correction.id, samples: dictation.samples,
+                                 original: dictation.text, corrected: correction.corrected)
     }
 
     private func cancelDictation() {

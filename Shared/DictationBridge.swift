@@ -28,12 +28,16 @@ enum DictationBridge {
     /// Prefixes that mark a served transcript as provisional or final. A fetch started for a
     /// partial result can arrive after the final one was published, so the keyboard goes by the prefix.
     static let partialPrefix = "P"
+    /// Final transcript: "F" + dictation id + newline + text. The id lets the keyboard report
+    /// the user's later edits of that text (`Correction`).
     static let finalPrefix = "F"
     /// Estimated seconds for the final pass, for the keyboard's progress ring.
     static let estimatePrefix = "E"
 
     /// Loopback port the app serves the latest transcript on.
     static let transcriptPort: NWEndpoint.Port = 47_861
+    /// Loopback port the keyboard sends corrections to.
+    static let correctionPort: NWEndpoint.Port = 47_862
 
     /// Opens the app and starts a keyboard session.
     static let sessionURL = URL(string: "persianstt://session")!
@@ -151,6 +155,80 @@ enum TranscriptClient {
         }
         connection.start(queue: queue)
         queue.asyncAfter(deadline: .now() + 3) { finish(nil) }
+    }
+}
+
+/// The user's edit of a dictated text, sent by the keyboard so the app can upload the
+/// recording with the corrected text for training (`PersonalModel`).
+struct Correction: Codable {
+    let id: String
+    let original: String
+    let corrected: String
+
+    /// Keyboard side: sends the correction to the app over 127.0.0.1. Needs Full Access.
+    func send() {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        let connection = NWConnection(host: "127.0.0.1", port: DictationBridge.correctionPort, using: .tcp)
+        let queue = DispatchQueue(label: "Correction")
+        connection.start(queue: queue)
+        connection.send(content: data, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in
+            connection.cancel()
+        })
+        queue.asyncAfter(deadline: .now() + 5) { connection.cancel() }
+    }
+}
+
+/// App side: receives corrections from the keyboard.
+final class CorrectionServer: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "CorrectionServer")
+    private var listener: NWListener?
+    private let handler: (Correction) -> Void
+
+    /// `handler` runs on the main queue.
+    init(handler: @escaping (Correction) -> Void) {
+        self.handler = handler
+    }
+
+    func start() {
+        queue.async { [self] in
+            guard listener == nil else { return }
+            let parameters = NWParameters.tcp
+            parameters.allowLocalEndpointReuse = true
+            parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: DictationBridge.correctionPort)
+            guard let listener = try? NWListener(using: parameters) else { return }
+            listener.newConnectionHandler = { [weak self] connection in self?.receive(connection) }
+            listener.stateUpdateHandler = { [weak self] state in
+                if case .failed = state { self?.stop() }
+            }
+            listener.start(queue: queue)
+            self.listener = listener
+        }
+    }
+
+    func stop() {
+        queue.async { [self] in
+            listener?.cancel()
+            listener = nil
+        }
+    }
+
+    private func receive(_ connection: NWConnection) {
+        var buffer = Data()
+        func next() {
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 1 << 20) { [weak self] data, _, isComplete, error in
+                if let data { buffer.append(data) }
+                if isComplete || error != nil || buffer.count > 1 << 20 {
+                    connection.cancel()
+                    if let correction = try? JSONDecoder().decode(Correction.self, from: buffer) {
+                        DispatchQueue.main.async { self?.handler(correction) }
+                    }
+                } else {
+                    next()
+                }
+            }
+        }
+        connection.start(queue: queue)
+        next()
     }
 }
 

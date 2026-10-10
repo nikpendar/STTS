@@ -1,0 +1,99 @@
+# The personal training server end to end on a Mac, with the tiny Whisper model so it runs on
+# a CI machine: setup.sh, Persian samples posted as the phone posts them, training started
+# through the server, then the published model downloaded, checked and run with whisper.cpp.
+name: Training server test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - "scripts/prepare_hf_model.py"
+      - ".github/workflows/training-test.yml"
+
+jobs:
+  train:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up the server
+        run: |
+          bash server/setup.sh openai/whisper-tiny
+          server/.venv/bin/pip freeze | grep -iE "^(torch|transformers|peft|accelerate|numpy|jiwer|huggingface)"
+
+      - name: Make Persian samples
+        run: |
+          brew install espeak-ng > /dev/null
+          mkdir -p samples
+          i=0
+          while IFS='|' read -r wrong right; do
+            i=$((i + 1))
+            espeak-ng -v fa -w samples/raw$i.wav "$right"
+            afconvert -f WAVE -d LEI16@16000 -c 1 samples/raw$i.wav samples/s$i.wav
+            printf '%s\n%s\n' "$wrong" "$right" > samples/s$i.txt
+          done <<'EOF'
+          سلم دنیا|سلام دنیا
+          امروز هوا خیلی خوبه|امروز هوا خیلی خوب است
+          من به مدرسه میروم|من به مدرسه می‌روم
+          کتاب را روی میز گزاشتم|کتاب را روی میز گذاشتم
+          فردا ساعت هشت جلسه داریم|فردا ساعت هشت جلسه داریم
+          لطفا در را ببند|لطفاً در را ببند
+          این برنامه فارسی صحبت میکند|این برنامه فارسی صحبت می‌کند
+          قیمت نان گران شد|قیمت نان گران شده است
+          تهران پایتخت ایران است|تهران پایتخت ایران است
+          بچه ها در پارک بازی میکنند|بچه‌ها در پارک بازی می‌کنند
+          شب بخیر و خواب خوش|شب بخیر و خواب خوش
+          ممنون از کمک شما|ممنون از کمک شما
+          EOF
+          ls samples | head -n 3; afinfo samples/s1.wav | grep -i duration
+
+      - name: Post samples, train through the server, fetch the model
+        run: |
+          server/start.sh --port 8765 --base openai/whisper-tiny --min-new 0 \
+            --train-args "--epochs 2 --force --device cpu" > server.log 2>&1 &
+          sleep 3
+          python3 - <<'PY'
+          import base64, glob, hashlib, json, time, urllib.request, uuid
+          URL = "http://127.0.0.1:8765"
+          def call(path, body=None):
+              data = json.dumps(body).encode() if body is not None else None
+              request = urllib.request.Request(URL + path, data, {"Content-Type": "application/json"})
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  return response.read()
+          for wav in sorted(glob.glob("samples/s*.wav")):
+              wrong, right = open(wav[:-4] + ".txt").read().splitlines()
+              reply = call("/samples", {"id": str(uuid.uuid4()).upper(), "original": wrong, "corrected": right,
+                                        "audio": base64.b64encode(open(wav, "rb").read()).decode()})
+          print("upload:", reply.decode())
+          print("train:", call("/train", {}).decode())
+          for _ in range(180):
+              time.sleep(10)
+              status = json.loads(call("/status"))
+              if not status["training"]:
+                  break
+          print("status:", json.dumps(status, ensure_ascii=False, indent=1))
+          latest = json.loads(call("/model/latest"))
+          model = call(f"/model/{latest['version']}")
+          assert len(model) == latest["size"], (len(model), latest["size"])
+          assert hashlib.sha256(model).hexdigest() == latest["sha256"]
+          open("personal.bin", "wb").write(model)
+          print(f"model v{latest['version']}: {len(model) >> 20} MB, sha256 ok")
+          PY
+
+      - name: Run the published model with whisper.cpp
+        run: |
+          CLI="$(ls server/whisper.cpp/build/bin/whisper-cli server/whisper.cpp/build/bin/main 2>/dev/null | head -n1)"
+          "$CLI" -m personal.bin -f samples/s1.wav -l fa -nt
+
+      - name: Logs
+        if: always()
+        run: |
+          cat server.log || true
+          cat server/data/train.log || true

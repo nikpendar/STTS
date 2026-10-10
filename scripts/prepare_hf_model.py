@@ -32,6 +32,14 @@ for name in ["vocab.json", "added_tokens.json", "merges.txt", "normalizer.json"]
         except Exception as error:  # merges/normalizer are optional
             print(f"could not copy {name}: {error}")
 
+# Fine-tunes often lack the language table that generate(language="fa") needs; the base
+# model's generation config has it, with the same token ids.
+gen_path = os.path.join(out, "generation_config.json")
+gen = json.load(open(gen_path)) if os.path.exists(gen_path) else {}
+if "lang_to_id" not in gen:
+    hf_hub_download(base, "generation_config.json", local_dir=out)
+    print(f"copied generation_config.json from {base}")
+
 if "max_length" not in config:
     config["max_length"] = 448
     json.dump(config, open(config_path, "w"), indent=1)

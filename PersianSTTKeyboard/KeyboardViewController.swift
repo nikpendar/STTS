@@ -30,6 +30,13 @@ final class KeyboardViewController: UIInputViewController {
     private var previewIndex = 0
     /// Provisional text typed during live transcription; replaced by later results.
     private var liveText = ""
+    /// A space put before dictated text that would otherwise join the word before the cursor.
+    private var livePrefix = ""
+    /// Follows the user's edits of dictated text, to report them as corrections for training.
+    private var edits = EditTracker()
+    private var editsTimer: Timer?
+    /// Seconds without typing after which edits are reported even if the keyboard stays open.
+    var reportDelay: TimeInterval = 120
 
     /// Screenshot support when the keyboard is shown inside the app: fixes the displayed
     /// state ("noSession", "ready", "recording", "transcribing", or "cycle" for all of them).
@@ -69,6 +76,21 @@ final class KeyboardViewController: UIInputViewController {
         }
         applyKeyStyle(KeyStyle.load())
         checkSession()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        finishEdits()
+    }
+
+    override func textDidChange(_ textInput: UITextInput?) {
+        super.textDidChange(textInput)
+        if edits.isTracking { report(edits.documentChanged(documentContext)) }
+    }
+
+    override func selectionDidChange(_ textInput: UITextInput?) {
+        super.selectionDidChange(textInput)
+        if edits.isTracking { report(edits.documentChanged(documentContext)) }
     }
 
     private func showPreview(_ name: String) {
@@ -163,6 +185,11 @@ final class KeyboardViewController: UIInputViewController {
         recordingStart = Date()
         state = .recording
         liveText = ""
+        // As iOS dictation does: a space after a word, none after a space, a bracket or a ZWNJ.
+        let last = proxy.documentContextBeforeInput?.unicodeScalars.last
+        livePrefix = last.map { $0.properties.isAlphabetic || $0.properties.numericType != nil
+            || ".,!?:;)»؟،؛".unicodeScalars.contains($0) } == true ? " " : ""
+        edits.dictationStarted(documentContext, prefix: livePrefix)
     }
 
     private func insertTranscript() {
@@ -177,8 +204,14 @@ final class KeyboardViewController: UIInputViewController {
         TranscriptClient.fetch { [weak self] message in
             guard let self, self.state == .recording || self.state == .transcribing else { return }
             if let message, message.hasPrefix(DictationBridge.finalPrefix), message.count > 1 {
-                self.replaceLiveText(with: String(message.dropFirst()))
+                // "F" + dictation id + newline + text.
+                let parts = message.dropFirst().split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+                let text = String(parts.last ?? "")
+                self.replaceLiveText(with: text)
                 self.liveText = ""
+                if parts.count == 2, !text.isEmpty {
+                    self.report(self.edits.dictationFinished(id: String(parts[0]), text: text))
+                }
                 self.cancelTimeout()
                 self.state = .ready
             } else if let message, message.hasPrefix(DictationBridge.partialPrefix), message.count > 1 {
@@ -199,10 +232,48 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Swaps the provisional text for `text`, deleting only the part that changed.
     private func replaceLiveText(with text: String) {
-        let common = zip(liveText, text).prefix { $0 == $1 }.count
-        for _ in 0..<(liveText.count - common) { proxy.deleteBackward() }
-        proxy.insertText(String(text.dropFirst(common)))
-        liveText = text
+        let target = text.isEmpty ? "" : livePrefix + text
+        let common = zip(liveText, target).prefix { $0 == $1 }.count
+        for _ in 0..<(liveText.count - common) { deleteBackward() }
+        insert(String(target.dropFirst(common)), dictated: true)
+        liveText = target
+    }
+
+    // MARK: - Editing
+
+    private var documentContext: DocumentContext {
+        DocumentContext(before: proxy.documentContextBeforeInput ?? "", selected: proxy.selectedText ?? "",
+                        after: proxy.documentContextAfterInput ?? "")
+    }
+
+    /// Every change the keyboard makes goes through here and `deleteBackward`, so edits of
+    /// dictated text can be followed.
+    private func insert(_ text: String, dictated: Bool = false) {
+        guard !text.isEmpty else { return }
+        if edits.isTracking { report(edits.willEdit(dictated ? .dictate(text) : .type(text), in: documentContext)) }
+        proxy.insertText(text)
+    }
+
+    private func deleteBackward() {
+        if edits.isTracking { report(edits.willEdit(.deleteBackward, in: documentContext)) }
+        proxy.deleteBackward()
+    }
+
+    /// Sends finished corrections to the app, and restarts the wait for the user to stop editing.
+    private func report(_ corrections: [Correction]) {
+        corrections.forEach { $0.send() }
+        editsTimer?.invalidate()
+        editsTimer = nil
+        guard edits.isTracking else { return }
+        editsTimer = Timer.scheduledTimer(withTimeInterval: reportDelay, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.finishEdits() }
+        }
+    }
+
+    private func finishEdits() {
+        editsTimer?.invalidate()
+        editsTimer = nil
+        edits.finishAll().forEach { $0.send() }
     }
 
     private func transcriptionFailed() {
@@ -397,6 +468,7 @@ final class KeyboardViewController: UIInputViewController {
         emojiScroll.isHidden = true
         keysView.addSubview(emojiScroll)
 
+        backspaceKey.accessibilityIdentifier = "backspaceKey"
         backspaceKey.addTarget(self, action: #selector(backspaceDown), for: .touchDown)
         backspaceKey.addTarget(self, action: #selector(backspaceUp), for: [.touchUpInside, .touchUpOutside, .touchCancel])
         layerKey.addTarget(self, action: #selector(toggleLayer), for: .touchUpInside)
@@ -433,12 +505,13 @@ final class KeyboardViewController: UIInputViewController {
             buildEmojiKeysIfNeeded()
         }
         emojiScroll.isHidden = layer != .emoji
-        characterKeys = rows.map { row in
-            row.map { character in
+        characterKeys = rows.enumerated().map { rowIndex, row in
+            row.enumerated().map { column, character in
                 let key = KeyView(title: character, fontSize: 23)
+                key.accessibilityIdentifier = "letter-\(rowIndex)-\(column)"
                 key.addAction(UIAction { [weak self] _ in
                     guard let self else { return }
-                    self.proxy.insertText(self.isShifted ? character.uppercased() : character)
+                    self.insert(self.isShifted ? character.uppercased() : character)
                     if self.isShifted { self.setShifted(false) }
                 }, for: .touchUpInside)
                 key.apply(keyStyle)
@@ -502,7 +575,7 @@ final class KeyboardViewController: UIInputViewController {
         for emoji in Self.emojis {
             let key = KeyView(title: emoji, fontSize: 28)
             key.addAction(UIAction { [weak self] _ in
-                self?.proxy.insertText(emoji)
+                self?.insert(emoji)
             }, for: .touchUpInside)
             emojiScroll.addSubview(key)
         }
@@ -583,25 +656,25 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func insertSpace() {
-        proxy.insertText(" ")
+        insert(" ")
     }
 
     /// Zero-width non-joiner (نیم‌فاصله), as in می‌شود; a full stop in English.
     @objc private func insertZWNJ() {
-        proxy.insertText(isEnglish ? "." : "\u{200C}")
+        insert(isEnglish ? "." : "\u{200C}")
     }
 
     @objc private func insertReturn() {
-        proxy.insertText("\n")
+        insert("\n")
     }
 
     @objc private func backspaceDown() {
-        proxy.deleteBackward()
+        deleteBackward()
         repeatTimer?.invalidate()
         repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
-                    MainActor.assumeIsolated { self?.proxy.deleteBackward() }
+                    MainActor.assumeIsolated { self?.deleteBackward() }
                 }
             }
         }
@@ -647,6 +720,7 @@ private final class KeyView: UIControl {
             label.font = .systemFont(ofSize: fontSize)
             label.textColor = textColor
         }
+        accessibilityLabel = message ?? storedTitle
     }
 
     var symbol: String? {
@@ -664,6 +738,8 @@ private final class KeyView: UIControl {
         storedTitle = title
         super.init(frame: .zero)
         backgroundColor = .clear
+        isAccessibilityElement = true
+        accessibilityTraits = .keyboardKey
         face.layer.cornerRadius = 6
         face.isUserInteractionEnabled = false
         addSubview(face)

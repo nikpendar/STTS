@@ -1,6 +1,9 @@
 import AVFoundation
 import Foundation
 import UIKit
+import os
+
+private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model")
 
 @MainActor
 final class Transcriber: ObservableObject {
@@ -51,8 +54,19 @@ final class Transcriber: ObservableObject {
         return FileManager.default.fileExists(atPath: encoder.path)
     }
 
+    /// Switches to a newly downloaded personal model (or back to the bundled one). A
+    /// transcription already running keeps the old model until it finishes.
+    func reloadModel() {
+        guard !isRecording else { return }
+        whisper = nil
+        isBusy = true
+        status = "در حال بارگذاری مدل…"
+        loadTask = Task { await loadModel() }
+    }
+
     private func loadModel() async {
-        guard let url = Self.findModel() else {
+        // A personal model from the training server replaces the bundled one.
+        guard let url = PersonalModel.shared.modelFile ?? Self.findModel() else {
             status = "مدلی در پوشه‌ی Models پیدا نشد. ابتدا setup.sh را اجرا کنید."
             isBusy = false
             return
@@ -67,11 +81,18 @@ final class Transcriber: ObservableObject {
             usesCoreML = Self.hasCoreMLEncoder(for: url)
             let stock = ["tiny", "base", "small", "medium", "large"].contains { url.lastPathComponent.hasPrefix("ggml-\($0)") }
             minimumAudioContext = usesCoreML ? 0 : (stock ? 384 : 1000)
+            log.info("loaded \(url.lastPathComponent, privacy: .public)")
             if !isRecording {
                 status = usesCoreML ? "آماده (Neural Engine)" : "آماده"
             }
         } catch {
             status = error.localizedDescription
+            // A personal model that does not load is dropped for the one inside the app.
+            if url == PersonalModel.shared.modelFile {
+                log.error("cannot load \(url.lastPathComponent, privacy: .public); using the bundled model")
+                PersonalModel.shared.useBundledModel()
+                return
+            }
         }
         if !isRecording {
             isBusy = false

@@ -10,11 +10,14 @@
 		A10000000000000000000001 /* PersianSTTApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* PersianSTTApp.swift */; };
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* ContentView.swift */; };
 		A10000000000000000000003 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* Transcriber.swift */; };
+		A10000000000000000000021 /* PersonalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* PersonalModel.swift */; };
 		A10000000000000000000004 /* WhisperContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* WhisperContext.swift */; };
 		A10000000000000000000005 /* AudioLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AudioLoader.swift */; };
 		A1000000000000000000000F /* KeyboardPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* KeyboardPreview.swift */; };
 		A10000000000000000000020 /* KeyboardTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* KeyboardTestView.swift */; };
 		A10000000000000000000010 /* KeyboardViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* KeyboardViewController.swift */; };
+		A10000000000000000000022 /* EditTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* EditTracker.swift */; };
+		A10000000000000000000023 /* EditTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* EditTracker.swift */; };
 		A1000000000000000000000A /* KeyboardSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* KeyboardSession.swift */; };
 		A1000000000000000000000B /* DictationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* DictationBridge.swift */; };
 		A1000000000000000000000C /* DictationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* DictationBridge.swift */; };
@@ -65,6 +68,7 @@
 		A20000000000000000000001 /* PersianSTTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianSTTApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* Transcriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcriber.swift; sourceTree = "<group>"; };
+		A20000000000000000000021 /* PersonalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* WhisperContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperContext.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AudioLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLoader.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* KeyboardPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardPreview.swift; sourceTree = "<group>"; };
@@ -72,6 +76,7 @@
 		A2000000000000000000000A /* KeyboardSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardSession.swift; sourceTree = "<group>"; };
 		A2000000000000000000000B /* DictationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationBridge.swift; sourceTree = "<group>"; };
 		A2000000000000000000000C /* KeyboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewController.swift; sourceTree = "<group>"; };
+		A20000000000000000000022 /* EditTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditTracker.swift; sourceTree = "<group>"; };
 		A2000000000000000000000D /* PersianSTTKeyboard.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PersianSTTKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2000000000000000000000E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000000000000000000000F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -117,6 +122,7 @@
 				A20000000000000000000001 /* PersianSTTApp.swift */,
 				A20000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000003 /* Transcriber.swift */,
+				A20000000000000000000021 /* PersonalModel.swift */,
 				A20000000000000000000004 /* WhisperContext.swift */,
 				A20000000000000000000005 /* AudioLoader.swift */,
 				A20000000000000000000009 /* DictateIntent.swift */,
@@ -150,6 +156,7 @@
 			isa = PBXGroup;
 			children = (
 				A2000000000000000000000C /* KeyboardViewController.swift */,
+				A20000000000000000000022 /* EditTracker.swift */,
 				A2000000000000000000000F /* Info.plist */,
 			);
 			path = PersianSTTKeyboard;
@@ -259,6 +266,7 @@
 				A10000000000000000000001 /* PersianSTTApp.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
 				A10000000000000000000003 /* Transcriber.swift in Sources */,
+				A10000000000000000000021 /* PersonalModel.swift in Sources */,
 				A10000000000000000000004 /* WhisperContext.swift in Sources */,
 				A10000000000000000000005 /* AudioLoader.swift in Sources */,
 				A10000000000000000000009 /* DictateIntent.swift in Sources */,
@@ -267,6 +275,7 @@
 				A1000000000000000000000F /* KeyboardPreview.swift in Sources */,
 				A10000000000000000000020 /* KeyboardTestView.swift in Sources */,
 				A10000000000000000000010 /* KeyboardViewController.swift in Sources */,
+				A10000000000000000000022 /* EditTracker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -275,6 +284,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000000000000000000000D /* KeyboardViewController.swift in Sources */,
+				A10000000000000000000023 /* EditTracker.swift in Sources */,
 				A1000000000000000000000C /* DictationBridge.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -1,7 +1,9 @@
 # Dictation end to end in the iOS Simulator: the app plays a spoken test file into a
 # keyboard session (launch argument -testAudio), the keyboard records and should show live
-# text before the final one. Screenshots (portrait and landscape) and the app's log go to
-# the `live-test` branch.
+# text before the final one. Then the dictated text is edited on the keys, and the correction
+# should reach the training server (server/server.py on the runner); on the next launch the
+# app should download and load the model that server publishes. Screenshots (portrait and
+# landscape) and the app's log go to the `live-test` branch.
 name: Live dictation test
 
 on:
@@ -89,10 +91,14 @@ jobs:
           sys.exit(1)
           PY
 
+          # Training server; a corrected dictation should arrive in srv/samples.
+          python3 server/server.py --port 8765 --data "$PWD/srv" --min-new 0 > out/server.log 2>&1 &
+          TRAIN_ARGS=(-trainingUpload YES -trainingServer http://127.0.0.1:8765)
+
           xcrun simctl spawn "$DEVICE" log stream --level info \
             --predicate 'subsystem == "ir.nikpendar.PersianSTT" OR process CONTAINS "PersianSTTKeyboard"' > out/log.txt 2>&1 &
           LOG=$!
-          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav"
+          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav" "${TRAIN_ARGS[@]}"
           sleep 15
           xcrun simctl io "$DEVICE" screenshot out/1-keyboard.png
           dump() { for i in 1 2 3 4 5; do axe describe-ui --udid "$DEVICE" > "$1" 2>&1 && python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$1" && return 0; sleep 2; done; return 1; }
@@ -126,18 +132,43 @@ jobs:
               print("no UI dump", e)
           PY
 
+          # Correct the dictation on the keys: three backspaces and the letter ب.
+          read BX BY < <(python3 find.py backspaceKey out/ui-4.json || echo "370 780")
+          read LX LY < <(python3 find.py letter-1-3 out/ui-4.json || echo "125 735")
+          for i in 1 2 3; do axe tap -x "$BX" -y "$BY" --udid "$DEVICE"; sleep 0.5; done
+          axe tap -x "$LX" -y "$LY" --udid "$DEVICE"
+          sleep 12
+          xcrun simctl io "$DEVICE" screenshot out/4b-corrected.png
+          echo "===== samples on the training server"
+          ls srv/samples || true
+          cat srv/samples/*.json || echo "NO CORRECTION RECEIVED"
+
           # English layout: swipe along the space bar.
           axe swipe --start-x 190 --start-y 817 --end-x 290 --end-y 817 --udid "$DEVICE" || true
           sleep 2
           xcrun simctl io "$DEVICE" screenshot out/5-english.png
+          # The server publishes a model (here a copy of the bundled one) for the next launch.
+          MODEL="$(ls PersianSTT/Models/*.bin | head -n1)"
+          mkdir -p srv/models
+          cp "$MODEL" srv/models/ggml-personal-v1.bin
+          python3 - <<'PY'
+          import hashlib, json, os
+          path = "srv/models/ggml-personal-v1.bin"
+          json.dump({"version": 1, "file": os.path.basename(path), "size": os.path.getsize(path),
+                     "sha256": hashlib.sha256(open(path, "rb").read()).hexdigest(),
+                     "wer_before": 20.0, "wer_after": 15.0, "samples": 1}, open("srv/models/latest.json", "w"))
+          PY
           # Landscape: the test build allows only landscape with -testLandscape.
           xcrun simctl terminate "$DEVICE" "$ID" || true
-          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav" -testLandscape 1
-          sleep 12
+          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav" -testLandscape 1 \
+            "${TRAIN_ARGS[@]}" -trainingAutoUpdate YES -personalModelLastCheck 0
+          sleep 25
           xcrun simctl io "$DEVICE" screenshot out/6-landscape.png
           kill $LOG || true
           echo "===== log"
-          grep -E "live |final pass|recording started|test audio|whisper_full" out/log.txt | cut -c1-300 || true
+          grep -E "live |final pass|recording started|test audio|whisper_full|correction|personal|loaded|model v" out/log.txt | cut -c1-300 || true
+          echo "===== training server"
+          cat out/server.log || true
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian && cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ || echo "no crash reports"
 
       - name: Commit results

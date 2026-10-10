@@ -7,6 +7,10 @@ import UIKit
 struct ContentView: View {
     @ObservedObject private var model = Transcriber.shared
     @ObservedObject private var keyboard = KeyboardSession.shared
+    @ObservedObject private var personal = PersonalModel.shared
+    @AppStorage(PersonalModel.uploadKey) private var trainingUpload = false
+    @AppStorage(PersonalModel.serverKey) private var trainingServer = PersonalModel.defaultServer
+    @AppStorage(PersonalModel.autoUpdateKey) private var trainingAutoUpdate = false
     @AppStorage(KeyboardSession.idleMinutesKey) private var sessionMinutes = KeyboardSession.defaultIdleMinutes
     @AppStorage(KeyboardSession.noiseSuppressionKey) private var noiseSuppression = true
     @AppStorage(KeyboardSession.liveTranscriptionKey) private var liveTranscription = true
@@ -86,6 +90,8 @@ struct ContentView: View {
             }
             .onChange(of: style) { _, new in new.save() }
 
+            trainingSection
+
             Section {
                 SetupStep(number: "۱", text: "Settings › General › Keyboard › Keyboards › Add New Keyboard")
                 SetupStep(number: "۲", text: "«دیکته‌ی فارسی» را انتخاب و Allow Full Access را روشن کنید.")
@@ -110,7 +116,10 @@ struct ContentView: View {
         }
         .environment(\.layoutDirection, .rightToLeft)
         // Rewrites the shared pasteboard copy of the key style, which a reinstall or reboot can clear.
-        .onAppear { style.save() }
+        .onAppear {
+            style.save()
+            syncTraining()
+        }
         .onOpenURL { url in
             if url.host == "session" {
                 keyboard.start()
@@ -119,6 +128,7 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 model.appDidBecomeActive()
+                syncTraining()
             }
         }
     }
@@ -157,6 +167,95 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
+    }
+
+    /// Learning from corrections: uploading them to the user's training server and installing
+    /// the models it publishes.
+    private var trainingSection: some View {
+        Section {
+            Toggle(isOn: $trainingUpload) {
+                SettingLabel("ارسال اصلاح‌ها به سرور", symbol: "arrow.up.circle.fill", color: .blue)
+            }
+            .onChange(of: trainingUpload) { _, on in
+                if on { Task { await personal.upload() } }
+            }
+            if trainingUpload {
+                HStack {
+                    SettingLabel("سرور", symbol: "desktopcomputer", color: .gray)
+                    TextField(PersonalModel.defaultServer, text: $trainingServer)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .multilineTextAlignment(.trailing)
+                        .environment(\.layoutDirection, .leftToRight)
+                }
+                if personal.pending > 0 {
+                    Button {
+                        Task { await personal.upload() }
+                    } label: {
+                        LabeledContent {
+                            Text("\(personal.pending)")
+                        } label: {
+                            SettingLabel("ارسال اصلاح‌های در صف", symbol: "tray.and.arrow.up.fill", color: .orange)
+                        }
+                    }
+                }
+            }
+            Toggle(isOn: $trainingAutoUpdate) {
+                SettingLabel("دانلود خودکار مدل جدید", symbol: "arrow.down.circle.fill", color: .green)
+            }
+            LabeledContent("مدل در حال استفاده",
+                           value: personal.version > 0 ? "شخصی، نسخه‌ی \(personal.version)" : "مدل اصلی")
+            if let progress = personal.downloadProgress {
+                ProgressView(value: progress) {
+                    Text("در حال دانلود مدل جدید…")
+                }
+            } else if let release = personal.available {
+                Button {
+                    personal.download()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("دانلود نسخه‌ی \(release.version)")
+                        Text(releaseSummary(release))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } else {
+                Button("بررسی نسخه‌ی جدید") {
+                    Task { await personal.check() }
+                }
+            }
+            Button("شروع آموزش روی سرور") {
+                Task { await personal.train() }
+            }
+            if personal.version > 0 {
+                Button("بازگشت به مدل اصلی", role: .destructive) {
+                    personal.useBundledModel()
+                }
+            }
+        } header: {
+            Text("یادگیری از اصلاح‌ها")
+        } footer: {
+            Text((personal.serverStatus.isEmpty ? "" : personal.serverStatus + "\n\n")
+                 + "وقتی متن دیکته‌شده را با تایپ یا دیکته‌ی دوباره اصلاح کنید، صدای آن دیکته و متن درست به سرور خودتان روی Mac فرستاده می‌شود و جای دیگری نمی‌رود. سرور با این نمونه‌ها مدل را آموزش می‌دهد و فقط وقتی نسخه‌ی جدید روی نمونه‌های کنارگذاشته دقیق‌تر باشد آن را منتشر می‌کند. راه‌اندازی سرور: پوشه‌ی server در مخزن.")
+        }
+    }
+
+    private func releaseSummary(_ release: PersonalModel.Release) -> String {
+        var parts = ["\(release.size >> 20) مگابایت"]
+        if let samples = release.samples { parts.append("\(samples) نمونه") }
+        if let before = release.werBefore, let after = release.werAfter {
+            parts.append(String(format: "خطای کلمه %.1f٪ ← %.1f٪", before, after))
+        }
+        return parts.joined(separator: "، ")
+    }
+
+    private func syncTraining() {
+        Task {
+            await personal.upload()
+            await personal.check(automatic: true)
+        }
     }
 
     private var statusText: String {
