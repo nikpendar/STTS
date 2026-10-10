@@ -1,6 +1,6 @@
 # Builds the keyboard's next-word list (PersianSTTKeyboard/fa_bigrams.bin) from Persian
-# Wikipedia with scripts/make_bigrams.py and uploads it as the `fa-bigrams` artifact, to be
-# committed after a look at the sample predictions in the log.
+# Wikipedia with scripts/make_bigrams.py and commits it to the branch the run is on. The log
+# shows sample predictions.
 name: Keyboard word lists
 
 on:
@@ -9,6 +9,9 @@ on:
     paths:
       - scripts/make_bigrams.py
       - .github/workflows/wordlists.yml
+
+permissions:
+  contents: write
 
 jobs:
   bigrams:
@@ -27,12 +30,16 @@ jobs:
           from huggingface_hub import snapshot_download
           snapshot_download("wikimedia/wikipedia", repo_type="dataset", allow_patterns="20231101.fa/*", local_dir="wiki")
           PY
-          ls -la wiki/20231101.fa
 
       - name: Count word pairs
-        run: python scripts/make_bigrams.py PersianSTTKeyboard/fa_words.txt wiki/20231101.fa/*.parquet fa_bigrams.bin
+        run: python scripts/make_bigrams.py PersianSTTKeyboard/fa_words.txt wiki/20231101.fa/*.parquet PersianSTTKeyboard/fa_bigrams.bin
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: fa-bigrams
-          path: fa_bigrams.bin
+      # Pushes made with the workflow token start no other workflow, so this builds no IPA.
+      - name: Commit the list
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PersianSTTKeyboard/fa_bigrams.bin
+          git diff --cached --quiet && exit 0
+          git commit -m "Update the next-word list from Persian Wikipedia"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

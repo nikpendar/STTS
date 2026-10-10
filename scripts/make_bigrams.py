@@ -90,13 +90,16 @@ def count_file(path: str):
             for line in text.split("\n"):
                 previous = -1
                 start = True
+                # Headings, list items and captions start with words no one starts a message
+                # with (منابع, فیلم‌های); only lines of prose, ending a sentence, count.
+                prose = len(line) >= 40 and line.rstrip().endswith((".", "؟", "!", "?"))
                 for match in TOKEN.finditer(line):
                     token = match.group()
                     if token[0] in LETTER_SET:
                         index = vocab.get(key(token), -1)
                         if index >= 0:
                             unigrams[index] += 1
-                            if start:
+                            if start and prose:
                                 starters[index] += 1
                             if previous >= 0:
                                 pairs.append(previous << 15 | index)
