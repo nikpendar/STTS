@@ -522,15 +522,27 @@ final class KeyboardViewController: UIInputViewController {
         "😀😃😄😁😆😅😂🤣🙂🙃😉😊😇🥰😍🤩😘😗😚😙😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶🥴😵🤯🤠🥳😎🤓🧐😕😟🙁😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👻👽🤖😺😸😹😻😼😽🙀😿😾🙈🙉🙊💋💌💘💝💖💗💓💞💕💟❣💔🧡💛💚💙💜🤎🖤🤍💯💢💥💫💦💨🕳💬💭💤👋🤚🖐✋🖖👌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪🌹🌷🌸🌼🌻🌺🍀🍁🍂🌱🌲🌳🌴🌵☀🌙⭐🌟✨⚡🔥🌈☁❄💧🌊🍎🍊🍋🍉🍇🍓🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥕🌽🍞🧀🍕🍔🍟🌭🥗🍿🍰🎂🍫🍬🍭🍩🍪☕🍵🥤🎉🎊🎁🎈🏆⚽🏀🎵🎶📱💻⌚📷💡📚✏📌📎✂🔒🔑❤✅❌❓❗⚠🇮🇷"
     ).map(String.init)
 
-    /// Every key has the same width except space, and the keys fill the whole width. A layer
-    /// has `columns` keys per row: Persian 11, English 10. The third row ends with backspace
-    /// (and in English letters starts with shift), so it has one or two letters fewer.
-    /// Persian layout of Apple's iOS keyboard.
+    /// Every key has the same width except space and backspace, and the keys fill the whole
+    /// width. A layer has `columns` cells per row: Persian 11, English 10. The third row ends
+    /// with backspace, which takes the cells its letters leave (and in English letters starts
+    /// with shift). Persian layout of Apple's iOS keyboard, with ژ moved under ز (`variants`).
     private static let letterRows: [[String]] = [
         ["ض", "ص", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"],
         ["ش", "س", "ی", "ب", "ل", "ا", "ت", "ن", "م", "ک", "گ"],
-        ["ظ", "ط", "ژ", "ز", "ر", "ذ", "د", "پ", "و", "ث"],
+        ["ظ", "ط", "ز", "ر", "ذ", "د", "پ", "و", "ث"],
     ]
+    /// Other forms of a Persian letter, shown in a row over its key on a long press. The first
+    /// is the key's own letter.
+    private static let variants: [String: [String]] = [
+        "ی": ["ی", "ئ", "ي"],
+        "ا": ["ا", "آ", "أ", "إ", "ء"],
+        "ک": ["ک", "ك"],
+        "ز": ["ز", "ژ"],
+    ]
+    /// Tanvin, on a long press of the ZWNJ key; shown on a tatweel so each mark has a base.
+    private static let tanvins: [KeyPopupView.Item] = ["\u{064B}", "\u{064C}", "\u{064D}"].map {
+        KeyPopupView.Item(text: $0, label: "ـ" + $0)
+    }
     private static let symbolRows: [[String]] = [
         ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰", "٪"],
         ["-", "/", ":", "؛", "(", ")", "«", "»", "@", "﷼", "\""],
@@ -562,6 +574,8 @@ final class KeyboardViewController: UIInputViewController {
     /// Emoji panel on a tap; a menu with the emoji panel and the app's settings on a long press.
     private let emojiKey = KeyView()
     private let keyMenu = KeyMenuView()
+    /// The enlarged letter over a pressed key, or the row of a letter's other forms.
+    private let keyPopup = KeyPopupView()
     /// Covers the keys while the menu stays open, and closes it when touched.
     private let menuShield = UIControl()
     private let emojiScroll = UIScrollView()
@@ -622,6 +636,7 @@ final class KeyboardViewController: UIInputViewController {
         isCompact = compact
         heightConstraint?.constant = compact ? compactHeight : fullHeight
         if compact {
+            keyPopup.hide()
             orb.alpha = 0
             orb.isHidden = false
         } else {
@@ -679,6 +694,7 @@ final class KeyboardViewController: UIInputViewController {
         zwnjKey.image = KeyIcons.zwnj
         zwnjKey.accessibilityLabel = "نیم‌فاصله"
         zwnjKey.addTarget(self, action: #selector(insertZWNJ), for: .touchUpInside)
+        zwnjKey.addGestureRecognizer(variantsPress())
         spaceKey.image = KeyIcons.space
         spaceKey.dimsImage = true
         spaceKey.accessibilityIdentifier = "spaceKey"
@@ -716,6 +732,7 @@ final class KeyboardViewController: UIInputViewController {
         menuShield.addTarget(self, action: #selector(closeMenu), for: .touchDown)
         keysView.addSubview(menuShield)
         keysView.addSubview(keyMenu)
+        keysView.addSubview(keyPopup)
 
         let height = view.heightAnchor.constraint(equalToConstant: fullHeight)
         height.priority = .defaultHigh
@@ -725,6 +742,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func buildCharacterKeys() {
+        keyPopup.hide()
         characterKeys.flatMap { $0 }.forEach { $0.removeFromSuperview() }
         let rows: [[String]]
         switch layer {
@@ -744,6 +762,11 @@ final class KeyboardViewController: UIInputViewController {
                     self.insert(self.isShifted ? character.uppercased() : character)
                     if self.isShifted { self.setShifted(false) }
                 }, for: .touchUpInside)
+                key.addTarget(self, action: #selector(keyDown(_:)), for: .touchDown)
+                key.addTarget(self, action: #selector(keyUp(_:)), for: [.touchUpInside, .touchUpOutside, .touchCancel])
+                if layer == .letters, !isEnglish, Self.variants[character] != nil {
+                    key.addGestureRecognizer(variantsPress())
+                }
                 key.apply(keyStyle)
                 keysView.addSubview(key)
                 return key
@@ -823,6 +846,10 @@ final class KeyboardViewController: UIInputViewController {
         keysView.frame = CGRect(x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
         glideTrail.frame = keysView.bounds
         menuShield.frame = keysView.bounds
+        if keyPopup.frame != keysView.bounds {
+            keyPopup.hide()
+            keyPopup.frame = keysView.bounds
+        }
         let insets = view.safeAreaInsets
         let left = insets.left
         let width = view.bounds.width - insets.left - insets.right
@@ -833,7 +860,10 @@ final class KeyboardViewController: UIInputViewController {
         let top = bar
 
         let thirdY = top + 2 * row
-        backspaceKey.frame = CGRect(x: left + width - unit, y: thirdY, width: unit, height: row)
+        // Backspace takes the rest of the third row: two cells in Persian letters, one elsewhere.
+        let thirdRow = characterKeys.count > 2 ? characterKeys[2].count + (shiftKey.isHidden ? 0 : 1) : columns - 1
+        let backspaceX = left + CGFloat(thirdRow) * unit
+        backspaceKey.frame = CGRect(x: backspaceX, y: thirdY, width: left + width - backspaceX, height: row)
         shiftKey.frame = CGRect(x: left, y: thirdY, width: unit, height: row)
 
         // Emoji grid: fills the three key rows, minus the backspace column.
@@ -982,6 +1012,8 @@ final class KeyboardViewController: UIInputViewController {
                 pairs.append((a.key, b.key))
             }
         }
+        // ژ has no key of its own: it is held on ز, so one easily stands for the other.
+        pairs.append(("ز", "ژ"))
         Lexicon.shared.setNeighbours(pairs)
     }
 
@@ -1110,6 +1142,49 @@ final class KeyboardViewController: UIInputViewController {
         log.info("glide: \(words.count) readings")
     }
 
+    // MARK: - Key popups
+
+    @objc private func keyDown(_ key: KeyView) {
+        guard let title = key.title else { return }
+        keysView.bringSubviewToFront(keyPopup)
+        keyPopup.showPreview(title, on: key, style: keyStyle)
+    }
+
+    @objc private func keyUp(_ key: KeyView) {
+        keyPopup.hidePreview(of: key)
+    }
+
+    private func variantsPress() -> UILongPressGestureRecognizer {
+        let press = UILongPressGestureRecognizer(target: self, action: #selector(variantsPressed(_:)))
+        press.minimumPressDuration = 0.4
+        return press
+    }
+
+    /// Holding a key opens its other forms; sliding along the row picks one and lifting the
+    /// finger types it. Lifting far from the row types nothing.
+    @objc private func variantsPressed(_ press: UILongPressGestureRecognizer) {
+        guard let key = press.view as? KeyView else { return }
+        switch press.state {
+        case .began:
+            let items = key === zwnjKey
+                ? Self.tanvins
+                : (Self.variants[key.title ?? ""] ?? []).map { KeyPopupView.Item(text: $0, label: $0) }
+            guard !items.isEmpty else { return }
+            keysView.bringSubviewToFront(keyPopup)
+            keyPopup.showVariants(items, on: key, style: keyStyle)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        case .changed:
+            keyPopup.select(at: press.location(in: keysView))
+        case .ended:
+            keyPopup.select(at: press.location(in: keysView))
+            let item = keyPopup.isShowingVariants ? keyPopup.selectedItem : nil
+            keyPopup.hide()
+            if let item { insert(item.text) }
+        default:
+            keyPopup.hide()
+        }
+    }
+
     // MARK: - Emoji key menu
 
     @objc private func emojiPressed(_ press: UILongPressGestureRecognizer) {
@@ -1169,7 +1244,8 @@ extension KeyboardViewController: UIGestureRecognizerDelegate {
     /// Glides start on a letter key of the Persian letters layer.
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard gestureRecognizer === glidePan else { return true }
-        guard layer == .letters, !isEnglish, !isCompact, keyMenu.isHidden, Lexicon.shared.isLoaded else { return false }
+        guard layer == .letters, !isEnglish, !isCompact, keyMenu.isHidden, !keyPopup.isShowingVariants,
+              Lexicon.shared.isLoaded else { return false }
         let point = glidePan.location(in: keysView)
         let moved = glidePan.translation(in: keysView)
         return letterKey(at: CGPoint(x: point.x - moved.x, y: point.y - moved.y)) != nil
@@ -1234,6 +1310,10 @@ private final class KeyView: UIControl {
     }
 
     private let fontSize: CGFloat
+    private static let faceInsets = UIEdgeInsets(top: 3, left: 2.5, bottom: 3, right: 2.5)
+
+    /// The drawn key inside its touch area, in the superview's coordinates.
+    var faceFrame: CGRect { frame.inset(by: Self.faceInsets) }
 
     init(title: String? = nil, symbol: String? = nil, fontSize: CGFloat = 20) {
         self.fontSize = fontSize
@@ -1281,7 +1361,7 @@ private final class KeyView: UIControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let inner = bounds.insetBy(dx: 2.5, dy: 3)
+        let inner = bounds.inset(by: Self.faceInsets)
         highlight.frame = inner
         face.frame = inner
         label.frame = inner.insetBy(dx: 1, dy: 0)
@@ -1293,6 +1373,220 @@ private final class KeyView: UIControl {
 
     override var isHighlighted: Bool {
         didSet { highlight.alpha = isHighlighted ? 1 : 0 }
+    }
+}
+
+/// The balloon over a pressed key, as on the system keyboard: the key is its foot and a wider
+/// card above it shows the letter large. On a long press the card holds the key's other forms
+/// in a row, right to left from the key's own letter, the one under the finger in blue. An
+/// extension cannot draw above its own view, so over the top row the card reaches only the top
+/// of the suggestion bar. The view covers the keys area and never takes touches.
+private final class KeyPopupView: UIView {
+    struct Item {
+        /// What is typed.
+        let text: String
+        /// What the card shows.
+        let label: String
+    }
+
+    private(set) var items: [Item] = []
+    private(set) var selected: Int?
+    var selectedItem: Item? { selected.map { items[$0] } }
+    private(set) var isShowingVariants = false
+    private weak var key: KeyView?
+    private let shape = CAShapeLayer()
+    private let selection = CAShapeLayer()
+    private var labels: [UILabel] = []
+    private var cells: [CGRect] = []
+    private var card = CGRect.zero
+    private var foot = CGRect.zero
+    private var textColor = UIColor.label
+
+    /// Between the card and the key's top, bridged by the curved neck.
+    private static let gap: CGFloat = 5
+    private static let radius: CGFloat = 9
+    private static let footRadius: CGFloat = 6
+    /// Where a wide card's bottom edge starts curving down into the key.
+    private static let neck: CGFloat = 6
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        accessibilityElementsHidden = true
+        isHidden = true
+        shape.shadowColor = UIColor.black.cgColor
+        shape.shadowOpacity = 0.3
+        shape.shadowRadius = 3
+        shape.shadowOffset = CGSize(width: 0, height: 1)
+        shape.lineWidth = 0.5
+        layer.addSublayer(shape)
+        selection.fillColor = UIColor.systemBlue.cgColor
+        layer.addSublayer(selection)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func showPreview(_ title: String, on key: KeyView, style: KeyStyle) {
+        let foot = key.faceFrame
+        let width = foot.width + 2 * min(10, foot.width * 0.3)
+        let card = cardFrame(width: width, midX: foot.midX, foot: foot)
+        isShowingVariants = false
+        present(on: key, foot: foot, card: card, cells: [card], items: [Item(text: title, label: title)],
+                style: style, fontSize: min(34, card.height * 0.72))
+        select(index: nil, feedback: false)
+    }
+
+    func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle) {
+        let foot = key.faceFrame
+        let pad: CGFloat = 3
+        let cell = max(foot.width, 30)
+        let width = CGFloat(items.count) * cell + 2 * pad
+        // The first form stands over the key when there is room.
+        let card = cardFrame(width: width, midX: foot.midX + cell / 2 + pad - width / 2, foot: foot)
+        let cells = items.indices.map { index in
+            CGRect(x: card.maxX - pad - CGFloat(index + 1) * cell, y: card.minY + pad,
+                   width: cell, height: card.height - 2 * pad)
+        }
+        isShowingVariants = true
+        present(on: key, foot: foot, card: card, cells: cells, items: items,
+                style: style, fontSize: min(26, card.height * 0.62))
+        select(index: 0, feedback: false)
+    }
+
+    /// Selects the form nearest the finger along the row, or none once it is far from the row.
+    func select(at point: CGPoint) {
+        guard isShowingVariants, let first = cells.first, let last = cells.last else { return }
+        let near = point.x > last.minX - first.width && point.x < first.maxX + first.width
+            && point.y > card.minY - 2 * card.height && point.y < foot.maxY + foot.height
+        let index = near ? cells.indices.min { abs(cells[$0].midX - point.x) < abs(cells[$1].midX - point.x) } : nil
+        select(index: index, feedback: true)
+    }
+
+    /// The finger left `key`; a row of forms stays until its long press ends.
+    func hidePreview(of key: KeyView) {
+        guard !isShowingVariants, self.key === key else { return }
+        hide()
+    }
+
+    func hide() {
+        isHidden = true
+        isShowingVariants = false
+        key = nil
+        selected = nil
+    }
+
+    /// Above the foot and inside the view, covering the foot's width. Over the top row, where
+    /// the view ends little above the key, the card comes down over the top of the key instead
+    /// of shrinking below the size of the key's own letter.
+    private func cardFrame(width: CGFloat, midX: CGFloat, foot: CGRect) -> CGRect {
+        let lowest = max(bounds.minX + 1, foot.maxX - width)
+        let highest = min(foot.minX, bounds.maxX - 1 - width)
+        let x = max(lowest, min(highest, midX - width / 2))
+        let height = max(foot.height * 1.2, 34)
+        var bottom = foot.minY - Self.gap
+        if bottom - height < 1 { bottom = min(1 + height, foot.minY + foot.height * 0.45) }
+        let top = max(1, bottom - height)
+        return CGRect(x: x, y: top, width: width, height: max(2 * Self.radius, bottom - top))
+    }
+
+    private func present(on key: KeyView, foot: CGRect, card: CGRect, cells: [CGRect], items: [Item],
+                         style: KeyStyle, fontSize: CGFloat) {
+        self.key = key
+        self.foot = foot
+        self.card = card
+        self.cells = cells
+        self.items = items
+        // The card contrasts with the letters, whatever colour they were given.
+        textColor = style.textColor.resolvedColor(with: traitCollection)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        textColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let lightText = 0.299 * r + 0.587 * g + 0.114 * b > 0.5
+        let path = Self.balloon(card: card, foot: foot).cgPath
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        shape.path = path
+        shape.shadowPath = path
+        shape.fillColor = (lightText ? UIColor(white: 0.36, alpha: 1) : UIColor.white).cgColor
+        shape.strokeColor = UIColor.black.withAlphaComponent(lightText ? 0.35 : 0.1).cgColor
+        CATransaction.commit()
+        while labels.count < items.count {
+            let label = UILabel()
+            label.textAlignment = .center
+            label.adjustsFontSizeToFitWidth = true
+            label.minimumScaleFactor = 0.5
+            addSubview(label)
+            labels.append(label)
+        }
+        for (index, label) in labels.enumerated() {
+            label.isHidden = index >= items.count
+            guard index < items.count else { continue }
+            label.text = items[index].label
+            label.font = AppFont.font(ofSize: fontSize)
+            label.frame = cells[index]
+        }
+        isHidden = false
+    }
+
+    private func select(index: Int?, feedback: Bool) {
+        let changed = index != selected
+        selected = index
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        selection.path = index.map {
+            UIBezierPath(roundedRect: cells[$0].insetBy(dx: 1, dy: 1), cornerRadius: 6).cgPath
+        }
+        CATransaction.commit()
+        for (i, label) in labels.enumerated() where i < items.count {
+            label.textColor = i == index ? .white : textColor
+        }
+        if feedback, changed, index != nil { UISelectionFeedbackGenerator().selectionChanged() }
+    }
+
+    /// The card with rounded corners, joined to the foot (the key) by a curved neck: an S-curve
+    /// when the card is only a little wider than the key, a fillet under a wide card's edge.
+    private static func balloon(card c: CGRect, foot k: CGRect) -> UIBezierPath {
+        let r = radius, kr = footRadius
+        let footTop = max(k.minY, c.maxY) + min(4, k.height / 4)
+        let mid = (c.maxY + footTop) / 2
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: c.minX + r, y: c.minY))
+        path.addLine(to: CGPoint(x: c.maxX - r, y: c.minY))
+        path.addArc(withCenter: CGPoint(x: c.maxX - r, y: c.minY + r), radius: r,
+                    startAngle: -.pi / 2, endAngle: 0, clockwise: true)
+        if c.maxX - k.maxX >= r + neck {
+            path.addLine(to: CGPoint(x: c.maxX, y: c.maxY - r))
+            path.addArc(withCenter: CGPoint(x: c.maxX - r, y: c.maxY - r), radius: r,
+                        startAngle: 0, endAngle: .pi / 2, clockwise: true)
+            path.addLine(to: CGPoint(x: k.maxX + neck, y: c.maxY))
+            path.addQuadCurve(to: CGPoint(x: k.maxX, y: footTop), controlPoint: CGPoint(x: k.maxX, y: c.maxY))
+        } else {
+            path.addLine(to: CGPoint(x: c.maxX, y: c.maxY))
+            path.addCurve(to: CGPoint(x: k.maxX, y: footTop), controlPoint1: CGPoint(x: c.maxX, y: mid),
+                          controlPoint2: CGPoint(x: k.maxX, y: mid))
+        }
+        path.addLine(to: CGPoint(x: k.maxX, y: k.maxY - kr))
+        path.addArc(withCenter: CGPoint(x: k.maxX - kr, y: k.maxY - kr), radius: kr,
+                    startAngle: 0, endAngle: .pi / 2, clockwise: true)
+        path.addLine(to: CGPoint(x: k.minX + kr, y: k.maxY))
+        path.addArc(withCenter: CGPoint(x: k.minX + kr, y: k.maxY - kr), radius: kr,
+                    startAngle: .pi / 2, endAngle: .pi, clockwise: true)
+        path.addLine(to: CGPoint(x: k.minX, y: footTop))
+        if k.minX - c.minX >= r + neck {
+            path.addQuadCurve(to: CGPoint(x: k.minX - neck, y: c.maxY), controlPoint: CGPoint(x: k.minX, y: c.maxY))
+            path.addLine(to: CGPoint(x: c.minX + r, y: c.maxY))
+            path.addArc(withCenter: CGPoint(x: c.minX + r, y: c.maxY - r), radius: r,
+                        startAngle: .pi / 2, endAngle: .pi, clockwise: true)
+        } else {
+            path.addCurve(to: CGPoint(x: c.minX, y: c.maxY), controlPoint1: CGPoint(x: k.minX, y: mid),
+                          controlPoint2: CGPoint(x: c.minX, y: mid))
+        }
+        path.addLine(to: CGPoint(x: c.minX, y: c.minY + r))
+        path.addArc(withCenter: CGPoint(x: c.minX + r, y: c.minY + r), radius: r,
+                    startAngle: .pi, endAngle: 3 * .pi / 2, clockwise: true)
+        path.close()
+        return path
     }
 }
 

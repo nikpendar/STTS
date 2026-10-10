@@ -195,8 +195,10 @@ final class Lexicon {
         for scalar in key.unicodeScalars {
             let letter: Character
             switch scalar {
-            case "آ", "أ": letter = "ا"
+            case "آ", "أ", "إ": letter = "ا"
             case "ئ": letter = "ی"
+            // ژ is held on the ز key.
+            case "ژ": letter = "ز"
             case "ؤ": letter = "و"
             case "ة": letter = "ه"
             case "ء", "\u{200C}": continue

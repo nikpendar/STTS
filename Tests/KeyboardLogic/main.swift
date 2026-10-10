@@ -61,7 +61,7 @@ check("restore skips changed punctuation",
       VoiceCommands.restoringSpoken("سلام خوبید؟", original: dictated.text, spoken: dictated.spoken) ?? "nil", "nil")
 
 // Suggestions, with neighbouring keys of the Persian layout as the keyboard sets them.
-let rows = ["ضصقفغعهخحجچ", "شسیبلاتنمکگ", "ظطژزرذدپوث"].map(Array.init)
+let rows = ["ضصقفغعهخحجچ", "شسیبلاتنمکگ", "ظطزرذدپوث"].map(Array.init)
 var neighbours: [(Character, Character)] = []
 for (r, row) in rows.enumerated() {
     for (c, a) in row.enumerated() {
@@ -72,12 +72,16 @@ for (r, row) in rows.enumerated() {
         }
     }
 }
+neighbours.append(("ز", "ژ"))
 Lexicon.shared.setNeighbours(neighbours)
 let afterAz = Lexicon.shared.predictions(after: .word("از"), limit: 3)
 check("predictions after از", afterAz.contains("این"), true)
 check("prediction at sentence start", Lexicon.shared.predictions(after: .sentenceStart, limit: 3).first ?? "", "در")
 check("context completion", Lexicon.shared.completions(for: "متح", context: .word("ایالات"), limit: 1).first ?? "", "متحده")
 check("typo سلان", Lexicon.shared.suggestions(forUnknown: "سلان", context: .none, correct: true, limit: 2).first ?? "", "سلام")
+// ژ is held on ز: a glide over ز can mean ژ, and ز typed for ژ is a cheap typo.
+check("ژ glides over ز", String(Lexicon.pathLetters("ویژه")), "ویزه")
+check("typo زاپن", Lexicon.shared.suggestions(forUnknown: "زاپن", context: .none, correct: true, limit: 2).first ?? "", "ژاپن")
 check("typo خوبب", Lexicon.shared.suggestions(forUnknown: "خوبب", context: .none, correct: true, limit: 2).first ?? "", "خوب")
 check("typo اسفاده", Lexicon.shared.suggestions(forUnknown: "اسفاده", context: .none, correct: true, limit: 2).first ?? "", "استفاده")
 Lexicon.shared.learn("خوبی", after: .word("سلام"))

@@ -219,6 +219,39 @@ jobs:
           read CX CY < <(python3 find.py letter-0-9 out/ui-5b.json || echo "350 700")
           axe tap -x "$CX" -y "$CY" --udid "$DEVICE"
           sleep 1
+          # Key popups: the enlarged letter while ب is down, then the forms of ا on a long press;
+          # lifting the finger one cell to the left of ا should type آ.
+          dump out/ui-8.json || true
+          read BX BY < <(python3 find.py letter-1-3 out/ui-8.json || echo "125 735")
+          axe touch -x "$BX" -y "$BY" --down --udid "$DEVICE" && \
+            xcrun simctl io "$DEVICE" screenshot out/5f-preview.png; axe touch -x "$BX" -y "$BY" --up --udid "$DEVICE" || true
+          sleep 0.5
+          read AX AY < <(python3 find.py letter-1-5 out/ui-8.json || echo "196 735")
+          read KX KY < <(python3 find.py letter-1-4 out/ui-8.json || echo "160 735")
+          axe touch -x "$AX" -y "$AY" --down --udid "$DEVICE" && sleep 0.8 && \
+            xcrun simctl io "$DEVICE" screenshot out/5g-variants.png; axe touch -x "$KX" -y "$AY" --up --udid "$DEVICE" || true
+          sleep 1
+          dump out/ui-9.json || true
+          bar VARIANTS out/ui-9.json
+          # The third row: nine letters and a double-width backspace.
+          python3 - <<'PY'
+          import json, re
+          frames = {}
+          def walk(n):
+              if isinstance(n, dict):
+                  uid = str(n.get("AXUniqueId", ""))
+                  if uid.startswith("letter-2-") or uid == "backspaceKey":
+                      f = n.get("frame") or {}
+                      frames[uid] = (round(f.get("x", 0)), round(f.get("width", 0)))
+                  for v in n.values(): walk(v)
+              elif isinstance(n, list):
+                  for v in n: walk(v)
+          try:
+              walk(json.load(open("out/ui-9.json")))
+          except Exception as e:
+              print("no UI dump", e)
+          print("THIRD ROW", sorted(frames.items()))
+          PY
 
           # A recording in which nobody speaks (the test audio plays only once) should be
           # dropped without transcribing it.
