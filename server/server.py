@@ -22,6 +22,7 @@ import json
 import os
 import re
 import shlex
+import socketserver
 import subprocess
 import sys
 import threading
@@ -103,6 +104,14 @@ class State:
                 self.start_training(f"{new} new samples")
 
 
+class Server(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer looks up the machine's full DNS name here, which stalled startup on a Mac
+        # until clients timed out; the name is not needed.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = "localhost", self.server_address[1]
+
+
 def make_handler(state: State):
     class Handler(BaseHTTPRequestHandler):
         def _json(self, code, payload):
@@ -172,9 +181,12 @@ def main():
     train_args = (["--base", args.base] if args.base else []) + shlex.split(args.train_args)
     state = State(args.data.resolve(), args.min_new, train_args)
     threading.Thread(target=state.auto_train_loop, daemon=True).start()
-    server = ThreadingHTTPServer(("0.0.0.0", args.port), make_handler(state))
-    host = subprocess.run(["scutil", "--get", "LocalHostName"], capture_output=True, text=True).stdout.strip() \
-        if sys.platform == "darwin" else os.uname().nodename
+    server = Server(("0.0.0.0", args.port), make_handler(state))
+    try:
+        host = subprocess.run(["scutil", "--get", "LocalHostName"], capture_output=True, text=True,
+                              timeout=5).stdout.strip() if sys.platform == "darwin" else os.uname().nodename
+    except subprocess.TimeoutExpired:
+        host = os.uname().nodename
     print(f"PersianSTT training server on http://{host}.local:{args.port}  (data: {state.data})", flush=True)
     server.serve_forever()
 
