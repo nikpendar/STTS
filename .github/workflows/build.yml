@@ -19,6 +19,10 @@ on:
         description: "Run the encoder on the Neural Engine (Core ML). Too heavy for 4 GB iPhones with turbo."
         type: boolean
         default: false
+      bundle_model:
+        description: "Put the model inside the IPA (400+ MB) instead of the separate Model artifact"
+        type: boolean
+        default: false
   push:
     branches: [main]
     # Benchmark tooling does not change the app.
@@ -41,16 +45,26 @@ env:
   # against 20.6% / 46.1% for stock turbo q5_0 (574 MB). Pass hf=none to bundle the model input instead.
   HF: ${{ github.event.inputs.hf != 'none' && (github.event.inputs.hf || 'farbodbij/whisper-medium-Persian') || '' }}
   QUANT: ${{ github.event.inputs.quant || 'q4_0' }}
+  # The IPA carries no model unless asked: the app imports it from Files once (ModelImporter),
+  # and the Model artifact holds it, so each new build is a few MB to install.
+  BUNDLE: ${{ github.event.inputs.bundle_model == 'true' }}
 
 jobs:
-  # Converts a fine-tuned Hugging Face Whisper checkpoint to a quantized ggml model.
+  # Converts a fine-tuned Hugging Face Whisper checkpoint to a quantized ggml model, once per
+  # model and quantization (cached), and publishes it as the Model artifact for 90 days.
   convert:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         if: env.HF != ''
-      - name: Convert and quantize
+      - uses: actions/cache@v4
         if: env.HF != ''
+        id: model-cache
+        with:
+          path: out
+          key: ggml-${{ env.HF }}-${{ env.QUANT }}-whisper.cpp-1.7.5
+      - name: Convert and quantize
+        if: env.HF != '' && steps.model-cache.outputs.cache-hit != 'true'
         run: |
           git clone -q --depth 1 --branch v1.7.5 https://github.com/ggml-org/whisper.cpp
           cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF
@@ -66,9 +80,10 @@ jobs:
       - uses: actions/upload-artifact@v5
         if: env.HF != ''
         with:
-          name: hf-model
+          name: Model
           path: out/*.bin
-          retention-days: 1
+          retention-days: 90
+          compression-level: 0
 
   build:
     needs: convert
@@ -79,21 +94,33 @@ jobs:
       - name: Download whisper.xcframework and model
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # With a Hugging Face model, only the framework is needed here; the small base model is replaced below.
-        run: bash ./setup.sh "$([ -n "$HF" ] && echo base-q5_1 || echo "$MODEL")"
+        # With a Hugging Face model, only the framework is needed here.
+        run: bash ./setup.sh "$([ -n "$HF" ] && echo none || echo "$MODEL")"
 
       - uses: actions/download-artifact@v5
-        if: env.HF != ''
+        if: env.HF != '' && env.BUNDLE == 'true'
         with:
-          name: hf-model
+          name: Model
           path: hf-model
 
       - name: Use the converted model
-        if: env.HF != ''
+        if: env.HF != '' && env.BUNDLE == 'true'
         run: |
           find PersianSTT/Models -name 'ggml-*.bin' -delete
           mv hf-model/*.bin PersianSTT/Models/
           ls -la PersianSTT/Models
+
+      - name: Keep the stock model out of the app
+        if: env.HF == '' && env.BUNDLE != 'true'
+        run: mkdir -p model-out && mv PersianSTT/Models/ggml-*.bin model-out/
+
+      - uses: actions/upload-artifact@v5
+        if: env.HF == '' && env.BUNDLE != 'true'
+        with:
+          name: Model
+          path: model-out/*.bin
+          retention-days: 90
+          compression-level: 0
 
       - uses: actions/setup-python@v6
         if: env.COREML == 'true'

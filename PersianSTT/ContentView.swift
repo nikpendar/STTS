@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import UIKit
+import UniformTypeIdentifiers
 
 /// The app is the settings page of the dictation keyboard: the background session the
 /// keyboard records through, speech options, the look of the keys, and setup steps.
@@ -8,6 +9,8 @@ struct ContentView: View {
     @ObservedObject private var model = Transcriber.shared
     @ObservedObject private var keyboard = KeyboardSession.shared
     @ObservedObject private var personal = PersonalModel.shared
+    @ObservedObject private var importer = ModelImporter.shared
+    @State private var pickingModel = false
     @AppStorage(PersonalModel.uploadKey) private var trainingUpload = false
     @AppStorage(PersonalModel.serverKey) private var trainingServer = PersonalModel.defaultServer
     @AppStorage(PersonalModel.autoUpdateKey) private var trainingAutoUpdate = false
@@ -24,6 +27,8 @@ struct ContentView: View {
                 header
             }
             .listRowBackground(Color.clear)
+
+            if needsModel { modelSection }
 
             Section {
                 Picker(selection: $sessionMinutes) {
@@ -115,12 +120,10 @@ struct ContentView: View {
                 Text("راه‌اندازی").font(.app(.footnote))
             }
 
-            Section {
-                LabeledContent("مدل", value: model.modelName.isEmpty ? "—" : model.modelName)
-                LabeledContent("وضعیت مدل", value: model.status)
-            } header: {
-                Text("درباره").font(.app(.footnote))
-            }
+            if !needsModel { modelSection }
+        }
+        .fileImporter(isPresented: $pickingModel, allowedContentTypes: [.item]) { result in
+            if case .success(let url) = result { importer.importModel(from: url) }
         }
         .environment(\.layoutDirection, .rightToLeft)
         .font(.app(.body))
@@ -137,6 +140,7 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 model.appDidBecomeActive()
+                model.loadNewModelIfNeeded()
                 syncTraining()
             }
         }
@@ -271,10 +275,44 @@ struct ContentView: View {
         if model.isBusy && model.modelName.isEmpty || model.status.hasPrefix("در حال بارگذاری") {
             return "در حال بارگذاری مدل…"
         }
+        if needsModel {
+            return "برای دیکته، یک بار فایل مدل گفتار را وارد کنید."
+        }
         if keyboard.isActive {
             return "کیبورد آماده است. به اپ قبلی برگردید و با میکروفون کیبورد دیکته کنید."
         }
         return keyboard.message.isEmpty ? "برای دیکته با کیبورد، جلسه را شروع کنید." : keyboard.message
+    }
+
+    /// No model is loaded and none is loading.
+    private var needsModel: Bool { !model.hasModel && !model.isBusy }
+
+    /// The speech model, which builds no longer carry: imported once from Files, it stays
+    /// through updates of the app.
+    private var modelSection: some View {
+        Section {
+            Button {
+                pickingModel = true
+            } label: {
+                SettingLabel(needsModel ? "وارد کردن مدل از Files" : "جایگزینی مدل از Files",
+                             symbol: "square.and.arrow.down.fill", color: .blue)
+            }
+            .disabled(importer.progress != nil || model.isRecording)
+            if let progress = importer.progress {
+                ProgressView(value: progress) {
+                    Text("در حال کپی مدل…").font(.app(.subheadline))
+                }
+            }
+            LabeledContent("مدل", value: model.modelName.isEmpty ? "—" : model.modelName)
+            LabeledContent("وضعیت مدل", value: model.status)
+        } header: {
+            Text("مدل گفتار").font(.app(.footnote))
+        } footer: {
+            Text((importer.message.isEmpty ? "" : importer.message + "\n\n")
+                 + "فایل مدل (ggml…bin، حدود ۴۰۰ مگابایت) فقط یک بار لازم است و با نصب نسخه‌های بعدی روی همین برنامه می‌ماند؛ اگر برنامه را پاک کنید، مدل هم پاک می‌شود. "
+                 + "آن را از بخش Artifacts همان اجرا در GitHub با نام Model دانلود کنید، از zip خارج کنید و با AirDrop یا iCloud Drive به آیفون بفرستید و اینجا انتخاب کنید. "
+                 + "راه دیگر: آیفون را به Mac وصل کنید، در Finder آیفون را انتخاب کنید و در بخش Files فایل را روی «کیلس» بکشید.").font(.app(.footnote))
+        }
     }
 
     private func colorBinding(_ path: WritableKeyPath<KeyStyle, KeyStyle.RGBA>) -> Binding<Color> {

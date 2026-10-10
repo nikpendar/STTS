@@ -32,6 +32,7 @@
 		A10000000000000000000032 /* GlideTyping.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GlideTyping.swift */; };
 		A10000000000000000000033 /* GlideTyping.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GlideTyping.swift */; };
 		A10000000000000000000034 /* fa_words.txt in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* fa_words.txt */; };
+		A10000000000000000000035 /* ModelImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* ModelImporter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -92,6 +93,7 @@
 		A20000000000000000000030 /* Lexicon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lexicon.swift; sourceTree = "<group>"; };
 		A20000000000000000000031 /* GlideTyping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlideTyping.swift; sourceTree = "<group>"; };
 		A20000000000000000000032 /* fa_words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = fa_words.txt; sourceTree = "<group>"; };
+		A20000000000000000000033 /* ModelImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImporter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -131,6 +133,7 @@
 				A20000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000003 /* Transcriber.swift */,
 				A20000000000000000000021 /* PersonalModel.swift */,
+				A20000000000000000000033 /* ModelImporter.swift */,
 				A20000000000000000000004 /* WhisperContext.swift */,
 				A20000000000000000000005 /* AudioLoader.swift */,
 				A20000000000000000000009 /* DictateIntent.swift */,
@@ -287,6 +290,7 @@
 				A10000000000000000000002 /* ContentView.swift in Sources */,
 				A10000000000000000000003 /* Transcriber.swift in Sources */,
 				A10000000000000000000021 /* PersonalModel.swift in Sources */,
+				A10000000000000000000035 /* ModelImporter.swift in Sources */,
 				A10000000000000000000004 /* WhisperContext.swift in Sources */,
 				A10000000000000000000005 /* AudioLoader.swift in Sources */,
 				A10000000000000000000009 /* DictateIntent.swift in Sources */,

@@ -9,6 +9,11 @@
 نیازی به Xcode نیست. هر push به `main` در GitHub Actions یک `PersianSTT.ipa` امضانشده می‌سازد
 (`.github/workflows/build.yml`). فایل را از بخش Artifacts همان اجرا دانلود و از zip خارج کنید.
 
+مدل داخل IPA نیست تا هر نسخه فقط چند مگابایت باشد. فایل مدل (artifact به نام `Model`، ۹۰ روز نگه داشته می‌شود)
+یک بار در برنامه وارد می‌شود: «وارد کردن مدل از Files»، یا کشیدن فایل در Finder روی برنامه در بخش Files آیفون.
+مدل در پوشه‌ی Documents برنامه می‌ماند و نصب نسخه‌ی جدید روی برنامه آن را پاک نمی‌کند. برای IPA با مدل داخلی،
+اجرای دستی با `bundle_model` را انتخاب کنید.
+
 فونت تنظیمات و کلیدها (`fonts/AppFont.ttf.enc`) چون مجوزدار است رمزنگاری‌شده در مخزن است و با secret به نام `FONT_KEY`
 باز می‌شود؛ بدون آن، فونت سیستم به کار می‌رود.
 
@@ -16,6 +21,7 @@
 - `hf`: مدل fine-tune شده از Hugging Face که تبدیل و داخل برنامه قرار می‌گیرد؛ `none` یعنی از `model` استفاده شود.
 - `quant`: نوع کوانتیزه برای مدل Hugging Face (پیش‌فرض q4_0).
 - `model`: مدل ggml رسمی whisper.cpp، وقتی `hf=none` باشد.
+- `bundle_model`: مدل داخل IPA قرار بگیرد.
 
 ## نصب روی آیفون
 با AltServer (مک یا ویندوز) و Apple ID رایگان:
@@ -50,6 +56,7 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 ## ساختار
 - `PersianSTT/WhisperContext.swift`: فراخوانی whisper.cpp، لغو تبدیل، کوتاه کردن پنجره‌ی صدا (حداقل ۲۰ ثانیه برای مدل‌های fine-tune)
 - `PersianSTT/Transcriber.swift`: ضبط و تبدیل داخل برنامه
+- `PersianSTT/ModelImporter.swift`: وارد کردن فایل مدل از Files به Documents برنامه
 - `PersianSTT/KeyboardSession.swift`: جلسه‌ی میکروفون پس‌زمینه برای کیبورد
 - `PersianSTTKeyboard/KeyboardViewController.swift`: کیبورد فارسی با دکمه‌ی میکروفون
 - `PersianSTTKeyboard/EditTracker.swift`: تشخیص اصلاح متن دیکته‌شده

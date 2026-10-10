@@ -15,6 +15,8 @@ final class Transcriber: ObservableObject {
     @Published var isRecording = false
     @Published var isBusy = true
     @Published var modelName = ""
+    /// A model is loaded. Builds without a bundled model need one imported (`ModelImporter`).
+    @Published private(set) var hasModel = false
     /// Recording that stops by itself after a pause, started from the dictation shortcut.
     @Published var isQuickDictation = false
 
@@ -59,15 +61,25 @@ final class Transcriber: ObservableObject {
     func reloadModel() {
         guard !isRecording else { return }
         whisper = nil
+        hasModel = false
         isBusy = true
         status = "در حال بارگذاری مدل…"
         loadTask = Task { await loadModel() }
     }
 
+    /// Loads a model copied into the app's folder (with Finder or the Files app) while no
+    /// model was loaded.
+    func loadNewModelIfNeeded() {
+        guard !hasModel, !isBusy, ModelImporter.installedModel != nil else { return }
+        reloadModel()
+    }
+
     private func loadModel() async {
-        // A personal model from the training server replaces the bundled one.
-        guard let url = PersonalModel.shared.modelFile ?? Self.findModel() else {
-            status = "مدلی در پوشه‌ی Models پیدا نشد. ابتدا setup.sh را اجرا کنید."
+        // A personal model from the training server comes first, then the one imported from
+        // Files, then one inside the app (only in builds that bundle it).
+        guard let url = PersonalModel.shared.modelFile ?? ModelImporter.installedModel ?? Self.findModel() else {
+            status = "مدل گفتار نصب نیست."
+            modelName = ""
             isBusy = false
             return
         }
@@ -78,6 +90,7 @@ final class Transcriber: ObservableObject {
         do {
             let path = url.path
             whisper = try await Task.detached { try WhisperContext(path: path) }.value
+            hasModel = true
             usesCoreML = Self.hasCoreMLEncoder(for: url)
             let stock = ["tiny", "base", "small", "medium", "large"].contains { url.lastPathComponent.hasPrefix("ggml-\($0)") }
             minimumAudioContext = usesCoreML ? 0 : (stock ? 384 : 1000)
@@ -86,7 +99,9 @@ final class Transcriber: ObservableObject {
                 status = usesCoreML ? "آماده (Neural Engine)" : "آماده"
             }
         } catch {
-            status = error.localizedDescription
+            status = url == ModelImporter.installedModel
+                ? "فایل مدل باز نشد؛ ممکن است ناقص کپی شده باشد. دوباره وارد کنید."
+                : error.localizedDescription
             // A personal model that does not load is dropped for the one inside the app.
             if url == PersonalModel.shared.modelFile {
                 log.error("cannot load \(url.lastPathComponent, privacy: .public); using the bundled model")

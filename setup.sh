@@ -4,6 +4,7 @@
 #   ./setup.sh                 # default: base-q5_1  (~57 MB, smallest usable for Persian)
 #   ./setup.sh small-q5_1      # ~181 MB, noticeably better Persian
 #   ./setup.sh large-v3-turbo-q5_0   # ~547 MB, best quality, needs iPhone 13 or newer
+#   ./setup.sh none            # framework only; the app then imports its model from Files
 set -euo pipefail
 
 MODEL="${1:-base-q5_1}"
@@ -41,6 +42,11 @@ for r in json.load(sys.stdin):
   echo "Installed Frameworks/whisper.xcframework"
 else
   echo "Frameworks/whisper.xcframework already present."
+fi
+
+if [ "$MODEL" = none ]; then
+  echo "No model downloaded."
+  exit 0
 fi
 
 # Only one model is kept in the app bundle; the app uses the first .bin it finds.
