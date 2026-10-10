@@ -114,7 +114,9 @@ jobs:
           axe tap -x "$OX" -y "$OY" --udid "$DEVICE"
           sleep 1
           xcrun simctl io "$DEVICE" screenshot out/3-processing.png
-          sleep 20
+          # The final pass takes from seconds to over a minute on this runner.
+          for i in $(seq 60); do grep -q "final pass:" out/log.txt && break; sleep 2; done
+          sleep 2
           xcrun simctl io "$DEVICE" screenshot out/4-done.png
           dump out/ui-4.json || true
           python3 - <<'PY'
