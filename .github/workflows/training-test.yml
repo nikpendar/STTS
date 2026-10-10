@@ -90,8 +90,8 @@ jobs:
 
       - name: Run the published model with whisper.cpp
         run: |
-          CLI="$(ls server/whisper.cpp/build/bin/whisper-cli server/whisper.cpp/build/bin/main 2>/dev/null | head -n1)"
-          "$CLI" -m personal.bin -f samples/s1.wav -l fa -nt
+          ls server/whisper.cpp/build/bin
+          server/whisper.cpp/build/bin/whisper-cli -m personal.bin -f samples/s1.wav -l fa -nt
 
       - name: Logs
         if: always()
