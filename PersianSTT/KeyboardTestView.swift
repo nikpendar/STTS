@@ -61,7 +61,7 @@ private struct HostedKeyboard: UIViewControllerRepresentable {
         let keyboard = KeyboardViewController()
         keyboard.testProxy = document
         // Corrections are reported after the user stops editing; the test does not wait long.
-        keyboard.reportDelay = 15
+        keyboard.reportDelay = 40
         container.addChild(keyboard)
         container.view.addSubview(keyboard.view)
         keyboard.view.translatesAutoresizingMaskIntoConstraints = false

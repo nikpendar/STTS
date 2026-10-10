@@ -141,8 +141,9 @@ jobs:
           read LX LY < <(python3 find.py letter-1-3 out/ui-4.json || echo "125 735")
           for i in 1 2 3; do axe tap -x "$BX" -y "$BY" --udid "$DEVICE"; sleep 0.5; done
           axe tap -x "$LX" -y "$LY" --udid "$DEVICE"
-          # The test keyboard reports edits after 15 s without typing.
-          sleep 22
+          # The test keyboard reports edits after 40 s without typing; screenshots and UI dumps
+          # before the taps take about 20 s.
+          sleep 47
           xcrun simctl io "$DEVICE" screenshot out/4b-corrected.png
           echo "===== samples on the training server"
           ls srv/samples || true
