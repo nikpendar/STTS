@@ -544,8 +544,9 @@ final class KeyboardSession: ObservableObject {
         return quietest * frame + frame / 2
     }
 
+    /// Pieces of a recording are cut at pauses, so they are joined with a pause mark.
     private static func join(_ a: String, _ b: String) -> String {
-        a.isEmpty ? b : b.isEmpty ? a : a + " " + b
+        a.isEmpty ? b : b.isEmpty ? a : a + String(DictationBridge.pauseMark) + b
     }
 
     /// Waits for the live loop to end. A preview in progress is stopped (its encoder still runs
@@ -631,7 +632,7 @@ final class KeyboardSession: ObservableObject {
                 let dictation = UUID().uuidString
                 // Training uses recordings of up to 30 s (`PersonalModel.add`).
                 if samples.count <= 30 * Int(AudioLoader.sampleRate) {
-                    recent.append((dictation, samples, text))
+                    recent.append((dictation, samples, DictationBridge.removingPauseMarks(text)))
                     if recent.count > 8 { recent.removeFirst() }
                 }
                 server.publish(DictationBridge.finalPrefix + dictation + "\n" + text)

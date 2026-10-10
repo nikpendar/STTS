@@ -26,6 +26,8 @@ actor WhisperContext {
     /// How long one transcription took, split as the time estimate needs it.
     struct Result {
         let text: String
+        /// The text in whisper's segments, which end where the speaker paused or a sentence ended.
+        let segments: [String]
         /// Mel spectrogram and encoder, which scale with the encoder window.
         let encodeSeconds: TimeInterval
         let totalSeconds: TimeInterval
@@ -114,13 +116,13 @@ actor WhisperContext {
             throw abort.isSet ? WhisperError.cancelled : WhisperError.transcriptionFailed(code)
         }
 
-        var text = ""
+        var segments: [String] = []
         for i in 0..<whisper_full_n_segments(context) {
             if let segment = whisper_full_get_segment_text(context, i) {
-                text += String(cString: segment)
+                segments.append(String(cString: segment))
             }
         }
-        return Result(text: text, encodeSeconds: timing.encode, totalSeconds: timing.total)
+        return Result(text: segments.joined(), segments: segments, encodeSeconds: timing.encode, totalSeconds: timing.total)
     }
 
     /// Two fewer threads than cores, as in whisper.cpp's iOS example.

@@ -19,16 +19,154 @@ struct ContentView: View {
     @AppStorage(KeyboardSession.liveTranscriptionKey) private var liveTranscription = true
     @AppStorage(KeyboardSession.autoStopKey) private var autoStop = KeyboardSession.defaultAutoStop
     @State private var style = KeyStyle.saved
+    @State private var options = KeyboardOptions.saved
     @Environment(\.scenePhase) private var scenePhase
 
-    var body: some View {
-        Form {
-            Section {
-                header
-            }
-            .listRowBackground(Color.clear)
+    init() {
+        // Navigation titles in the app font.
+        if let font = AppFont.name.flatMap({ UIFont(name: $0, size: 17) }) {
+            UINavigationBar.appearance().titleTextAttributes = [.font: font]
+        }
+    }
 
-            if needsModel { modelSection }
+    /// One page with the session and links to a page per topic, as in iOS Settings.
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    header
+                }
+                .listRowBackground(Color.clear)
+
+                if needsModel { modelSection }
+
+                Section {
+                    NavigationLink { speechPage } label: {
+                        SettingLabel("گفتار", symbol: "waveform", color: .red)
+                    }
+                    NavigationLink { typingPage } label: {
+                        SettingLabel("تایپ و پیشنهاد کلمه", symbol: "character.cursor.ibeam", color: .blue)
+                    }
+                    NavigationLink { appearancePage } label: {
+                        SettingLabel("ظاهر دکمه‌ها", symbol: "paintpalette.fill", color: .pink)
+                    }
+                }
+
+                Section {
+                    if !needsModel {
+                        NavigationLink { page("مدل گفتار") { modelSection } } label: {
+                            LabeledContent {
+                                Text(model.modelName.isEmpty ? "—" : model.modelName).lineLimit(1)
+                            } label: {
+                                SettingLabel("مدل گفتار", symbol: "cpu", color: .purple)
+                            }
+                        }
+                    }
+                    NavigationLink { page("یادگیری از اصلاح‌ها") { trainingSection } } label: {
+                        LabeledContent {
+                            Text(trainingUpload ? "روشن" : "خاموش")
+                        } label: {
+                            SettingLabel("یادگیری از اصلاح‌ها", symbol: "brain.head.profile", color: .green)
+                        }
+                    }
+                    NavigationLink { page("راه‌اندازی کیبورد") { setupSection } } label: {
+                        SettingLabel("راه‌اندازی کیبورد", symbol: "keyboard", color: .gray)
+                    }
+                }
+            }
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .fileImporter(isPresented: $pickingModel, allowedContentTypes: [.item]) { result in
+            if case .success(let url) = result { importer.importModel(from: url) }
+        }
+        .environment(\.layoutDirection, .rightToLeft)
+        .font(.app(.body))
+        .onChange(of: style) { _, new in new.save() }
+        .onChange(of: options) { _, new in new.save() }
+        // Rewrites the shared pasteboard copies, which a reinstall or reboot can clear.
+        .onAppear {
+            style.save()
+            options.save()
+            syncTraining()
+        }
+        .onOpenURL { url in
+            if url.host == "session" {
+                keyboard.start()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                model.appDidBecomeActive()
+                model.loadNewModelIfNeeded()
+                syncTraining()
+            }
+        }
+    }
+
+    /// A settings page: a form with a title.
+    private func page<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        Form { content() }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .font(.app(.body))
+    }
+
+    private var speechPage: some View {
+        page("گفتار") {
+            Section {
+                Toggle(isOn: $liveTranscription) {
+                    SettingLabel("نمایش متن هنگام صحبت", symbol: "text.bubble.fill", color: .blue)
+                }
+                Picker(selection: $autoStop) {
+                    Text("۱ ثانیه").tag(1.0)
+                    Text("۲ ثانیه").tag(2.0)
+                    Text("۳ ثانیه").tag(3.0)
+                    Text("۵ ثانیه").tag(5.0)
+                    Text("خاموش").tag(0.0)
+                } label: {
+                    SettingLabel("پایان خودکار بعد از سکوت", symbol: "stop.circle.fill", color: .red)
+                }
+            } header: {
+                Text("دیکته").font(.app(.footnote))
+            } footer: {
+                Text("وقتی بعد از صحبت به این اندازه سکوت شود، ضبط تمام و متن نوشته می‌شود. اگر ۸ ثانیه هیچ صحبتی نشود، ضبط بدون پردازش بسته می‌شود. نمایش متن هنگام صحبت باتری بیشتری مصرف می‌کند.").font(.app(.footnote))
+            }
+
+            Section {
+                Toggle(isOn: $options.voicePunctuation) {
+                    SettingLabel("نشانه‌گذاری با گفتن", symbol: "textformat.abc.dottedunderline", color: .orange)
+                }
+                Toggle(isOn: $options.voiceCommands) {
+                    SettingLabel("فرمان‌های ویرایش", symbol: "delete.left.fill", color: .indigo)
+                }
+            } header: {
+                Text("فرمان‌های صوتی").font(.app(.footnote))
+            } footer: {
+                Text("بگویید: نقطه، ویرگول، علامت سؤال، علامت تعجب، دونقطه، نقطه‌ویرگول، خط بعد، پاراگراف جدید، پرانتز باز و بسته، گیومه باز و بسته. «این نقطه» یا «نقطه‌نظر» همان کلمه می‌ماند و «کلمه‌ی نقطه» همیشه خودِ کلمه را می‌نویسد.\n\n"
+                     + "فرمان‌های ویرایش وقتی جدا و با مکث گفته شوند اجرا می‌شوند: «پاک کن» آخرین جمله را پاک می‌کند، «همه رو پاک کن» همه‌ی متن پیش از مکان‌نما را، و «برگردون» آخرین دیکته یا پاک‌کردن را برمی‌گرداند.").font(.app(.footnote))
+            }
+
+            Section {
+                Toggle(isOn: $noiseSuppression) {
+                    SettingLabel("حذف نویز", symbol: "waveform.badge.minus", color: .green)
+                }
+                .onChange(of: noiseSuppression) { _, _ in keyboard.noiseSuppressionChanged() }
+                if noiseSuppression {
+                    // Voice Isolation keeps only the nearest voice; iOS offers it only while voice processing is on.
+                    Button {
+                        AVCaptureDevice.showSystemUserInterface(.microphoneModes)
+                    } label: {
+                        SettingLabel("فقط صدای من", symbol: "person.wave.2.fill", color: .purple)
+                    }
+                    .disabled(!keyboard.isActive)
+                }
+            } header: {
+                Text("میکروفون").font(.app(.footnote))
+            } footer: {
+                if noiseSuppression {
+                    Text("برای «فقط صدای من»، جلسه را شروع کنید و در منوی باز شده Voice Isolation را انتخاب کنید.").font(.app(.footnote))
+                }
+            }
 
             Section {
                 Picker(selection: $sessionMinutes) {
@@ -45,42 +183,28 @@ struct ContentView: View {
             } footer: {
                 Text("جلسه بعد از این مدت بی‌استفاده بسته می‌شود. جلسه‌ی باز باتری مصرف می‌کند.").font(.app(.footnote))
             }
+        }
+    }
 
+    private var typingPage: some View {
+        page("تایپ و پیشنهاد کلمه") {
             Section {
-                Toggle(isOn: $liveTranscription) {
-                    SettingLabel("نمایش متن هنگام صحبت", symbol: "text.bubble.fill", color: .blue)
+                Toggle(isOn: $options.predictNextWord) {
+                    SettingLabel("پیش‌بینی کلمه‌ی بعدی", symbol: "text.append", color: .blue)
                 }
-                Picker(selection: $autoStop) {
-                    Text("۱ ثانیه").tag(1.0)
-                    Text("۲ ثانیه").tag(2.0)
-                    Text("۳ ثانیه").tag(3.0)
-                    Text("۵ ثانیه").tag(5.0)
-                    Text("خاموش").tag(0.0)
-                } label: {
-                    SettingLabel("پایان خودکار بعد از سکوت", symbol: "stop.circle.fill", color: .red)
-                }
-                Toggle(isOn: $noiseSuppression) {
-                    SettingLabel("حذف نویز", symbol: "waveform", color: .green)
-                }
-                .onChange(of: noiseSuppression) { _, _ in keyboard.noiseSuppressionChanged() }
-                if noiseSuppression {
-                    // Voice Isolation keeps only the nearest voice; iOS offers it only while voice processing is on.
-                    Button {
-                        AVCaptureDevice.showSystemUserInterface(.microphoneModes)
-                    } label: {
-                        SettingLabel("فقط صدای من", symbol: "person.wave.2.fill", color: .purple)
-                    }
-                    .disabled(!keyboard.isActive)
+                Toggle(isOn: $options.correctTypos) {
+                    SettingLabel("اصلاح غلط تایپی", symbol: "checkmark.seal.fill", color: .green)
                 }
             } header: {
-                Text("گفتار").font(.app(.footnote))
+                Text("ردیف پیشنهاد").font(.app(.footnote))
             } footer: {
-                Text("وقتی بعد از صحبت به این اندازه سکوت شود، ضبط تمام و متن نوشته می‌شود. اگر ۸ ثانیه هیچ صحبتی نشود، ضبط بدون پردازش بسته می‌شود. سکوت ابتدا و انتهای صحبت پردازش نمی‌شود.\n\n"
-                     + (noiseSuppression
-                     ? "برای «فقط صدای من»، جلسه را شروع کنید و در منوی باز شده Voice Isolation را انتخاب کنید."
-                     : "نمایش متن هنگام صحبت باتری بیشتری مصرف می‌کند.")).font(.app(.footnote))
+                Text("بعد از هر فاصله، کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند؛ از روی ویکی‌پدیای فارسی و کلمه‌هایی که خودتان پشت سر هم می‌نویسید. برای کلمه‌ای که در فهرست نیست، نزدیک‌ترین کلمه‌ی درست هم پیشنهاد می‌شود و چیزی خودکار عوض نمی‌شود.").font(.app(.footnote))
             }
+        }
+    }
 
+    private var appearancePage: some View {
+        page("ظاهر دکمه‌ها") {
             Section {
                 KeyPreview(style: style)
                     .listRowBackground(Color(.systemGray5))
@@ -96,52 +220,23 @@ struct ContentView: View {
                     SettingLabel("رنگ حروف", symbol: "textformat", color: .teal)
                 }
                 Button("بازگشت به پیش‌فرض") { style = .standard }
-            } header: {
-                Text("ظاهر دکمه‌ها").font(.app(.footnote))
             } footer: {
                 Text("تغییرها دفعه‌ی بعد که کیبورد باز شود اعمال می‌شوند.").font(.app(.footnote))
             }
-            .onChange(of: style) { _, new in new.save() }
+        }
+    }
 
-            trainingSection
-
-            Section {
-                SetupStep(number: "۱", text: "Settings › General › Keyboard › Keyboards › Add New Keyboard")
-                SetupStep(number: "۲", text: "«کیلس» را انتخاب و Allow Full Access را روشن کنید.")
-                SetupStep(number: "۳", text: "در هر اپی با 🌐 به این کیبورد بروید و میکروفون را بزنید.")
-                Button {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                } label: {
-                    SettingLabel("باز کردن تنظیمات آیفون", symbol: "gearshape.fill", color: .gray)
+    private var setupSection: some View {
+        Section {
+            SetupStep(number: "۱", text: "Settings › General › Keyboard › Keyboards › Add New Keyboard")
+            SetupStep(number: "۲", text: "«کیلس» را انتخاب و Allow Full Access را روشن کنید.")
+            SetupStep(number: "۳", text: "در هر اپی با 🌐 به این کیبورد بروید و میکروفون را بزنید.")
+            Button {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
                 }
-            } header: {
-                Text("راه‌اندازی").font(.app(.footnote))
-            }
-
-            if !needsModel { modelSection }
-        }
-        .fileImporter(isPresented: $pickingModel, allowedContentTypes: [.item]) { result in
-            if case .success(let url) = result { importer.importModel(from: url) }
-        }
-        .environment(\.layoutDirection, .rightToLeft)
-        .font(.app(.body))
-        // Rewrites the shared pasteboard copy of the key style, which a reinstall or reboot can clear.
-        .onAppear {
-            style.save()
-            syncTraining()
-        }
-        .onOpenURL { url in
-            if url.host == "session" {
-                keyboard.start()
-            }
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                model.appDidBecomeActive()
-                model.loadNewModelIfNeeded()
-                syncTraining()
+            } label: {
+                SettingLabel("باز کردن تنظیمات آیفون", symbol: "gearshape.fill", color: .gray)
             }
         }
     }

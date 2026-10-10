@@ -45,6 +45,17 @@ enum DictationBridge {
     static let livePrefix = "L"
     /// Separates the messages of one fetch; each starts with one of the prefixes above.
     static let separator: Character = "\u{1E}"
+    /// Marks a pause inside a served transcript: between whisper's segments and between the
+    /// pieces of a live transcription, which are cut where the speaker paused. The keyboard
+    /// reads spoken commands by it (`VoiceCommands`) and shows it as a space.
+    static let pauseMark: Character = "\u{E000}"
+
+    static func removingPauseMarks(_ text: String) -> String {
+        text.split(separator: pauseMark, omittingEmptySubsequences: true)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
 
     /// Loopback port the app serves the latest transcript on.
     static let transcriptPort: NWEndpoint.Port = 47_861
@@ -275,10 +286,45 @@ enum AppFont {
     }
 }
 
-/// Key background and outline colors, chosen in the app and applied by the keyboard.
-/// The app writes them to a named pasteboard (shared by apps of the same team, and written while
-/// the app is in the foreground); the keyboard reads it with Full Access and keeps a copy.
-struct KeyStyle: Codable, Equatable {
+/// Settings chosen in the app and applied by the keyboard. A free Apple ID has no App Groups,
+/// so the app writes them to a named pasteboard (shared by apps of the same team, and written
+/// while the app is in the foreground); the keyboard reads it with Full Access and keeps a copy
+/// in its own defaults.
+protocol SharedSetting: Codable {
+    static var pasteboardName: UIPasteboard.Name { get }
+    static var defaultsKey: String { get }
+    static var standard: Self { get }
+}
+
+extension SharedSetting {
+    private static var pasteboardType: String { "public.json" }
+
+    /// App side: saves the setting and hands it to the keyboard.
+    func save() {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        UserDefaults.standard.set(data, forKey: Self.defaultsKey)
+        UIPasteboard(name: Self.pasteboardName, create: true)?.setData(data, forPasteboardType: Self.pasteboardType)
+    }
+
+    /// Keyboard side: the app's latest setting, else the last one seen, else the standard one.
+    static func load() -> Self {
+        if let data = UIPasteboard(name: pasteboardName, create: false)?.data(forPasteboardType: pasteboardType),
+           let value = try? JSONDecoder().decode(Self.self, from: data) {
+            UserDefaults.standard.set(data, forKey: defaultsKey)
+            return value
+        }
+        return saved
+    }
+
+    /// The setting stored in this process's own defaults.
+    static var saved: Self {
+        UserDefaults.standard.data(forKey: defaultsKey)
+            .flatMap { try? JSONDecoder().decode(Self.self, from: $0) } ?? standard
+    }
+}
+
+/// Key background and outline colors.
+struct KeyStyle: SharedSetting, Equatable {
     struct RGBA: Codable, Equatable {
         var r, g, b, a: Double
         var color: UIColor { UIColor(red: r, green: g, blue: b, alpha: a) }
@@ -294,30 +340,33 @@ struct KeyStyle: Codable, Equatable {
     static let standard = KeyStyle(fill: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.18),
                                    stroke: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.45),
                                    text: nil)
-    private static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyStyle")
-    private static let pasteboardType = "public.json"
+    static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyStyle")
     static let defaultsKey = "keyStyle"
+}
 
-    /// App side: saves the style and hands it to the keyboard.
-    func save() {
-        guard let data = try? JSONEncoder().encode(self) else { return }
-        UserDefaults.standard.set(data, forKey: Self.defaultsKey)
-        UIPasteboard(name: Self.pasteboardName, create: true)?.setData(data, forPasteboardType: Self.pasteboardType)
-    }
+/// Keyboard features that can be turned off in the app.
+struct KeyboardOptions: SharedSetting, Equatable {
+    /// Suggest the next word after a space.
+    var predictNextWord = true
+    /// Offer the listed word a typed one is probably a misspelling of.
+    var correctTypos = true
+    /// Spoken «نقطه», «ویرگول», «خط بعد»… become punctuation.
+    var voicePunctuation = true
+    /// «پاک کن», «همه رو پاک کن» and «برگردون», said on their own, edit the text.
+    var voiceCommands = true
 
-    /// Keyboard side: the app's latest style, else the last one seen, else the standard style.
-    static func load() -> KeyStyle {
-        if let data = UIPasteboard(name: pasteboardName, create: false)?.data(forPasteboardType: pasteboardType),
-           let style = try? JSONDecoder().decode(KeyStyle.self, from: data) {
-            UserDefaults.standard.set(data, forKey: defaultsKey)
-            return style
-        }
-        return saved
-    }
+    static let standard = KeyboardOptions()
+    static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardOptions")
+    static let defaultsKey = "keyboardOptions"
 
-    /// The style stored in this process's own defaults.
-    static var saved: KeyStyle {
-        UserDefaults.standard.data(forKey: defaultsKey)
-            .flatMap { try? JSONDecoder().decode(KeyStyle.self, from: $0) } ?? standard
+    init() {}
+
+    /// Options added later are on when an older copy lacks them.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        predictNextWord = try container.decodeIfPresent(Bool.self, forKey: .predictNextWord) ?? true
+        correctTypos = try container.decodeIfPresent(Bool.self, forKey: .correctTypos) ?? true
+        voicePunctuation = try container.decodeIfPresent(Bool.self, forKey: .voicePunctuation) ?? true
+        voiceCommands = try container.decodeIfPresent(Bool.self, forKey: .voiceCommands) ?? true
     }
 }

@@ -60,7 +60,19 @@ check("restore", VoiceCommands.restoringSpoken("سلام. خوبید؟", origina
 check("restore skips changed punctuation",
       VoiceCommands.restoringSpoken("سلام خوبید؟", original: dictated.text, spoken: dictated.spoken) ?? "nil", "nil")
 
-// Suggestions.
+// Suggestions, with neighbouring keys of the Persian layout as the keyboard sets them.
+let rows = ["ضصقفغعهخحجچ", "شسیبلاتنمکگ", "ظطژزرذدپوث"].map(Array.init)
+var neighbours: [(Character, Character)] = []
+for (r, row) in rows.enumerated() {
+    for (c, a) in row.enumerated() {
+        for r2 in r..<min(rows.count, r + 2) {
+            for (c2, b) in rows[r2].enumerated() where abs(c2 - c) <= 1 && (r2 > r || c2 > c) {
+                neighbours.append((a, b))
+            }
+        }
+    }
+}
+Lexicon.shared.setNeighbours(neighbours)
 let afterAz = Lexicon.shared.predictions(after: .word("از"), limit: 3)
 check("predictions after از", afterAz.contains("این"), true)
 check("prediction at sentence start", Lexicon.shared.predictions(after: .sentenceStart, limit: 3).first ?? "", "در")

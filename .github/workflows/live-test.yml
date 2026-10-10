@@ -177,6 +177,38 @@ jobs:
           except Exception as e:
               print("no UI dump", e)
           PY
+          # Next-word prediction after a space, then a typo («سلان») with its correction.
+          bar() { # label, dump
+            python3 - "$1" "$2" <<'PY'
+          import json, sys
+          def walk(n):
+              if isinstance(n, dict):
+                  if n.get("AXUniqueId") == "testField":
+                      print(sys.argv[1], "FIELD:", n.get("AXValue") or n.get("AXLabel"))
+                  if str(n.get("AXUniqueId", "")).startswith("suggestion-"):
+                      print(sys.argv[1], "BAR", n.get("AXUniqueId"), n.get("AXLabel"))
+                  for v in n.values(): walk(v)
+              elif isinstance(n, list):
+                  for v in n: walk(v)
+          try:
+              walk(json.load(open(sys.argv[2])))
+          except Exception as e:
+              print("no UI dump", e)
+          PY
+          }
+          read SPX SPY < <(python3 find.py spaceKey out/ui-5b.json || echo "240 817")
+          axe tap -x "$SPX" -y "$SPY" --udid "$DEVICE"
+          sleep 1
+          dump out/ui-6.json || true
+          bar PREDICTION out/ui-6.json
+          for key in letter-1-1 letter-1-4 letter-1-5 letter-1-7; do
+            read KX KY < <(python3 find.py "$key" out/ui-6.json || echo "0 0")
+            axe tap -x "$KX" -y "$KY" --udid "$DEVICE"; sleep 0.4
+          done
+          sleep 1
+          dump out/ui-7.json || true
+          bar TYPO out/ui-7.json
+          xcrun simctl io "$DEVICE" screenshot out/5e-typo.png
           # Long press on the emoji key: the menu with emoji and settings.
           read EX EY < <(python3 find.py emojiKey out/ui-5b.json || echo "60 817")
           axe touch -x "$EX" -y "$EY" --down --udid "$DEVICE" && sleep 0.8 && \

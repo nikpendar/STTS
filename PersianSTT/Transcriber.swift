@@ -259,7 +259,10 @@ final class Transcriber: ObservableObject {
                                                   abort: abort, preview: preview,
                                                   onEncoded: encoded)
         learnSpeed(sampleCount: samples.count, result: result, preview: preview)
-        return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Segments are joined with pause marks, by which the keyboard reads spoken commands.
+        return result.segments.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: String(DictationBridge.pauseMark))
     }
 
     // MARK: - Time estimate

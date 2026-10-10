@@ -39,6 +39,15 @@ final class KeyboardViewController: UIInputViewController {
     private var livePrefix = ""
     /// Follows the user's edits of dictated text, to report them as corrections for training.
     private var edits = EditTracker()
+    /// Spoken punctuation of the dictations being followed, by dictation id: put back into
+    /// corrections, whose recordings have the words.
+    private var spokenForms: [String: (text: String, spoken: [VoiceCommands.Spoken])] = [:]
+    /// Dictations and voice edits that «برگردون» can undo, latest last.
+    private var undoSteps: [UndoStep] = []
+    /// Features turned on or off in the app.
+    private var options = KeyboardOptions.standard
+    /// Key width the typo search's neighbouring keys were taken at.
+    private var neighboursWidth: CGFloat = 0
     private var editsTimer: Timer?
     /// Seconds without typing after which edits are reported even if the keyboard stays open.
     var reportDelay: TimeInterval = 300
@@ -94,6 +103,7 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         applyKeyStyle(KeyStyle.load())
+        options = KeyboardOptions.load()
         checkSession()
     }
 
@@ -229,11 +239,15 @@ final class KeyboardViewController: UIInputViewController {
         orb.resetVoice()
         state = .recording
         liveText = ""
-        // As iOS dictation does: a space after a word, none after a space, a bracket or a ZWNJ.
-        let last = proxy.documentContextBeforeInput?.unicodeScalars.last
-        livePrefix = last.map { $0.properties.isAlphabetic || $0.properties.numericType != nil
-            || ".,!?:;)»؟،؛".unicodeScalars.contains($0) } == true ? " " : ""
+        livePrefix = spaceBeforeDictation()
         edits.dictationStarted(documentContext, prefix: livePrefix)
+    }
+
+    /// As iOS dictation does: a space after a word, none after a space, a bracket or a ZWNJ.
+    private func spaceBeforeDictation() -> String {
+        let last = proxy.documentContextBeforeInput?.unicodeScalars.last
+        return last.map { $0.properties.isAlphabetic || $0.properties.numericType != nil
+            || ".,!?:;)»؟،؛".unicodeScalars.contains($0) } == true ? " " : ""
     }
 
     private func insertTranscript() {
@@ -265,18 +279,24 @@ final class KeyboardViewController: UIInputViewController {
         case DictationBridge.finalPrefix where !body.isEmpty:
             // Dictation id + newline + text.
             let parts = body.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
-            let text = String(parts.last ?? "")
-            replaceLiveText(with: text)
-            liveText = ""
-            if parts.count == 2, !text.isEmpty {
-                report(edits.dictationFinished(id: String(parts[0]), text: text))
-                log.info("following dictation \(parts[0], privacy: .public) for edits")
-            }
+            let result = VoiceCommands.process(String(parts.last ?? ""), punctuation: options.voicePunctuation,
+                                               commands: options.voiceCommands)
+            perform(result)
             cancelTimeout()
             state = .ready
+            // Corrections of a dictation that also edited the text could not be matched to its recording.
+            if parts.count == 2, !result.hasEdits, case .text(let text)? = result.steps.first {
+                let id = String(parts[0])
+                if !result.spoken.isEmpty { spokenForms[id] = (text, result.spoken) }
+                report(edits.dictationFinished(id: id, text: text))
+                log.info("following dictation \(id, privacy: .public) for edits")
+            }
         case DictationBridge.partialPrefix:
             // Empty after a live pass that found nothing new.
-            if !body.isEmpty { replaceLiveText(with: body) }
+            if !body.isEmpty {
+                let draft = VoiceCommands.draft(body, punctuation: options.voicePunctuation, commands: options.voiceCommands)
+                if !draft.isEmpty { replaceLiveText(with: draft) }
+            }
             if state == .recording { orb.liveTextArrived() }
         case DictationBridge.livePrefix:
             guard state == .recording, let seconds = Double(body) else { return }
@@ -295,12 +315,98 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Swaps the provisional text for `text`, deleting only the part that changed.
     private func replaceLiveText(with text: String) {
-        let target = text.isEmpty ? "" : livePrefix + text
+        // Punctuation and line breaks join the text before them.
+        let joins = text.first.map { $0 == "\n" || ".،؟!:؛)»,?".contains($0) } ?? true
+        let target = text.isEmpty ? "" : (joins ? "" : livePrefix) + text
         // Characters compare equal across Unicode normalizations; the typed text must match exactly.
         let common = zip(liveText, target).prefix { $0.unicodeScalars.elementsEqual($1.unicodeScalars) }.count
         for _ in 0..<(liveText.count - common) { deleteBackward() }
         insert(String(target.dropFirst(common)), dictated: true)
         liveText = target
+    }
+
+    /// A dictation inserted (undone by deleting it while it is still before the cursor) or text
+    /// a voice command deleted (put back while the text before the cursor still ends with `anchor`).
+    private enum UndoStep {
+        case inserted(String)
+        case deleted(String, anchor: String)
+    }
+
+    /// Puts a finished dictation into the document: its first text replaces the live text, and
+    /// editing commands run in order with the text around them.
+    private func perform(_ result: VoiceCommands.Result) {
+        var first = true
+        for step in result.steps {
+            switch step {
+            case .text(let text):
+                if first {
+                    replaceLiveText(with: text)
+                    remember(.inserted(liveText))
+                } else {
+                    let joins = text.first.map { $0 == "\n" || ".،؟!:؛)»,?".contains($0) } ?? true
+                    let inserted = (joins ? "" : spaceBeforeDictation()) + text
+                    insert(inserted, dictated: true)
+                    remember(.inserted(inserted))
+                }
+            case .deleteSentence, .deleteAll, .undo:
+                if first { replaceLiveText(with: "") }
+                run(step)
+            }
+            first = false
+        }
+        if result.steps.isEmpty { replaceLiveText(with: "") }
+        liveText = ""
+    }
+
+    private func remember(_ step: UndoStep) {
+        undoSteps.append(step)
+        if undoSteps.count > 20 { undoSteps.removeFirst() }
+    }
+
+    private func run(_ command: VoiceCommands.Step) {
+        let before = proxy.documentContextBeforeInput ?? ""
+        switch command {
+        case .deleteSentence:
+            let sentence = Self.lastSentence(of: before)
+            guard !sentence.isEmpty else { return }
+            for _ in 0..<sentence.count { deleteBackward() }
+            remember(.deleted(sentence, anchor: String(before.dropLast(sentence.count).suffix(20))))
+        case .deleteAll:
+            guard !before.isEmpty else { return }
+            for _ in 0..<before.count { deleteBackward() }
+            remember(.deleted(before, anchor: ""))
+        case .undo:
+            var undone = false
+            switch undoSteps.popLast() {
+            case .inserted(let text)? where before.hasSuffix(text):
+                for _ in 0..<text.count { deleteBackward() }
+                undone = true
+            case .deleted(let text, let anchor)? where before.hasSuffix(anchor):
+                insert(text, dictated: true)
+                undone = true
+            default:
+                break
+            }
+            if !undone {
+                // The text changed since; older steps would not fit it either.
+                undoSteps = []
+                showStatus("چیزی برای برگرداندن نیست", transient: true)
+            }
+        case .text:
+            break
+        }
+    }
+
+    /// The last sentence before the cursor and the spaces around it, back to the mark that ends
+    /// the sentence before it (., ؟, !, a line break), which stays.
+    static func lastSentence(of text: String) -> String {
+        let characters = Array(text)
+        var end = characters.count
+        while end > 0, characters[end - 1] == " " { end -= 1 }
+        while end > 0, ".؟!?…".contains(characters[end - 1]) { end -= 1 }
+        var start = end
+        while start > 0, !".؟!?…\n".contains(characters[start - 1]) { start -= 1 }
+        return String(characters[start...])
     }
 
     // MARK: - Editing
@@ -327,10 +433,19 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Sends finished corrections to the app, and restarts the wait for the user to stop editing.
     private func report(_ corrections: [Correction]) {
-        for correction in corrections {
+        for var correction in corrections {
+            if let forms = spokenForms.removeValue(forKey: correction.id) {
+                guard let restored = VoiceCommands.restoringSpoken(correction.corrected, original: forms.text,
+                                                                   spoken: forms.spoken) else {
+                    log.info("correction for \(correction.id, privacy: .public) not sent: its punctuation changed")
+                    continue
+                }
+                correction = Correction(id: correction.id, original: correction.original, corrected: restored)
+            }
             log.info("sending correction for \(correction.id, privacy: .public)")
             correction.send()
         }
+        if spokenForms.count > 20 { spokenForms.removeAll() }
         editsTimer?.invalidate()
         editsTimer = nil
         guard edits.isTracking else { return }
@@ -830,15 +945,49 @@ final class KeyboardViewController: UIInputViewController {
         return String(before[start...])
     }
 
-    /// A typed word counts towards the user's own words, and new ones are learned.
+    /// What comes before the word at the cursor (`word`, possibly empty): the word before it,
+    /// the start of a sentence, or neither.
+    private func typingContext(before word: String) -> Lexicon.Context {
+        let before = proxy.documentContextBeforeInput ?? ""
+        var rest = Substring(before).dropLast(word.count)
+        let spaces = rest.reversed().prefix { $0 == " " || $0 == "\u{00A0}" }.count
+        rest = rest.dropLast(spaces)
+        guard let last = rest.last else { return .sentenceStart }
+        if last.isNewline || ".!?؟…".contains(last) { return .sentenceStart }
+        guard spaces > 0 || !word.isEmpty else { return .none }
+        var start = rest.endIndex
+        while start > rest.startIndex {
+            let previous = rest.index(before: start)
+            guard Lexicon.isPersianWord(rest[previous..<start]) else { break }
+            start = previous
+        }
+        return start == rest.endIndex ? .none : .word(Lexicon.key(String(rest[start...])))
+    }
+
+    /// A typed word counts towards the user's own words and word pairs, and new ones are learned.
     private func learnCurrentWord() {
         guard !isEnglish, layer == .letters else { return }
         let word = currentWord()
-        if !word.isEmpty { Lexicon.shared.learn(word) }
+        if !word.isEmpty { Lexicon.shared.learn(word, after: typingContext(before: word)) }
+    }
+
+    /// Neighbouring letter keys, for the typo search: centres less than one and a half key widths apart.
+    private func updateNeighbours() {
+        guard keyWidth != neighboursWidth else { return }
+        neighboursWidth = keyWidth
+        let centers = Array(letterCenters())
+        var pairs: [(Character, Character)] = []
+        for (i, a) in centers.enumerated() {
+            for b in centers[(i + 1)...] where GlideDecoder.distance(a.value, b.value) < 1.5 * keyWidth {
+                pairs.append((a.key, b.key))
+            }
+        }
+        Lexicon.shared.setNeighbours(pairs)
     }
 
     /// Fills the bar, read right to left: the word as typed in quotes when the list does not
-    /// know it (picking it teaches it), the best completion in the middle, then the next ones.
+    /// know it (picking it teaches it), the best completion or correction in the middle, then
+    /// the next ones, ranked by the word before. After a space, the likeliest next words.
     /// After a glide, the glided word sits in the middle with its other readings beside it.
     private func updateSuggestions() {
         guard isViewLoaded else { return }
@@ -856,14 +1005,23 @@ final class KeyboardViewController: UIInputViewController {
             lastGlide = nil
         }
         let word = currentWord()
-        guard !word.isEmpty, Lexicon.shared.isLoaded else {
+        guard Lexicon.shared.isLoaded else {
             suggestionBar.show([nil, nil, nil])
             return
         }
-        let words = Lexicon.shared.completions(for: word, limit: 3).map { SuggestionBar.Item(text: $0) }
+        let context = options.predictNextWord ? typingContext(before: word) : .none
+        if word.isEmpty {
+            let words = Lexicon.shared.predictions(after: context, limit: 3).map { SuggestionBar.Item(text: $0) }
+            suggestionBar.show([words.dropFirst().first, words.first, words.dropFirst(2).first])
+            return
+        }
         if word.count >= 2, !Lexicon.shared.isKnown(word) {
+            if options.correctTypos { updateNeighbours() }
+            let words = Lexicon.shared.suggestions(forUnknown: word, context: context, correct: options.correctTypos, limit: 2)
+                .map { SuggestionBar.Item(text: $0) }
             suggestionBar.show([SuggestionBar.Item(text: word, literal: true), words.first, words.dropFirst().first])
         } else {
+            let words = Lexicon.shared.completions(for: word, context: context, limit: 3).map { SuggestionBar.Item(text: $0) }
             suggestionBar.show([words.dropFirst().first, words.first, words.dropFirst(2).first])
         }
     }
@@ -884,9 +1042,10 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         let word = currentWord()
+        let context = typingContext(before: word)
         lastGlide = nil
         for _ in 0..<word.count { deleteBackward() }
-        Lexicon.shared.learn(item.text, confirmed: item.literal)
+        Lexicon.shared.learn(item.text, after: context, confirmed: item.literal)
         insert(item.text + " ")
     }
 
@@ -947,7 +1106,7 @@ final class KeyboardViewController: UIInputViewController {
         let prefix = last.map { !CharacterSet.whitespacesAndNewlines.contains($0) && $0 != "\u{200C}" } == true ? " " : ""
         lastGlide = (word, prefix + word, Array(words.dropFirst()))
         insert(prefix + word)
-        Lexicon.shared.learn(word)
+        Lexicon.shared.learn(word, after: typingContext(before: word))
         log.info("glide: \(words.count) readings")
     }
 
