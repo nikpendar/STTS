@@ -25,6 +25,13 @@ enum DictationBridge {
     /// App finished: the transcript is ready on `transcriptPort` (`done`), or nothing was recognized (`failed`).
     static let done = "com.persianstt.done"
     static let failed = "com.persianstt.failed"
+    /// App ended the recording by itself: after the speaker stopped talking (`stopped`, the
+    /// transcription follows as after `stop`), or because nobody spoke (`idle`, nothing follows).
+    static let stopped = "com.persianstt.stopped"
+    static let idle = "com.persianstt.idle"
+    /// Loudness of the microphone while recording, `levels` steps from silence to loud speech.
+    static let levels = 10
+    static func level(_ step: Int) -> String { "com.persianstt.level.\(step)" }
 
     /// Prefixes that mark a served transcript as provisional or final. A fetch started for a
     /// partial result can arrive after the final one was published, so the keyboard goes by the prefix.
@@ -279,10 +286,10 @@ struct KeyStyle: Codable, Equatable {
 
     var fill: RGBA
     var stroke: RGBA
-    /// Letter and symbol colour; nil follows the system (black in light mode, white in dark).
+    /// Letter and symbol colour, always opaque; nil follows the system (black in light mode, white in dark).
     var text: RGBA?
 
-    var textColor: UIColor { text?.color ?? .label }
+    var textColor: UIColor { text.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) } ?? .label }
 
     static let standard = KeyStyle(fill: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.18),
                                    stroke: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.45),

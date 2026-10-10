@@ -31,13 +31,11 @@ actor WhisperContext {
         let totalSeconds: TimeInterval
     }
 
-    /// `flashAttention` changes only speed; `SpeedTest` measures which is faster on the phone.
-    init(path: String, flashAttention: Bool) throws {
+    init(path: String) throws {
         var params = whisper_context_default_params()
         // CPU only: the keyboard session transcribes while the app is in the background,
         // where iOS does not allow GPU (Metal) work.
         params.use_gpu = false
-        params.flash_attn = flashAttention
         guard let ctx = whisper_init_from_file_with_params(path, params) else {
             throw WhisperError.cannotLoadModel
         }
@@ -56,13 +54,13 @@ actor WhisperContext {
     /// `preview` is for live text while the user is still speaking: one segment, no timestamps,
     /// no temperature fallback and a token cap. Without these a pass over the first second or two
     /// of a recording could loop on repeated tokens for close to a minute.
-    /// `threads` 0 picks the default. `onEncoded` is called (on whisper's thread) when the encoder
+    /// `onEncoded` is called (on whisper's thread) when the encoder
     /// has finished the first 30 s window, so a progress estimate can be corrected.
-    func transcribe(samples: [Float], minimumAudioContext: Int, threads: Int = 0, abort: AbortFlag,
+    func transcribe(samples: [Float], minimumAudioContext: Int, abort: AbortFlag,
                     preview: Bool = false, onEncoded: (@Sendable () -> Void)? = nil) throws -> Result {
         guard !abort.isSet else { throw WhisperError.cancelled }
         var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
-        let threads = threads > 0 ? threads : Self.defaultThreads
+        let threads = Self.defaultThreads
         let audioContext = minimumAudioContext > 0
             ? Self.audioContext(sampleCount: samples.count, minimum: minimumAudioContext) : 0
         let timing = PassTiming(onEncoded: onEncoded)
@@ -125,7 +123,7 @@ actor WhisperContext {
         return Result(text: text, encodeSeconds: timing.encode, totalSeconds: timing.total)
     }
 
-    /// Two fewer threads than cores, as in whisper.cpp's iOS example; `SpeedTest` can pick another.
+    /// Two fewer threads than cores, as in whisper.cpp's iOS example.
     static var defaultThreads: Int {
         max(1, min(8, ProcessInfo.processInfo.activeProcessorCount - 2))
     }

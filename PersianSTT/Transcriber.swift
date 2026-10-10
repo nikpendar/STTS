@@ -19,9 +19,6 @@ final class Transcriber: ObservableObject {
     @Published var isQuickDictation = false
 
     private var whisper: WhisperContext?
-    private var modelURL: URL?
-    /// The flash attention setting `whisper` was loaded with.
-    private var loadedFlashAttention = SpeedTest.flashAttention
     private var usesCoreML = false
     /// Smallest encoder window (frames, 50 per second) for short recordings; 0 means always 30 s.
     /// Stock OpenAI models (ggml-base, ggml-large-v3-turbo, ...) tolerate 384. Fine-tuned models
@@ -80,10 +77,7 @@ final class Transcriber: ObservableObject {
         }
         do {
             let path = url.path
-            let flashAttention = SpeedTest.flashAttention
-            whisper = try await Task.detached { try WhisperContext(path: path, flashAttention: flashAttention) }.value
-            modelURL = url
-            loadedFlashAttention = flashAttention
+            whisper = try await Task.detached { try WhisperContext(path: path) }.value
             usesCoreML = Self.hasCoreMLEncoder(for: url)
             let stock = ["tiny", "base", "small", "medium", "large"].contains { url.lastPathComponent.hasPrefix("ggml-\($0)") }
             minimumAudioContext = usesCoreML ? 0 : (stock ? 384 : 1000)
@@ -247,37 +241,10 @@ final class Transcriber: ObservableObject {
             encoded = { DispatchQueue.main.async { MainActor.assumeIsolated { onEncoded(remaining) } } }
         }
         let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext,
-                                                  threads: SpeedTest.threads, abort: abort, preview: preview,
+                                                  abort: abort, preview: preview,
                                                   onEncoded: encoded)
         learnSpeed(sampleCount: samples.count, result: result, preview: preview)
         return result.text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    // MARK: - Speed test
-
-    /// For `SpeedTest`: transcribes `samples` as the final pass does, with flash attention on or
-    /// off (loading the model again when that changes) and `threads` threads.
-    func measure(samples: [Float], flashAttention: Bool, threads: Int) async throws -> (text: String, seconds: Double) {
-        if whisper == nil {
-            await loadTask?.value
-        }
-        guard let url = modelURL else { throw WhisperError.cannotLoadModel }
-        if flashAttention != loadedFlashAttention || whisper == nil {
-            // One copy of the model at a time: a 4 GB phone has no room for two.
-            whisper = nil
-            let path = url.path
-            whisper = try await Task.detached { try WhisperContext(path: path, flashAttention: flashAttention) }.value
-            loadedFlashAttention = flashAttention
-        }
-        guard let whisper else { throw WhisperError.cannotLoadModel }
-        let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext,
-                                                  threads: threads, abort: AbortFlag())
-        return (result.text.trimmingCharacters(in: .whitespacesAndNewlines), result.totalSeconds)
-    }
-
-    /// Loads the model again if it was loaded with another flash attention setting than the saved one.
-    func useFlashAttentionSetting() {
-        if whisper == nil || loadedFlashAttention != SpeedTest.flashAttention { reloadModel() }
     }
 
     // MARK: - Time estimate
@@ -351,7 +318,7 @@ final class Transcriber: ObservableObject {
                 let start = Date()
                 let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
                 let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext,
-                                                          threads: SpeedTest.threads, abort: AbortFlag())
+                                                          abort: AbortFlag())
                 text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
                 let elapsed = Date().timeIntervalSince(start)

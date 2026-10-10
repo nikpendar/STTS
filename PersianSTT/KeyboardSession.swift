@@ -30,6 +30,15 @@ final class KeyboardSession: ObservableObject {
         UserDefaults.standard.object(forKey: liveTranscriptionKey) as? Bool ?? true
     }
 
+    /// Seconds of silence after speech that end the recording by themselves; 0 never does.
+    static let autoStopKey = "autoStopSeconds"
+    static let defaultAutoStop = 2.0
+    static var autoStopSeconds: Double {
+        UserDefaults.standard.object(forKey: autoStopKey) as? Double ?? defaultAutoStop
+    }
+    /// A recording in which nobody speaks for this long is dropped without transcribing it.
+    static let noSpeechSeconds = 8.0
+
     @Published private(set) var isActive = false
     @Published private(set) var message = ""
 
@@ -45,6 +54,8 @@ final class KeyboardSession: ObservableObject {
     private var recent: [(id: String, samples: [Float], text: String)] = []
     private var idleTimer: Timer?
     private var liveTask: Task<Void, Never>?
+    /// Watches the recording: the level for the keyboard's orb, and the end of speech.
+    private var monitorTask: Task<Void, Never>?
     private var isCapturing = false
     /// Identifies the current dictation, so a cancelled one cannot report a late result.
     private var dictationID = 0
@@ -100,6 +111,9 @@ final class KeyboardSession: ObservableObject {
     /// the microphone, so the simulator can test dictation end to end.
     private let testAudio = UserDefaults.standard.string(forKey: "testAudio")
     private var testFeed: Task<Void, Never>?
+    /// The test file plays into the first recording only; later ones get silence, to test a
+    /// recording in which nobody speaks.
+    private var testRecordings = 0
 
     func start() {
         guard !isActive else {
@@ -175,6 +189,8 @@ final class KeyboardSession: ObservableObject {
         liveAbort.set()
         finalAbort.set()
         liveTask = nil
+        monitorTask?.cancel()
+        monitorTask = nil
         idleTimer?.invalidate()
         idleTimer = nil
         engine.inputNode.removeTap(onBus: 0)
@@ -207,17 +223,76 @@ final class KeyboardSession: ObservableObject {
         isCapturing = true
         resetIdleTimer()
         DictationBridge.post(DictationBridge.recording)
-        log.info("recording started, live text \(Self.liveTranscription)")
+        log.info("recording started, live text \(Self.liveTranscription), auto stop \(Self.autoStopSeconds) s")
         if Self.liveTranscription { startLiveTranscription() }
+        startMonitor()
         if let testAudio { feedTestAudio(testAudio) }
+    }
+
+    /// Every 0.1 s while recording: sends the level of the latest audio to the keyboard (as one
+    /// of `DictationBridge.levels` notifications, only when it changes), drops a recording in
+    /// which nobody has spoken for `noSpeechSeconds`, and ends one after `autoStopSeconds` of
+    /// silence following speech.
+    private func startMonitor() {
+        monitorTask?.cancel()
+        let autoStop = Self.autoStopSeconds
+        monitorTask = Task { [weak self] in
+            var lastStep = -1
+            var checked = 0
+            while !Task.isCancelled, let self, self.isCapturing {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                guard !Task.isCancelled, self.isCapturing else { break }
+                let levels = self.collector.levels()
+                guard let latest = levels.last else { continue }
+                // Two frames, so a short syllable still moves the orb.
+                let level = max(latest, levels.count > 1 ? levels[levels.count - 2] : 0)
+                let db = 20 * log10(max(level, 1e-6))
+                let step = min(DictationBridge.levels - 1, max(0, Int((db + 55) / 4)))
+                if step != lastStep {
+                    lastStep = step
+                    DictationBridge.post(DictationBridge.level(step))
+                }
+                // Speech decisions twice a second are enough.
+                guard levels.count - checked >= 5 else { continue }
+                checked = levels.count
+                let seconds = Double(levels.count) / 10
+                guard let speech = Self.speechFrames(levels, from: 0) else {
+                    if seconds >= Self.noSpeechSeconds {
+                        log.info("no speech in \(seconds, format: .fixed(precision: 1)) s; recording dropped")
+                        self.dropRecording()
+                        break
+                    }
+                    continue
+                }
+                let silence = Double(levels.count - 1 - speech.upperBound) / 10
+                if autoStop > 0, silence >= autoStop {
+                    log.info("auto stop after \(silence, format: .fixed(precision: 1)) s of silence")
+                    DictationBridge.post(DictationBridge.stopped)
+                    self.finishCapture()
+                    break
+                }
+            }
+        }
+    }
+
+    /// Ends a recording without transcribing it, because nobody spoke.
+    private func dropRecording() {
+        cancelDictation()
+        testFeed?.cancel()
+        DictationBridge.post(DictationBridge.idle)
     }
 
     /// Appends the test file to the recording in real time, 0.1 s at a time, then silence, as
     /// a microphone in a quiet room would.
     private func feedTestAudio(_ path: String) {
-        guard let samples = try? AudioLoader.loadSamples(url: URL(fileURLWithPath: path)) else {
-            log.error("cannot read test audio \(path, privacy: .public)")
-            return
+        testRecordings += 1
+        var samples: [Float] = []
+        if testRecordings == 1 {
+            guard let file = try? AudioLoader.loadSamples(url: URL(fileURLWithPath: path)) else {
+                log.error("cannot read test audio \(path, privacy: .public)")
+                return
+            }
+            samples = file
         }
         let chunk = Int(AudioLoader.sampleRate) / 10
         let collector = self.collector
@@ -305,15 +380,20 @@ final class KeyboardSession: ObservableObject {
                 }
                 passedCount = count
                 let start = self.committedCount
-                let estimate = Transcriber.shared.estimatedSeconds(sampleCount: piece.count, preview: kind == .preview)
+                // Only the speech in the piece is transcribed; the piece still counts as done.
+                let audio = Self.trimmed(levels, start, start + piece.count)
+                    .map { Array(piece[($0.lowerBound - start)..<($0.upperBound - start)]) } ?? []
+                let estimate = Transcriber.shared.estimatedSeconds(sampleCount: audio.count, preview: kind == .preview)
                 self.livePass = LivePass(kind: kind, start: start, end: start + piece.count, started: Date(), estimate: estimate)
-                self.publishLive(estimate)
-                log.info("live pass (\(String(describing: kind), privacy: .public)) starting at \(Double(count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s, estimate \(estimate, format: .fixed(precision: 1)) s")
+                if !audio.isEmpty { self.publishLive(estimate) }
+                log.info("live pass (\(String(describing: kind), privacy: .public)) starting at \(Double(count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s, \(Double(audio.count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s of speech, estimate \(estimate, format: .fixed(precision: 1)) s")
                 let started = Date()
-                let text: String
+                var text = ""
                 do {
-                    text = try await Transcriber.shared.transcribe(samples: piece, abort: abort, preview: kind == .preview) { [weak self] remaining in
-                        if self?.isCapturing == true { self?.publishLive(remaining) }
+                    if !audio.isEmpty {
+                        text = try await Transcriber.shared.transcribe(samples: audio, abort: abort, preview: kind == .preview) { [weak self] remaining in
+                            if self?.isCapturing == true { self?.publishLive(remaining) }
+                        }
                     }
                 } catch {
                     self.livePass = nil
@@ -367,29 +447,70 @@ final class KeyboardSession: ObservableObject {
     /// Recording levels are kept per 0.1 s frame (`SampleCollector.levels`).
     private static let frame = Int(AudioLoader.sampleRate) / 10
 
-    /// Below this level a frame counts as silence: 15% of the recording's speech level, taken as
-    /// the 90th percentile of its frame levels.
-    private static func quietLevel(_ levels: [Float]) -> Float {
-        guard !levels.isEmpty else { return 0 }
-        let sorted = levels.sorted()
-        return sorted[Int(Double(sorted.count - 1) * 0.9)] * 0.15
+    /// Speech detection on the levels of 0.1 s frames. Speech lasts as long as frames stay above
+    /// `quiet`: 15% of the recording's speech level (90th percentile), but at least three times
+    /// its noise floor (20th percentile). It needs 0.3 s of frames twice as loud, and above a
+    /// fixed floor (-48 dB) that silence stays under. Without the floors, the loudest tenth of a
+    /// silent recording counted as speech and was transcribed.
+    private struct Thresholds {
+        let loud: Float
+        let quiet: Float
+
+        init(_ levels: [Float]) {
+            guard !levels.isEmpty else {
+                loud = .infinity
+                quiet = .infinity
+                return
+            }
+            let sorted = levels.sorted()
+            func percentile(_ p: Double) -> Float { sorted[Int(Double(sorted.count - 1) * p)] }
+            let noise = max(percentile(0.2), 0.0003)
+            let quiet = max(0.15 * percentile(0.9), 3 * noise, 0.0015)
+            self.quiet = quiet
+            loud = max(2 * quiet, 0.004)
+        }
+    }
+
+    /// The frames in `first..<last` (to the end by default) that hold speech, from the first to
+    /// the last frame above `quiet` (single-frame clicks ignored); nil if they have less than
+    /// 0.3 s of loud audio.
+    private static func speechFrames(_ levels: [Float], from first: Int, to last: Int? = nil) -> ClosedRange<Int>? {
+        let last = min(last ?? levels.count, levels.count)
+        let first = min(max(0, first), last)
+        guard last - first >= 3 else { return nil }
+        let t = Thresholds(levels)
+        guard levels[first..<last].lazy.filter({ $0 >= t.loud }).count >= 3 else { return nil }
+        // Median of three neighbours, so a lone click or crackle does not extend the speech.
+        func smoothed(_ i: Int) -> Float {
+            let a = levels[max(first, i - 1)], b = levels[i], c = levels[min(last - 1, i + 1)]
+            return max(min(a, b), min(max(a, b), c))
+        }
+        guard let start = (first..<last).first(where: { smoothed($0) >= t.quiet }),
+              let end = (first..<last).last(where: { smoothed($0) >= t.quiet }) else { return nil }
+        return start...end
     }
 
     /// Where speech in the recording from sample `start` on ends (in samples), and whether at
     /// least 0.6 s of silence follows it; nil without speech.
     private static func speech(_ levels: [Float], from start: Int) -> (end: Int, paused: Bool)? {
-        let quiet = quietLevel(levels)
-        let first = min(levels.count, start / frame)
-        guard levels[first...].contains(where: { $0 >= 3 * quiet }),
-              let last = levels[first...].lastIndex(where: { $0 >= quiet }) else { return nil }
-        return ((last + 1) * frame, levels.count - 1 - last >= 6)
+        guard let frames = speechFrames(levels, from: start / frame) else { return nil }
+        return ((frames.upperBound + 1) * frame, levels.count - 1 - frames.upperBound >= 6)
     }
 
-    /// Whether the recording from sample `start` on is all silence.
+    /// Whether the recording from sample `start` on has no speech.
     private static func isSilent(_ levels: [Float], from start: Int) -> Bool {
-        let quiet = quietLevel(levels)
-        let first = min(levels.count, (start + frame - 1) / frame)
-        return levels[first...].allSatisfy { $0 < quiet }
+        speechFrames(levels, from: (start + frame - 1) / frame) == nil
+    }
+
+    /// The part of samples `start..<end` that holds speech, with 0.3 s before it and 0.5 s after
+    /// it, so the model is not fed silence; nil if there is no speech.
+    private static func trimmed(_ levels: [Float], _ start: Int, _ end: Int) -> Range<Int>? {
+        let endFrame = (end + frame - 1) / frame
+        guard end > start, let frames = speechFrames(levels, from: start / frame, to: endFrame) else { return nil }
+        let from = max(start, (frames.lowerBound - 3) * frame)
+        // Speech up to the last complete frame: the audio after it may be the start of a word.
+        let to = frames.upperBound + 1 >= levels.count ? end : min(end, (frames.upperBound + 1 + 5) * frame)
+        return from < to ? from..<to : nil
     }
 
     /// Where to split a piece of at least 10 s: the latest pause after 6 s (0.3 s quieter than a
@@ -446,8 +567,8 @@ final class KeyboardSession: ObservableObject {
         } else if let candidate, candidate.start == committedCount, Self.isSilent(levels, from: candidate.end) {
             return 0
         }
-        if committedCount > 0, Self.isSilent(levels, from: restStart) { return wait }
-        return wait + Transcriber.shared.estimatedSeconds(sampleCount: max(0, samples - restStart))
+        guard let rest = Self.trimmed(levels, restStart, samples) else { return wait }
+        return wait + Transcriber.shared.estimatedSeconds(sampleCount: rest.count)
     }
 
     private func finishCapture() {
@@ -462,7 +583,6 @@ final class KeyboardSession: ObservableObject {
         let live = liveTask != nil
         finalAbort = AbortFlag()
         let abort = finalAbort
-        if samples.count <= 30 * Int(AudioLoader.sampleRate) { SpeedTest.save(samples) }
         if live { publishEstimate(estimateAfterStop(samples: samples.count, levels: levels)) }
         Task {
             await stopLiveTranscription()
@@ -476,8 +596,8 @@ final class KeyboardSession: ObservableObject {
                     log.info("final pass: not needed, the pass from the pause is final")
                 } else if live, committedCount > 0, Self.isSilent(levels, from: restStart) {
                     log.info("final pass: not needed, only silence after the committed text")
-                } else if samples.count - restStart > Int(AudioLoader.sampleRate / 2) {
-                    let rest = Array(samples[restStart...])
+                } else if let speech = Self.trimmed(levels, restStart, samples.count) {
+                    let rest = Array(samples[speech])
                     let estimate = Transcriber.shared.estimatedSeconds(sampleCount: rest.count)
                     publishEstimate(estimate)
                     let started = Date()
@@ -489,7 +609,12 @@ final class KeyboardSession: ObservableObject {
                 }
                 guard id == dictationID else { return }
                 guard !text.isEmpty else {
-                    DictationBridge.post(DictationBridge.failed)
+                    if Self.speechFrames(levels, from: 0) == nil {
+                        log.info("final pass: no speech")
+                        DictationBridge.post(DictationBridge.idle)
+                    } else {
+                        DictationBridge.post(DictationBridge.failed)
+                    }
                     return
                 }
                 let dictation = UUID().uuidString
@@ -514,6 +639,8 @@ final class KeyboardSession: ObservableObject {
     }
 
     private func cancelDictation() {
+        monitorTask?.cancel()
+        monitorTask = nil
         dictationID += 1
         liveAbort.set()
         finalAbort.set()

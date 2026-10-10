@@ -113,6 +113,15 @@ jobs:
           mv "$RUNNER_TEMP/encoder.mlmodelc" "PersianSTT/Models/ggml-$NAME-encoder.mlmodelc"
           du -sh PersianSTT/Models/*
 
+      # Xcode 26 (iOS 26 SDK) compiles the keyboard's Liquid Glass glide trail; with an older
+      # Xcode the trail is the plain one.
+      - name: Select Xcode
+        run: |
+          ls -d /Applications/Xcode*.app || true
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
+
       - name: Build
         run: |
           xcodebuild -project PersianSTT.xcodeproj -target PersianSTT \
@@ -137,8 +146,8 @@ jobs:
           plutil -replace CFBundleDisplayName -string "Persian Dictation" "$KB/Info.plist"
           for lang in Base en fa; do
             mkdir -p "$APP/$lang.lproj" "$KB/$lang.lproj"
-            printf '"CFBundleDisplayName" = "%s";\n' "گفتار به متن" > "$APP/$lang.lproj/InfoPlist.strings"
-            printf '"CFBundleDisplayName" = "%s";\n' "دیکته‌ی فارسی" > "$KB/$lang.lproj/InfoPlist.strings"
+            printf '"CFBundleDisplayName" = "%s";\n' "کیلس" > "$APP/$lang.lproj/InfoPlist.strings"
+            printf '"CFBundleDisplayName" = "%s";\n' "کیلس" > "$KB/$lang.lproj/InfoPlist.strings"
           done
           plutil -lint "$APP/fa.lproj/InfoPlist.strings" "$KB/fa.lproj/InfoPlist.strings"
           # The app and key font (AppFont in Shared/DictationBridge.swift) is licensed, so the public

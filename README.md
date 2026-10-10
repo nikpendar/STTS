@@ -27,7 +27,7 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 هنگام اجرا می‌بندد (AMFI: has entitlements but is not a main binary).
 
 ## استفاده
-کیبورد «دیکته‌ی فارسی» را در Settings > General > Keyboard > Keyboards اضافه کنید و Full Access را روشن کنید.
+کیبورد «کیلس» را در Settings > General > Keyboard > Keyboards اضافه کنید و Full Access را روشن کنید.
 در برنامه «شروع جلسه» را بزنید؛ سپس در هر برنامه‌ای با میکروفون کیبورد دیکته کنید. خود برنامه صفحه‌ی تنظیمات کیبورد است.
 
 ## یادگیری از اصلاح‌ها (سرور روی Mac)
@@ -53,6 +53,9 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 - `PersianSTT/KeyboardSession.swift`: جلسه‌ی میکروفون پس‌زمینه برای کیبورد
 - `PersianSTTKeyboard/KeyboardViewController.swift`: کیبورد فارسی با دکمه‌ی میکروفون
 - `PersianSTTKeyboard/EditTracker.swift`: تشخیص اصلاح متن دیکته‌شده
+- `PersianSTTKeyboard/Lexicon.swift` و `fa_words.txt`: کلمات پیشنهادی و یادگیری کلمات کاربر. فهرست کلمات از
+  [wordfreq](https://github.com/rspeer/wordfreq) (داده با مجوز CC BY-SA 4.0) با `scripts/make_wordlist.py` ساخته شده است.
+- `PersianSTTKeyboard/GlideTyping.swift`: تایپ کشیدنی و رد آن (از iOS 26 با Liquid Glass)
 - `PersianSTT/PersonalModel.swift`: صف و ارسال اصلاح‌ها، دانلود و نصب مدل شخصی
 - `server/`: سرور آموزش (`server.py`) و آموزش و انتشار مدل (`train.py`)؛ تست: `.github/workflows/training-test.yml`
 - `Shared/DictationBridge.swift`: ارتباط کیبورد و برنامه؛ فرمان‌ها با Darwin notification و متن از راه سوکت 127.0.0.1

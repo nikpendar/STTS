@@ -8,7 +8,7 @@ struct KeyboardPreview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("کیبورد دیکته‌ی فارسی")
+            Text("کیبورد کیلس")
                 .font(.headline)
                 .padding(.horizontal)
             Text("متن دیکته‌شده اینجا نوشته می‌شود")

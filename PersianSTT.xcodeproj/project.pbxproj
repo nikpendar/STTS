@@ -11,7 +11,6 @@
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* ContentView.swift */; };
 		A10000000000000000000003 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* Transcriber.swift */; };
 		A10000000000000000000021 /* PersonalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* PersonalModel.swift */; };
-		A10000000000000000000024 /* SpeedTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* SpeedTest.swift */; };
 		A10000000000000000000004 /* WhisperContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* WhisperContext.swift */; };
 		A10000000000000000000005 /* AudioLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AudioLoader.swift */; };
 		A1000000000000000000000F /* KeyboardPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* KeyboardPreview.swift */; };
@@ -28,6 +27,11 @@
 		A10000000000000000000006 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* Models */; };
 		A10000000000000000000007 /* whisper.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* whisper.xcframework */; };
 		A10000000000000000000008 /* whisper.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* whisper.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A10000000000000000000030 /* Lexicon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* Lexicon.swift */; };
+		A10000000000000000000031 /* Lexicon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* Lexicon.swift */; };
+		A10000000000000000000032 /* GlideTyping.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GlideTyping.swift */; };
+		A10000000000000000000033 /* GlideTyping.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GlideTyping.swift */; };
+		A10000000000000000000034 /* fa_words.txt in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* fa_words.txt */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,7 +74,6 @@
 		A20000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* Transcriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcriber.swift; sourceTree = "<group>"; };
 		A20000000000000000000021 /* PersonalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalModel.swift; sourceTree = "<group>"; };
-		A20000000000000000000024 /* SpeedTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeedTest.swift; sourceTree = "<group>"; };
 		A20000000000000000000004 /* WhisperContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperContext.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AudioLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLoader.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* KeyboardPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardPreview.swift; sourceTree = "<group>"; };
@@ -86,6 +89,9 @@
 		A20000000000000000000006 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
 		A20000000000000000000007 /* whisper.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = whisper.xcframework; sourceTree = "<group>"; };
 		A20000000000000000000008 /* PersianSTT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PersianSTT.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000030 /* Lexicon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lexicon.swift; sourceTree = "<group>"; };
+		A20000000000000000000031 /* GlideTyping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlideTyping.swift; sourceTree = "<group>"; };
+		A20000000000000000000032 /* fa_words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = fa_words.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,7 +131,6 @@
 				A20000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000003 /* Transcriber.swift */,
 				A20000000000000000000021 /* PersonalModel.swift */,
-				A20000000000000000000024 /* SpeedTest.swift */,
 				A20000000000000000000004 /* WhisperContext.swift */,
 				A20000000000000000000005 /* AudioLoader.swift */,
 				A20000000000000000000009 /* DictateIntent.swift */,
@@ -160,6 +165,9 @@
 			children = (
 				A2000000000000000000000C /* KeyboardViewController.swift */,
 				A20000000000000000000022 /* EditTracker.swift */,
+				A20000000000000000000030 /* Lexicon.swift */,
+				A20000000000000000000031 /* GlideTyping.swift */,
+				A20000000000000000000032 /* fa_words.txt */,
 				A2000000000000000000000F /* Info.plist */,
 			);
 			path = PersianSTTKeyboard;
@@ -202,6 +210,7 @@
 			buildPhases = (
 				A5000000000000000000000A /* Sources */,
 				A5000000000000000000000B /* Frameworks */,
+				A5000000000000000000000C /* Resources */,
 			);
 			buildRules = (
 			);
@@ -259,6 +268,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A5000000000000000000000C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000034 /* fa_words.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -270,7 +287,6 @@
 				A10000000000000000000002 /* ContentView.swift in Sources */,
 				A10000000000000000000003 /* Transcriber.swift in Sources */,
 				A10000000000000000000021 /* PersonalModel.swift in Sources */,
-				A10000000000000000000024 /* SpeedTest.swift in Sources */,
 				A10000000000000000000004 /* WhisperContext.swift in Sources */,
 				A10000000000000000000005 /* AudioLoader.swift in Sources */,
 				A10000000000000000000009 /* DictateIntent.swift in Sources */,
@@ -280,6 +296,8 @@
 				A10000000000000000000020 /* KeyboardTestView.swift in Sources */,
 				A10000000000000000000010 /* KeyboardViewController.swift in Sources */,
 				A10000000000000000000022 /* EditTracker.swift in Sources */,
+				A10000000000000000000030 /* Lexicon.swift in Sources */,
+				A10000000000000000000032 /* GlideTyping.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -290,6 +308,8 @@
 				A1000000000000000000000D /* KeyboardViewController.swift in Sources */,
 				A10000000000000000000023 /* EditTracker.swift in Sources */,
 				A1000000000000000000000C /* DictationBridge.swift in Sources */,
+				A10000000000000000000031 /* Lexicon.swift in Sources */,
+				A10000000000000000000033 /* GlideTyping.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

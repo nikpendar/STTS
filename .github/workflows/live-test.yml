@@ -108,12 +108,16 @@ jobs:
           # One screenshot only: each one costs the 3-core runner seconds of CPU and skews pass times.
           sleep 16
           xcrun simctl io "$DEVICE" screenshot out/2-recording-16s.png
-          # Stop once the speech has ended and the pass after the pause is done: the final pass
-          # should then be skipped. (Stopping mid-speech keeps a full pass in progress instead.)
-          for i in $(seq 90); do grep -q ", candidate, " out/log.txt && break; sleep 1; done
-          dump out/ui-2.json || true
-          read OX OY < <(python3 find.py dictationOrb out/ui-2.json || echo "201 760")
-          axe tap -x "$OX" -y "$OY" --udid "$DEVICE"
+          # The app should end the recording by itself once the speech is followed by silence;
+          # the pass after the pause then makes the final pass unnecessary. Without an auto
+          # stop, the orb is tapped.
+          for i in $(seq 90); do grep -q "auto stop after" out/log.txt && break; sleep 1; done
+          if ! grep -q "auto stop after" out/log.txt; then
+            echo "::warning::no auto stop; stopping by hand"
+            dump out/ui-2.json || true
+            read OX OY < <(python3 find.py dictationOrb out/ui-2.json || echo "201 760")
+            axe tap -x "$OX" -y "$OY" --udid "$DEVICE"
+          fi
           sleep 1
           xcrun simctl io "$DEVICE" screenshot out/3-processing.png
           # The final pass takes from seconds to over a minute on this runner.
@@ -149,8 +153,48 @@ jobs:
           ls srv/samples || true
           cat srv/samples/*.json || echo "NO CORRECTION RECEIVED"
 
+          # Glide typing: a swipe from س to م along the middle row should type سلام.
+          dump out/ui-5.json || true
+          read SX SY < <(python3 find.py letter-1-1 out/ui-5.json || echo "54 735")
+          read MX2 MY2 < <(python3 find.py letter-1-8 out/ui-5.json || echo "300 735")
+          axe swipe --start-x "$SX" --start-y "$SY" --end-x "$MX2" --end-y "$MY2" --duration 0.6 --udid "$DEVICE" || true
+          sleep 2
+          xcrun simctl io "$DEVICE" screenshot out/5a-glide.png
+          dump out/ui-5b.json || true
+          python3 - <<'PY'
+          import json
+          def walk(n):
+              if isinstance(n, dict):
+                  if n.get("AXUniqueId") == "testField":
+                      print("FIELD AFTER GLIDE:", n.get("AXValue") or n.get("AXLabel"))
+                  if str(n.get("AXUniqueId", "")).startswith("suggestion-"):
+                      print("BAR", n.get("AXUniqueId"), n.get("AXLabel"))
+                  for v in n.values(): walk(v)
+              elif isinstance(n, list):
+                  for v in n: walk(v)
+          try:
+              walk(json.load(open("out/ui-5b.json")))
+          except Exception as e:
+              print("no UI dump", e)
+          PY
+          # Long press on the emoji key: the menu with emoji and settings.
+          read EX EY < <(python3 find.py emojiKey out/ui-5b.json || echo "60 817")
+          axe touch -x "$EX" -y "$EY" --down --udid "$DEVICE" && sleep 0.8 && \
+            xcrun simctl io "$DEVICE" screenshot out/5b-menu.png && axe touch -x "$EX" -y "$EY" --up --udid "$DEVICE" || true
+          sleep 1
+          xcrun simctl io "$DEVICE" screenshot out/5c-menu-open.png
+
+          # A recording in which nobody speaks (the test audio plays only once) should be
+          # dropped without transcribing it.
+          read MX MY < <(python3 find.py dictationMic out/ui-5b.json || echo "$MX $MY")
+          axe tap -x "$MX" -y "$MY" --udid "$DEVICE"
+          for i in $(seq 20); do grep -q "no speech in" out/log.txt && break; sleep 1; done
+          sleep 1
+          xcrun simctl io "$DEVICE" screenshot out/5d-no-speech.png
+
           # English layout: swipe along the space bar.
-          axe swipe --start-x 190 --start-y 817 --end-x 290 --end-y 817 --udid "$DEVICE" || true
+          read SPX SPY < <(python3 find.py spaceKey out/ui-5b.json || echo "240 817")
+          axe swipe --start-x "$((SPX - 50))" --start-y "$SPY" --end-x "$((SPX + 50))" --end-y "$SPY" --udid "$DEVICE" || true
           sleep 2
           xcrun simctl io "$DEVICE" screenshot out/5-english.png
           # The server publishes a model (here a copy of the bundled one) for the next launch.
@@ -172,7 +216,7 @@ jobs:
           xcrun simctl io "$DEVICE" screenshot out/6-landscape.png
           kill $LOG || true
           echo "===== log"
-          grep -E "live |final pass|recording started|test audio|whisper_full|correction|personal|loaded|model v|edits|dictation " out/log.txt | cut -c1-300 || true
+          grep -E "live |final pass|recording started|test audio|whisper_full|correction|personal|loaded|model v|edits|dictation |auto stop|no speech|glide" out/log.txt | cut -c1-300 || true
           echo "===== training server"
           cat out/server.log || true
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian && cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ || echo "no crash reports"
