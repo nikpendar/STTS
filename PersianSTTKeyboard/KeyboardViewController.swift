@@ -724,11 +724,11 @@ private final class KeyView: UIControl {
     private func updateLabel() {
         if let message {
             label.text = message
-            label.font = .systemFont(ofSize: 12)
+            label.font = AppFont.font(ofSize: 12)
             label.textColor = textColor.withAlphaComponent(0.6)
         } else {
             label.text = storedTitle
-            label.font = .systemFont(ofSize: fontSize)
+            label.font = AppFont.font(ofSize: fontSize)
             label.textColor = textColor
         }
         accessibilityLabel = message ?? storedTitle

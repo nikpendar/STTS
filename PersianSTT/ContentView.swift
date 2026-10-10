@@ -35,9 +35,9 @@ struct ContentView: View {
                 }
                 .onChange(of: sessionMinutes) { _, _ in keyboard.idleMinutesChanged() }
             } header: {
-                Text("جلسه")
+                Text("جلسه").font(.app(.footnote))
             } footer: {
-                Text("جلسه بعد از این مدت بی‌استفاده بسته می‌شود. جلسه‌ی باز باتری مصرف می‌کند.")
+                Text("جلسه بعد از این مدت بی‌استفاده بسته می‌شود. جلسه‌ی باز باتری مصرف می‌کند.").font(.app(.footnote))
             }
 
             Section {
@@ -58,11 +58,11 @@ struct ContentView: View {
                     .disabled(!keyboard.isActive)
                 }
             } header: {
-                Text("گفتار")
+                Text("گفتار").font(.app(.footnote))
             } footer: {
                 Text(noiseSuppression
                      ? "برای «فقط صدای من»، جلسه را شروع کنید و در منوی باز شده Voice Isolation را انتخاب کنید."
-                     : "نمایش متن هنگام صحبت باتری بیشتری مصرف می‌کند.")
+                     : "نمایش متن هنگام صحبت باتری بیشتری مصرف می‌کند.").font(.app(.footnote))
             }
 
             Section {
@@ -84,9 +84,9 @@ struct ContentView: View {
                 }
                 Button("بازگشت به پیش‌فرض") { style = .standard }
             } header: {
-                Text("ظاهر دکمه‌ها")
+                Text("ظاهر دکمه‌ها").font(.app(.footnote))
             } footer: {
-                Text("تغییرها دفعه‌ی بعد که کیبورد باز شود اعمال می‌شوند.")
+                Text("تغییرها دفعه‌ی بعد که کیبورد باز شود اعمال می‌شوند.").font(.app(.footnote))
             }
             .onChange(of: style) { _, new in new.save() }
 
@@ -104,17 +104,18 @@ struct ContentView: View {
                     SettingLabel("باز کردن تنظیمات آیفون", symbol: "gearshape.fill", color: .gray)
                 }
             } header: {
-                Text("راه‌اندازی")
+                Text("راه‌اندازی").font(.app(.footnote))
             }
 
             Section {
                 LabeledContent("مدل", value: model.modelName.isEmpty ? "—" : model.modelName)
                 LabeledContent("وضعیت مدل", value: model.status)
             } header: {
-                Text("درباره")
+                Text("درباره").font(.app(.footnote))
             }
         }
         .environment(\.layoutDirection, .rightToLeft)
+        .font(.app(.body))
         // Rewrites the shared pasteboard copy of the key style, which a reinstall or reboot can clear.
         .onAppear {
             style.save()
@@ -147,9 +148,9 @@ struct ContentView: View {
             .shadow(color: .purple.opacity(keyboard.isActive ? 0.4 : 0), radius: 14)
 
             Text("دیکته‌ی فارسی")
-                .font(.title2.bold())
+                .font(.app(.title2))
             Text(statusText)
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
@@ -157,7 +158,7 @@ struct ContentView: View {
                 keyboard.isActive ? keyboard.stop() : keyboard.start()
             } label: {
                 Text(keyboard.isActive ? "پایان جلسه" : "شروع جلسه")
-                    .font(.headline)
+                    .font(.app(.headline))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
             }
@@ -217,7 +218,7 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("دانلود نسخه‌ی \(release.version)")
                         Text(releaseSummary(release))
-                            .font(.caption)
+                            .font(.app(.caption))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -235,10 +236,10 @@ struct ContentView: View {
                 }
             }
         } header: {
-            Text("یادگیری از اصلاح‌ها")
+            Text("یادگیری از اصلاح‌ها").font(.app(.footnote))
         } footer: {
             Text((personal.serverStatus.isEmpty ? "" : personal.serverStatus + "\n\n")
-                 + "وقتی متن دیکته‌شده را با تایپ یا دیکته‌ی دوباره اصلاح کنید، صدای آن دیکته و متن درست به سرور خودتان روی Mac فرستاده می‌شود و جای دیگری نمی‌رود. سرور با این نمونه‌ها مدل را آموزش می‌دهد و فقط وقتی نسخه‌ی جدید روی نمونه‌های کنارگذاشته دقیق‌تر باشد آن را منتشر می‌کند. راه‌اندازی سرور: پوشه‌ی server در مخزن.")
+                 + "وقتی متن دیکته‌شده را با تایپ یا دیکته‌ی دوباره اصلاح کنید، صدای آن دیکته و متن درست به سرور خودتان روی Mac فرستاده می‌شود و جای دیگری نمی‌رود. سرور با این نمونه‌ها مدل را آموزش می‌دهد و فقط وقتی نسخه‌ی جدید روی نمونه‌های کنارگذاشته دقیق‌تر باشد آن را منتشر می‌کند. راه‌اندازی سرور: پوشه‌ی server در مخزن.").font(.app(.footnote))
         }
     }
 
@@ -338,12 +339,12 @@ private struct SetupStep: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text(number)
-                .font(.footnote.bold())
+                .font(.app(.footnote))
                 .foregroundStyle(.white)
                 .frame(width: 22, height: 22)
                 .background(Circle().fill(Color.accentColor))
             Text(text)
-                .font(.subheadline)
+                .font(.app(.subheadline))
         }
     }
 }
@@ -356,7 +357,7 @@ private struct KeyPreview: View {
         HStack(spacing: 6) {
             ForEach(["ض", "ص", "ق", "ف", "غ", "ع"], id: \.self) { letter in
                 Text(letter)
-                    .font(.title3)
+                    .font(.app(.title3))
                     .foregroundStyle(Color(style.textColor))
                     .frame(maxWidth: .infinity, minHeight: 42)
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color(style.fill.color)))
@@ -365,5 +366,27 @@ private struct KeyPreview: View {
             }
         }
         .padding(.vertical, 6)
+    }
+}
+
+extension Font {
+    /// The app font (`AppFont`) at the size of a text style, scaling with Dynamic Type.
+    static func app(_ style: Font.TextStyle) -> Font {
+        guard let name = AppFont.name else { return .system(style) }
+        let uiStyle: UIFont.TextStyle
+        switch style {
+        case .largeTitle: uiStyle = .largeTitle
+        case .title: uiStyle = .title1
+        case .title2: uiStyle = .title2
+        case .title3: uiStyle = .title3
+        case .headline: uiStyle = .headline
+        case .subheadline: uiStyle = .subheadline
+        case .callout: uiStyle = .callout
+        case .footnote: uiStyle = .footnote
+        case .caption: uiStyle = .caption1
+        case .caption2: uiStyle = .caption2
+        default: uiStyle = .body
+        }
+        return .custom(name, size: UIFont.preferredFont(forTextStyle: uiStyle).pointSize, relativeTo: style)
     }
 }

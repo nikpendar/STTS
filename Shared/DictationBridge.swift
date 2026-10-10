@@ -1,3 +1,4 @@
+import CoreText
 import Foundation
 import Network
 import UIKit
@@ -229,6 +230,28 @@ final class CorrectionServer: @unchecked Sendable {
         }
         connection.start(queue: queue)
         next()
+    }
+}
+
+/// The font of the settings page and the keys: a TTF or OTF file that the IPA build puts in a
+/// Fonts folder inside the app and the keyboard (see build.yml), else the system font. Glyphs
+/// the font lacks, such as Latin letters in a Persian-only font, come from the system font.
+enum AppFont {
+    /// PostScript name of the bundled font, registered on first use.
+    static let name: String? = {
+        let urls = Bundle.main.urls(forResourcesWithExtension: nil, subdirectory: "Fonts") ?? []
+        for url in urls where ["ttf", "otf"].contains(url.pathExtension.lowercased()) {
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+            let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor] ?? []
+            if let name = descriptors.first.flatMap({ CTFontDescriptorCopyAttribute($0, kCTFontNameAttribute) as? String }) {
+                return name
+            }
+        }
+        return nil
+    }()
+
+    static func font(ofSize size: CGFloat) -> UIFont {
+        name.flatMap { UIFont(name: $0, size: size) } ?? .systemFont(ofSize: size)
     }
 }
 

@@ -9,6 +9,9 @@
 نیازی به Xcode نیست. هر push به `main` در GitHub Actions یک `PersianSTT.ipa` امضانشده می‌سازد
 (`.github/workflows/build.yml`). فایل را از بخش Artifacts همان اجرا دانلود و از zip خارج کنید.
 
+فونت تنظیمات و کلیدها (`fonts/AppFont.ttf.enc`) چون مجوزدار است رمزنگاری‌شده در مخزن است و با secret به نام `FONT_KEY`
+باز می‌شود؛ بدون آن، فونت سیستم به کار می‌رود.
+
 ورودی‌های اجرای دستی:
 - `hf`: مدل fine-tune شده از Hugging Face که تبدیل و داخل برنامه قرار می‌گیرد؛ `none` یعنی از `model` استفاده شود.
 - `quant`: نوع کوانتیزه برای مدل Hugging Face (پیش‌فرض q4_0).

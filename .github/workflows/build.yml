@@ -121,6 +121,8 @@ jobs:
             build
 
       - name: Package IPA
+        env:
+          FONT_KEY: ${{ secrets.FONT_KEY }}
         run: |
           mkdir -p Payload
           cp -R build/Release-iphoneos/PersianSTT.app Payload/
@@ -139,6 +141,18 @@ jobs:
             printf '"CFBundleDisplayName" = "%s";\n' "دیکته‌ی فارسی" > "$KB/$lang.lproj/InfoPlist.strings"
           done
           plutil -lint "$APP/fa.lproj/InfoPlist.strings" "$KB/fa.lproj/InfoPlist.strings"
+          # The app and key font (AppFont in Shared/DictationBridge.swift) is licensed, so the public
+          # repository keeps it encrypted; the FONT_KEY secret decrypts it.
+          if [ -n "$FONT_KEY" ]; then
+            OPENSSL="$(brew --prefix openssl@3 2>/dev/null)/bin/openssl"
+            [ -x "$OPENSSL" ] || OPENSSL=openssl
+            "$OPENSSL" enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 -pass env:FONT_KEY \
+              -in fonts/AppFont.ttf.enc -out "$RUNNER_TEMP/AppFont.ttf"
+            for dir in "$APP" "$KB"; do mkdir -p "$dir/Fonts"; cp "$RUNNER_TEMP/AppFont.ttf" "$dir/Fonts/"; done
+            file "$APP/Fonts/AppFont.ttf"
+          else
+            echo "::warning::FONT_KEY secret is not set; the app uses the system font"
+          fi
           # Ad-hoc sign nested code (framework, keyboard, app) so the bundle has the usual
           # signed layout; AltServer replaces these signatures with the Apple ID's.
           for fw in Payload/PersianSTT.app/Frameworks/*.framework; do codesign --force --sign - "$fw"; done
