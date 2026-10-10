@@ -224,7 +224,8 @@ final class KeyboardViewController: UIInputViewController {
                       let seconds = Double(message.dropFirst()) {
                 guard self.state == .transcribing else { return }
                 self.orb.startProgress(expected: seconds)
-                self.schedule(after: 2 * seconds + 30) { [weak self] in
+                // Only a safety net for an app that died: a slow pass must still be able to finish.
+                self.schedule(after: max(90, 3 * seconds + 30)) { [weak self] in
                     if self?.state == .transcribing { self?.transcriptionFailed() }
                 }
             } else if final {
