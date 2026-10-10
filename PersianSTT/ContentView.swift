@@ -108,6 +108,8 @@ struct ContentView: View {
         Form { content() }
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
+            // Only the arrow: the system's back title is in English.
+            .toolbarRole(.editor)
             .font(.app(.body))
     }
 
@@ -342,8 +344,6 @@ struct ContentView: View {
                     personal.useBundledModel()
                 }
             }
-        } header: {
-            Text("یادگیری از اصلاح‌ها").font(.app(.footnote))
         } footer: {
             Text((personal.serverStatus.isEmpty ? "" : personal.serverStatus + "\n\n")
                  + "وقتی متن دیکته‌شده را با تایپ یا دیکته‌ی دوباره اصلاح کنید، صدای آن دیکته و متن درست به سرور خودتان روی Mac فرستاده می‌شود و جای دیگری نمی‌رود. سرور با این نمونه‌ها مدل را آموزش می‌دهد و فقط وقتی نسخه‌ی جدید روی نمونه‌های کنارگذاشته دقیق‌تر باشد آن را منتشر می‌کند. راه‌اندازی سرور: پوشه‌ی server در مخزن.").font(.app(.footnote))

@@ -77,7 +77,10 @@ jobs:
           for label in "گفتار" "تایپ و پیشنهاد" "ظاهر دکمه‌ها" "یادگیری از اصلاح‌ها"; do
             shoot "page-$page" light
             sleep 6
-            axe describe-ui --udid "$DEVICE" > ui.json || true
+            for i in 1 2 3 4 5; do
+              axe describe-ui --udid "$DEVICE" > ui.json 2>&1 && python3 -c "import json,sys; json.load(open(sys.argv[1]))" ui.json && break
+              sleep 2
+            done
             if read PX PY < <(python3 find.py "$label" ui.json); then
               axe tap -x "$PX" -y "$PY" --udid "$DEVICE"
               sleep 2
