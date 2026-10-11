@@ -1038,7 +1038,7 @@ final class KeyboardViewController: UIInputViewController {
     /// it into a comma (، in Persian), when switched on in the app.
     @objc private func insertSpace() {
         let now = CACurrentMediaTime()
-        if options.doubleSpacePunctuation, let last = lastSpace, now - last.time < 0.8 {
+        if options.doubleSpacePunctuation, let last = lastSpace, now - last.time < 1.2 {
             let before = proxy.documentContextBeforeInput ?? ""
             if last.step == 1, before.hasSuffix(" "), let end = before.dropLast().last, end.isLetter || end.isNumber {
                 deleteBackward()
@@ -1533,7 +1533,8 @@ private final class KeyView: UIControl {
         let inner = bounds.inset(by: Self.faceInsets)
         highlight.frame = inner
         face.frame = inner
-        label.frame = inner.insetBy(dx: 1, dy: 0)
+        // Words (ABC, 123, status messages) keep off the edges; a letter may fill the key.
+        label.frame = inner.insetBy(dx: (label.text?.count ?? 0) > 1 ? 4 : 1, dy: 0)
         imageView.frame = inner
         // Low landscape rows: a tall image shrinks instead of spilling out of the key.
         let size = imageView.image?.size ?? .zero
