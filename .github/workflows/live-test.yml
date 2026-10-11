@@ -277,7 +277,7 @@ jobs:
           PY
           }
           frames PERSIAN out/ui-9.json '^(letter-|backspaceKey|layerKey|emojiKey|spaceKey|returnKey|dictationMic|suggestion-)'
-          # Holding space shows ZWNJ and the tanvins; lifting on the key types a space.
+          # Holding space shows ZWNJ; lifting on the key types a space.
           read SPX SPY < <(python3 find.py spaceKey out/ui-9.json || echo "240 817")
           axe touch -x "$SPX" -y "$SPY" --down --udid "$DEVICE" && sleep 0.8 && \
             xcrun simctl io "$DEVICE" screenshot out/5h-space-forms.png; axe touch -x "$SPX" -y "$SPY" --up --udid "$DEVICE" || true
@@ -297,6 +297,20 @@ jobs:
           axe touch -x "$TX" -y "$TY" --down --udid "$DEVICE" && \
             xcrun simctl io "$DEVICE" screenshot out/5k-top-preview.png; axe touch -x "$TX" -y "$TY" --up --udid "$DEVICE" || true
           sleep 0.5
+          # Persian ۱۲۳ as on iOS, the diacritics on a long press, #+=, then back to the letters.
+          read LKX LKY < <(python3 find.py layerKey out/ui-9b.json || echo "0 0")
+          axe tap -x "$LKX" -y "$LKY" --udid "$DEVICE"; sleep 0.8
+          xcrun simctl io "$DEVICE" screenshot out/5l-persian-numbers.png
+          dump out/ui-12.json || true
+          frames PERSIAN-NUMBERS out/ui-12.json '^(letter-|backspaceKey|layerKey|moreKey)'
+          read DX DY < <(python3 find.py letter-2-6 out/ui-12.json || echo "0 0")
+          axe touch -x "$DX" -y "$DY" --down --udid "$DEVICE" && sleep 0.8 && \
+            xcrun simctl io "$DEVICE" screenshot out/5m-diacritics.png; axe touch -x "$DX" -y "$DY" --up --udid "$DEVICE" || true
+          sleep 0.5
+          read MKX MKY < <(python3 find.py moreKey out/ui-12.json || echo "0 0")
+          axe tap -x "$MKX" -y "$MKY" --udid "$DEVICE"; sleep 0.8
+          xcrun simctl io "$DEVICE" screenshot out/5n-persian-more.png
+          axe tap -x "$LKX" -y "$LKY" --udid "$DEVICE"; sleep 0.5
 
           # A recording in which nobody speaks (the test audio plays only once) should be
           # dropped without transcribing it.

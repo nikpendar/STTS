@@ -572,7 +572,22 @@ final class KeyboardViewController: UIInputViewController {
         "ز": ["ز", "ژ"],
         "و": ["و", "ؤ"],
         "ه": ["ه", "ة"],
+        // The numbers layers, as on iOS.
+        "\u{064B}": KeyboardViewController.diacritics,
+        ".": [".", "…"],
+        "،": ["،", ","],
+        "!": ["!", "¡"],
     ]
+    /// The diacritics key of the Persian numbers layers: tanvin on the key, and on a long press
+    /// the row iOS shows, left to right: maddah, superscript alef, tatweel, damma, kasra, shadda,
+    /// dammatan, the key's fathatan, kasratan, sukun, fatha.
+    private static let diacritics = ["\u{0653}", "\u{0670}", "\u{0640}", "\u{064F}", "\u{0650}", "\u{0651}",
+                                     "\u{064C}", "\u{064B}", "\u{064D}", "\u{0652}", "\u{064E}"]
+    /// A mark alone has nothing to sit on: keys and popups show it on a dotted circle, as iOS does.
+    private static func label(_ text: String) -> String {
+        guard let first = text.unicodeScalars.first, first.properties.generalCategory == .nonspacingMark else { return text }
+        return "\u{25CC}" + text
+    }
     /// Keys whose forms open to the right of the key instead of the left, where they are
     /// easier to reach with the thumb.
     private static let formsToTheRight: Set<String> = ["ز", "ی"]
@@ -584,17 +599,18 @@ final class KeyboardViewController: UIInputViewController {
     private static let mirrored: [String: String] = [
         "(": ")", ")": "(", "«": "»", "»": "«", "[": "]", "]": "[", "{": "}", "}": "{", "<": ">", ">": "<",
     ]
-    /// The Persian numbers and symbols, laid out as the English ones (and iOS): ten digits, ten
-    /// symbols, then punctuation between #+= and backspace; #+= opens `persianMoreRows`.
+    /// The Persian numbers and symbols as on iOS: ten digits, ten symbols, then between #+= and
+    /// a backspace of two cells the punctuation, the rial and the diacritics key, all one cell
+    /// wide so the row lines up with the ones above. #+= opens `persianMoreRows`.
     private static let symbolRows: [[String]] = [
         ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"],
-        ["-", "/", ":", "؛", "(", ")", "﷼", "&", "@", "\""],
-        [".", "،", "؟", "!", "«", "»"],
+        ["-", "/", ":", "؛", "(", ")", "$", "@", "«", "»"],
+        [".", "،", "؟", "!", "٫", "﷼", "\u{064B}"],
     ]
     private static let persianMoreRows: [[String]] = [
-        ["[", "]", "{", "}", "#", "٪", "^", "*", "+", "="],
-        ["_", "\\", "|", "~", "<", ">", "$", "€", "£", "•"],
-        [".", "،", "؟", "!", "«", "»"],
+        ["[", "]", "{", "}", "#", "%", "^", "*", "+", "="],
+        ["_", "\\", "|", "~", "<", ">", "&", "•", "’", "”"],
+        [".", "،", "؟", "!", "٬", "﷼", "\u{064B}"],
     ]
     private static let englishRows: [[String]] = [
         ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
@@ -618,6 +634,8 @@ final class KeyboardViewController: UIInputViewController {
     private var hasSideKeys: Bool {
         layer == .symbols || layer == .moreSymbols || (isEnglish && layer == .letters)
     }
+    /// The Persian numbers layers, whose third row is in whole cells (`symbolRows`).
+    private var isPersianSymbols: Bool { !isEnglish && (layer == .symbols || layer == .moreSymbols) }
 
     private var layer = Layer.letters
     /// English QWERTY instead of Persian; switched by swiping left or right on the space bar.
@@ -825,13 +843,13 @@ final class KeyboardViewController: UIInputViewController {
         characterKeys = rows.enumerated().map { rowIndex, row in
             row.enumerated().map { column, character in
                 // English letters follow shift (`setShifted`).
-                let key = KeyView(title: character, fontSize: 23)
+                let key = KeyView(title: Self.label(character), fontSize: 23)
                 key.character = character
                 key.accessibilityIdentifier = "letter-\(rowIndex)-\(column)"
                 key.addAction(UIAction { [weak self] _ in self?.typeKey(character) }, for: .touchUpInside)
                 key.addTarget(self, action: #selector(keyDown(_:)), for: .touchDown)
                 key.addTarget(self, action: #selector(keyUp(_:)), for: [.touchUpInside, .touchUpOutside, .touchCancel])
-                if layer == .letters, !isEnglish, Self.variants[character] != nil {
+                if !isEnglish, Self.variants[character] != nil {
                     key.addGestureRecognizer(variantsPress())
                 }
                 key.apply(keyStyle)
@@ -1003,7 +1021,9 @@ final class KeyboardViewController: UIInputViewController {
         let top = bar
 
         let thirdY = top + 2 * row
-        if hasSideKeys {
+        if isPersianSymbols {
+            backspaceKey.frame = CGRect(x: left + width - 2 * unit, y: thirdY, width: 2 * unit, height: row)
+        } else if hasSideKeys {
             backspaceKey.frame = CGRect(x: left + width - 1.5 * unit, y: thirdY, width: 1.5 * unit, height: row)
         } else {
             // Persian letters: the rest of the third row, two cells (one beside the emoji).
@@ -1012,7 +1032,7 @@ final class KeyboardViewController: UIInputViewController {
             backspaceKey.frame = CGRect(x: backspaceX, y: thirdY, width: left + width - backspaceX, height: row)
         }
         shiftKey.frame = CGRect(x: left, y: thirdY, width: 1.5 * unit, height: row)
-        moreKey.frame = shiftKey.frame
+        moreKey.frame = isPersianSymbols ? CGRect(x: left, y: thirdY, width: unit, height: row) : shiftKey.frame
 
         // Emoji grid: fills the three key rows, minus the backspace column.
         emojiScroll.frame = CGRect(x: left, y: top, width: width - unit, height: 3 * row)
@@ -1029,7 +1049,10 @@ final class KeyboardViewController: UIInputViewController {
             let y = top + CGFloat(index) * row
             var x = left
             var keyWidth = unit
-            if hasSideKeys, index == 2 {
+            if isPersianSymbols, index == 2 {
+                // One cell each, between #+= and the two cells of backspace.
+                x += unit
+            } else if hasSideKeys, index == 2 {
                 // Between shift (or #+=, 123) and backspace.
                 x += 1.5 * unit
                 keyWidth = (width - 3 * unit) / CGFloat(max(keys.count, 1))
@@ -1381,11 +1404,13 @@ final class KeyboardViewController: UIInputViewController {
         case .began:
             let items = isSpace
                 ? Self.spaceForms
-                : (Self.variants[key.character ?? ""] ?? []).map { KeyPopupView.Item(text: $0, label: $0) }
+                : (Self.variants[key.character ?? ""] ?? []).map { KeyPopupView.Item(text: $0, label: Self.label($0)) }
             guard !items.isEmpty else { return }
             keysView.bringSubviewToFront(keyPopup)
+            let character = key.character ?? ""
             keyPopup.showVariants(items, on: key, style: keyStyle, overKey: isSpace,
-                                  toTheRight: Self.formsToTheRight.contains(key.character ?? ""))
+                                  toTheRight: Self.formsToTheRight.contains(character),
+                                  anchor: character == "\u{064B}" ? Self.diacritics.firstIndex(of: character) : nil)
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         case .changed:
             keyPopup.select(at: press.location(in: keysView))
@@ -1671,18 +1696,27 @@ private final class KeyPopupView: UIView {
     /// A letter's forms start over the key, its own letter first, and run to the left, or to
     /// the right with `toTheRight`. `overKey` centres the row over a wide key (the space bar);
     /// of several forms there, none is chosen until the finger slides up.
+    /// With `anchor`, the items run left to right and the one at `anchor` starts over the key and
+    /// is chosen first, as the diacritics row of iOS.
     func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle, overKey: Bool = false,
-                      toTheRight: Bool = false) {
+                      toTheRight: Bool = false, anchor: Int? = nil) {
         let foot = key.faceFrame
         let pad: CGFloat = 3
-        let cell = max(min(foot.width, 44), 30)
+        // Narrower cells when a long row would not fit the keyboard's width.
+        let cell = min(max(min(foot.width, 44), 30), (bounds.width - 2 * pad - 4) / CGFloat(max(items.count, 1)))
         let width = max(CGFloat(items.count) * cell + 2 * pad, foot.width + 8)
-        let midX = overKey ? foot.midX
-            : toTheRight ? foot.midX - cell / 2 - pad + width / 2 : foot.midX + cell / 2 + pad - width / 2
-        let card = cardFrame(width: width, midX: midX, foot: foot)
         let inset = (width - 2 * pad - CGFloat(items.count) * cell) / 2
+        let leftToRight = toTheRight || anchor != nil
+        let midX: CGFloat
+        if let anchor {
+            midX = foot.midX - (CGFloat(anchor) + 0.5) * cell - pad - inset + width / 2
+        } else {
+            midX = overKey ? foot.midX
+                : toTheRight ? foot.midX - cell / 2 - pad + width / 2 : foot.midX + cell / 2 + pad - width / 2
+        }
+        let card = cardFrame(width: width, midX: midX, foot: foot)
         let cells = items.indices.map { index in
-            let x = toTheRight ? card.minX + pad + inset + CGFloat(index) * cell
+            let x = leftToRight ? card.minX + pad + inset + CGFloat(index) * cell
                 : card.maxX - pad - inset - CGFloat(index + 1) * cell
             return CGRect(x: x, y: card.minY + pad, width: cell, height: card.height - 2 * pad)
         }
@@ -1690,13 +1724,15 @@ private final class KeyPopupView: UIView {
         choosesAboveKeyOnly = overKey && items.count > 1
         present(on: key, foot: foot, card: card, cells: cells, items: items,
                 style: style, fontSize: min(26, card.height * 0.62))
-        select(index: choosesAboveKeyOnly ? nil : 0, feedback: false)
+        select(index: choosesAboveKeyOnly ? nil : (anchor ?? 0), feedback: false)
     }
 
     /// Selects the form nearest the finger along the row, or none once it is far from the row.
     func select(at point: CGPoint) {
-        guard isShowingVariants, let first = cells.first, let last = cells.last else { return }
-        let near = point.x > last.minX - first.width && point.x < first.maxX + first.width
+        guard isShowingVariants, let first = cells.first else { return }
+        // The row runs either way from the key.
+        let rowMin = cells.map(\.minX).min() ?? first.minX, rowMax = cells.map(\.maxX).max() ?? first.maxX
+        let near = point.x > rowMin - first.width && point.x < rowMax + first.width
             && point.y > card.minY - 2 * card.height && point.y < foot.maxY + foot.height
             && (!choosesAboveKeyOnly || point.y < foot.minY)
         let index = near ? cells.indices.min { abs(cells[$0].midX - point.x) < abs(cells[$1].midX - point.x) } : nil
