@@ -9,8 +9,8 @@ CC BY-SA 4.0), letters with inner apostrophes (don't, I'm), one per line with th
 
 wordfreq lowercases everything, so names are capitalized from English Wikipedia: a word written
 mid-sentence with a capital at least ten times as often as without (London, Monday, English), and
-used in Wikipedia at least a twentieth as often as wordfreq's frequency expects. The second test
-keeps words lowercase that Wikipedia has mostly in titles (yeah, gonna, World in World War);
+used in Wikipedia at least a fifth as often as wordfreq's frequency expects. The second test
+keeps words lowercase that Wikipedia has mostly in titles (hey, tonight, World in World War);
 I and its contractions are always capitalized.
 
 Next words: the words that most often follow each listed word in English Wikipedia (the
@@ -42,6 +42,8 @@ MAX_ARTICLES = 120_000
 MIN_PAIR = 4
 MAX_FOLLOWERS = 16
 STARTERS = 40
+# Wikipedia's share of a capitalized word against wordfreq's, below which it stays lowercase.
+USAGE = 0.2
 
 vocab: dict[str, int] = {}
 
@@ -124,7 +126,7 @@ def cased(word: str, zipf: float, capital: int, lower: int, total: int) -> str:
     if word == "i" or word.startswith("i'"):
         return "I" + word[1:]
     used = (capital + lower) / max(total, 1)
-    if capital >= 20 and capital >= 10 * lower and used >= 0.05 * 10 ** (zipf - 9):
+    if capital >= 20 and capital >= 10 * lower and used >= USAGE * 10 ** (zipf - 9):
         return word[0].upper() + word[1:]
     return word
 
@@ -178,6 +180,16 @@ def main(parquet: list[str], words_out: str, bigrams_out: str) -> None:
     print(f"{n} words to {words_out}; {sum(len(f) for f in followers)} pairs, {len(blob)} bytes to {bigrams_out}")
 
     print("capitalized:", " ".join(w for w, k in zip(spelled, keys) if w != k)[:1500])
+    # Words written with a capital that the usage test kept lowercase, with Wikipedia's share
+    # against wordfreq's, for tuning USAGE.
+    near = []
+    for i, (word, zipf) in enumerate(words):
+        if capital[i] >= 20 and capital[i] >= 10 * lower[i]:
+            ratio = (capital[i] + lower[i]) / max(total, 1) / 10 ** (zipf - 9)
+            near.append(f"{word}:{ratio:.2f}")
+        if len(near) == 200:
+            break
+    print("usage ratios:", " ".join(near))
     print("starters:", " ".join(keys[i] for i in best_starters[:15]))
     for word in ["the", "i", "thank", "how", "see", "good", "united", "new", "would", "don't"]:
         if word in vocab_index(keys):
