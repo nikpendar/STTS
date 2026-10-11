@@ -88,6 +88,36 @@ Lexicon.shared.learn("خوبی", after: .word("سلام"))
 Lexicon.shared.learn("خوبی", after: .word("سلام"))
 check("learned pair", Lexicon.shared.predictions(after: .word("سلام"), limit: 1).first ?? "", "خوبی")
 
+// English: the same logic on en_words.txt and en_bigrams.bin, with QWERTY neighbours.
+var englishLoaded = false
+Lexicon.english.load(words: directory.appendingPathComponent("en_words.txt"),
+                     bigrams: directory.appendingPathComponent("en_bigrams.bin")) { englishLoaded = true }
+while !englishLoaded { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
+let qwerty = ["qwertyuiop", "asdfghjkl", "zxcvbnm"].map(Array.init)
+var englishNeighbours: [(Character, Character)] = []
+for (r, row) in qwerty.enumerated() {
+    for (c, a) in row.enumerated() {
+        if c + 1 < row.count { englishNeighbours.append((a, row[c + 1])) }
+        if r + 1 < qwerty.count {
+            for (c2, b) in qwerty[r + 1].enumerated() where c2 == c || c2 == c - 1 { englishNeighbours.append((a, b)) }
+        }
+    }
+}
+Lexicon.english.setNeighbours(englishNeighbours)
+let english = Lexicon.english
+check("en word with apostrophe", english.isWord("don't"), true)
+check("en not a word", english.isWord("سلام"), false)
+check("en predictions after thank", english.predictions(after: .word("thank"), limit: 3).first ?? "", "you")
+check("en context completion", (english.completions(for: "sta", context: .word("united"), limit: 1).first ?? "").lowercased(), "states")
+check("en name keeps its capital", english.completions(for: "lond", limit: 1).first ?? "", "London")
+check("en typo dont", english.suggestions(forUnknown: "dont", context: .none, correct: true, limit: 2).first ?? "", "don't")
+check("en typo im", english.corrections(for: "im", limit: 1).first?.word ?? "", "I'm")
+check("en typo becuase", english.suggestions(forUnknown: "becuase", context: .none, correct: true, limit: 2).first ?? "", "because")
+check("en typo thw", english.corrections(for: "thw", limit: 1).first?.word ?? "", "the")
+check("en glide letters skip the apostrophe", String(english.language.pathLetters("don't")), "dont")
+english.learn("Keyless", after: .word("the"), confirmed: true)
+check("en learned word", english.completions(for: "keyl", limit: 1).first ?? "", "Keyless")
+
 let start = Date()
 for word in ["سلان", "کتاا", "مرسس", "زندگس", "صحبط", "اسفاده", "دوستت", "ممنوم"] {
     _ = Lexicon.shared.corrections(for: word, limit: 3)

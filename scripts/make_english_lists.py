@@ -7,8 +7,11 @@ CC BY-SA 4.0), letters with inner apostrophes (don't, I'm), one per line with th
 
     word<TAB>zipf
 
-wordfreq lowercases everything, so each word is written as English Wikipedia mostly writes it
-inside sentences: I, I'm, London and Monday capitalized, the rest lowercase.
+wordfreq lowercases everything, so names are capitalized from English Wikipedia: a word written
+mid-sentence with a capital at least ten times as often as without (London, Monday, English), and
+used in Wikipedia at least a twentieth as often as wordfreq's frequency expects. The second test
+keeps words lowercase that Wikipedia has mostly in titles (yeah, gonna, World in World War);
+I and its contractions are always capitalized.
 
 Next words: the words that most often follow each listed word in English Wikipedia (the
 20231101.en config of https://huggingface.co/datasets/wikimedia/wikipedia, CC BY-SA 4.0), in the
@@ -117,10 +120,11 @@ def quantize(p: float) -> int:
     return min(255, max(0, round(-8 * math.log2(p))))
 
 
-def cased(word: str, capital: int, lower: int) -> str:
+def cased(word: str, zipf: float, capital: int, lower: int, total: int) -> str:
     if word == "i" or word.startswith("i'"):
         return "I" + word[1:]
-    if capital >= 3 and capital > 1.5 * lower:
+    used = (capital + lower) / max(total, 1)
+    if capital >= 20 and capital >= 10 * lower and used >= 0.05 * 10 ** (zipf - 9):
         return word[0].upper() + word[1:]
     return word
 
@@ -141,9 +145,11 @@ def main(parquet: list[str], words_out: str, bigrams_out: str) -> None:
     totals = np.add.reduceat(counts, first)
     print(f"{int(unigrams.sum())} words, {len(unique)} distinct pairs")
 
+    total = int(unigrams.sum())
+    spelled = [cased(word, zipf, int(capital[i]), int(lower[i]), total) for i, (word, zipf) in enumerate(words)]
     with open(words_out, "w", encoding="utf-8") as f:
-        for i, (word, zipf) in enumerate(words):
-            f.write(f"{cased(word, int(capital[i]), int(lower[i]))}\t{zipf:.2f}\n")
+        for i, (_, zipf) in enumerate(words):
+            f.write(f"{spelled[i]}\t{zipf:.2f}\n")
 
     keep = totals >= MIN_PAIR
     unique, totals = unique[keep], totals[keep]
@@ -171,8 +177,7 @@ def main(parquet: list[str], words_out: str, bigrams_out: str) -> None:
         f.write(blob)
     print(f"{n} words to {words_out}; {sum(len(f) for f in followers)} pairs, {len(blob)} bytes to {bigrams_out}")
 
-    print("cased:", " ".join(cased(keys[i], int(capital[i]), int(lower[i])) for i in range(n)
-                             if cased(keys[i], int(capital[i]), int(lower[i])) != keys[i])[:600])
+    print("capitalized:", " ".join(w for w, k in zip(spelled, keys) if w != k)[:1500])
     print("starters:", " ".join(keys[i] for i in best_starters[:15]))
     for word in ["the", "i", "thank", "how", "see", "good", "united", "new", "would", "don't"]:
         if word in vocab_index(keys):

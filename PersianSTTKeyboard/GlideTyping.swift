@@ -1,6 +1,6 @@
 import UIKit
 
-/// Turns a swipe over the Persian letter keys into words, as iOS QuickPath does: every listed
+/// Turns a swipe over the letter keys into words, as iOS QuickPath does: every listed
 /// word that starts near where the finger went down and ends near where it lifted is drawn as
 /// the line through its keys, and the word whose line lies closest to the swipe wins, with
 /// frequent words favoured. In a simulation with noisy swipes over the 3000 most common words,
@@ -11,14 +11,15 @@ enum GlideDecoder {
     private static let frequencyWeight = 0.15
 
     /// Best words first. `keys` are the centres of the letter keys, `unit` the key width.
-    static func decode(_ path: [CGPoint], keys: [Character: CGPoint], unit: CGFloat, limit: Int = 3) -> [String] {
+    static func decode(_ path: [CGPoint], keys: [Character: CGPoint], unit: CGFloat, lexicon: Lexicon = .shared,
+                       limit: Int = 3) -> [String] {
         guard path.count >= 2, unit > 0, let start = path.first, let end = path.last else { return [] }
         let user = resample(path, samples)
         let length = Self.length(path)
         let firsts = Set(keys.filter { distance($0.value, start) < 1.1 * unit }.keys)
         let lasts = Set(keys.filter { distance($0.value, end) < 1.3 * unit }.keys)
         var scored: [(word: String, cost: Double)] = []
-        for candidate in Lexicon.shared.glideCandidates(firstLetters: firsts, lastLetters: lasts, maxLetters: 24) {
+        for candidate in lexicon.glideCandidates(firstLetters: firsts, lastLetters: lasts, maxLetters: 24) {
             let ideal = candidate.letters.compactMap { keys[$0] }
             guard ideal.count == candidate.letters.count else { continue }
             guard abs(Self.length(ideal) - length) <= max(1.5 * unit, 0.6 * length) else { continue }

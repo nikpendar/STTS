@@ -21,9 +21,9 @@ final class KeyboardViewController: UIInputViewController {
     private let orb = DictationOrbView()
     private var heightConstraint: NSLayoutConstraint?
     /// Row height: as low as keys stay possible to hit, lower in landscape.
-    private var rowHeight: CGFloat { isLandscape ? 30 : 36 }
-    /// The suggestion bar above the keys.
-    private var barHeight: CGFloat { isLandscape ? 26 : 30 }
+    private var rowHeight: CGFloat { isLandscape ? 27 : 32 }
+    /// The suggestion bar above the keys, which has the height the rows gave up.
+    private var barHeight: CGFloat { isLandscape ? 38 : 46 }
     private var fullHeight: CGFloat { barHeight + 4 * rowHeight + 2 }
     private var compactHeight: CGFloat { isLandscape ? 120 : 150 }
     private var isLandscape: Bool { UIScreen.main.bounds.width > UIScreen.main.bounds.height }
@@ -46,8 +46,11 @@ final class KeyboardViewController: UIInputViewController {
     private var undoSteps: [UndoStep] = []
     /// Features turned on or off in the app.
     private var options = KeyboardOptions.standard
-    /// Key width the typo search's neighbouring keys were taken at.
-    private var neighboursWidth: CGFloat = 0
+    /// Key width the typo search's neighbouring keys were taken at, for English and for Persian.
+    private var neighboursWidths: [Bool: CGFloat] = [:]
+    /// The last space typed, for two spaces typing a full stop and three a comma: 1 after a
+    /// plain space, 2 after the full stop.
+    private var lastSpace: (time: CFTimeInterval, step: Int)?
     private var editsTimer: Timer?
     /// Seconds without typing after which edits are reported even if the keyboard stays open.
     var reportDelay: TimeInterval = 300
@@ -91,7 +94,18 @@ final class KeyboardViewController: UIInputViewController {
                 MainActor.assumeIsolated { self?.orb.setVoiceLevel(step) }
             }
         }
+        // Spoken punctuation reads the Persian list, so it loads whatever the layout.
         Lexicon.shared.load { [weak self] in
+            MainActor.assumeIsolated { self?.updateSuggestions() }
+        }
+        loadLexicon()
+    }
+
+    /// The word list of the layout on screen; the English one loads when it is first shown.
+    private var lexicon: Lexicon { isEnglish ? .english : .shared }
+
+    private func loadLexicon() {
+        lexicon.load { [weak self] in
             MainActor.assumeIsolated { self?.updateSuggestions() }
         }
     }
@@ -116,12 +130,14 @@ final class KeyboardViewController: UIInputViewController {
         super.textDidChange(textInput)
         if edits.isTracking { report(edits.documentChanged(documentContext)) }
         updateSuggestions()
+        updateAutoShift()
     }
 
     override func selectionDidChange(_ textInput: UITextInput?) {
         super.selectionDidChange(textInput)
         if edits.isTracking { report(edits.documentChanged(documentContext)) }
         updateSuggestions()
+        updateAutoShift()
     }
 
     private func showPreview(_ name: String) {
@@ -420,15 +436,23 @@ final class KeyboardViewController: UIInputViewController {
     /// dictated text can be followed.
     private func insert(_ text: String, dictated: Bool = false) {
         guard !text.isEmpty else { return }
+        lastSpace = nil
         if edits.isTracking { report(edits.willEdit(dictated ? .dictate(text) : .type(text), in: documentContext)) }
         proxy.insertText(text)
-        if !dictated { updateSuggestions() }
+        if !dictated {
+            updateSuggestions()
+            updateAutoShift()
+        }
     }
 
     private func deleteBackward() {
+        lastSpace = nil
         if edits.isTracking { report(edits.willEdit(.deleteBackward, in: documentContext)) }
         proxy.deleteBackward()
-        if state != .recording && state != .transcribing { updateSuggestions() }
+        if state != .recording && state != .transcribing {
+            updateSuggestions()
+            updateAutoShift()
+        }
     }
 
     /// Sends finished corrections to the app, and restarts the wait for the user to stop editing.
@@ -516,16 +540,18 @@ final class KeyboardViewController: UIInputViewController {
 
     // MARK: - UI
 
-    private enum Layer { case letters, symbols, emoji }
+    /// `moreSymbols` is English only: the layer behind #+=.
+    private enum Layer { case letters, symbols, moreSymbols, emoji }
 
     private static let emojis: [String] = Array(
         "😀😃😄😁😆😅😂🤣🙂🙃😉😊😇🥰😍🤩😘😗😚😙😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶🥴😵🤯🤠🥳😎🤓🧐😕😟🙁😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👻👽🤖😺😸😹😻😼😽🙀😿😾🙈🙉🙊💋💌💘💝💖💗💓💞💕💟❣💔🧡💛💚💙💜🤎🖤🤍💯💢💥💫💦💨🕳💬💭💤👋🤚🖐✋🖖👌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪🌹🌷🌸🌼🌻🌺🍀🍁🍂🌱🌲🌳🌴🌵☀🌙⭐🌟✨⚡🔥🌈☁❄💧🌊🍎🍊🍋🍉🍇🍓🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥕🌽🍞🧀🍕🍔🍟🌭🥗🍿🍰🎂🍫🍬🍭🍩🍪☕🍵🥤🎉🎊🎁🎈🏆⚽🏀🎵🎶📱💻⌚📷💡📚✏📌📎✂🔒🔑❤✅❌❓❗⚠🇮🇷"
     ).map(String.init)
 
-    /// Every key has the same width except space and backspace, and the keys fill the whole
-    /// width. A layer has `columns` cells per row: Persian 11, English 10. The third row ends
-    /// with backspace, which takes the cells its letters leave (and in English letters starts
-    /// with shift). Persian layout of Apple's iOS keyboard, with ژ moved under ز (`variants`).
+    /// Keys fill the whole width. A layer has `columns` cells per row: Persian 11, English 10.
+    /// Persian: every key one cell, the third row ending with backspace, which takes the cells
+    /// its keys leave; Apple's iOS layout, with ژ moved under ز (`variants`). English: as on
+    /// iOS, the middle row of letters is centred and the third row has shift (or #+=, 123) and
+    /// backspace of one and a half cells at its ends.
     private static let letterRows: [[String]] = [
         ["ض", "ص", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"],
         ["ش", "س", "ی", "ب", "ل", "ا", "ت", "ن", "م", "ک", "گ"],
@@ -538,11 +564,16 @@ final class KeyboardViewController: UIInputViewController {
         "ا": ["ا", "آ", "أ", "إ", "ء"],
         "ک": ["ک", "ك"],
         "ز": ["ز", "ژ"],
+        "و": ["و", "ؤ"],
     ]
-    /// Tanvin, on a long press of the ZWNJ key; shown on a tatweel so each mark has a base.
-    private static let tanvins: [KeyPopupView.Item] = ["\u{064B}", "\u{064C}", "\u{064D}"].map {
-        KeyPopupView.Item(text: $0, label: "ـ" + $0)
-    }
+    /// On a long press of the Persian space bar: ZWNJ, then the tanvins, shown on a tatweel so
+    /// each mark has a base.
+    private static let spaceForms: [KeyPopupView.Item] =
+        [KeyPopupView.Item(text: "\u{200C}", label: "", image: KeyIcons.zwnj)]
+        + ["\u{064B}", "\u{064C}", "\u{064D}"].map { KeyPopupView.Item(text: $0, label: "ـ" + $0) }
+    /// Brackets and guillemets of the Persian symbols layer type their mirror image: right-to-left
+    /// text draws each of them mirrored, so what appears then looks like the key.
+    private static let mirrored: [String: String] = ["(": ")", ")": "(", "«": "»", "»": "«"]
     private static let symbolRows: [[String]] = [
         ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰", "٪"],
         ["-", "/", ":", "؛", "(", ")", "«", "»", "@", "﷼", "\""],
@@ -550,13 +581,18 @@ final class KeyboardViewController: UIInputViewController {
     ]
     private static let englishRows: [[String]] = [
         ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-        ["a", "s", "d", "f", "g", "h", "j", "k", "l", "'"],
-        ["z", "x", "c", "v", "b", "n", "m", ","],
+        ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+        ["z", "x", "c", "v", "b", "n", "m"],
     ]
     private static let englishSymbolRows: [[String]] = [
         ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
         ["-", "/", ":", ";", "(", ")", "$", "&", "@", "\""],
-        [".", ",", "?", "!", "'", "#", "%", "*", "+"],
+        [".", ",", "?", "!", "'"],
+    ]
+    private static let englishMoreRows: [[String]] = [
+        ["[", "]", "{", "}", "#", "%", "^", "*", "+", "="],
+        ["_", "\\", "|", "~", "<", ">", "€", "£", "¥", "•"],
+        [".", ",", "?", "!", "'"],
     ]
     private var columns: Int { isEnglish ? 10 : 11 }
 
@@ -566,8 +602,16 @@ final class KeyboardViewController: UIInputViewController {
     private var isEnglish = UserDefaults.standard.bool(forKey: KeyboardViewController.englishKey) {
         didSet { UserDefaults.standard.set(isEnglish, forKey: Self.englishKey) }
     }
-    /// One-shot capital letter in the English layout.
+    /// One-shot capital letter in the English layout, also switched on at the start of a sentence.
     private var isShifted = false
+    /// Capitals until shift is tapped again; a double tap on shift turns it on.
+    private var isCapsLock = false
+    private var lastShiftTap: CFTimeInterval = 0
+    private static let languageSwitchesKey = "languageSwitches"
+    /// Swipes on the space bar so far: its globe goes once the user knows the gesture.
+    private var languageSwitches = UserDefaults.standard.integer(forKey: KeyboardViewController.languageSwitchesKey) {
+        didSet { UserDefaults.standard.set(languageSwitches, forKey: Self.languageSwitchesKey) }
+    }
     private let shiftKey = KeyView(symbol: "shift")
     private var characterKeys: [[KeyView]] = []
     private let backspaceKey = KeyView(symbol: "delete.right")
@@ -581,11 +625,14 @@ final class KeyboardViewController: UIInputViewController {
     private let emojiScroll = UIScrollView()
     private var emojiKeysBuilt = false
     private let layerKey = KeyView(title: "۱۲۳", fontSize: 16)
-    private let zwnjKey = KeyView()
-    /// No label: arrows around a globe show that swiping it changes the language.
+    /// English: #+= on the numbers layer and 123 behind it, where shift is on the letters.
+    private let moreKey = KeyView(title: "#+=", fontSize: 16)
+    /// No label: arrows around a globe show that swiping it changes the language, until the
+    /// user has done it a few times. Held in Persian: ZWNJ and the tanvins.
     private let spaceKey = KeyView()
-    private let periodKey = KeyView(title: ".", fontSize: 23)
-    private let returnKey = KeyView(symbol: "return")
+    private lazy var spacePress = variantsPress()
+    private lazy var spacePan = UIPanGestureRecognizer(target: self, action: #selector(spaceSwiped(_:)))
+    private let returnKey = KeyView()
     private var repeatTimer: Timer?
     private let suggestionBar = SuggestionBar()
     private let glideTrail = GlideTrailView()
@@ -596,27 +643,18 @@ final class KeyboardViewController: UIInputViewController {
     private var lastGlide: (word: String, inserted: String, alternatives: [String])?
 
     private func render() {
-        let title: String
         let symbol: String
         var tint = keyStyle.textColor
         switch state {
-        case .checking:
-            title = ""; symbol = "mic"
-        case .noSession:
-            title = "برای شروع جلسه، میکروفون را بزنید"; symbol = "mic.slash"
-        case .ready:
-            title = ""; symbol = "mic.fill"
-        case .starting:
-            title = ""; symbol = "mic"
-        case .recording:
-            title = ""; symbol = "mic.fill"; tint = .systemRed
-        case .transcribing:
-            title = ""; symbol = "mic.fill"
+        case .checking, .starting: symbol = "mic"
+        case .noSession: symbol = "mic.slash"
+        case .ready, .transcribing: symbol = "mic.fill"
+        case .recording: symbol = "mic.fill"; tint = .systemRed
         }
-        showStatus(title.isEmpty ? nil : title)
+        showStatus(nil)
         updateSuggestions()
         micButton.setImage(UIImage(systemName: symbol,
-                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)),
+                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)),
                            for: .normal)
         micButton.tintColor = tint
         micButton.isEnabled = state != .starting
@@ -685,26 +723,32 @@ final class KeyboardViewController: UIInputViewController {
         backspaceKey.accessibilityIdentifier = "backspaceKey"
         backspaceKey.addTarget(self, action: #selector(backspaceDown), for: .touchDown)
         backspaceKey.addTarget(self, action: #selector(backspaceUp), for: [.touchUpInside, .touchUpOutside, .touchCancel])
+        layerKey.accessibilityIdentifier = "layerKey"
         layerKey.addTarget(self, action: #selector(toggleLayer), for: .touchUpInside)
         emojiKey.accessibilityIdentifier = "emojiKey"
         emojiKey.addTarget(self, action: #selector(toggleEmoji), for: .touchUpInside)
         let press = UILongPressGestureRecognizer(target: self, action: #selector(emojiPressed(_:)))
         press.minimumPressDuration = 0.35
         emojiKey.addGestureRecognizer(press)
-        zwnjKey.image = KeyIcons.zwnj
-        zwnjKey.accessibilityLabel = "نیم‌فاصله"
-        zwnjKey.addTarget(self, action: #selector(insertZWNJ), for: .touchUpInside)
-        zwnjKey.addGestureRecognizer(variantsPress())
-        spaceKey.image = KeyIcons.space
+        updateSpaceImage()
         spaceKey.dimsImage = true
         spaceKey.accessibilityIdentifier = "spaceKey"
         spaceKey.addTarget(self, action: #selector(insertSpace), for: .touchUpInside)
-        spaceKey.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(spaceSwiped(_:))))
-        periodKey.addTarget(self, action: #selector(insertPeriod), for: .touchUpInside)
+        spacePress.delegate = self
+        spaceKey.addGestureRecognizer(spacePress)
+        spacePan.delegate = self
+        spaceKey.addGestureRecognizer(spacePan)
+        shiftKey.accessibilityIdentifier = "shiftKey"
         shiftKey.addTarget(self, action: #selector(toggleShift), for: .touchUpInside)
         keysView.addSubview(shiftKey)
+        moreKey.accessibilityIdentifier = "moreKey"
+        moreKey.addTarget(self, action: #selector(toggleMoreSymbols), for: .touchUpInside)
+        keysView.addSubview(moreKey)
+        returnKey.image = KeyIcons.returnKey
+        returnKey.accessibilityLabel = "return"
+        returnKey.accessibilityIdentifier = "returnKey"
         returnKey.addTarget(self, action: #selector(insertReturn), for: .touchUpInside)
-        for key in [backspaceKey, layerKey, emojiKey, zwnjKey, spaceKey, periodKey, returnKey] {
+        for key in [backspaceKey, layerKey, emojiKey, spaceKey, returnKey] {
             keysView.addSubview(key)
         }
         suggestionBar.onPick = { [weak self] item in self?.pick(item) }
@@ -748,6 +792,7 @@ final class KeyboardViewController: UIInputViewController {
         switch layer {
         case .letters: rows = isEnglish ? Self.englishRows : Self.letterRows
         case .symbols: rows = isEnglish ? Self.englishSymbolRows : Self.symbolRows
+        case .moreSymbols: rows = Self.englishMoreRows
         case .emoji:
             rows = []
             buildEmojiKeysIfNeeded()
@@ -755,13 +800,11 @@ final class KeyboardViewController: UIInputViewController {
         emojiScroll.isHidden = layer != .emoji
         characterKeys = rows.enumerated().map { rowIndex, row in
             row.enumerated().map { column, character in
-                let key = KeyView(title: character, fontSize: 23)
+                // English letter keys show capitals, as on iOS.
+                let key = KeyView(title: isEnglish && layer == .letters ? character.uppercased() : character, fontSize: 23)
+                key.character = character
                 key.accessibilityIdentifier = "letter-\(rowIndex)-\(column)"
-                key.addAction(UIAction { [weak self] _ in
-                    guard let self else { return }
-                    self.insert(self.isShifted ? character.uppercased() : character)
-                    if self.isShifted { self.setShifted(false) }
-                }, for: .touchUpInside)
+                key.addAction(UIAction { [weak self] _ in self?.typeKey(character) }, for: .touchUpInside)
                 key.addTarget(self, action: #selector(keyDown(_:)), for: .touchDown)
                 key.addTarget(self, action: #selector(keyUp(_:)), for: [.touchUpInside, .touchUpOutside, .touchCancel])
                 if layer == .letters, !isEnglish, Self.variants[character] != nil {
@@ -772,11 +815,14 @@ final class KeyboardViewController: UIInputViewController {
                 return key
             }
         }
-        layerKey.title = isEnglish ? (layer == .symbols ? "ABC" : "123") : (layer == .symbols ? "الفبا" : "۱۲۳")
-        // English has no ZWNJ; space takes its place.
-        zwnjKey.isHidden = isEnglish
+        layerKey.title = isEnglish ? (layer == .letters || layer == .emoji ? "123" : "ABC")
+            : (layer == .symbols ? "الفبا" : "۱۲۳")
         shiftKey.isHidden = !(isEnglish && layer == .letters)
+        moreKey.isHidden = !(isEnglish && (layer == .symbols || layer == .moreSymbols))
+        moreKey.title = layer == .moreSymbols ? "123" : "#+="
+        isCapsLock = false
         setShifted(false)
+        updateAutoShift()
         emojiKey.image = KeyIcons.menuKey(symbol: layer == .emoji ? "keyboard" : "face.smiling")
         emojiKey.accessibilityLabel = layer == .emoji ? "حروف" : "شکلک"
         lastGlide = nil
@@ -788,7 +834,8 @@ final class KeyboardViewController: UIInputViewController {
 
     private func applyKeyStyle(_ style: KeyStyle) {
         keyStyle = style
-        let functionKeys = [backspaceKey, layerKey, emojiKey, zwnjKey, spaceKey, periodKey, returnKey, shiftKey]
+        view.backgroundColor = style.backgroundColor ?? .clear
+        let functionKeys = [backspaceKey, layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey]
         for key in functionKeys + characterKeys.flatMap({ $0 }) {
             key.apply(style)
         }
@@ -798,22 +845,72 @@ final class KeyboardViewController: UIInputViewController {
 
     private func setShifted(_ shifted: Bool) {
         isShifted = shifted
-        shiftKey.symbol = shifted ? "shift.fill" : "shift"
-        guard isEnglish, layer == .letters else { return }
-        for key in characterKeys.flatMap({ $0 }) {
-            key.title = shifted ? key.title?.uppercased() : key.title?.lowercased()
+        shiftKey.symbol = isCapsLock ? "capslock.fill" : shifted ? "shift.fill" : "shift"
+    }
+
+    /// A tap switches the next letter to a capital or back; a double tap locks capitals.
+    @objc private func toggleShift() {
+        let now = CACurrentMediaTime()
+        if isCapsLock {
+            isCapsLock = false
+            setShifted(false)
+        } else if now - lastShiftTap < 0.35 {
+            isCapsLock = true
+            setShifted(true)
+        } else {
+            setShifted(!isShifted)
+        }
+        lastShiftTap = isCapsLock ? 0 : now
+    }
+
+    /// English letters start a sentence with a capital, as on iOS, unless the field asks for
+    /// something else (none in addresses, every word in names).
+    private func updateAutoShift() {
+        guard isViewLoaded, isEnglish, layer == .letters, !isCapsLock else { return }
+        let before = proxy.documentContextBeforeInput ?? ""
+        let capital: Bool
+        switch proxy.autocapitalizationType ?? .sentences {
+        case .none: capital = false
+        case .allCharacters: capital = true
+        case .words: capital = before.isEmpty || before.last == " " || before.last?.isNewline == true
+        default:
+            let trimmed = before.reversed().drop { $0 == " " || $0 == "\u{00A0}" }
+            if let last = trimmed.first {
+                capital = last.isNewline || (".!?".contains(last) && trimmed.count < before.count)
+            } else {
+                capital = true
+            }
+        }
+        if capital != isShifted { setShifted(capital) }
+    }
+
+    /// What a character key types: English letters as capitals while shift is on, and the
+    /// mirror image of Persian brackets and guillemets (`mirrored`).
+    private func typeKey(_ character: String) {
+        if !isEnglish, layer == .symbols, let mirror = Self.mirrored[character] {
+            insert(mirror)
+        } else if isEnglish, layer == .letters, isShifted || isCapsLock {
+            let wasShifted = isShifted && !isCapsLock
+            insert(character.uppercased())
+            if wasShifted, isShifted { setShifted(false) }
+        } else {
+            insert(character)
         }
     }
 
-    @objc private func toggleShift() {
-        setShifted(!isShifted)
+    /// The globe and arrows teach the swipe; after a few switches the bar is left plain.
+    private func updateSpaceImage() {
+        spaceKey.image = languageSwitches >= 3 ? nil : KeyIcons.space
     }
 
     /// A horizontal swipe on the space bar switches between Persian and English, like SwiftKey.
     @objc private func spaceSwiped(_ pan: UIPanGestureRecognizer) {
         guard pan.state == .ended, abs(pan.translation(in: view).x) > 40 else { return }
         isEnglish.toggle()
-        if layer == .emoji { layer = .letters }
+        if layer == .emoji || layer == .moreSymbols { layer = .letters }
+        languageSwitches += 1
+        updateSpaceImage()
+        loadLexicon()
         buildCharacterKeys()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
@@ -860,11 +957,16 @@ final class KeyboardViewController: UIInputViewController {
         let top = bar
 
         let thirdY = top + 2 * row
-        // Backspace takes the rest of the third row: two cells in Persian letters, one elsewhere.
-        let thirdRow = characterKeys.count > 2 ? characterKeys[2].count + (shiftKey.isHidden ? 0 : 1) : columns - 1
-        let backspaceX = left + CGFloat(thirdRow) * unit
-        backspaceKey.frame = CGRect(x: backspaceX, y: thirdY, width: left + width - backspaceX, height: row)
-        shiftKey.frame = CGRect(x: left, y: thirdY, width: unit, height: row)
+        if isEnglish && layer != .emoji {
+            backspaceKey.frame = CGRect(x: left + width - 1.5 * unit, y: thirdY, width: 1.5 * unit, height: row)
+        } else {
+            // Persian: the rest of the third row, two cells in letters and one in symbols.
+            let thirdRow = characterKeys.count > 2 ? characterKeys[2].count : columns - 1
+            let backspaceX = left + CGFloat(thirdRow) * unit
+            backspaceKey.frame = CGRect(x: backspaceX, y: thirdY, width: left + width - backspaceX, height: row)
+        }
+        shiftKey.frame = CGRect(x: left, y: thirdY, width: 1.5 * unit, height: row)
+        moreKey.frame = shiftKey.frame
 
         // Emoji grid: fills the three key rows, minus the backspace column.
         emojiScroll.frame = CGRect(x: left, y: top, width: width - unit, height: 3 * row)
@@ -879,28 +981,36 @@ final class KeyboardViewController: UIInputViewController {
 
         for (index, keys) in characterKeys.enumerated() {
             let y = top + CGFloat(index) * row
-            var x = left + (index == 2 && !shiftKey.isHidden ? unit : 0)
+            var x = left
+            var keyWidth = unit
+            if isEnglish, index == 2 {
+                // Between shift (or #+=, 123) and backspace.
+                x += 1.5 * unit
+                keyWidth = (width - 3 * unit) / CGFloat(max(keys.count, 1))
+            } else if isEnglish {
+                // The nine letters of the middle row are centred.
+                x += (width - CGFloat(keys.count) * unit) / 2
+            }
             for key in keys {
-                key.frame = CGRect(x: x, y: y, width: unit, height: row)
-                x += unit
+                key.frame = CGRect(x: x, y: y, width: keyWidth, height: row)
+                x += keyWidth
             }
         }
 
-        // Bottom row, left to right: 123, emoji (and settings), ZWNJ (Persian only), space, full
-        // stop, return, mic.
+        // Bottom row, left to right, in elevenths of the width in both languages: 123, emoji
+        // (and settings) two, space four, return two, mic two.
+        let cell = width / 11
         let y = top + 3 * row
         var x = left
         func place(_ view: UIView, _ keyWidth: CGFloat) {
             view.frame = CGRect(x: x, y: y, width: keyWidth, height: row)
             x += keyWidth
         }
-        place(layerKey, unit)
-        place(emojiKey, unit)
-        if !isEnglish { place(zwnjKey, unit) }
-        place(spaceKey, width - CGFloat(isEnglish ? 5 : 6) * unit)
-        place(periodKey, unit)
-        place(returnKey, unit)
-        place(micButton, unit)
+        place(layerKey, cell)
+        place(emojiKey, 2 * cell)
+        place(spaceKey, 4 * cell)
+        place(returnKey, 2 * cell)
+        place(micButton, 2 * cell)
         if !keyMenu.isHidden { placeMenu() }
     }
 
@@ -910,7 +1020,12 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func toggleLayer() {
-        layer = layer == .symbols ? .letters : .symbols
+        layer = layer == .letters || layer == .emoji ? .symbols : .letters
+        buildCharacterKeys()
+    }
+
+    @objc private func toggleMoreSymbols() {
+        layer = layer == .moreSymbols ? .symbols : .moreSymbols
         buildCharacterKeys()
     }
 
@@ -919,19 +1034,29 @@ final class KeyboardViewController: UIInputViewController {
         buildCharacterKeys()
     }
 
+    /// Two spaces in quick succession after a word type a full stop and a space, a third turns
+    /// it into a comma (، in Persian), when switched on in the app.
     @objc private func insertSpace() {
+        let now = CACurrentMediaTime()
+        if options.doubleSpacePunctuation, let last = lastSpace, now - last.time < 0.8 {
+            let before = proxy.documentContextBeforeInput ?? ""
+            if last.step == 1, before.hasSuffix(" "), let end = before.dropLast().last, end.isLetter || end.isNumber {
+                deleteBackward()
+                insert(". ")
+                lastSpace = (now, 2)
+                return
+            }
+            if last.step == 2, before.hasSuffix(". ") {
+                deleteBackward()
+                deleteBackward()
+                insert(isEnglish ? ", " : "، ")
+                lastSpace = nil
+                return
+            }
+        }
         learnCurrentWord()
         insert(" ")
-    }
-
-    /// Zero-width non-joiner (نیم‌فاصله), as in می‌شود.
-    @objc private func insertZWNJ() {
-        insert("\u{200C}")
-    }
-
-    @objc private func insertPeriod() {
-        learnCurrentWord()
-        insert(".")
+        lastSpace = (now, 1)
     }
 
     @objc private func insertReturn() {
@@ -963,14 +1088,20 @@ final class KeyboardViewController: UIInputViewController {
 
     // MARK: - Suggestions
 
-    /// The Persian word the cursor is at the end of (letters and ZWNJ).
+    /// The word the cursor is at the end of: Persian letters and ZWNJ, or English letters
+    /// and inner apostrophes.
     private func currentWord() -> String {
         guard let before = proxy.documentContextBeforeInput else { return "" }
+        let lexicon = lexicon
         var start = before.endIndex
         while start > before.startIndex {
             let previous = before.index(before: start)
-            guard Lexicon.isPersianWord(before[previous..<start]) else { break }
+            guard lexicon.isWord(before[previous..<start]) else { break }
             start = previous
+        }
+        // A quotation mark before an English word is not part of it.
+        while start < before.endIndex, before[start] == "'" || before[start] == "’" {
+            start = before.index(after: start)
         }
         return String(before[start...])
     }
@@ -985,26 +1116,33 @@ final class KeyboardViewController: UIInputViewController {
         guard let last = rest.last else { return .sentenceStart }
         if last.isNewline || ".!?؟…".contains(last) { return .sentenceStart }
         guard spaces > 0 || !word.isEmpty else { return .none }
+        let lexicon = lexicon
         var start = rest.endIndex
         while start > rest.startIndex {
             let previous = rest.index(before: start)
-            guard Lexicon.isPersianWord(rest[previous..<start]) else { break }
+            guard lexicon.isWord(rest[previous..<start]) else { break }
             start = previous
         }
-        return start == rest.endIndex ? .none : .word(Lexicon.key(String(rest[start...])))
+        return start == rest.endIndex ? .none : .word(lexicon.wordKey(String(rest[start...])))
     }
 
     /// A typed word counts towards the user's own words and word pairs, and new ones are learned.
     private func learnCurrentWord() {
-        guard !isEnglish, layer == .letters else { return }
-        let word = currentWord()
-        if !word.isEmpty { Lexicon.shared.learn(word, after: typingContext(before: word)) }
+        guard layer == .letters else { return }
+        var word = currentWord()
+        guard !word.isEmpty else { return }
+        let context = typingContext(before: word)
+        // An English word capitalized only because it starts a sentence is learned in lowercase.
+        if isEnglish, context == .sentenceStart, word.count > 1, word.dropFirst().allSatisfy(\.isLowercase) {
+            word = word.prefix(1).lowercased() + word.dropFirst()
+        }
+        lexicon.learn(word, after: context)
     }
 
     /// Neighbouring letter keys, for the typo search: centres less than one and a half key widths apart.
     private func updateNeighbours() {
-        guard keyWidth != neighboursWidth else { return }
-        neighboursWidth = keyWidth
+        guard keyWidth != neighboursWidths[isEnglish] else { return }
+        neighboursWidths[isEnglish] = keyWidth
         let centers = Array(letterCenters())
         var pairs: [(Character, Character)] = []
         for (i, a) in centers.enumerated() {
@@ -1013,8 +1151,20 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         // ژ has no key of its own: it is held on ز, so one easily stands for the other.
-        pairs.append(("ز", "ژ"))
-        Lexicon.shared.setNeighbours(pairs)
+        if !isEnglish { pairs.append(("ز", "ژ")) }
+        lexicon.setNeighbours(pairs)
+    }
+
+    /// English suggestions follow the capitals of the typed word, and start with one where the
+    /// keyboard would type a capital.
+    private func cased(_ suggestion: String, like typed: String) -> String {
+        guard isEnglish else { return suggestion }
+        let letters = typed.filter(\.isLetter)
+        if letters.count >= 2, letters.allSatisfy(\.isUppercase) { return suggestion.uppercased() }
+        if letters.first?.isUppercase == true || (typed.isEmpty && isShifted) || isCapsLock {
+            return isCapsLock ? suggestion.uppercased() : suggestion.prefix(1).uppercased() + suggestion.dropFirst()
+        }
+        return suggestion
     }
 
     /// Fills the bar, read right to left: the word as typed in quotes when the list does not
@@ -1023,7 +1173,7 @@ final class KeyboardViewController: UIInputViewController {
     /// After a glide, the glided word sits in the middle with its other readings beside it.
     private func updateSuggestions() {
         guard isViewLoaded else { return }
-        guard layer == .letters, !isEnglish, state != .recording, state != .transcribing, state != .starting else {
+        guard layer == .letters, state != .recording, state != .transcribing, state != .starting else {
             suggestionBar.show([nil, nil, nil])
             return
         }
@@ -1037,23 +1187,25 @@ final class KeyboardViewController: UIInputViewController {
             lastGlide = nil
         }
         let word = currentWord()
-        guard Lexicon.shared.isLoaded else {
+        let lexicon = lexicon
+        guard lexicon.isLoaded else {
             suggestionBar.show([nil, nil, nil])
             return
         }
         let context = options.predictNextWord ? typingContext(before: word) : .none
+        let item = { (text: String) in SuggestionBar.Item(text: self.cased(text, like: word)) }
         if word.isEmpty {
-            let words = Lexicon.shared.predictions(after: context, limit: 3).map { SuggestionBar.Item(text: $0) }
+            let words = lexicon.predictions(after: context, limit: 3).map(item)
             suggestionBar.show([words.dropFirst().first, words.first, words.dropFirst(2).first])
             return
         }
-        if word.count >= 2, !Lexicon.shared.isKnown(word) {
+        if word.count >= 2, !lexicon.isKnown(word) {
             if options.correctTypos { updateNeighbours() }
-            let words = Lexicon.shared.suggestions(forUnknown: word, context: context, correct: options.correctTypos, limit: 2)
-                .map { SuggestionBar.Item(text: $0) }
+            let words = lexicon.suggestions(forUnknown: word, context: context, correct: options.correctTypos, limit: 2)
+                .map(item)
             suggestionBar.show([SuggestionBar.Item(text: word, literal: true), words.first, words.dropFirst().first])
         } else {
-            let words = Lexicon.shared.completions(for: word, context: context, limit: 3).map { SuggestionBar.Item(text: $0) }
+            let words = lexicon.completions(for: word, context: context, limit: 3).map(item)
             suggestionBar.show([words.dropFirst().first, words.first, words.dropFirst(2).first])
         }
     }
@@ -1070,24 +1222,24 @@ final class KeyboardViewController: UIInputViewController {
             let others = ([glide.word] + glide.alternatives).filter { $0 != item.text }
             lastGlide = (item.text, prefix + item.text, others)
             insert(item.text)
-            Lexicon.shared.learn(item.text)
+            lexicon.learn(item.text)
             return
         }
         let word = currentWord()
         let context = typingContext(before: word)
         lastGlide = nil
         for _ in 0..<word.count { deleteBackward() }
-        Lexicon.shared.learn(item.text, after: context, confirmed: item.literal)
+        lexicon.learn(item.text, after: context, confirmed: item.literal)
         insert(item.text + " ")
     }
 
     // MARK: - Glide typing
 
-    /// The letter keys of the Persian letters layer, by letter.
+    /// The letter keys of the letters layer, by the (lowercase) letter they type.
     private func letterCenters() -> [Character: CGPoint] {
         var centers: [Character: CGPoint] = [:]
         for key in characterKeys.flatMap({ $0 }) {
-            if let title = key.title, title.count == 1, let letter = title.first {
+            if let character = key.character, character.count == 1, let letter = character.first, letter.isLetter {
                 centers[letter] = CGPoint(x: key.frame.midX, y: key.frame.midY)
             }
         }
@@ -1129,25 +1281,30 @@ final class KeyboardViewController: UIInputViewController {
         glidePath = []
         guard let start = path.first else { return }
         guard GlideDecoder.length(path) >= 1.2 * keyWidth else {
-            if let title = letterKey(at: start)?.title { insert(title) }
+            if let character = letterKey(at: start)?.character { typeKey(character) }
             return
         }
-        let words = GlideDecoder.decode(path, keys: letterCenters(), unit: keyWidth)
+        let words = GlideDecoder.decode(path, keys: letterCenters(), unit: keyWidth, lexicon: lexicon)
+            .map { cased($0, like: "") }
         guard let word = words.first else { return }
         let last = proxy.documentContextBeforeInput?.unicodeScalars.last
         let prefix = last.map { !CharacterSet.whitespacesAndNewlines.contains($0) && $0 != "\u{200C}" } == true ? " " : ""
         lastGlide = (word, prefix + word, Array(words.dropFirst()))
         insert(prefix + word)
-        Lexicon.shared.learn(word, after: typingContext(before: word))
+        lexicon.learn(word, after: typingContext(before: word))
         log.info("glide: \(words.count) readings")
     }
 
     // MARK: - Key popups
 
     @objc private func keyDown(_ key: KeyView) {
-        guard let title = key.title else { return }
+        guard options.keyPreview, var shown = key.title else { return }
+        // English letters show the case they type, though the keys show capitals.
+        if isEnglish, layer == .letters, let character = key.character {
+            shown = isShifted || isCapsLock ? character.uppercased() : character
+        }
         keysView.bringSubviewToFront(keyPopup)
-        keyPopup.showPreview(title, on: key, style: keyStyle)
+        keyPopup.showPreview(shown, on: key, style: keyStyle)
     }
 
     @objc private func keyUp(_ key: KeyView) {
@@ -1161,25 +1318,32 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     /// Holding a key opens its other forms; sliding along the row picks one and lifting the
-    /// finger types it. Lifting far from the row types nothing.
+    /// finger types it. Lifting far from the row types nothing; lifting the space bar without
+    /// sliding up types a space.
     @objc private func variantsPressed(_ press: UILongPressGestureRecognizer) {
         guard let key = press.view as? KeyView else { return }
+        let isSpace = key === spaceKey
         switch press.state {
         case .began:
-            let items = key === zwnjKey
-                ? Self.tanvins
-                : (Self.variants[key.title ?? ""] ?? []).map { KeyPopupView.Item(text: $0, label: $0) }
+            let items = isSpace
+                ? Self.spaceForms
+                : (Self.variants[key.character ?? ""] ?? []).map { KeyPopupView.Item(text: $0, label: $0) }
             guard !items.isEmpty else { return }
             keysView.bringSubviewToFront(keyPopup)
-            keyPopup.showVariants(items, on: key, style: keyStyle)
+            keyPopup.showVariants(items, on: key, style: keyStyle, overKey: isSpace)
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         case .changed:
             keyPopup.select(at: press.location(in: keysView))
         case .ended:
             keyPopup.select(at: press.location(in: keysView))
-            let item = keyPopup.isShowingVariants ? keyPopup.selectedItem : nil
+            let shown = keyPopup.isShowingVariants
+            let item = shown ? keyPopup.selectedItem : nil
             keyPopup.hide()
-            if let item { insert(item.text) }
+            if let item {
+                insert(item.text)
+            } else if isSpace, shown {
+                insertSpace()
+            }
         default:
             keyPopup.hide()
         }
@@ -1241,11 +1405,14 @@ final class KeyboardViewController: UIInputViewController {
 }
 
 extension KeyboardViewController: UIGestureRecognizerDelegate {
-    /// Glides start on a letter key of the Persian letters layer.
+    /// Glides start on a letter key of the letters layer. Holding the space bar opens ZWNJ and
+    /// the tanvins in Persian only, and the language swipe waits while they are open.
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        if gestureRecognizer === spacePress { return !isEnglish && !isCompact }
+        if gestureRecognizer === spacePan { return !keyPopup.isShowingVariants }
         guard gestureRecognizer === glidePan else { return true }
-        guard layer == .letters, !isEnglish, !isCompact, keyMenu.isHidden, !keyPopup.isShowingVariants,
-              Lexicon.shared.isLoaded else { return false }
+        guard layer == .letters, !isCompact, keyMenu.isHidden, !keyPopup.isShowingVariants,
+              lexicon.isLoaded else { return false }
         let point = glidePan.location(in: keysView)
         let moved = glidePan.translation(in: keysView)
         return letterKey(at: CGPoint(x: point.x - moved.x, y: point.y - moved.y)) != nil
@@ -1311,6 +1478,8 @@ private final class KeyView: UIControl {
 
     private let fontSize: CGFloat
     private static let faceInsets = UIEdgeInsets(top: 3, left: 2.5, bottom: 3, right: 2.5)
+    /// What a character key types; its title may differ (English capitals).
+    var character: String?
 
     /// The drawn key inside its touch area, in the superview's coordinates.
     var faceFrame: CGRect { frame.inset(by: Self.faceInsets) }
@@ -1387,6 +1556,8 @@ private final class KeyPopupView: UIView {
         let text: String
         /// What the card shows.
         let label: String
+        /// Shown instead of the label, in its colour.
+        var image: UIImage? = nil
     }
 
     private(set) var items: [Item] = []
@@ -1397,7 +1568,10 @@ private final class KeyPopupView: UIView {
     private let shape = CAShapeLayer()
     private let selection = CAShapeLayer()
     private var labels: [UILabel] = []
+    private var images: [UIImageView] = []
     private var cells: [CGRect] = []
+    /// The space bar's row: nothing is chosen until the finger slides up from the key.
+    private var choosesAboveKeyOnly = false
     private var card = CGRect.zero
     private var foot = CGRect.zero
     private var textColor = UIColor.label
@@ -1438,21 +1612,25 @@ private final class KeyPopupView: UIView {
         select(index: nil, feedback: false)
     }
 
-    func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle) {
+    /// A letter's forms start over the key, its own letter first; `overKey` centres the row
+    /// over a wide key (the space bar) and chooses nothing until the finger slides up.
+    func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle, overKey: Bool = false) {
         let foot = key.faceFrame
         let pad: CGFloat = 3
-        let cell = max(foot.width, 30)
-        let width = CGFloat(items.count) * cell + 2 * pad
-        // The first form stands over the key when there is room.
-        let card = cardFrame(width: width, midX: foot.midX + cell / 2 + pad - width / 2, foot: foot)
+        let cell = max(min(foot.width, 44), 30)
+        let width = max(CGFloat(items.count) * cell + 2 * pad, foot.width + 8)
+        let midX = overKey ? foot.midX : foot.midX + cell / 2 + pad - width / 2
+        let card = cardFrame(width: width, midX: midX, foot: foot)
+        let inset = (width - 2 * pad - CGFloat(items.count) * cell) / 2
         let cells = items.indices.map { index in
-            CGRect(x: card.maxX - pad - CGFloat(index + 1) * cell, y: card.minY + pad,
+            CGRect(x: card.maxX - pad - inset - CGFloat(index + 1) * cell, y: card.minY + pad,
                    width: cell, height: card.height - 2 * pad)
         }
         isShowingVariants = true
+        choosesAboveKeyOnly = overKey
         present(on: key, foot: foot, card: card, cells: cells, items: items,
                 style: style, fontSize: min(26, card.height * 0.62))
-        select(index: 0, feedback: false)
+        select(index: overKey ? nil : 0, feedback: false)
     }
 
     /// Selects the form nearest the finger along the row, or none once it is far from the row.
@@ -1460,6 +1638,7 @@ private final class KeyPopupView: UIView {
         guard isShowingVariants, let first = cells.first, let last = cells.last else { return }
         let near = point.x > last.minX - first.width && point.x < first.maxX + first.width
             && point.y > card.minY - 2 * card.height && point.y < foot.maxY + foot.height
+            && (!choosesAboveKeyOnly || point.y < foot.minY)
         let index = near ? cells.indices.min { abs(cells[$0].midX - point.x) < abs(cells[$1].midX - point.x) } : nil
         select(index: index, feedback: true)
     }
@@ -1473,22 +1652,26 @@ private final class KeyPopupView: UIView {
     func hide() {
         isHidden = true
         isShowingVariants = false
+        choosesAboveKeyOnly = false
         key = nil
         selected = nil
     }
 
-    /// Above the foot and inside the view, covering the foot's width. Over the top row, where
-    /// the view ends little above the key, the card comes down over the top of the key instead
-    /// of shrinking below the size of the key's own letter.
+    /// Above the foot and inside the view, covering the foot's width. Where the view ends
+    /// little above the key the card first gets lower, down to the key's own height, and only
+    /// then comes down over the top of the key.
     private func cardFrame(width: CGFloat, midX: CGFloat, foot: CGRect) -> CGRect {
         let lowest = max(bounds.minX + 1, foot.maxX - width)
         let highest = min(foot.minX, bounds.maxX - 1 - width)
         let x = max(lowest, min(highest, midX - width / 2))
         let height = max(foot.height * 1.2, 34)
-        var bottom = foot.minY - Self.gap
-        if bottom - height < 1 { bottom = min(1 + height, foot.minY + foot.height * 0.45) }
-        let top = max(1, bottom - height)
-        return CGRect(x: x, y: top, width: width, height: max(2 * Self.radius, bottom - top))
+        let room = foot.minY - Self.gap - 1
+        if room >= foot.height {
+            let cardHeight = min(height, room)
+            return CGRect(x: x, y: foot.minY - Self.gap - cardHeight, width: width, height: cardHeight)
+        }
+        let bottom = min(1 + foot.height, foot.minY + foot.height * 0.45)
+        return CGRect(x: x, y: 1, width: width, height: max(2 * Self.radius, bottom - 1))
     }
 
     private func present(on key: KeyView, foot: CGRect, card: CGRect, cells: [CGRect], items: [Item],
@@ -1518,13 +1701,21 @@ private final class KeyPopupView: UIView {
             label.minimumScaleFactor = 0.5
             addSubview(label)
             labels.append(label)
+            let image = UIImageView()
+            image.contentMode = .center
+            addSubview(image)
+            images.append(image)
         }
         for (index, label) in labels.enumerated() {
-            label.isHidden = index >= items.count
+            let image = images[index]
+            label.isHidden = index >= items.count || items[index].image != nil
+            image.isHidden = index >= items.count || items[index].image == nil
             guard index < items.count else { continue }
             label.text = items[index].label
             label.font = AppFont.font(ofSize: fontSize)
             label.frame = cells[index]
+            image.image = items[index].image
+            image.frame = cells[index]
         }
         isHidden = false
     }
@@ -1540,6 +1731,7 @@ private final class KeyPopupView: UIView {
         CATransaction.commit()
         for (i, label) in labels.enumerated() where i < items.count {
             label.textColor = i == index ? .white : textColor
+            images[i].tintColor = label.textColor
         }
         if feedback, changed, index != nil { UISelectionFeedbackGenerator().selectionChanged() }
     }
@@ -1734,7 +1926,7 @@ private final class DictationOrbView: UIControl {
             layer.addSublayer(ring.ring)
         }
 
-        icon.image = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold))
+        icon.image = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold))
         icon.tintColor = .white
         icon.contentMode = .center
         icon.isUserInteractionEnabled = false
@@ -1755,7 +1947,8 @@ private final class DictationOrbView: UIControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let diameter = min(bounds.height - 64, 112)
+        // Small, so that it visibly grows with the voice without reaching the ring.
+        let diameter = min((bounds.height - 30) * 0.5, 64)
         let center = CGPoint(x: bounds.midX, y: (bounds.height - 30) / 2 + 4)
         let orbFrame = CGRect(x: center.x - diameter / 2, y: center.y - diameter / 2, width: diameter, height: diameter)
         CATransaction.begin()
@@ -1764,7 +1957,7 @@ private final class DictationOrbView: UIControl {
         pulse.position = center
         gradient.frame = pulse.bounds
         gradientMask.path = UIBezierPath(ovalIn: pulse.bounds).cgPath
-        let ringPath = UIBezierPath(arcCenter: center, radius: diameter / 2 + 8,
+        let ringPath = UIBezierPath(arcCenter: center, radius: diameter / 2 * (1 + Self.voiceGrowth) + 6,
                                     startAngle: -.pi / 2, endAngle: 1.5 * .pi, clockwise: true).cgPath
         liveRing.path = ringPath
         processingRing.path = ringPath
@@ -1841,6 +2034,8 @@ private final class DictationOrbView: UIControl {
     }
 
     var animates = true
+    /// How much larger than at rest the orb gets at full voice.
+    private static let voiceGrowth: CGFloat = 0.4
     private static let listeningCaption = "در حال گوش دادن… برای پایان بزنید"
     private var displayLink: CADisplayLink?
     /// Loudness from the app (0 silence to 1 loud), and the smoothed value the orb shows.
@@ -1886,7 +2081,7 @@ private final class DictationOrbView: UIControl {
         let now = CACurrentMediaTime()
         voice += (voiceTarget - voice) * (voiceTarget > voice ? 0.4 : 0.08)
         let breath = CGFloat(0.04 * sin(2 * .pi * (now - motionStart) / 2.4))
-        let scale = 1 + breath * (1 - voice) + 0.16 * voice
+        let scale = 1 + breath * (1 - voice) + Self.voiceGrowth * voice
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         pulse.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
@@ -1905,22 +2100,37 @@ private final class DictationOrbView: UIControl {
 
 /// Images for keys that no SF Symbol fits, drawn as templates so they take the key colour.
 private enum KeyIcons {
-    /// ZWNJ, as on Gboard: a dotted bar between two small circles.
-    static let zwnj: UIImage = UIGraphicsImageRenderer(size: CGSize(width: 30, height: 22)).image { _ in
+    /// ZWNJ, as on the iOS Persian keyboard: a dotted bar under a small triangle.
+    static let zwnj: UIImage = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 26)).image { _ in
+        UIColor.black.setFill()
+        let triangle = UIBezierPath()
+        triangle.move(to: CGPoint(x: 3.5, y: 1.5))
+        triangle.addLine(to: CGPoint(x: 12.5, y: 1.5))
+        triangle.addLine(to: CGPoint(x: 8, y: 7))
+        triangle.close()
+        triangle.fill()
         UIColor.black.setStroke()
         let bar = UIBezierPath()
-        bar.move(to: CGPoint(x: 15, y: 2.5))
-        bar.addLine(to: CGPoint(x: 15, y: 19.5))
-        bar.lineWidth = 1.7
+        bar.move(to: CGPoint(x: 8, y: 10.5))
+        bar.addLine(to: CGPoint(x: 8, y: 24.5))
+        bar.lineWidth = 1.9
         bar.lineCapStyle = .round
-        bar.setLineDash([0.1, 3.3], count: 2, phase: 0)
+        bar.setLineDash([0.1, 3.4], count: 2, phase: 0)
         bar.stroke()
-        for x in [7.0, 23.0] {
-            let circle = UIBezierPath(ovalIn: CGRect(x: x - 2.8, y: 11 - 2.8, width: 5.6, height: 5.6))
-            circle.lineWidth = 1.5
-            circle.stroke()
-        }
     }.withRenderingMode(.alwaysTemplate)
+
+    /// Return, drawn as in a left-to-right layout: the symbol image itself would be mirrored
+    /// in this right-to-left keyboard.
+    static let returnKey: UIImage = {
+        let leftToRight = UITraitCollection(layoutDirection: .leftToRight)
+        guard let symbol = UIImage(systemName: "return", compatibleWith: leftToRight)?
+            .applyingSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: 19)) else {
+            return UIImage()
+        }
+        return UIGraphicsImageRenderer(size: symbol.size).image { _ in
+            symbol.withTintColor(.black).draw(at: .zero)
+        }.withRenderingMode(.alwaysTemplate)
+    }()
 
     /// The space bar: a globe between arrows, for swiping between Persian and English.
     static let space: UIImage = {
@@ -1984,7 +2194,7 @@ private final class SuggestionBar: UIView {
         super.init(frame: frame)
         for index in 0..<3 {
             let slot = UIButton(type: .custom)
-            slot.titleLabel?.font = AppFont.font(ofSize: 16)
+            slot.titleLabel?.font = AppFont.font(ofSize: 19)
             slot.titleLabel?.adjustsFontSizeToFitWidth = true
             slot.titleLabel?.minimumScaleFactor = 0.6
             slot.titleLabel?.lineBreakMode = .byClipping

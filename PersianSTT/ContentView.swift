@@ -200,7 +200,19 @@ struct ContentView: View {
             } header: {
                 Text("ردیف پیشنهاد").font(.app(.footnote))
             } footer: {
-                Text("بعد از هر فاصله، کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند؛ از روی ویکی‌پدیای فارسی و کلمه‌هایی که خودتان پشت سر هم می‌نویسید. برای کلمه‌ای که در فهرست نیست، نزدیک‌ترین کلمه‌ی درست هم پیشنهاد می‌شود و چیزی خودکار عوض نمی‌شود.").font(.app(.footnote))
+                Text("در فارسی و انگلیسی، بعد از هر فاصله کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند؛ از روی ویکی‌پدیا و کلمه‌هایی که خودتان پشت سر هم می‌نویسید. برای کلمه‌ای که در فهرست نیست، نزدیک‌ترین کلمه‌ی درست هم پیشنهاد می‌شود و چیزی خودکار عوض نمی‌شود.").font(.app(.footnote))
+            }
+            Section {
+                Toggle(isOn: $options.keyPreview) {
+                    SettingLabel("بزرگ‌نمایی حرف هنگام تایپ", symbol: "character.magnify", color: .purple)
+                }
+                Toggle(isOn: $options.doubleSpacePunctuation) {
+                    SettingLabel("دو فاصله: نقطه، سه فاصله: ویرگول", symbol: "space", color: .orange)
+                }
+            } header: {
+                Text("کلیدها").font(.app(.footnote))
+            } footer: {
+                Text("دو بار زدن پشت سر هم فاصله بعد از یک کلمه «. » تایپ می‌کند و بار سوم آن را «، » می‌کند (در انگلیسی «, »). نیم‌فاصله و تنوین‌ها با نگه داشتن فاصله در کیبورد فارسی باز می‌شوند.").font(.app(.footnote))
             }
         }
     }
@@ -209,9 +221,12 @@ struct ContentView: View {
         page("ظاهر دکمه‌ها") {
             Section {
                 KeyPreview(style: style)
-                    .listRowBackground(Color(.systemGray5))
+                    .listRowBackground(style.backgroundColor.map { Color($0) } ?? Color(.systemGray5))
+                ColorPicker(selection: backgroundColorBinding, supportsOpacity: false) {
+                    SettingLabel("رنگ پس‌زمینه‌ی کیبورد", symbol: "keyboard.fill", color: .brown)
+                }
                 ColorPicker(selection: colorBinding(\.fill), supportsOpacity: false) {
-                    SettingLabel("رنگ پس‌زمینه", symbol: "square.fill", color: .pink)
+                    SettingLabel("رنگ دکمه", symbol: "square.fill", color: .pink)
                 }
                 opacitySlider(\.fill)
                 ColorPicker(selection: colorBinding(\.stroke), supportsOpacity: false) {
@@ -431,6 +446,17 @@ struct ContentView: View {
             var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
             UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
             style.text = KeyStyle.RGBA(r: Double(r), g: Double(g), b: Double(b), a: 1)
+        }
+    }
+
+    /// The keyboard keeps the system background until a colour is picked.
+    private var backgroundColorBinding: Binding<Color> {
+        Binding {
+            style.background.map { Color(red: $0.r, green: $0.g, blue: $0.b) } ?? Color(.systemGray5)
+        } set: { color in
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+            style.background = KeyStyle.RGBA(r: Double(r), g: Double(g), b: Double(b), a: 1)
         }
     }
 

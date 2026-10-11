@@ -1,12 +1,98 @@
 import Foundation
 
-/// Persian words for the suggestion bar, glide typing and spoken punctuation: the bundled list
-/// (fa_words.txt, from wordfreq, most frequent first with Zipf frequencies), the words that most
-/// often follow each of them in Persian Wikipedia (fa_bigrams.bin, from scripts/make_bigrams.py),
-/// and the words and word pairs the user types, which are counted so that the user's own words
-/// and phrases come first and new ones are learned.
+/// Words of one language for the suggestion bar, glide typing and spoken punctuation: the
+/// bundled list (fa_words.txt or en_words.txt, from wordfreq, most frequent first with Zipf
+/// frequencies), the words that most often follow each of them in Wikipedia (fa_bigrams.bin
+/// from scripts/make_bigrams.py, en_bigrams.bin from scripts/make_english_lists.py), and the
+/// words and word pairs the user types, which are counted so that the user's own words and
+/// phrases come first and new ones are learned.
 final class Lexicon {
-    static let shared = Lexicon()
+    /// Persian, which spoken punctuation also uses.
+    static let shared = Lexicon(.persian)
+    static let english = Lexicon(.english)
+
+    enum Language: Sendable {
+        case persian, english
+
+        fileprivate var wordsFile: String { self == .persian ? "fa_words.txt" : "en_words.txt" }
+        fileprivate var bigramsFile: String { self == .persian ? "fa_bigrams.bin" : "en_bigrams.bin" }
+        /// Learned words are kept per language; Persian keeps the names from before English.
+        fileprivate var defaultsSuffix: String { self == .persian ? "" : ".en" }
+
+        /// What typed text is compared by. Persian: no ZWNJ, Arabic yeh and kaf as Persian
+        /// (میشود for می‌شود). English: lowercase, with a straight apostrophe.
+        func key(_ word: String) -> String {
+            switch self {
+            case .persian:
+                return String(word.unicodeScalars.compactMap { scalar -> Character? in
+                    switch scalar {
+                    case "\u{200C}": return nil
+                    case "ي": return "ی"
+                    case "ك": return "ک"
+                    default: return Character(scalar)
+                    }
+                })
+            case .english:
+                return word.lowercased().replacingOccurrences(of: "’", with: "'")
+            }
+        }
+
+        /// Whether `scalar` can be part of a word: Persian letters and ZWNJ, or Latin letters
+        /// and apostrophes.
+        func isWordScalar(_ scalar: Unicode.Scalar) -> Bool {
+            switch self {
+            case .persian: return Lexicon.letters.contains(scalar)
+            case .english: return ("a"..."z").contains(scalar) || ("A"..."Z").contains(scalar) || scalar == "'" || scalar == "’"
+            }
+        }
+
+        /// Index of a letter in the substitution table; 255 for anything else. Persian letters
+        /// sit at U+0620...U+06FF; English has a to z and the apostrophe.
+        func letterIndex(_ code: UInt16) -> UInt8 {
+            switch self {
+            case .persian:
+                return code >= 0x0620 && code < 0x071F ? UInt8(code - 0x0620) : 255
+            case .english:
+                if code >= 0x61 && code <= 0x7A { return UInt8(code - 0x61) }
+                return code == 0x27 ? Self.apostrophe : 255
+            }
+        }
+
+        fileprivate static let apostrophe: UInt8 = 26
+
+        fileprivate func indices(_ key: String) -> [UInt8] {
+            key.utf16.map(letterIndex)
+        }
+
+        /// Letters that are spelled for one another because they sound alike, or are typed
+        /// from the same key.
+        fileprivate var soundAlike: [String] {
+            self == .persian ? ["سصث", "زذضظ", "تط", "هحة", "قغ", "اعآأ", "یئ", "وؤ"] : []
+        }
+
+        /// The letter keys a glide over a word with `key` passes, in order; a doubled letter is
+        /// one key. Persian: letters held on another key map to it (آ on ا, ژ on ز), hamza
+        /// alone has no key. English: apostrophes have none.
+        func pathLetters(_ key: String) -> [Character] {
+            var result: [Character] = []
+            for scalar in key.unicodeScalars {
+                let letter: Character
+                switch (self, scalar) {
+                case (.persian, "آ"), (.persian, "أ"), (.persian, "إ"): letter = "ا"
+                case (.persian, "ئ"): letter = "ی"
+                case (.persian, "ژ"): letter = "ز"
+                case (.persian, "ؤ"): letter = "و"
+                case (.persian, "ة"): letter = "ه"
+                case (.persian, "ء"), (.persian, "\u{200C}"), (.english, "'"): continue
+                default: letter = Character(scalar)
+                }
+                if result.last != letter { result.append(letter) }
+            }
+            return result
+        }
+    }
+
+    let language: Language
 
     struct Entry {
         /// As written, with ZWNJ where it belongs (می‌شود).
@@ -15,10 +101,10 @@ final class Lexicon {
         let key: String
         /// log10 of uses per billion words.
         let zipf: Double
-        /// Line in fa_words.txt, by which fa_bigrams.bin refers to words.
+        /// Line in the word list, by which the next-word list refers to words.
         let rank: Int
-        /// `key` as UTF-16 code units, for the typo search.
-        let codes: [UInt16]
+        /// `key` as letter indices (`Language.letterIndex`), for the typo search.
+        let codes: [UInt8]
     }
 
     /// What comes before the word being typed.
@@ -46,11 +132,11 @@ final class Lexicon {
     private var starters: [(rank: Int, cost: UInt8)] = []
     /// How often the user typed each word (keyed by `key`), with the spelling they used.
     private var userWords: [String: (word: String, count: Int)] = [:]
-    private static let userWordsKey = "userWords"
+    private var userWordsKey: String { "userWords" + language.defaultsSuffix }
     /// How often the user typed a word right after another: previous key, then word key, then
     /// count. The previous key of a word at the start of a sentence is "^".
     private var userPairs: [String: [String: Int]] = [:]
-    private static let userPairsKey = "userPairs"
+    private var userPairsKey: String { "userPairs" + language.defaultsSuffix }
     private static let sentenceStartKey = "^"
     /// A user pair counts like this many Wikipedia ones in `nextProbability`.
     private static let userPairWeight = 5.0
@@ -59,11 +145,12 @@ final class Lexicon {
     /// Substitution costs between letters, in half edits, by `letterIndex`.
     private var substitution = [UInt8](repeating: 2, count: 256 * 256)
 
-    private init() {
-        if let saved = UserDefaults.standard.dictionary(forKey: Self.userWordsKey) as? [String: Int] {
-            for (word, count) in saved { userWords[Self.key(word)] = (word, count) }
+    private init(_ language: Language) {
+        self.language = language
+        if let saved = UserDefaults.standard.dictionary(forKey: userWordsKey) as? [String: Int] {
+            for (word, count) in saved { userWords[language.key(word)] = (word, count) }
         }
-        userPairs = UserDefaults.standard.dictionary(forKey: Self.userPairsKey) as? [String: [String: Int]] ?? [:]
+        userPairs = UserDefaults.standard.dictionary(forKey: userPairsKey) as? [String: [String: Int]] ?? [:]
         setNeighbours([])
     }
 
@@ -71,24 +158,25 @@ final class Lexicon {
 
     /// Reads the word lists off the main thread; suggestions start once they are there.
     func load(completion: @escaping () -> Void = {}) {
-        guard let url = Self.resource("fa_words.txt") else { return }
-        load(words: url, bigrams: Self.resource("fa_bigrams.bin"), completion: completion)
+        guard let url = Self.resource(language.wordsFile) else { return }
+        load(words: url, bigrams: Self.resource(language.bigramsFile), completion: completion)
     }
 
     func load(words url: URL, bigrams bigramsURL: URL?, completion: @escaping () -> Void = {}) {
         guard !isLoaded, !isLoading else { return }
         isLoading = true
+        let language = language
         DispatchQueue.global(qos: .userInitiated).async {
             var list: [Entry] = []
             if let text = try? String(contentsOf: url, encoding: .utf8) {
-                list.reserveCapacity(28_000)
+                list.reserveCapacity(30_000)
                 for line in text.split(separator: "\n") {
                     let parts = line.split(separator: "\t")
                     guard parts.count == 2, let zipf = Double(parts[1]) else { continue }
-                    list.append(Self.entry(String(parts[0]), zipf: zipf, rank: list.count))
+                    list.append(Self.entry(String(parts[0]), zipf: zipf, rank: list.count, language: language))
                 }
-                // The list leaves out one-letter words; fa_bigrams.bin has و after the last line.
-                list.append(Self.entry("و", zipf: 7.6, rank: list.count))
+                // The Persian list leaves out one-letter words; fa_bigrams.bin has و after the last line.
+                if language == .persian { list.append(Self.entry("و", zipf: 7.6, rank: list.count, language: language)) }
             }
             let count = list.count
             list.sort { $0.key < $1.key }
@@ -98,7 +186,7 @@ final class Lexicon {
             for (i, entry) in list.enumerated() {
                 index[entry.key] = i
                 byRank[entry.rank] = i
-                if let first = Self.pathLetters(entry.key).first { byFirst[first, default: []].append(i) }
+                if let first = language.pathLetters(entry.key).first { byFirst[first, default: []].append(i) }
             }
             let bigrams = bigramsURL.flatMap { try? Data(contentsOf: $0) }.flatMap { Self.readBigrams($0, words: count) }
             DispatchQueue.main.async {
@@ -123,9 +211,9 @@ final class Lexicon {
             ?? Bundle.main.builtInPlugInsURL?.appendingPathComponent("PersianSTTKeyboard.appex/\(name)")
     }
 
-    private static func entry(_ word: String, zipf: Double, rank: Int) -> Entry {
-        let key = Self.key(word)
-        return Entry(word: word, key: key, zipf: zipf, rank: rank, codes: Array(key.utf16))
+    private static func entry(_ word: String, zipf: Double, rank: Int, language: Language) -> Entry {
+        let key = language.key(word)
+        return Entry(word: word, key: key, zipf: zipf, rank: rank, codes: language.indices(key))
     }
 
     /// Parses fa_bigrams.bin (format in scripts/make_bigrams.py). Nil if it does not belong to
@@ -177,36 +265,22 @@ final class Lexicon {
         !text.isEmpty && text.unicodeScalars.allSatisfy { letters.contains($0) }
     }
 
+    /// The Persian `Language.key`.
     static func key(_ word: String) -> String {
-        String(word.unicodeScalars.compactMap { scalar -> Character? in
-            switch scalar {
-            case "\u{200C}": return nil
-            case "ي": return "ی"
-            case "ك": return "ک"
-            default: return Character(scalar)
-            }
-        })
+        Language.persian.key(word)
     }
 
-    /// The letter keys a glide over `word` passes, in order: letters of the symbols layer map to
-    /// the key they are drawn from (آ on ا), hamza alone has no key, and a doubled letter is one key.
     static func pathLetters(_ key: String) -> [Character] {
-        var result: [Character] = []
-        for scalar in key.unicodeScalars {
-            let letter: Character
-            switch scalar {
-            case "آ", "أ", "إ": letter = "ا"
-            case "ئ": letter = "ی"
-            // ژ is held on the ز key.
-            case "ژ": letter = "ز"
-            case "ؤ": letter = "و"
-            case "ة": letter = "ه"
-            case "ء", "\u{200C}": continue
-            default: letter = Character(scalar)
-            }
-            if result.last != letter { result.append(letter) }
-        }
-        return result
+        Language.persian.pathLetters(key)
+    }
+
+    /// Whether `text` is made only of this language's word characters.
+    func isWord(_ text: Substring) -> Bool {
+        !text.isEmpty && text.unicodeScalars.allSatisfy(language.isWordScalar)
+    }
+
+    func wordKey(_ word: String) -> String {
+        language.key(word)
     }
 
     // MARK: - Ranking
@@ -271,7 +345,7 @@ final class Lexicon {
     }
 
     func isKnown(_ word: String) -> Bool {
-        let key = Self.key(word)
+        let key = language.key(word)
         return index[key] != nil || (userWords[key]?.count ?? 0) >= 2
     }
 
@@ -282,7 +356,7 @@ final class Lexicon {
 
     /// Up to `limit` words that start with `prefix` (ZWNJ ignored), best first; an exact match counts.
     func completions(for prefix: String, context: Context = .none, limit: Int) -> [String] {
-        Array(scoredCompletions(for: Self.key(prefix), context: context).prefix(limit).map(\.word))
+        Array(scoredCompletions(for: language.key(prefix), context: context).prefix(limit).map(\.word))
     }
 
     private func scoredCompletions(for key: String, context: Context) -> [(word: String, score: Double)] {
@@ -332,7 +406,7 @@ final class Lexicon {
     /// Wikipedia's P(`next` | `word`) divided by how common `next` is: far above 1 for words
     /// that go together, as in «نقطه نظر». Spoken punctuation uses it to tell a command from a word.
     func association(_ word: String, _ next: String) -> Double {
-        guard let a = index[Self.key(word)].map({ entries[$0] }), let b = index[Self.key(next)].map({ entries[$0] }) else {
+        guard let a = index[language.key(word)].map({ entries[$0] }), let b = index[language.key(next)].map({ entries[$0] }) else {
             return 0
         }
         let conditional = bundledProbability(of: b.rank, after: a.rank)
@@ -342,15 +416,6 @@ final class Lexicon {
 
     // MARK: - Typos
 
-    /// Persian letters sit at U+0620...U+06FF; everything else shares the last index.
-    private static func letterIndex(_ code: UInt16) -> Int {
-        code >= 0x0620 && code < 0x071F ? Int(code - 0x0620) : 255
-    }
-
-    /// Letters that are spelled for one another because they sound alike, or are typed from
-    /// the same key on the symbols layer.
-    private static let soundAlike: [String] = ["سصث", "زذضظ", "تط", "هحة", "قغ", "اعآأ", "یئ", "وؤ"]
-
     /// Keys next to each other on the letters layer (from the keyboard's layout); a slip onto one
     /// of them, like a letter that sounds the same, costs half an edit.
     func setNeighbours(_ pairs: [(Character, Character)]) {
@@ -358,12 +423,12 @@ final class Lexicon {
         for i in 0..<256 { table[i * 256 + i] = 0 }
         func cheap(_ a: Character, _ b: Character) {
             guard let x = a.utf16.first, let y = b.utf16.first else { return }
-            let i = Self.letterIndex(x), j = Self.letterIndex(y)
+            let i = Int(language.letterIndex(x)), j = Int(language.letterIndex(y))
             guard i != 255, j != 255, i != j else { return }
             table[i * 256 + j] = 1
             table[j * 256 + i] = 1
         }
-        for group in Self.soundAlike {
+        for group in language.soundAlike {
             let letters = Array(group)
             for a in letters { for b in letters { cheap(a, b) } }
         }
@@ -375,19 +440,13 @@ final class Lexicon {
     /// edits: one edit for words of up to four letters, one and a half up to seven, two beyond
     /// (a neighbouring key or a sound-alike letter, a doubled letter typed or a swapped pair
     /// costs half; another letter, a missing or an extra one costs one). From four letters a
-    /// misspelt beginning of a longer word counts too, at up to one edit.
+    /// misspelt beginning of a longer word counts too, at up to one edit. In English a left-out
+    /// apostrophe costs half (dont for don't), even in words of two letters (im for I'm).
     func corrections(for typed: String, context: Context = .none, limit: Int) -> [(word: String, score: Double)] {
-        let key = Self.key(typed)
-        let a = Array(key.utf16).map(Self.letterIndex)
+        let key = language.key(typed)
+        let a = language.indices(key).map(Int.init)
         let n = a.count
-        guard n >= 3, isLoaded else { return [] }
-        let maxCost = n <= 4 ? 2 : n <= 7 ? 3 : 4
-        let maxPrefixCost = n >= 4 ? 2 : -1
-        let span = maxCost / 2
-        var previous2 = [Int](repeating: 0, count: n + span + 2)
-        var previous = previous2
-        var current = previous2
-        var b = [Int](repeating: 255, count: n + span + 1)
+        guard isLoaded else { return [] }
         var found: [(word: String, score: Double)] = []
 
         func consider(word: String, key: String, zipf: Double?, cost: Int) {
@@ -396,14 +455,30 @@ final class Lexicon {
             found.append((word, score - 0.75 * Double(cost)))
         }
 
-        func distance(_ codes: [UInt16]) -> (full: Int?, prefix: Int?) {
+        let apostrophe = language == .english ? Int(Language.apostrophe) : -1
+        if apostrophe >= 0, n >= 2, n < 3, !key.contains("'") {
+            for offset in 1..<n {
+                let candidate = String(key.prefix(offset)) + "'" + String(key.dropFirst(offset))
+                if let i = index[candidate] { consider(word: entries[i].word, key: candidate, zipf: entries[i].zipf, cost: 1) }
+            }
+        }
+        guard n >= 3 else { return Array(found.sorted { $0.score > $1.score }.prefix(limit)) }
+        let maxCost = n <= 4 ? 2 : n <= 7 ? 3 : 4
+        let maxPrefixCost = n >= 4 ? 2 : -1
+        let span = maxCost / 2
+        var previous2 = [Int](repeating: 0, count: n + span + 2)
+        var previous = previous2
+        var current = previous2
+        var b = [Int](repeating: 255, count: n + span + 1)
+
+        func distance(_ codes: [UInt8]) -> (full: Int?, prefix: Int?) {
             let m = codes.count
             guard m >= n - span else { return (nil, nil) }
             let fullAllowed = m <= n + span
             guard fullAllowed || maxPrefixCost >= 0 else { return (nil, nil) }
             let columns = min(m, n + span)
             guard columns >= 1 else { return (nil, nil) }
-            for j in 0..<columns { b[j] = Self.letterIndex(codes[j]) }
+            for j in 0..<columns { b[j] = Int(codes[j]) }
             // Rows are letters of the typed word, columns letters of the listed one, costs in half edits.
             for j in 0...columns { previous[j] = 2 * j }
             for i in 1...n {
@@ -413,7 +488,7 @@ final class Lexicon {
                 let extra = i >= 2 && a[i - 1] == a[i - 2] ? 1 : 2
                 for j in 1...columns {
                     var cost = previous[j - 1] + Int(substitution[a[i - 1] * 256 + b[j - 1]])
-                    cost = min(cost, previous[j] + extra, current[j - 1] + 2)
+                    cost = min(cost, previous[j] + extra, current[j - 1] + (b[j - 1] == apostrophe ? 1 : 2))
                     if i >= 2, j >= 2, a[i - 1] == b[j - 2], a[i - 2] == b[j - 1], a[i - 1] != a[i - 2] {
                         cost = min(cost, previous2[j - 2] + 1)
                     }
@@ -442,7 +517,7 @@ final class Lexicon {
             }
         }
         for (userKey, user) in userWords where index[userKey] == nil && user.count >= 2 {
-            let (full, _) = distance(Array(userKey.utf16))
+            let (full, _) = distance(language.indices(userKey))
             if let full, full > 0, full <= maxCost {
                 consider(word: user.word, key: userKey, zipf: nil, cost: full)
             }
@@ -453,7 +528,7 @@ final class Lexicon {
 
     /// Completions and corrections of an unknown typed word together, best first.
     func suggestions(forUnknown typed: String, context: Context, correct: Bool, limit: Int) -> [String] {
-        var ranked = scoredCompletions(for: Self.key(typed), context: context)
+        var ranked = scoredCompletions(for: language.key(typed), context: context)
         if correct { ranked += corrections(for: typed, context: context, limit: limit + 2) }
         ranked.sort { $0.score > $1.score }
         var words: [String] = []
@@ -473,14 +548,14 @@ final class Lexicon {
         for first in firstLetters {
             for i in byFirstLetter[first] ?? [] {
                 let entry = entries[i]
-                let letters = Self.pathLetters(entry.key)
+                let letters = language.pathLetters(entry.key)
                 guard letters.count <= maxLetters, let last = letters.last, lastLetters.contains(last),
                       let score = score(key: entry.key, zipf: entry.zipf) else { continue }
                 result.append((entry.word, letters, score))
             }
         }
         for (key, user) in userWords where index[key] == nil {
-            let letters = Self.pathLetters(key)
+            let letters = language.pathLetters(key)
             guard let first = letters.first, let last = letters.last, firstLetters.contains(first),
                   lastLetters.contains(last), letters.count <= maxLetters,
                   let score = score(key: key, zipf: nil) else { continue }
@@ -495,7 +570,7 @@ final class Lexicon {
     /// a new word suggestible at once.
     func learn(_ word: String, after context: Context = .none, confirmed: Bool = false) {
         guard word.unicodeScalars.filter({ $0 != "\u{200C}" }).count >= 2 else { return }
-        let key = Self.key(word)
+        let key = language.key(word)
         var count = (userWords[key]?.count ?? 0) + 1
         if confirmed { count = max(count, 2) }
         // The list's own spelling is kept for listed words; new words keep the user's.
@@ -520,8 +595,8 @@ final class Lexicon {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in
             saveScheduled = false
             UserDefaults.standard.set(Dictionary(uniqueKeysWithValues: userWords.values.map { ($0.word, $0.count) }),
-                                      forKey: Self.userWordsKey)
-            UserDefaults.standard.set(userPairs, forKey: Self.userPairsKey)
+                                      forKey: userWordsKey)
+            UserDefaults.standard.set(userPairs, forKey: userPairsKey)
         }
     }
 }

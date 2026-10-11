@@ -36,6 +36,8 @@
 		A10000000000000000000036 /* VoiceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* VoiceCommands.swift */; };
 		A10000000000000000000037 /* VoiceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* VoiceCommands.swift */; };
 		A10000000000000000000038 /* fa_bigrams.bin in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* fa_bigrams.bin */; };
+		A10000000000000000000039 /* en_words.txt in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000036 /* en_words.txt */; };
+		A1000000000000000000003A /* en_bigrams.bin in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000037 /* en_bigrams.bin */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -99,6 +101,8 @@
 		A20000000000000000000033 /* ModelImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImporter.swift; sourceTree = "<group>"; };
 		A20000000000000000000034 /* VoiceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommands.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* fa_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = fa_bigrams.bin; sourceTree = "<group>"; };
+		A20000000000000000000036 /* en_words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = en_words.txt; sourceTree = "<group>"; };
+		A20000000000000000000037 /* en_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = en_bigrams.bin; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -178,6 +182,8 @@
 				A20000000000000000000032 /* fa_words.txt */,
 				A20000000000000000000034 /* VoiceCommands.swift */,
 				A20000000000000000000035 /* fa_bigrams.bin */,
+				A20000000000000000000036 /* en_words.txt */,
+				A20000000000000000000037 /* en_bigrams.bin */,
 				A2000000000000000000000F /* Info.plist */,
 			);
 			path = PersianSTTKeyboard;
@@ -284,6 +290,8 @@
 			files = (
 				A10000000000000000000034 /* fa_words.txt in Resources */,
 				A10000000000000000000038 /* fa_bigrams.bin in Resources */,
+				A10000000000000000000039 /* en_words.txt in Resources */,
+				A1000000000000000000003A /* en_bigrams.bin in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

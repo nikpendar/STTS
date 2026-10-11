@@ -10,6 +10,8 @@ on:
       - PersianSTTKeyboard/VoiceCommands.swift
       - PersianSTTKeyboard/fa_words.txt
       - PersianSTTKeyboard/fa_bigrams.bin
+      - PersianSTTKeyboard/en_words.txt
+      - PersianSTTKeyboard/en_bigrams.bin
       - Tests/KeyboardLogic/**
       - .github/workflows/logic-test.yml
 

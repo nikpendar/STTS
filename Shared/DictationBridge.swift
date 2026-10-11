@@ -334,12 +334,15 @@ struct KeyStyle: SharedSetting, Equatable {
     var stroke: RGBA
     /// Letter and symbol colour, always opaque; nil follows the system (black in light mode, white in dark).
     var text: RGBA?
+    /// The whole keyboard's background, always opaque; nil leaves the system's own.
+    var background: RGBA?
 
     var textColor: UIColor { text.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) } ?? .label }
+    var backgroundColor: UIColor? { background.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) } }
 
     static let standard = KeyStyle(fill: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.18),
                                    stroke: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.45),
-                                   text: nil)
+                                   text: nil, background: nil)
     static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyStyle")
     static let defaultsKey = "keyStyle"
 }
@@ -354,6 +357,10 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var voicePunctuation = true
     /// «پاک کن», «همه رو پاک کن» and «برگردون», said on their own, edit the text.
     var voiceCommands = true
+    /// Each pressed key shows its letter enlarged above it.
+    var keyPreview = true
+    /// Two spaces in a row type a full stop, three a comma.
+    var doubleSpacePunctuation = true
 
     static let standard = KeyboardOptions()
     static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardOptions")
@@ -368,5 +375,7 @@ struct KeyboardOptions: SharedSetting, Equatable {
         correctTypos = try container.decodeIfPresent(Bool.self, forKey: .correctTypos) ?? true
         voicePunctuation = try container.decodeIfPresent(Bool.self, forKey: .voicePunctuation) ?? true
         voiceCommands = try container.decodeIfPresent(Bool.self, forKey: .voiceCommands) ?? true
+        keyPreview = try container.decodeIfPresent(Bool.self, forKey: .keyPreview) ?? true
+        doubleSpacePunctuation = try container.decodeIfPresent(Bool.self, forKey: .doubleSpacePunctuation) ?? true
     }
 }
