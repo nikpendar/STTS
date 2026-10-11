@@ -999,18 +999,18 @@ final class KeyboardViewController: UIInputViewController {
 
         // Bottom row, left to right, in elevenths of the width in both languages: 123, emoji
         // (and settings) two, space four, return two, mic two.
-        let cell = width / 11
+        let eleventh = width / 11
         let y = top + 3 * row
         var x = left
         func place(_ view: UIView, _ keyWidth: CGFloat) {
             view.frame = CGRect(x: x, y: y, width: keyWidth, height: row)
             x += keyWidth
         }
-        place(layerKey, cell)
-        place(emojiKey, 2 * cell)
-        place(spaceKey, 4 * cell)
-        place(returnKey, 2 * cell)
-        place(micButton, 2 * cell)
+        place(layerKey, eleventh)
+        place(emojiKey, 2 * eleventh)
+        place(spaceKey, 4 * eleventh)
+        place(returnKey, 2 * eleventh)
+        place(micButton, 2 * eleventh)
         if !keyMenu.isHidden { placeMenu() }
     }
 
