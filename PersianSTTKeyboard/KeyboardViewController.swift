@@ -24,8 +24,10 @@ final class KeyboardViewController: UIInputViewController {
     private var rowHeight: CGFloat { isLandscape ? 27 : 32 }
     /// The suggestion bar above the keys, which has the height the rows gave up.
     private var barHeight: CGFloat { isLandscape ? 38 : 46 }
-    private var fullHeight: CGFloat { barHeight + 4 * rowHeight + 2 }
-    private var compactHeight: CGFloat { isLandscape ? 120 : 150 }
+    /// No margin under the bottom row: the keys sit as low as the extension can draw.
+    private var fullHeight: CGFloat { barHeight + 4 * rowHeight }
+    /// While dictating the keyboard keeps its height, which leaves room for a large orb.
+    private var compactHeight: CGFloat { fullHeight }
     private var isLandscape: Bool { UIScreen.main.bounds.width > UIScreen.main.bounds.height }
     private var messageTimer: Timer?
     private var recordingStart = Date()
@@ -48,8 +50,8 @@ final class KeyboardViewController: UIInputViewController {
     private var options = KeyboardOptions.standard
     /// Key width the typo search's neighbouring keys were taken at, for English and for Persian.
     private var neighboursWidths: [Bool: CGFloat] = [:]
-    /// The last space typed, for two spaces typing a full stop and three a comma: 1 after a
-    /// plain space, 2 after the full stop.
+    /// The last space typed, for two spaces typing a full stop and three a comma: 0 after the
+    /// space a picked suggestion adds, 1 after a plain space, 2 after the full stop.
     private var lastSpace: (time: CFTimeInterval, step: Int)?
     private var editsTimer: Timer?
     /// Seconds without typing after which edits are reported even if the keyboard stays open.
@@ -437,16 +439,20 @@ final class KeyboardViewController: UIInputViewController {
     private func insert(_ text: String, dictated: Bool = false) {
         guard !text.isEmpty else { return }
         lastSpace = nil
+        manualShift = false
         if edits.isTracking { report(edits.willEdit(dictated ? .dictate(text) : .type(text), in: documentContext)) }
+        // The proxy's text can lag behind an insertion, so shift goes by the text as it will be.
+        let after = (proxy.documentContextBeforeInput ?? "") + text
         proxy.insertText(text)
         if !dictated {
             updateSuggestions()
-            updateAutoShift()
+            updateAutoShift(before: after)
         }
     }
 
     private func deleteBackward() {
         lastSpace = nil
+        manualShift = false
         if edits.isTracking { report(edits.willEdit(.deleteBackward, in: documentContext)) }
         proxy.deleteBackward()
         if state != .recording && state != .transcribing {
@@ -565,19 +571,30 @@ final class KeyboardViewController: UIInputViewController {
         "ک": ["ک", "ك"],
         "ز": ["ز", "ژ"],
         "و": ["و", "ؤ"],
+        "ه": ["ه", "ة"],
     ]
-    /// On a long press of the Persian space bar: ZWNJ, then the tanvins, shown on a tatweel so
-    /// each mark has a base.
+    /// Keys whose forms open to the right of the key instead of the left, where they are
+    /// easier to reach with the thumb.
+    private static let formsToTheRight: Set<String> = ["ز", "ی"]
+    /// On a long press of the Persian space bar: ZWNJ.
     private static let spaceForms: [KeyPopupView.Item] =
         [KeyPopupView.Item(text: "\u{200C}", label: "", image: KeyIcons.zwnj)]
-        + ["\u{064B}", "\u{064C}", "\u{064D}"].map { KeyPopupView.Item(text: $0, label: "ـ" + $0) }
-    /// Brackets and guillemets of the Persian symbols layer type their mirror image: right-to-left
-    /// text draws each of them mirrored, so what appears then looks like the key.
-    private static let mirrored: [String: String] = ["(": ")", ")": "(", "«": "»", "»": "«"]
+    /// Brackets of the Persian symbol layers type their mirror image: right-to-left text draws
+    /// each of them mirrored, so what appears then looks like the key.
+    private static let mirrored: [String: String] = [
+        "(": ")", ")": "(", "«": "»", "»": "«", "[": "]", "]": "[", "{": "}", "}": "{", "<": ">", ">": "<",
+    ]
+    /// The Persian numbers and symbols, laid out as the English ones (and iOS): ten digits, ten
+    /// symbols, then punctuation between #+= and backspace; #+= opens `persianMoreRows`.
     private static let symbolRows: [[String]] = [
-        ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰", "٪"],
-        ["-", "/", ":", "؛", "(", ")", "«", "»", "@", "﷼", "\""],
-        ["آ", "ئ", "ء", "أ", "ؤ", "ة", ".", "،", "؟", "!"],
+        ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"],
+        ["-", "/", ":", "؛", "(", ")", "﷼", "&", "@", "\""],
+        [".", "،", "؟", "!", "«", "»"],
+    ]
+    private static let persianMoreRows: [[String]] = [
+        ["[", "]", "{", "}", "#", "٪", "^", "*", "+", "="],
+        ["_", "\\", "|", "~", "<", ">", "$", "€", "£", "•"],
+        [".", "،", "؟", "!", "«", "»"],
     ]
     private static let englishRows: [[String]] = [
         ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
@@ -594,7 +611,13 @@ final class KeyboardViewController: UIInputViewController {
         ["_", "\\", "|", "~", "<", ">", "€", "£", "¥", "•"],
         [".", ",", "?", "!", "'"],
     ]
-    private var columns: Int { isEnglish ? 10 : 11 }
+    private var columns: Int { isEnglish || hasSideKeys ? 10 : 11 }
+    /// Layers laid out like iOS's English ones: a centred middle row, and a third row between
+    /// shift (or #+=) and backspace of one and a half cells each. Persian letters fill all
+    /// eleven cells instead.
+    private var hasSideKeys: Bool {
+        layer == .symbols || layer == .moreSymbols || (isEnglish && layer == .letters)
+    }
 
     private var layer = Layer.letters
     /// English QWERTY instead of Persian; switched by swiping left or right on the space bar.
@@ -607,6 +630,8 @@ final class KeyboardViewController: UIInputViewController {
     /// Capitals until shift is tapped again; a double tap on shift turns it on.
     private var isCapsLock = false
     private var lastShiftTap: CFTimeInterval = 0
+    /// Shift was tapped since the last key, so text changes reported later do not undo it.
+    private var manualShift = false
     private static let languageSwitchesKey = "languageSwitches"
     /// Swipes on the space bar so far: its globe goes once the user knows the gesture.
     private var languageSwitches = UserDefaults.standard.integer(forKey: KeyboardViewController.languageSwitchesKey) {
@@ -755,7 +780,6 @@ final class KeyboardViewController: UIInputViewController {
         keysView.addSubview(suggestionBar)
         buildCharacterKeys()
 
-        glideTrail.color = .systemBlue
         keysView.addSubview(glideTrail)
         glidePan.maximumNumberOfTouches = 1
         glidePan.delegate = self
@@ -792,7 +816,7 @@ final class KeyboardViewController: UIInputViewController {
         switch layer {
         case .letters: rows = isEnglish ? Self.englishRows : Self.letterRows
         case .symbols: rows = isEnglish ? Self.englishSymbolRows : Self.symbolRows
-        case .moreSymbols: rows = Self.englishMoreRows
+        case .moreSymbols: rows = isEnglish ? Self.englishMoreRows : Self.persianMoreRows
         case .emoji:
             rows = []
             buildEmojiKeysIfNeeded()
@@ -800,8 +824,8 @@ final class KeyboardViewController: UIInputViewController {
         emojiScroll.isHidden = layer != .emoji
         characterKeys = rows.enumerated().map { rowIndex, row in
             row.enumerated().map { column, character in
-                // English letter keys show capitals, as on iOS.
-                let key = KeyView(title: isEnglish && layer == .letters ? character.uppercased() : character, fontSize: 23)
+                // English letters follow shift (`setShifted`).
+                let key = KeyView(title: character, fontSize: 23)
                 key.character = character
                 key.accessibilityIdentifier = "letter-\(rowIndex)-\(column)"
                 key.addAction(UIAction { [weak self] _ in self?.typeKey(character) }, for: .touchUpInside)
@@ -815,11 +839,12 @@ final class KeyboardViewController: UIInputViewController {
                 return key
             }
         }
-        layerKey.title = isEnglish ? (layer == .letters || layer == .emoji ? "123" : "ABC")
-            : (layer == .symbols ? "الفبا" : "۱۲۳")
+        let onLetters = layer == .letters || layer == .emoji
+        layerKey.title = isEnglish ? (onLetters ? "123" : "ABC") : (onLetters ? "۱۲۳" : "الفبا")
         shiftKey.isHidden = !(isEnglish && layer == .letters)
-        moreKey.isHidden = !(isEnglish && (layer == .symbols || layer == .moreSymbols))
-        moreKey.title = layer == .moreSymbols ? "123" : "#+="
+        moreKey.isHidden = !(layer == .symbols || layer == .moreSymbols)
+        moreKey.title = layer == .moreSymbols ? (isEnglish ? "123" : "۱۲۳") : "#+="
+        backspaceKey.image = isEnglish ? KeyIcons.deleteLeft : KeyIcons.deleteRight
         isCapsLock = false
         setShifted(false)
         updateAutoShift()
@@ -832,25 +857,43 @@ final class KeyboardViewController: UIInputViewController {
 
     private var keyStyle = KeyStyle.standard
 
+    /// Close to the colour iOS draws behind a keyboard, for the glide lens.
+    private static let systemKeyboardBackground = UIColor { traits in
+        traits.userInterfaceStyle == .dark ? UIColor(white: 0.17, alpha: 1) : UIColor(red: 0.82, green: 0.83, blue: 0.86, alpha: 1)
+    }
+
     private func applyKeyStyle(_ style: KeyStyle) {
         keyStyle = style
         view.backgroundColor = style.backgroundColor ?? .clear
+        // iOS draws the strip under the keys (globe and dictation) itself, and it cannot take
+        // the colour; rounded top corners make the coloured keyboard sit well on the screen.
+        view.layer.cornerRadius = style.backgroundColor == nil ? 0 : 16
+        view.layer.cornerCurve = .continuous
+        view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         let functionKeys = [backspaceKey, layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey]
         for key in functionKeys + characterKeys.flatMap({ $0 }) {
             key.apply(style)
         }
         suggestionBar.textColor = style.textColor
+        glideTrail.lensBackground = style.backgroundColor ?? Self.systemKeyboardBackground
         render()
     }
 
+    /// English letter keys and their popups show capitals while shift or caps lock is on.
     private func setShifted(_ shifted: Bool) {
         isShifted = shifted
         shiftKey.symbol = isCapsLock ? "capslock.fill" : shifted ? "shift.fill" : "shift"
+        guard isEnglish, layer == .letters else { return }
+        let capitals = shifted || isCapsLock
+        for key in characterKeys.flatMap({ $0 }) {
+            if let character = key.character { key.title = capitals ? character.uppercased() : character }
+        }
     }
 
     /// A tap switches the next letter to a capital or back; a double tap locks capitals.
     @objc private func toggleShift() {
         let now = CACurrentMediaTime()
+        manualShift = true
         if isCapsLock {
             isCapsLock = false
             setShifted(false)
@@ -864,10 +907,13 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     /// English letters start a sentence with a capital, as on iOS, unless the field asks for
-    /// something else (none in addresses, every word in names).
-    private func updateAutoShift() {
+    /// something else (none in addresses, every word in names). `before` is the text before
+    /// the cursor when the caller knows it better than the proxy; a shift the user set by hand
+    /// stays until the next key.
+    private func updateAutoShift(before known: String? = nil) {
         guard isViewLoaded, isEnglish, layer == .letters, !isCapsLock else { return }
-        let before = proxy.documentContextBeforeInput ?? ""
+        if known == nil, manualShift { return }
+        let before = known ?? proxy.documentContextBeforeInput ?? ""
         let capital: Bool
         switch proxy.autocapitalizationType ?? .sentences {
         case .none: capital = false
@@ -887,7 +933,7 @@ final class KeyboardViewController: UIInputViewController {
     /// What a character key types: English letters as capitals while shift is on, and the
     /// mirror image of Persian brackets and guillemets (`mirrored`).
     private func typeKey(_ character: String) {
-        if !isEnglish, layer == .symbols, let mirror = Self.mirrored[character] {
+        if !isEnglish, layer == .symbols || layer == .moreSymbols, let mirror = Self.mirrored[character] {
             insert(mirror)
         } else if isEnglish, layer == .letters, isShifted || isCapsLock {
             let wasShifted = isShifted && !isCapsLock
@@ -952,15 +998,15 @@ final class KeyboardViewController: UIInputViewController {
         let width = view.bounds.width - insets.left - insets.right
         let bar = barHeight
         suggestionBar.frame = CGRect(x: left, y: 0, width: width, height: bar)
-        let row = (height - bar - 2) / 4
+        let row = (height - bar) / 4
         let unit = width / CGFloat(columns)
         let top = bar
 
         let thirdY = top + 2 * row
-        if isEnglish && layer != .emoji {
+        if hasSideKeys {
             backspaceKey.frame = CGRect(x: left + width - 1.5 * unit, y: thirdY, width: 1.5 * unit, height: row)
         } else {
-            // Persian: the rest of the third row, two cells in letters and one in symbols.
+            // Persian letters: the rest of the third row, two cells (one beside the emoji).
             let thirdRow = characterKeys.count > 2 ? characterKeys[2].count : columns - 1
             let backspaceX = left + CGFloat(thirdRow) * unit
             backspaceKey.frame = CGRect(x: backspaceX, y: thirdY, width: left + width - backspaceX, height: row)
@@ -983,12 +1029,12 @@ final class KeyboardViewController: UIInputViewController {
             let y = top + CGFloat(index) * row
             var x = left
             var keyWidth = unit
-            if isEnglish, index == 2 {
+            if hasSideKeys, index == 2 {
                 // Between shift (or #+=, 123) and backspace.
                 x += 1.5 * unit
                 keyWidth = (width - 3 * unit) / CGFloat(max(keys.count, 1))
-            } else if isEnglish {
-                // The nine letters of the middle row are centred.
+            } else if hasSideKeys {
+                // The nine English letters of the middle row are centred.
                 x += (width - CGFloat(keys.count) * unit) / 2
             }
             for key in keys {
@@ -1038,6 +1084,13 @@ final class KeyboardViewController: UIInputViewController {
     /// it into a comma (، in Persian), when switched on in the app.
     @objc private func insertSpace() {
         let now = CACurrentMediaTime()
+        // A picked word brings its own space, which stands for the first tap: the next two taps
+        // type the full stop and the comma as they would after a typed word.
+        if options.doubleSpacePunctuation, let last = lastSpace, last.step == 0,
+           (proxy.documentContextBeforeInput ?? " ").hasSuffix(" ") {
+            lastSpace = (now, 1)
+            return
+        }
         if options.doubleSpacePunctuation, let last = lastSpace, now - last.time < 1.2 {
             let before = proxy.documentContextBeforeInput ?? ""
             if last.step == 1, before.hasSuffix(" "), let end = before.dropLast().last, end.isLetter || end.isNumber {
@@ -1231,6 +1284,7 @@ final class KeyboardViewController: UIInputViewController {
         for _ in 0..<word.count { deleteBackward() }
         lexicon.learn(item.text, after: context, confirmed: item.literal)
         insert(item.text + " ")
+        lastSpace = (CACurrentMediaTime(), 0)
     }
 
     // MARK: - Glide typing
@@ -1330,7 +1384,8 @@ final class KeyboardViewController: UIInputViewController {
                 : (Self.variants[key.character ?? ""] ?? []).map { KeyPopupView.Item(text: $0, label: $0) }
             guard !items.isEmpty else { return }
             keysView.bringSubviewToFront(keyPopup)
-            keyPopup.showVariants(items, on: key, style: keyStyle, overKey: isSpace)
+            keyPopup.showVariants(items, on: key, style: keyStyle, overKey: isSpace,
+                                  toTheRight: Self.formsToTheRight.contains(key.character ?? ""))
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         case .changed:
             keyPopup.select(at: press.location(in: keysView))
@@ -1450,7 +1505,7 @@ private final class KeyView: UIControl {
             label.textColor = textColor.withAlphaComponent(0.6)
         } else {
             label.text = storedTitle
-            label.font = AppFont.font(ofSize: fontSize)
+            label.font = keyFont(for: storedTitle, size: fontSize)
             label.textColor = textColor
         }
         imageView.isHidden = message != nil
@@ -1613,25 +1668,29 @@ private final class KeyPopupView: UIView {
         select(index: nil, feedback: false)
     }
 
-    /// A letter's forms start over the key, its own letter first; `overKey` centres the row
-    /// over a wide key (the space bar) and chooses nothing until the finger slides up.
-    func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle, overKey: Bool = false) {
+    /// A letter's forms start over the key, its own letter first, and run to the left, or to
+    /// the right with `toTheRight`. `overKey` centres the row over a wide key (the space bar);
+    /// of several forms there, none is chosen until the finger slides up.
+    func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle, overKey: Bool = false,
+                      toTheRight: Bool = false) {
         let foot = key.faceFrame
         let pad: CGFloat = 3
         let cell = max(min(foot.width, 44), 30)
         let width = max(CGFloat(items.count) * cell + 2 * pad, foot.width + 8)
-        let midX = overKey ? foot.midX : foot.midX + cell / 2 + pad - width / 2
+        let midX = overKey ? foot.midX
+            : toTheRight ? foot.midX - cell / 2 - pad + width / 2 : foot.midX + cell / 2 + pad - width / 2
         let card = cardFrame(width: width, midX: midX, foot: foot)
         let inset = (width - 2 * pad - CGFloat(items.count) * cell) / 2
         let cells = items.indices.map { index in
-            CGRect(x: card.maxX - pad - inset - CGFloat(index + 1) * cell, y: card.minY + pad,
-                   width: cell, height: card.height - 2 * pad)
+            let x = toTheRight ? card.minX + pad + inset + CGFloat(index) * cell
+                : card.maxX - pad - inset - CGFloat(index + 1) * cell
+            return CGRect(x: x, y: card.minY + pad, width: cell, height: card.height - 2 * pad)
         }
         isShowingVariants = true
-        choosesAboveKeyOnly = overKey
+        choosesAboveKeyOnly = overKey && items.count > 1
         present(on: key, foot: foot, card: card, cells: cells, items: items,
                 style: style, fontSize: min(26, card.height * 0.62))
-        select(index: overKey ? nil : 0, feedback: false)
+        select(index: choosesAboveKeyOnly ? nil : 0, feedback: false)
     }
 
     /// Selects the form nearest the finger along the row, or none once it is far from the row.
@@ -1713,7 +1772,7 @@ private final class KeyPopupView: UIView {
             image.isHidden = index >= items.count || items[index].image == nil
             guard index < items.count else { continue }
             label.text = items[index].label
-            label.font = AppFont.font(ofSize: fontSize)
+            label.font = keyFont(for: items[index].label, size: fontSize)
             label.frame = cells[index]
             image.image = items[index].image
             image.frame = cells[index]
@@ -1889,8 +1948,9 @@ private final class ProgressRing {
 }
 
 /// The compact dictation view: a turning gradient orb (like Siri's) with the mic in the middle.
-/// While recording it swells with the speaker's voice and breathes softly in silence, and a
-/// teal ring fills until the next piece of live text arrives; after the recording, a blue ring
+/// While the recording starts, an arc turns around it. While recording it swells with the
+/// speaker's voice inside a glow that grows with it, and breathes softly in silence; a teal
+/// ring fills until the next piece of live text arrives. After the recording, a blue ring
 /// fills while the app transcribes.
 /// The whole view is one button: it stops the recording, or cancels the transcription.
 private final class DictationOrbView: UIControl {
@@ -1900,9 +1960,12 @@ private final class DictationOrbView: UIControl {
         didSet { if mode != oldValue { update() } }
     }
 
+    private let halo = CAGradientLayer()
     private let pulse = CALayer()
     private let gradient = CAGradientLayer()
     private let gradientMask = CAShapeLayer()
+    /// The arc that turns while the recording starts.
+    private let loading = CAShapeLayer()
     /// Live text while speaking.
     let liveRing = ProgressRing(color: .systemTeal, width: 3)
     /// The transcription after the recording.
@@ -1913,6 +1976,15 @@ private final class DictationOrbView: UIControl {
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
+
+        halo.type = .radial
+        halo.startPoint = CGPoint(x: 0.5, y: 0.5)
+        halo.endPoint = CGPoint(x: 1, y: 1)
+        halo.colors = [UIColor.systemPurple.withAlphaComponent(0.55), UIColor.systemPink.withAlphaComponent(0.22),
+                       UIColor.systemBlue.withAlphaComponent(0.06), UIColor.systemBlue.withAlphaComponent(0)].map(\.cgColor)
+        halo.locations = [0, 0.45, 0.75, 1]
+        halo.opacity = 0
+        layer.addSublayer(halo)
 
         gradient.type = .conic
         gradient.startPoint = CGPoint(x: 0.5, y: 0.5)
@@ -1926,8 +1998,12 @@ private final class DictationOrbView: UIControl {
             layer.addSublayer(ring.track)
             layer.addSublayer(ring.ring)
         }
+        loading.fillColor = UIColor.clear.cgColor
+        loading.strokeColor = UIColor.systemTeal.cgColor
+        loading.lineWidth = 3
+        loading.lineCap = .round
+        layer.addSublayer(loading)
 
-        icon.image = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold))
         icon.tintColor = .white
         icon.contentMode = .center
         icon.isUserInteractionEnabled = false
@@ -1948,24 +2024,44 @@ private final class DictationOrbView: UIControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // Small, so that it visibly grows with the voice without reaching the ring.
-        let diameter = min((bounds.height - 30) * 0.5, 64)
-        let center = CGPoint(x: bounds.midX, y: (bounds.height - 30) / 2 + 4)
+        // The ring takes the height above the caption; at full voice the orb nearly reaches it.
+        let area = bounds.height - 28
+        let center = CGPoint(x: bounds.midX, y: area / 2 + 2)
+        let ringRadius = max(20, area / 2 - 4)
+        let diameter = min(2 * (ringRadius - 7) / (1 + Self.voiceGrowth), 110)
         let orbFrame = CGRect(x: center.x - diameter / 2, y: center.y - diameter / 2, width: diameter, height: diameter)
+        // The glow fades out before the top edge, even at full voice.
+        let haloRadius = min(diameter * 0.75, center.y / 0.8 / (1 + Self.haloGrowth))
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        halo.bounds = CGRect(x: 0, y: 0, width: 2 * haloRadius, height: 2 * haloRadius)
+        halo.position = center
         pulse.bounds = CGRect(origin: .zero, size: orbFrame.size)
         pulse.position = center
-        gradient.frame = pulse.bounds
+        // Not `frame`: the gradient turns.
+        gradient.bounds = pulse.bounds
+        gradient.position = CGPoint(x: pulse.bounds.midX, y: pulse.bounds.midY)
         gradientMask.path = UIBezierPath(ovalIn: pulse.bounds).cgPath
-        let ringPath = UIBezierPath(arcCenter: center, radius: diameter / 2 * (1 + Self.voiceGrowth) + 6,
+        let ringPath = UIBezierPath(arcCenter: center, radius: ringRadius,
                                     startAngle: -.pi / 2, endAngle: 1.5 * .pi, clockwise: true).cgPath
         liveRing.path = ringPath
         processingRing.path = ringPath
+        loading.bounds = CGRect(x: 0, y: 0, width: 2 * ringRadius, height: 2 * ringRadius)
+        loading.position = center
+        loading.path = UIBezierPath(arcCenter: CGPoint(x: ringRadius, y: ringRadius), radius: ringRadius,
+                                    startAngle: -.pi / 2, endAngle: -.pi / 2 + 0.56 * .pi, clockwise: true).cgPath
         CATransaction.commit()
         icon.frame = orbFrame
-        caption.frame = CGRect(x: 16, y: bounds.height - 30, width: bounds.width - 32, height: 22)
+        let iconSize = (diameter * 0.32).rounded()
+        if iconSize != iconPointSize {
+            iconPointSize = iconSize
+            icon.image = UIImage(systemName: "mic.fill",
+                                 withConfiguration: UIImage.SymbolConfiguration(pointSize: iconSize, weight: .semibold))
+        }
+        caption.frame = CGRect(x: 16, y: bounds.height - 26, width: bounds.width - 32, height: 22)
     }
+
+    private var iconPointSize: CGFloat = 0
 
     /// Animations are dropped when the keyboard leaves the screen; restart them on return.
     override func didMoveToWindow() {
@@ -1987,17 +2083,23 @@ private final class DictationOrbView: UIControl {
         case .starting:
             gradient.opacity = 0.5
             setMotion(false)
-            liveRing.isHidden = true
+            setLoading(true)
+            // The empty track under the turning arc.
+            liveRing.track.isHidden = false
+            liveRing.ring.isHidden = true
             processingRing.isHidden = true
             caption.text = "…"
         case .recording:
             gradient.opacity = 1
+            setLoading(false)
             setMotion(true)
-            liveRing.isHidden = !liveRing.isRunning
+            liveRing.track.isHidden = false
+            liveRing.ring.isHidden = !liveRing.isRunning
             processingRing.isHidden = true
             caption.text = Self.listeningCaption
         case .processing:
             gradient.opacity = 0.35
+            setLoading(false)
             setMotion(false)
             liveRing.isHidden = true
             processingRing.isHidden = false
@@ -2016,7 +2118,7 @@ private final class DictationOrbView: UIControl {
         if mode == .recording { setLiveRingVisible(true) }
     }
 
-    /// The live text arrived: the ring fills and fades until the next pass.
+    /// The live text arrived: the ring fills and fades until the next pass; the track stays.
     func liveTextArrived() {
         guard liveRing.isRunning else { return }
         liveRing.finish()
@@ -2030,62 +2132,90 @@ private final class DictationOrbView: UIControl {
     private func setLiveRingVisible(_ visible: Bool) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        liveRing.isHidden = !visible
+        liveRing.ring.isHidden = !visible
         CATransaction.commit()
     }
 
+    private func setLoading(_ on: Bool) {
+        loading.removeAnimation(forKey: "spin")
+        loading.isHidden = !on
+        guard on, animates else { return }
+        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+        spin.fromValue = 0
+        spin.toValue = 2 * Double.pi
+        spin.duration = 0.9
+        spin.repeatCount = .infinity
+        loading.add(spin, forKey: "spin")
+    }
+
     var animates = true
-    /// How much larger than at rest the orb gets at full voice.
-    private static let voiceGrowth: CGFloat = 0.4
+    /// How much larger than at rest the orb and the glow get at full voice.
+    private static let voiceGrowth: CGFloat = 0.3
+    private static let haloGrowth: CGFloat = 0.45
     private static let listeningCaption = "در حال گوش دادن… برای پایان بزنید"
     private var displayLink: CADisplayLink?
-    /// Loudness from the app (0 silence to 1 loud), and the smoothed value the orb shows.
+    /// Loudness from the app (0 silence to 1 loud), and the value the orb shows, which follows
+    /// it like a spring.
     private var voiceTarget: CGFloat = 0
     private var voice: CGFloat = 0
+    private var voiceSpeed: CGFloat = 0
     private var motionStart: CFTimeInterval = 0
+    private var lastFrame: CFTimeInterval = 0
+    private var spin: CGFloat = 0
     private var heardVoice = false
 
-    /// One of `DictationBridge.levels` loudness steps of the microphone.
+    /// One of `DictationBridge.levels` loudness steps of the microphone, 2 dB each from -55 dB.
     func setVoiceLevel(_ step: Int) {
-        // Steps are 4 dB from -55 dB; room noise is below step 3, speech mostly 4 to 8.
-        voiceTarget = min(1, max(0, CGFloat(step - 2) / 6))
-        if step >= 4 { heardVoice = true }
+        // Room noise stays under -44 dB; quiet speech already moves the orb, loud speech fills it.
+        let db = -55 + 2 * CGFloat(step)
+        voiceTarget = pow(min(1, max(0, (db + 44) / 20)), 0.75)
+        if step >= 8 { heardVoice = true }
     }
 
     func resetVoice() {
         voiceTarget = 0
         voice = 0
+        voiceSpeed = 0
         heardVoice = false
         motionStart = CACurrentMediaTime()
     }
 
     private func setMotion(_ on: Bool) {
-        gradient.removeAnimation(forKey: "spin")
         displayLink?.invalidate()
         displayLink = nil
         pulse.setAffineTransform(.identity)
+        halo.setAffineTransform(.identity)
+        halo.opacity = 0
         guard on, animates else { return }
-        let spin = CABasicAnimation(keyPath: "transform.rotation.z")
-        spin.fromValue = 0
-        spin.toValue = 2 * Double.pi
-        spin.duration = 3
-        spin.repeatCount = .infinity
-        gradient.add(spin, forKey: "spin")
+        lastFrame = CACurrentMediaTime()
         let link = CADisplayLink(target: self, selector: #selector(stepMotion))
         link.add(to: .main, forMode: .common)
         displayLink = link
     }
 
-    /// Each frame: rises quickly with the voice and settles slowly, and in silence a slow
-    /// breath of a few percent. Before anyone speaks, the caption says nothing is heard.
+    /// Each frame: the shown loudness follows the app's like a spring, quick to rise and slower
+    /// to settle, so the 0.1 s steps blend into one motion. The orb swells with it and wobbles a
+    /// little, the glow grows and brightens, and the colours turn faster. In silence the orb
+    /// breathes a few percent. Before anyone speaks, the caption says nothing is heard.
     @objc private func stepMotion() {
         let now = CACurrentMediaTime()
-        voice += (voiceTarget - voice) * (voiceTarget > voice ? 0.4 : 0.08)
-        let breath = CGFloat(0.04 * sin(2 * .pi * (now - motionStart) / 2.4))
-        let scale = 1 + breath * (1 - voice) + Self.voiceGrowth * voice
+        let dt = CGFloat(min(0.05, max(0, now - lastFrame)))
+        lastFrame = now
+        let stiffness: CGFloat = voiceTarget > voice ? 180 : 50
+        voiceSpeed += (stiffness * (voiceTarget - voice) - 1.7 * stiffness.squareRoot() * voiceSpeed) * dt
+        voice = min(1.1, max(-0.05, voice + voiceSpeed * dt))
+        spin += dt * 2 * .pi / 3 * (1 + 1.5 * max(0, voice))
+        let t = CGFloat(now - motionStart)
+        let breath = 0.05 * sin(2 * .pi * t / 2.4)
+        let scale = 1 + breath * (1 - max(0, voice)) + Self.voiceGrowth * voice
+        let wobble = 0.04 * max(0, voice) * sin(2 * .pi * t * 1.6)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        pulse.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
+        pulse.setAffineTransform(CGAffineTransform(scaleX: scale * (1 + wobble), y: scale * (1 - wobble)))
+        gradient.setAffineTransform(CGAffineTransform(rotationAngle: spin))
+        let glow = 1 + Self.haloGrowth * max(0, voice) + breath
+        halo.setAffineTransform(CGAffineTransform(scaleX: glow, y: glow))
+        halo.opacity = Float(0.25 + 0.75 * min(1, max(0, voice)))
         CATransaction.commit()
         if mode == .recording {
             let text = !heardVoice && now - motionStart > 3.5 ? "صدایی نمی‌شنوم…" : Self.listeningCaption
@@ -2093,10 +2223,17 @@ private final class DictationOrbView: UIControl {
         }
     }
 
-
     override var isHighlighted: Bool {
         didSet { pulse.opacity = isHighlighted ? 0.7 : 1 }
     }
+}
+
+/// The app's font has no Latin letters: Latin text set in it falls back to the system font on
+/// the Persian font's taller line and sits high in a key. Text without Persian letters or digits
+/// is set in the system font.
+private func keyFont(for text: String?, size: CGFloat) -> UIFont {
+    let persian = text?.unicodeScalars.contains { (0x0600...0x06FF).contains($0.value) || (0xFB50...0xFEFF).contains($0.value) }
+    return persian == false ? .systemFont(ofSize: size) : AppFont.font(ofSize: size)
 }
 
 /// Images for keys that no SF Symbol fits, drawn as templates so they take the key colour.
@@ -2122,16 +2259,22 @@ private enum KeyIcons {
 
     /// Return, drawn as in a left-to-right layout: the symbol image itself would be mirrored
     /// in this right-to-left keyboard.
-    static let returnKey: UIImage = {
-        let leftToRight = UITraitCollection(layoutDirection: .leftToRight)
-        guard let symbol = UIImage(systemName: "return", compatibleWith: leftToRight)?
+    static let returnKey = leftToRight("return")
+    /// Backspace pointing left for English, and right as before for Persian.
+    static let deleteLeft = leftToRight("delete.left")
+    static let deleteRight = leftToRight("delete.right")
+
+    /// An SF Symbol as drawn left to right, as a template that no layout direction flips.
+    private static func leftToRight(_ name: String) -> UIImage {
+        let traits = UITraitCollection(layoutDirection: .leftToRight)
+        guard let symbol = UIImage(systemName: name, compatibleWith: traits)?
             .applyingSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: 19)) else {
             return UIImage()
         }
         return UIGraphicsImageRenderer(size: symbol.size).image { _ in
             symbol.withTintColor(.black).draw(at: .zero)
         }.withRenderingMode(.alwaysTemplate)
-    }()
+    }
 
     /// The space bar: a globe between arrows, for swiping between Persian and English.
     static let space: UIImage = {
@@ -2225,6 +2368,7 @@ private final class SuggestionBar: UIView {
         self.items = (items + [nil, nil, nil]).prefix(3).map { $0 }
         for (slot, item) in zip(slots, self.items) {
             slot.setTitle(item.map { $0.literal ? "«\($0.text)»" : $0.text }, for: .normal)
+            slot.titleLabel?.font = keyFont(for: item?.text, size: 19)
             slot.isEnabled = item != nil
         }
         let filled = self.items.compactMap { $0 }.count

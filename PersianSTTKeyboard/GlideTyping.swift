@@ -75,10 +75,12 @@ enum GlideDecoder {
     }
 }
 
-/// The line a glide leaves behind: a ribbon that tapers off and fades within a quarter of a
-/// second, like the system keyboard's. From iOS 26 the finger also drags a drop of Liquid Glass
-/// that magnifies the keys under it, followed by smaller drops along the line that merge into
-/// it like water on glass.
+/// The line a glide leaves behind: glass that magnifies the keys under it, wide at the finger and
+/// narrowing to a point along the path, like the glass lens of the tab bar in Contacts moving
+/// over the keys with a tail. It fades within a third of a second.
+/// From iOS 26 it is the system's Liquid Glass (`GlassLens`). Before that it is a row of discs
+/// along the line, each showing a snapshot of the keys (taken when the glide starts) enlarged
+/// around its own centre, the head disc on top, with one outline for the rim and the shadow.
 final class GlideTrailView: UIView {
     private struct Point {
         let location: CGPoint
@@ -86,34 +88,63 @@ final class GlideTrailView: UIView {
     }
 
     private var points: [Point] = []
-    private let ribbon = CAShapeLayer()
+    private let lens = CALayer()
+    private let shadow = CALayer()
+    private let rim = CAShapeLayer()
+    private let shine = CAShapeLayer()
+    private var discs: [CALayer] = []
+    private var snapshotSize = CGSize.zero
     private var displayLink: CADisplayLink?
     private var isTracking = false
-    private static let lifetime: CFTimeInterval = 0.28
-    private var glass: GlassTrail?
+    private var endTime: CFTimeInterval = 0
+    private static let lifetime: CFTimeInterval = 0.32
+    private static let fadeTime: CFTimeInterval = 0.22
+    private static let headRadius: CGFloat = 19
+    private static let maxDiscs = 48
 
-    var color: UIColor = .systemBlue {
-        didSet { ribbon.fillColor = color.withAlphaComponent(0.55).cgColor }
-    }
+    /// The colour behind the keys, shown in the lens between them.
+    var lensBackground: UIColor = .systemGray5
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         isUserInteractionEnabled = false
         backgroundColor = .clear
-        ribbon.fillColor = color.withAlphaComponent(0.55).cgColor
-        layer.addSublayer(ribbon)
+        shadow.shadowColor = UIColor.black.cgColor
+        shadow.shadowOpacity = 0.28
+        shadow.shadowRadius = 5
+        shadow.shadowOffset = CGSize(width: 0, height: 2)
+        lens.addSublayer(shadow)
+        for _ in 0..<Self.maxDiscs {
+            let disc = CALayer()
+            disc.masksToBounds = true
+            disc.contentsGravity = .resize
+            disc.isHidden = true
+            discs.append(disc)
+            lens.addSublayer(disc)
+        }
+        rim.fillColor = UIColor.clear.cgColor
+        rim.strokeColor = UIColor.white.withAlphaComponent(0.85).cgColor
+        rim.lineWidth = 1.2
+        lens.addSublayer(rim)
+        shine.fillColor = UIColor.white.withAlphaComponent(0.3).cgColor
+        lens.addSublayer(shine)
+        lens.isHidden = true
+        layer.addSublayer(lens)
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
-            glass = GlassDrops(in: self)
+            glass = GlassLens(in: self)
         }
         #endif
     }
+
+    private var glass: GlassTrail?
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
 
     func begin(at point: CGPoint) {
+        takeSnapshot()
         points = [Point(location: point, time: CACurrentMediaTime())]
         isTracking = true
         glass?.begin(at: point)
@@ -126,10 +157,32 @@ final class GlideTrailView: UIView {
         points.append(Point(location: point, time: CACurrentMediaTime()))
     }
 
-    /// The finger lifted: what is left of the line fades out.
+    /// The finger lifted: the lens shrinks into the finger and fades.
     func end() {
+        guard isTracking else { return }
         isTracking = false
+        endTime = CACurrentMediaTime()
         glass?.end()
+    }
+
+    /// The keys as they are now, without the trail, for the discs to enlarge.
+    private func takeSnapshot() {
+        guard let source = superview, source.bounds.width > 0, source.bounds.height > 0 else { return }
+        layer.isHidden = true
+        let image = UIGraphicsImageRenderer(bounds: source.bounds).image { context in
+            source.layer.render(in: context.cgContext)
+        }
+        layer.isHidden = false
+        snapshotSize = source.bounds.size
+        let background = lensBackground.resolvedColor(with: traitCollection).cgColor
+        if let glass {
+            glass.show(image.cgImage, size: snapshotSize, background: background)
+            return
+        }
+        for disc in discs {
+            disc.contents = image.cgImage
+            disc.backgroundColor = background
+        }
     }
 
     private func startDisplayLink() {
@@ -144,103 +197,187 @@ final class GlideTrailView: UIView {
         // The head stays while the finger is down; the tail follows it.
         let headTime = isTracking ? points.last?.time : nil
         points.removeAll { now - $0.time > Self.lifetime && $0.time != headTime }
-        draw(now: now)
-        glass?.update(trail: points.map(\.location), tracking: isTracking)
+        let fade = isTracking ? 1 : CGFloat(max(0, 1 - (now - endTime) / Self.fadeTime))
+        if fade <= 0 { points.removeAll() }
+        if let glass {
+            glass.update(trail: points.map(\.location), tracking: isTracking)
+        } else {
+            draw(fade: fade)
+        }
         if points.isEmpty && !isTracking && (glass?.isIdle ?? true) {
             displayLink?.invalidate()
             displayLink = nil
         }
     }
 
-    /// A filled outline around the line, widest (7 pt) at the finger and narrowing to nothing.
-    private func draw(now: CFTimeInterval) {
+    /// Discs every few points from the finger back along the line, shrinking to a point at the
+    /// oldest part; the larger a disc, the more it enlarges.
+    private func draw(fade: CGFloat) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
-        guard points.count >= 2 else {
-            ribbon.path = nil
+        guard let head = points.last?.location, snapshotSize.width > 0, fade > 0 else {
+            lens.isHidden = true
             return
         }
-        let maxWidth: CGFloat = 7
+        lens.isHidden = false
+        lens.opacity = Float(fade.squareRoot())
+        let line = points.reversed().map(\.location)
+        var length: CGFloat = 0
+        for i in 1..<max(1, line.count) { length += GlideDecoder.distance(line[i - 1], line[i]) }
+        let spacing = max(2.5, length / CGFloat(Self.maxDiscs - 1))
+        // Centres from the head back, with their distance from the head.
+        var centres: [(point: CGPoint, along: CGFloat)] = [(head, 0)]
+        var segment = 1
+        var walked: CGFloat = 0
+        var target = spacing
+        while segment < line.count, centres.count < Self.maxDiscs {
+            let a = line[segment - 1], b = line[segment]
+            let piece = GlideDecoder.distance(a, b)
+            if walked + piece >= target, piece > 0 {
+                let t = (target - walked) / piece
+                centres.append((CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t), target))
+                target += spacing
+            } else {
+                walked += piece
+                segment += 1
+            }
+        }
+        let radii = centres.map { centre -> CGFloat in
+            let left = length > 0 ? 1 - centre.along / length : 1
+            return max(1.5, Self.headRadius * fade * pow(max(0, left), 0.85))
+        }
+        for (i, disc) in discs.enumerated() {
+            guard i < centres.count else {
+                disc.isHidden = true
+                continue
+            }
+            let c = centres[i].point, r = radii[i]
+            let zoom = 1 + 0.4 * r / Self.headRadius
+            disc.isHidden = false
+            disc.zPosition = -centres[i].along
+            disc.frame = CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)
+            disc.cornerRadius = r
+            disc.contentsRect = CGRect(x: (c.x - r / zoom) / snapshotSize.width, y: (c.y - r / zoom) / snapshotSize.height,
+                                       width: 2 * r / zoom / snapshotSize.width, height: 2 * r / zoom / snapshotSize.height)
+        }
+        let outline = Self.outline(centres.map(\.point), radii)
+        rim.path = outline
+        rim.zPosition = 1
+        shadow.shadowPath = outline
+        shadow.zPosition = -10_000
+        let r = radii[0]
+        shine.path = UIBezierPath(ovalIn: CGRect(x: head.x - r * 0.75, y: head.y - r * 0.82,
+                                                 width: r * 0.8, height: r * 0.4)).cgPath
+        shine.zPosition = 2
+    }
+
+    /// The outline around discs of the given radii: one side from the tail to the head, round
+    /// over the front of the head disc, and the other side back.
+    private static func outline(_ centres: [CGPoint], _ radii: [CGFloat]) -> CGPath {
+        let path = UIBezierPath()
+        guard centres.count > 1 else {
+            path.addArc(withCenter: centres[0], radius: radii[0], startAngle: 0, endAngle: 2 * .pi, clockwise: true)
+            return path.cgPath
+        }
         var left: [CGPoint] = []
         var right: [CGPoint] = []
-        for (i, point) in points.enumerated() {
-            let previous = points[max(0, i - 1)].location
-            let next = points[min(points.count - 1, i + 1)].location
-            var dx = next.x - previous.x, dy = next.y - previous.y
+        for i in centres.indices {
+            // Direction towards the head.
+            let towards = centres[max(0, i - 1)], from = centres[min(centres.count - 1, i + 1)]
+            var dx = towards.x - from.x, dy = towards.y - from.y
             let norm = max(0.001, hypot(dx, dy))
             dx /= norm
             dy /= norm
-            let age = CGFloat(min(1, (now - point.time) / Self.lifetime))
-            let position = CGFloat(i) / CGFloat(points.count - 1)
-            let half = maxWidth / 2 * position * (isTracking ? 1 : 1 - age * 0.6)
-            left.append(CGPoint(x: point.location.x - dy * half, y: point.location.y + dx * half))
-            right.append(CGPoint(x: point.location.x + dy * half, y: point.location.y - dx * half))
+            left.append(CGPoint(x: centres[i].x - dy * radii[i], y: centres[i].y + dx * radii[i]))
+            right.append(CGPoint(x: centres[i].x + dy * radii[i], y: centres[i].y - dx * radii[i]))
         }
-        let path = UIBezierPath()
-        path.move(to: left[0])
-        for p in left.dropFirst() { path.addLine(to: p) }
-        // A round cap at the finger.
-        if let head = points.last?.location {
-            path.addArc(withCenter: head, radius: maxWidth / 2 * (isTracking ? 1 : 0.4),
-                        startAngle: 0, endAngle: 2 * .pi, clockwise: true)
-        }
-        for p in right.reversed() { path.addLine(to: p) }
+        let head = centres[0]
+        path.move(to: left[left.count - 1])
+        for p in left.reversed().dropFirst() { path.addLine(to: p) }
+        // From the left point round the front of the head (the side away from the tail).
+        let start = atan2(left[0].y - head.y, left[0].x - head.x)
+        let end = atan2(right[0].y - head.y, right[0].x - head.x)
+        let back = atan2(centres[1].y - head.y, centres[1].x - head.x)
+        var sweep = end - start
+        while sweep < 0 { sweep += 2 * .pi }
+        var middle = start + sweep / 2 - back
+        while middle > .pi { middle -= 2 * .pi }
+        while middle < -.pi { middle += 2 * .pi }
+        // Increasing angles (clockwise on screen) when their middle lies away from the tail.
+        path.addArc(withCenter: head, radius: radii[0], startAngle: start, endAngle: end, clockwise: abs(middle) > .pi / 2)
+        for p in right.dropFirst() { path.addLine(to: p) }
         path.close()
-        ribbon.path = path.cgPath
+        return path.cgPath
     }
 }
 
-/// The glass part of the trail, which only exists from iOS 26.
+/// The glass trail, which only exists from iOS 26.
 @MainActor
 private protocol GlassTrail: AnyObject {
     var isIdle: Bool { get }
+    /// The keys to magnify for this glide.
+    func show(_ snapshot: CGImage?, size: CGSize, background: CGColor)
     func begin(at point: CGPoint)
     func end()
     func update(trail: [CGPoint], tracking: Bool)
 }
 
 #if compiler(>=6.2)
-/// iOS 26 Liquid Glass drops for `GlideTrailView`: glass views in one glass container, which
-/// melts glass shapes that come close into one. Glass appears and disappears by setting its
-/// effect inside an animation, as UIKit asks, not by fading.
+/// iOS 26 Liquid Glass for `GlideTrailView`: a glass capsule at the finger, like the lens of a
+/// tab bar or a slider, that shows the keys under it enlarged, followed by smaller drops along
+/// the line. All are glass views in one glass container, which melts glass that comes close
+/// into one shape, so the drops make a tail that narrows to a point. Glass appears and
+/// disappears by setting its effect inside an animation, as UIKit asks, not by fading.
 @available(iOS 26.0, *)
 @MainActor
-private final class GlassDrops: GlassTrail {
+private final class GlassLens: GlassTrail {
     private let container: UIVisualEffectView
     private let head: UIVisualEffectView
+    private let magnifier = UIView()
     private var drops: [UIVisualEffectView] = []
     private var headPosition = CGPoint.zero
     private var target = CGPoint.zero
+    private var snapshotSize = CGSize.zero
     private(set) var isIdle = true
     private var dropsShown = false
-    private static let headSize: CGFloat = 40
-    private static let dropSizes: [CGFloat] = [26, 20, 15, 11, 8]
+    private static let headSize = CGSize(width: 58, height: 42)
+    private static let dropSizes: [CGFloat] = [32, 26, 21, 17, 13, 10, 7, 5]
+    private static let zoom: CGFloat = 1.3
 
     init(in view: UIView) {
         let effect = UIGlassContainerEffect()
-        effect.spacing = 18
+        effect.spacing = 14
         container = UIVisualEffectView(effect: effect)
         container.isUserInteractionEnabled = false
         container.frame = view.bounds
         container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(container)
-        head = Self.drop(size: Self.headSize)
-        container.contentView.addSubview(head)
         for size in Self.dropSizes {
-            let drop = Self.drop(size: size)
+            let drop = Self.glassView(size: CGSize(width: size, height: size))
             drops.append(drop)
             container.contentView.addSubview(drop)
         }
+        head = Self.glassView(size: Self.headSize)
+        container.contentView.addSubview(head)
+        magnifier.frame = head.bounds.insetBy(dx: 2.5, dy: 2.5)
+        magnifier.layer.cornerRadius = magnifier.bounds.height / 2
+        magnifier.layer.cornerCurve = .continuous
+        magnifier.layer.masksToBounds = true
+        magnifier.layer.contentsGravity = .resize
+        magnifier.isUserInteractionEnabled = false
+        magnifier.alpha = 0
+        head.contentView.addSubview(magnifier)
     }
 
-    private static func drop(size: CGFloat) -> UIVisualEffectView {
-        let drop = UIVisualEffectView(effect: nil)
-        drop.frame = CGRect(x: 0, y: 0, width: size, height: size)
-        drop.layer.cornerRadius = size / 2
-        drop.clipsToBounds = true
-        drop.isUserInteractionEnabled = false
-        return drop
+    private static func glassView(size: CGSize) -> UIVisualEffectView {
+        let glass = UIVisualEffectView(effect: nil)
+        glass.frame = CGRect(origin: .zero, size: size)
+        glass.layer.cornerRadius = size.height / 2
+        glass.layer.cornerCurve = .continuous
+        glass.clipsToBounds = true
+        glass.isUserInteractionEnabled = false
+        return glass
     }
 
     private static func glass() -> UIGlassEffect {
@@ -249,14 +386,24 @@ private final class GlassDrops: GlassTrail {
         return glass
     }
 
+    func show(_ snapshot: CGImage?, size: CGSize, background: CGColor) {
+        magnifier.layer.contents = snapshot
+        magnifier.layer.backgroundColor = background
+        snapshotSize = size
+    }
+
     func begin(at point: CGPoint) {
         headPosition = point
         target = point
         isIdle = false
         head.center = point
+        head.transform = CGAffineTransform(scaleX: 0.6, y: 0.6)
         drops.forEach { $0.center = point }
-        UIView.animate(withDuration: 0.18) {
+        updateMagnifier()
+        UIView.animate(withDuration: 0.25, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0) {
             self.head.effect = Self.glass()
+            self.head.transform = .identity
+            self.magnifier.alpha = 1
         }
         showDrops(true)
     }
@@ -265,6 +412,7 @@ private final class GlassDrops: GlassTrail {
         showDrops(false)
         UIView.animate(withDuration: 0.25, animations: {
             self.head.effect = nil
+            self.magnifier.alpha = 0
             self.head.transform = CGAffineTransform(scaleX: 0.4, y: 0.4)
         }, completion: { _ in
             self.head.transform = .identity
@@ -280,19 +428,42 @@ private final class GlassDrops: GlassTrail {
         }
     }
 
-    /// Each frame: the big drop follows the finger with a little lag, like a drop pulled across
-    /// glass; the small ones sit on the line behind it, the smallest on the oldest part.
+    /// Each frame: the capsule follows the finger with a little lag, like a drop pulled across
+    /// glass, and the drops sit evenly along the line behind it, the smallest on the oldest part.
     func update(trail: [CGPoint], tracking: Bool) {
         guard !isIdle else { return }
         if let last = trail.last { target = last }
-        headPosition.x += (target.x - headPosition.x) * 0.45
-        headPosition.y += (target.y - headPosition.y) * 0.45
+        headPosition.x += (target.x - headPosition.x) * 0.5
+        headPosition.y += (target.y - headPosition.y) * 0.5
         head.center = headPosition
-        guard trail.count > 1 else { return }
+        updateMagnifier()
+        let line = [headPosition] + trail.reversed()
+        var along: [CGFloat] = [0]
+        for i in 1..<line.count { along.append(along[i - 1] + GlideDecoder.distance(line[i - 1], line[i])) }
+        let length = along.last ?? 0
+        var segment = 1
         for (i, drop) in drops.enumerated() {
-            let back = Double(i + 1) / Double(drops.count + 1)
-            drop.center = trail[max(0, Int(Double(trail.count - 1) * (1 - back)))]
+            let distance = length * CGFloat(i + 1) / CGFloat(drops.count + 1)
+            while segment < line.count - 1, along[segment] < distance { segment += 1 }
+            guard line.count > 1 else {
+                drop.center = headPosition
+                continue
+            }
+            let a = line[segment - 1], b = line[segment]
+            let piece = along[segment] - along[segment - 1]
+            let t = piece > 0 ? min(1, max(0, (distance - along[segment - 1]) / piece)) : 0
+            drop.center = CGPoint(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
         }
+    }
+
+    /// The keys under the capsule, enlarged around its centre.
+    private func updateMagnifier() {
+        guard snapshotSize.width > 0 else { return }
+        let size = magnifier.bounds.size
+        let origin = CGPoint(x: headPosition.x - size.width / 2 / Self.zoom, y: headPosition.y - size.height / 2 / Self.zoom)
+        magnifier.layer.contentsRect = CGRect(x: origin.x / snapshotSize.width, y: origin.y / snapshotSize.height,
+                                              width: size.width / Self.zoom / snapshotSize.width,
+                                              height: size.height / Self.zoom / snapshotSize.height)
     }
 }
 #endif

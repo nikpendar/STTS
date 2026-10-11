@@ -247,7 +247,7 @@ final class KeyboardSession: ObservableObject {
                 // Two frames, so a short syllable still moves the orb.
                 let level = max(latest, levels.count > 1 ? levels[levels.count - 2] : 0)
                 let db = 20 * log10(max(level, 1e-6))
-                let step = min(DictationBridge.levels - 1, max(0, Int((db + 55) / 4)))
+                let step = min(DictationBridge.levels - 1, max(0, Int((db + 55) / 2)))
                 if step != lastStep {
                     lastStep = step
                     DictationBridge.post(DictationBridge.level(step))

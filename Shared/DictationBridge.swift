@@ -29,8 +29,9 @@ enum DictationBridge {
     /// transcription follows as after `stop`), or because nobody spoke (`idle`, nothing follows).
     static let stopped = "com.persianstt.stopped"
     static let idle = "com.persianstt.idle"
-    /// Loudness of the microphone while recording, `levels` steps from silence to loud speech.
-    static let levels = 10
+    /// Loudness of the microphone while recording, `levels` steps of 2 dB from -55 dB (silence)
+    /// to loud speech.
+    static let levels = 20
     static func level(_ step: Int) -> String { "com.persianstt.level.\(step)" }
 
     /// Prefixes that mark a served transcript as provisional or final. A fetch started for a
