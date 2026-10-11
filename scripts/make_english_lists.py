@@ -9,8 +9,9 @@ CC BY-SA 4.0), letters with inner apostrophes (don't, I'm), one per line with th
 
 wordfreq lowercases everything, so names are capitalized from English Wikipedia: a word written
 mid-sentence with a capital at least ten times as often as without (London, Monday, English), and
-used in Wikipedia at least a fifth as often as wordfreq's frequency expects. The second test
+used in Wikipedia at least USAGE times as often as wordfreq's frequency expects. The second test
 keeps words lowercase that Wikipedia has mostly in titles (hey, tonight, World in World War);
+LOWERCASE lists common words Wikipedia capitalizes in names (World Cup, Union Jack);
 I and its contractions are always capitalized.
 
 Next words: the words that most often follow each listed word in English Wikipedia (the
@@ -42,8 +43,11 @@ MAX_ARTICLES = 120_000
 MIN_PAIR = 4
 MAX_FOLLOWERS = 16
 STARTERS = 40
-# Wikipedia's share of a capitalized word against wordfreq's, below which it stays lowercase.
-USAGE = 0.2
+# Wikipedia's share of a capitalized word against wordfreq's, below which it stays lowercase:
+# hey 0.07 and tonight 0.13 stay lowercase, Twitter 0.15, Obama 0.18 and Facebook 0.19 get a capital.
+USAGE = 0.14
+LOWERCASE = {"avenue", "bob", "cup", "dick", "don", "duke", "frank", "jack", "jersey", "max", "republic",
+             "sir", "turkey"}
 
 vocab: dict[str, int] = {}
 
@@ -126,7 +130,7 @@ def cased(word: str, zipf: float, capital: int, lower: int, total: int) -> str:
     if word == "i" or word.startswith("i'"):
         return "I" + word[1:]
     used = (capital + lower) / max(total, 1)
-    if capital >= 20 and capital >= 10 * lower and used >= USAGE * 10 ** (zipf - 9):
+    if word not in LOWERCASE and capital >= 20 and capital >= 10 * lower and used >= USAGE * 10 ** (zipf - 9):
         return word[0].upper() + word[1:]
     return word
 
