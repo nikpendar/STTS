@@ -103,16 +103,43 @@ jobs:
             point="$(python3 find.py "$json" "$@" || echo "$x $y")"
             axe tap -x ${point% *} -y ${point#* } --udid "$DEVICE" || true
           }
+          shot 0-first
+          # English comes up first: the globe switches to Persian.
+          tap out/0-first.json 42 833 "Next keyboard"
           shot 1-letters
-          tap out/1-letters.json 45 780 "۱۲۳" "123" "more" "numbers" "more, numbers" "اعداد"
+          tap out/1-letters.json 50 773 "numbers" "۱۲۳"
           shot 2-numbers
-          tap out/2-numbers.json 45 728 "#+=" "symbols" "more, symbols" "نمادها"
+          tap out/2-numbers.json 25 720 "symbols" "more" "#+="
           shot 3-symbols
-          tap out/3-symbols.json 45 780 "الفبا" "ABC" "letters" "more, letters" "حروف"
-          shot 4-back
-          # The globe key, in case another keyboard came up first.
-          axe tap -x 42 -y 833 --udid "$DEVICE" || true
-          shot 5-next
+          # Long presses on every key of the numbers layer's third row, for their alternatives.
+          tap out/3-symbols.json 50 773 "numbers" "۱۲۳"
+          shot 4-numbers-again
+          python3 - out/4-numbers-again.json > row3.txt <<'EOF'
+          import json, sys
+          keys = []
+          def walk(n):
+              if isinstance(n, dict):
+                  f = n.get("frame")
+                  if n.get("type") == "Button" and isinstance(f, dict) and 690 <= f["y"] <= 710:
+                      keys.append((int(f["x"] + f["width"] / 2), int(f["y"] + f["height"] / 2)))
+                  for v in n.values(): walk(v)
+              elif isinstance(n, list):
+                  for v in n: walk(v)
+          walk(json.load(open(sys.argv[1])))
+          for x, y in sorted(set(keys)): print(x, y)
+          EOF
+          cat row3.txt
+          i=0
+          while read -r x y; do
+            i=$((i + 1))
+            axe touch -x "$x" -y "$y" --down --udid "$DEVICE" || true
+            sleep 1.2
+            xcrun simctl io "$DEVICE" screenshot "out/5-press-$i.png"
+            axe touch -x "$x" -y "$y" --up --udid "$DEVICE" || true
+            sleep 0.5
+            # Whatever the press typed is cleared again.
+            axe tap -x 380 -y 700 --udid "$DEVICE" || true
+          done < row3.txt
           xcrun simctl spawn "$DEVICE" defaults read -g AppleKeyboards > out/keyboards.txt 2>&1 || true
 
       - name: Commit results
