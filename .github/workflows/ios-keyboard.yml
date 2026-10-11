@@ -111,39 +111,23 @@ jobs:
             sleep 3
             shot 1-letters
           done
-          tap out/1-letters.json 50 773 "numbers" "۱۲۳"
-          shot 2-numbers
-          tap out/2-numbers.json 25 720 "symbols" "more" "#+="
-          shot 3-symbols
-          # Long presses on every key of the numbers layer's third row, for their alternatives.
-          tap out/3-symbols.json 50 773 "numbers" "۱۲۳"
-          shot 4-numbers-again
-          python3 - out/4-numbers-again.json > row3.txt <<'EOF'
-          import json, sys
-          keys = []
-          def walk(n):
-              if isinstance(n, dict):
-                  f = n.get("frame")
-                  if n.get("type") == "Button" and isinstance(f, dict) and 690 <= f["y"] <= 710:
-                      keys.append((int(f["x"] + f["width"] / 2), int(f["y"] + f["height"] / 2)))
-                  for v in n.values(): walk(v)
-              elif isinstance(n, list):
-                  for v in n: walk(v)
-          walk(json.load(open(sys.argv[1])))
-          for x, y in sorted(set(keys)): print(x, y)
-          EOF
-          cat row3.txt
-          i=0
-          while read -r x y; do
-            i=$((i + 1))
-            axe touch -x "$x" -y "$y" --down --udid "$DEVICE" || true
-            sleep 1.2
-            xcrun simctl io "$DEVICE" screenshot "out/5-press-$i.png"
-            axe touch -x "$x" -y "$y" --up --udid "$DEVICE" || true
-            sleep 0.5
-            # Whatever the press typed is cleared again.
-            axe tap -x 380 -y 700 --udid "$DEVICE" || true
-          done < row3.txt
+          press() { # json, fallback x, fallback y, name, labels...
+            local json="$1" x="$2" y="$3" name="$4"; shift 4
+            local point
+            point="$(python3 find.py "$json" "$@" || echo "$x $y")"
+            axe touch -x ${point% *} -y ${point#* } --down --udid "$DEVICE" || true
+            sleep 1.5
+            xcrun simctl io "$DEVICE" screenshot "out/$name.png"
+            axe describe-ui --udid "$DEVICE" > "out/$name.json" 2>&1 || true
+            axe touch -x ${point% *} -y ${point#* } --up --udid "$DEVICE" || true
+            sleep 1
+          }
+          press out/1-letters.json 277 778 6-zwnj-press "␣"
+          shot 7-after-zwnj
+          tap out/7-after-zwnj.json 50 773 "numbers" "۱۲۳"
+          shot 8-numbers
+          press out/8-numbers.json 277 778 9-tanvin-press "ً"
+          shot 10-after-tanvin
           xcrun simctl spawn "$DEVICE" defaults read -g AppleKeyboards > out/keyboards.txt 2>&1 || true
 
       - name: Commit results
