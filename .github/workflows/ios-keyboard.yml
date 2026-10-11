@@ -1,0 +1,127 @@
+# Screenshots and accessibility dumps of the system Persian keyboard's layers in the
+# iOS Simulator, as a reference for the extension's layout. Results go to the
+# `ios-keyboard` branch.
+name: iOS keyboard reference
+
+on:
+  push:
+    branches: [ios-ref]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  reference:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download whisper.xcframework and model
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash ./setup.sh base-q5_1
+
+      - name: Build for the simulator
+        run: |
+          xcodebuild -project PersianSTT.xcodeproj -target PersianSTT \
+            -configuration Release -sdk iphonesimulator ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || { grep -E "error:|BUILD FAILED" build.log | head -n 40; exit 1; }
+          tail -n 3 build.log
+
+      - name: Install AXe (simulator taps)
+        run: |
+          brew tap cameroncooke/axe
+          brew trust cameroncooke/axe || true
+          brew install axe
+
+      - name: Persian keyboard layers
+        run: |
+          set -x
+          mkdir -p out
+          APP=build/Release-iphonesimulator/PersianSTT.app
+          ID=ir.nikpendar.PersianSTT
+          DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
+          # The input modes the runtime knows for Persian.
+          for root in /Library/Developer/CoreSimulator/Volumes/*/Library/Developer/CoreSimulator/Profiles/Runtimes/*.simruntime/Contents/Resources/RuntimeRoot \
+                      /Library/Developer/CoreSimulator/Profiles/Runtimes/*.simruntime/Contents/Resources/RuntimeRoot; do
+            [ -d "$root/System/Library/TextInput" ] || continue
+            echo "== $root" >> out/modes.txt
+            find "$root/System/Library/TextInput" -maxdepth 1 -iname "*fa*" >> out/modes.txt 2>&1
+            for plist in "$root"/System/Library/TextInput/TextInput_fa.bundle/Info.plist; do
+              [ -f "$plist" ] && plutil -p "$plist" >> out/modes.txt 2>&1
+            done
+            grep -rl "sw=Persian" "$root/System/Library/TextInput" 2>/dev/null | head -n 5 >> out/modes.txt
+          done
+          cat out/modes.txt | head -n 80
+          defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" "$APP"
+          FA="fa_IR@sw=Persian;hw=Automatic"
+          xcrun simctl spawn "$DEVICE" defaults write -g AppleKeyboards -array "$FA" "fa@sw=Persian;hw=Automatic" "en_US@sw=QWERTY;hw=Automatic"
+          xcrun simctl spawn "$DEVICE" defaults write -g AppleKeyboardsExpanded -int 1
+          for domain in -g com.apple.Preferences; do
+            xcrun simctl spawn "$DEVICE" defaults write $domain KeyboardLastUsed "$FA"
+            xcrun simctl spawn "$DEVICE" defaults write $domain KeyboardsCurrentAndNext -array "$FA" "$FA"
+            xcrun simctl spawn "$DEVICE" defaults write $domain DidShowContinuousPathIntroduction -bool true
+          done
+          xcrun simctl spawn "$DEVICE" defaults write com.apple.Preferences HardwareKeyboardLastSeen -bool false
+          xcrun simctl shutdown "$DEVICE"
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          open -a Simulator --args -CurrentDeviceUDID "$DEVICE"
+          sleep 10
+          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1
+          sleep 12
+
+          cat > find.py <<'PY'
+          import json, sys
+          # Centre of the first element whose label or value is one of the arguments.
+          targets = set(sys.argv[2:])
+          def walk(node):
+              if isinstance(node, dict):
+                  for key in ("AXLabel", "AXValue", "AXUniqueId", "title", "label"):
+                      if node.get(key) in targets and isinstance(node.get("frame"), dict):
+                          f = node["frame"]
+                          print(int(f["x"] + f["width"] / 2), int(f["y"] + f["height"] / 2)); sys.exit(0)
+                  for v in node.values(): walk(v)
+              elif isinstance(node, list):
+                  for v in node: walk(v)
+          walk(json.load(open(sys.argv[1])))
+          sys.exit(1)
+          PY
+
+          shot() { # name
+            sleep 2
+            xcrun simctl io "$DEVICE" screenshot "out/$1.png"
+            axe describe-ui --udid "$DEVICE" > "out/$1.json" 2>&1 || true
+          }
+          tap() { # json, fallback x, fallback y, labels...
+            local json="$1" x="$2" y="$3"; shift 3
+            local point
+            point="$(python3 find.py "$json" "$@" || echo "$x $y")"
+            axe tap -x ${point% *} -y ${point#* } --udid "$DEVICE" || true
+          }
+          shot 1-letters
+          tap out/1-letters.json 45 780 "۱۲۳" "123" "more" "numbers" "more, numbers" "اعداد"
+          shot 2-numbers
+          tap out/2-numbers.json 45 728 "#+=" "symbols" "more, symbols" "نمادها"
+          shot 3-symbols
+          tap out/3-symbols.json 45 780 "الفبا" "ABC" "letters" "more, letters" "حروف"
+          shot 4-back
+          # The globe key, in case another keyboard came up first.
+          axe tap -x 42 -y 833 --udid "$DEVICE" || true
+          shot 5-next
+          xcrun simctl spawn "$DEVICE" defaults read -g AppleKeyboards > out/keyboards.txt 2>&1 || true
+
+      - name: Commit results
+        if: always()
+        run: |
+          cd out
+          git init -q -b ios-keyboard
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -qm "iOS keyboard reference for ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" ios-keyboard
