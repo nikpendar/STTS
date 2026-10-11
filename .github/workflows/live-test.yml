@@ -286,7 +286,9 @@ jobs:
           read BX BY < <(python3 find.py letter-1-3 out/ui-9.json || echo "125 735")
           axe tap -x "$BX" -y "$BY" --udid "$DEVICE"; sleep 0.4
           # Each axe call takes about a second to start; two started 0.4 s apart tap 0.4 s apart.
-          axe tap -x "$SPX" -y "$SPY" --udid "$DEVICE" & sleep 0.4; axe tap -x "$SPX" -y "$SPY" --udid "$DEVICE" & wait
+          axe tap -x "$SPX" -y "$SPY" --udid "$DEVICE" & T1=$!
+          sleep 0.4; axe tap -x "$SPX" -y "$SPY" --udid "$DEVICE" & T2=$!
+          wait $T1 $T2 || true
           sleep 1
           dump out/ui-9b.json || true
           bar DOUBLESPACE out/ui-9b.json
