@@ -104,9 +104,13 @@ jobs:
             axe tap -x ${point% *} -y ${point#* } --udid "$DEVICE" || true
           }
           shot 0-first
-          # English comes up first: the globe switches to Persian.
-          tap out/0-first.json 42 833 "Next keyboard"
-          shot 1-letters
+          # English comes up first: the globe switches to Persian, which has a space key named فاصله.
+          for attempt in 1 2 3 4 5; do
+            grep -q "فاصله" out/1-letters.json 2>/dev/null && break
+            axe tap -x 42 -y 840 --udid "$DEVICE" || true
+            sleep 3
+            shot 1-letters
+          done
           tap out/1-letters.json 50 773 "numbers" "۱۲۳"
           shot 2-numbers
           tap out/2-numbers.json 25 720 "symbols" "more" "#+="
