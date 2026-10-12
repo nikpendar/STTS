@@ -1,0 +1,74 @@
+# Builds the separate Shenava test app (ShenavaTest.ipa, bundle id ir.nikpendar.ShenavaTest) with both
+# streaming Core ML models, Koochik and Rizeh. It installs next to Keyless and does not touch it.
+# Runs on push to this branch only; install with AltServer like Keyless.
+name: Shenava test app
+
+on:
+  push:
+    branches: [claude/shenava-streaming-eval-enfpnp]
+    paths: [ShenavaTest/**, .github/workflows/shenava-app.yml]
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Download and compile the Shenava models
+        run: |
+          pip install -q huggingface_hub
+          for pair in koochik:Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16 rizeh:Reza2kn/Shenava-Rizeh-v1.0-CoreML-iOS15-fp16; do
+            name="${pair%%:*}"; repo="${pair#*:}"
+            python -c "import sys; from huggingface_hub import snapshot_download; snapshot_download(sys.argv[1], local_dir=sys.argv[2])" "$repo" "hf/$name"
+            out="ShenavaTest/Models/$name"
+            mkdir -p "$out"
+            xcrun coremlc compile hf/$name/*.mlmodel "$out"
+            mv "$out"/*.mlmodelc "$out/model.mlmodelc"
+            cp hf/$name/tokens.json hf/$name/preprocessor.json hf/$name/mel_filters_slaney_80x257.json "$out/"
+            cp hf/$name/*_manifest.json "$out/manifest.json"
+          done
+          du -sh ShenavaTest/Models/*
+
+      - name: Generate the Xcode project
+        run: |
+          brew install -q xcodegen
+          cd ShenavaTest && xcodegen generate
+
+      - name: Build
+        run: |
+          xcodebuild -project ShenavaTest/ShenavaTest.xcodeproj -target ShenavaTest \
+            -configuration Release -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee build.log | grep -E "error|warning: .*Shenava|BUILD" || true
+          test -d ShenavaTest/build/Release-iphoneos/ShenavaTest.app
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R ShenavaTest/build/Release-iphoneos/ShenavaTest.app Payload/
+          APP=Payload/ShenavaTest.app
+          # AltServer rejects non-ASCII names in Info.plist; the Persian name goes in InfoPlist.strings.
+          for lang in Base en fa; do
+            mkdir -p "$APP/$lang.lproj"
+            printf '"CFBundleDisplayName" = "%s";\n' "شنوا" > "$APP/$lang.lproj/InfoPlist.strings"
+          done
+          ls -la "$APP/Models"/*
+          codesign --force --sign - "$APP"
+          zip -qry ShenavaTest.ipa Payload
+          ls -lh ShenavaTest.ipa
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ShenavaTest
+          path: ShenavaTest.ipa
+          compression-level: 0
