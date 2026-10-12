@@ -1814,12 +1814,17 @@ private final class KeyView: UIControl {
     }
 
     private let fontSize: CGFloat
-    private static let faceInsets = UIEdgeInsets(top: 3, left: 2.5, bottom: 3, right: 2.5)
+    /// The gap around the drawn key: as on the system keyboard, a tenth of the row height above
+    /// and below (43 of 54 points drawn in portrait).
+    private var faceInsets: UIEdgeInsets {
+        let vertical = max(3, bounds.height / 10)
+        return UIEdgeInsets(top: vertical, left: 2.5, bottom: vertical, right: 2.5)
+    }
     /// What a character key types; its title may differ (English capitals).
     var character: String?
 
     /// The drawn key inside its touch area, in the superview's coordinates.
-    var faceFrame: CGRect { frame.inset(by: Self.faceInsets) }
+    var faceFrame: CGRect { frame.inset(by: faceInsets) }
 
     /// Where the last touch on the key went down, in the superview's coordinates (TapMap).
     private(set) var touchPoint: CGPoint?
@@ -1875,7 +1880,7 @@ private final class KeyView: UIControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let inner = bounds.inset(by: Self.faceInsets)
+        let inner = bounds.inset(by: faceInsets)
         highlight.frame = inner
         face.frame = inner
         // Words (ABC, 123, status messages) keep off the edges; a letter may fill the key.
