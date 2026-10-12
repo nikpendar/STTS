@@ -35,104 +35,25 @@ jobs:
           brew trust cameroncooke/axe || true
           brew install axe
 
-      - name: Persian keyboard layers
+      - name: Keyboard rows on several iPhones, portrait and landscape
         run: |
           set -x
           mkdir -p out
           APP=build/Release-iphonesimulator/PersianSTT.app
           ID=ir.nikpendar.PersianSTT
-          # The user's phone, an iPhone 11 Pro, if the runtime still supports it.
           RUNTIME="$(xcrun simctl list runtimes available | grep -E '^iOS' | tail -n1 | sed -E 's/.* - (com\.apple[^ ]+).*/\1/')"
-          DEVICE="$(xcrun simctl create "Pro11" com.apple.CoreSimulator.SimDeviceType.iPhone-11-Pro "$RUNTIME" 2>/dev/null || true)"
-          [ -n "$DEVICE" ] || DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
-          echo "Device: $DEVICE ($RUNTIME)"
-          # The input modes the runtime knows for Persian.
-          for root in /Library/Developer/CoreSimulator/Volumes/*/Library/Developer/CoreSimulator/Profiles/Runtimes/*.simruntime/Contents/Resources/RuntimeRoot \
-                      /Library/Developer/CoreSimulator/Profiles/Runtimes/*.simruntime/Contents/Resources/RuntimeRoot; do
-            [ -d "$root/System/Library/TextInput" ] || continue
-            echo "== $root" >> out/modes.txt
-            find "$root/System/Library/TextInput" -maxdepth 1 -iname "*fa*" >> out/modes.txt 2>&1
-            for plist in "$root"/System/Library/TextInput/TextInput_fa.bundle/Info.plist; do
-              [ -f "$plist" ] && plutil -p "$plist" >> out/modes.txt 2>&1
-            done
-            grep -rl "sw=Persian" "$root/System/Library/TextInput" 2>/dev/null | head -n 5 >> out/modes.txt
-          done
-          cat out/modes.txt | head -n 80
+          xcrun simctl list devicetypes | grep -i iphone > out/devicetypes.txt
           defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
-          xcrun simctl boot "$DEVICE"
-          xcrun simctl bootstatus "$DEVICE" -b
-          xcrun simctl install "$DEVICE" "$APP"
-          FA="fa_IR@sw=Persian;hw=Automatic"
-          xcrun simctl spawn "$DEVICE" defaults write -g AppleKeyboards -array "$FA" "fa@sw=Persian;hw=Automatic" "en_US@sw=QWERTY;hw=Automatic"
-          xcrun simctl spawn "$DEVICE" defaults write -g AppleKeyboardsExpanded -int 1
-          for domain in -g com.apple.Preferences; do
-            xcrun simctl spawn "$DEVICE" defaults write $domain KeyboardLastUsed "$FA"
-            xcrun simctl spawn "$DEVICE" defaults write $domain KeyboardsCurrentAndNext -array "$FA" "$FA"
-            xcrun simctl spawn "$DEVICE" defaults write $domain DidShowContinuousPathIntroduction -bool true
-          done
-          xcrun simctl spawn "$DEVICE" defaults write com.apple.Preferences HardwareKeyboardLastSeen -bool false
-          xcrun simctl shutdown "$DEVICE"
-          xcrun simctl boot "$DEVICE"
-          xcrun simctl bootstatus "$DEVICE" -b
-          open -a Simulator --args -CurrentDeviceUDID "$DEVICE"
-          sleep 10
-          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1
-          sleep 12
-
-          cat > find.py <<'PY'
-          import json, sys
-          # Centre of the first element whose label or value is one of the arguments.
-          targets = set(sys.argv[2:])
-          def walk(node):
-              if isinstance(node, dict):
-                  for key in ("AXLabel", "AXValue", "AXUniqueId", "title", "label"):
-                      if node.get(key) in targets and isinstance(node.get("frame"), dict):
-                          f = node["frame"]
-                          print(int(f["x"] + f["width"] / 2), int(f["y"] + f["height"] / 2)); sys.exit(0)
-                  for v in node.values(): walk(v)
-              elif isinstance(node, list):
-                  for v in node: walk(v)
-          walk(json.load(open(sys.argv[1])))
-          sys.exit(1)
-          PY
-
-          shot() { # name
-            sleep 2
-            xcrun simctl io "$DEVICE" screenshot "out/$1.png"
-            axe describe-ui --udid "$DEVICE" > "out/$1.json" 2>&1 || true
-          }
-          tap() { # json, fallback x, fallback y, labels...
-            local json="$1" x="$2" y="$3"; shift 3
-            local point
-            point="$(python3 find.py "$json" "$@" || echo "$x $y")"
-            axe tap -x ${point% *} -y ${point#* } --udid "$DEVICE" || true
-          }
-          shot 0-first
-          # English comes up first: the globe switches to Persian, which has a space key named فاصله.
-          for attempt in 1 2 3 4 5; do
-            grep -q "فاصله" out/1-letters.json 2>/dev/null && break
-            axe tap -x 42 -y 840 --udid "$DEVICE" || true
-            sleep 3
-            shot 1-letters
-          done
-          # Landscape, Persian (the last keyboard used), then English after the globe.
-          xcrun simctl terminate "$DEVICE" "$ID" || true
-          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testLandscape 1
-          sleep 12
-          shot L1-landscape
-          axe tap -x 60 -y 360 --udid "$DEVICE" || true
-          tap out/L1-landscape.json 60 360 "Next keyboard"
-          shot L2-landscape-next
-          # Rows of every dump: y, height and the keys' widths.
-          for f in out/*.json; do
-            python3 - "$f" >> out/rows.txt <<'EOF'
+          cat > rows.py <<'EOF'
           import json, sys
           rows = {}
           def walk(n):
               if isinstance(n, dict):
                   f = n.get("frame")
-                  if n.get("type") == "Button" and isinstance(f, dict) and f["height"] < 80:
+                  if n.get("type") == "Button" and isinstance(f, dict) and 20 < f["height"] < 80:
                       rows.setdefault((round(f["y"]), round(f["height"])), []).append((round(f["x"]), round(f["width"]), n.get("AXLabel")))
+                  if n.get("type") == "Application" and isinstance(f, dict):
+                      print("screen", f["width"], f["height"])
                   for v in n.values(): walk(v)
               elif isinstance(n, list):
                   for v in n: walk(v)
@@ -140,13 +61,34 @@ jobs:
               walk(json.load(open(sys.argv[1])))
           except Exception as e:
               print(sys.argv[1], e); sys.exit(0)
-          print("==", sys.argv[1])
           for (y, h), keys in sorted(rows.items()):
-              print(y, h, sorted(keys)[:3], len(keys))
+              print(y, h, sorted(keys)[:2], len(keys))
           EOF
+          for type in iPhone-SE-3rd-generation iPhone-11 iPhone-16 iPhone-16-Plus iPhone-16-Pro-Max; do
+            DEVICE="$(xcrun simctl create "$type" "com.apple.CoreSimulator.SimDeviceType.$type" "$RUNTIME" 2>/dev/null || true)"
+            [ -n "$DEVICE" ] || { echo "no $type" >> out/rows.txt; continue; }
+            xcrun simctl boot "$DEVICE"
+            xcrun simctl bootstatus "$DEVICE" -b
+            xcrun simctl install "$DEVICE" "$APP"
+            open -a Simulator --args -CurrentDeviceUDID "$DEVICE"
+            sleep 8
+            xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1
+            sleep 10
+            xcrun simctl io "$DEVICE" screenshot "out/$type-portrait.png"
+            axe describe-ui --udid "$DEVICE" > "out/$type-portrait.json" 2>&1 || true
+            echo "== $type portrait" >> out/rows.txt
+            python3 rows.py "out/$type-portrait.json" >> out/rows.txt
+            # Device > Rotate Left in the Simulator app.
+            osascript -e 'tell application "Simulator" to activate' \
+                      -e 'tell application "System Events" to key code 123 using {command down}' 2>> out/rows.txt || true
+            sleep 4
+            xcrun simctl io "$DEVICE" screenshot "out/$type-landscape.png"
+            axe describe-ui --udid "$DEVICE" > "out/$type-landscape.json" 2>&1 || true
+            echo "== $type landscape" >> out/rows.txt
+            python3 rows.py "out/$type-landscape.json" >> out/rows.txt
+            xcrun simctl shutdown "$DEVICE" || true
           done
           cat out/rows.txt
-          xcrun simctl spawn "$DEVICE" defaults read -g AppleKeyboards > out/keyboards.txt 2>&1 || true
 
       - name: Commit results
         if: always()
