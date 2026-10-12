@@ -640,10 +640,10 @@ final class KeyboardViewController: UIInputViewController {
         "\u{064B}": (diacritics, "\u{064B}"),
         "ا": (["ء", "إ", "أ", "آ", "ا"], "آ"),
     ]
-    /// A mark alone has nothing to sit on: keys and popups show it on a dotted circle, as iOS does.
-    private static func label(_ text: String) -> String {
-        guard let first = text.unicodeScalars.first, first.properties.generalCategory == .nonspacingMark else { return text }
-        return "\u{25CC}" + text
+    /// A mark alone has nothing to sit on: keys and popups show it over a small dotted circle
+    /// (`KeyIcons.mark`), as iOS does.
+    private static func isMark(_ text: String) -> Bool {
+        text.unicodeScalars.first?.properties.generalCategory == .nonspacingMark
     }
     /// Keys whose forms open to the right of the key instead of the left, where they are
     /// easier to reach with the thumb.
@@ -921,7 +921,12 @@ final class KeyboardViewController: UIInputViewController {
         characterKeys = rows.enumerated().map { rowIndex, row in
             row.enumerated().map { column, character in
                 // English letters follow shift (`setShifted`).
-                let key = KeyView(title: Self.label(character), fontSize: 23)
+                let mark = Self.isMark(character)
+                let key = KeyView(title: mark ? nil : character, fontSize: 23)
+                if mark {
+                    key.image = KeyIcons.mark(character, size: 30)
+                    key.accessibilityLabel = character
+                }
                 key.character = character
                 key.accessibilityIdentifier = "letter-\(rowIndex)-\(column)"
                 key.addAction(UIAction { [weak self, weak key] _ in self?.tapped(key, character) }, for: .touchUpInside)
@@ -1637,7 +1642,13 @@ final class KeyboardViewController: UIInputViewController {
     // MARK: - Key popups
 
     @objc private func keyDown(_ key: KeyView) {
-        guard options.keyPreview, var shown = key.title else { return }
+        guard options.keyPreview else { return }
+        if let character = key.character, Self.isMark(character) {
+            keysView.bringSubviewToFront(keyPopup)
+            keyPopup.showPreview(character, image: KeyIcons.mark(character, size: 34), on: key, style: keyStyle)
+            return
+        }
+        guard var shown = key.title else { return }
         // English letters show the case they type, though the keys show capitals.
         if isEnglish, layer == .letters, let character = key.character {
             shown = isShifted || isCapsLock ? character.uppercased() : character
@@ -1668,7 +1679,10 @@ final class KeyboardViewController: UIInputViewController {
             let anchored = Self.anchoredForms[character]
             let items = isSpace
                 ? Self.spaceForms
-                : (anchored?.forms ?? Self.variants[character] ?? []).map { KeyPopupView.Item(text: $0, label: Self.label($0)) }
+                : (anchored?.forms ?? Self.variants[character] ?? []).map {
+                    Self.isMark($0) ? KeyPopupView.Item(text: $0, label: "", image: KeyIcons.mark($0, size: 28))
+                        : KeyPopupView.Item(text: $0, label: $0)
+                }
             guard !items.isEmpty else { return }
             keysView.bringSubviewToFront(keyPopup)
             keyPopup.showVariants(items, on: key, style: keyStyle, overKey: isSpace,
@@ -1970,12 +1984,12 @@ private final class KeyPopupView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func showPreview(_ title: String, on key: KeyView, style: KeyStyle) {
+    func showPreview(_ title: String, image: UIImage? = nil, on key: KeyView, style: KeyStyle) {
         let foot = key.faceFrame
         let width = foot.width + 2 * min(10, foot.width * 0.3)
         let card = cardFrame(width: width, midX: foot.midX, foot: foot)
         isShowingVariants = false
-        present(on: key, foot: foot, card: card, cells: [card], items: [Item(text: title, label: title)],
+        present(on: key, foot: foot, card: card, cells: [card], items: [Item(text: title, label: title, image: image)],
                 style: style, fontSize: min(34, card.height * 0.72))
         select(index: nil, feedback: false)
     }
@@ -2099,6 +2113,8 @@ private final class KeyPopupView: UIView {
             label.frame = cells[index]
             image.image = items[index].image
             image.frame = cells[index]
+            let size = image.image?.size ?? .zero
+            image.contentMode = size.width > cells[index].width || size.height > cells[index].height ? .scaleAspectFit : .center
         }
         isHidden = false
     }
@@ -2587,6 +2603,79 @@ private enum KeyIcons {
             }
         }.withRenderingMode(.alwaysTemplate)
     }()
+
+    /// A mark alone, as on the iOS diacritics keys: large, over a small dotted circle standing
+    /// for the letter it goes on. The mark is set on the font's own dotted circle, so it sits
+    /// where the font puts it, then drawn without that circle and moved in to the small one.
+    static func mark(_ mark: String, size: CGFloat) -> UIImage {
+        let cacheKey = "\(mark) \(size)"
+        if let image = marks[cacheKey] { return image }
+        let font = AppFont.font(ofSize: size) as CTFont
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: "\u{25CC}" + mark, attributes: [.font: font]))
+        var circle = CGRect.null
+        var glyphs: [(font: CTFont, glyph: CGGlyph, position: CGPoint, bounds: CGRect)] = []
+        for run in CTLineGetGlyphRuns(line) as? [CTRun] ?? [] {
+            let count = CTRunGetGlyphCount(run)
+            var ids = [CGGlyph](repeating: 0, count: count)
+            var positions = [CGPoint](repeating: .zero, count: count)
+            var indices = [CFIndex](repeating: 0, count: count)
+            let all = CFRange(location: 0, length: 0)
+            CTRunGetGlyphs(run, all, &ids)
+            CTRunGetPositions(run, all, &positions)
+            CTRunGetStringIndices(run, all, &indices)
+            let attributes = CTRunGetAttributes(run) as NSDictionary
+            let runFont = attributes[kCTFontAttributeName as String].map { $0 as! CTFont } ?? font
+            for i in 0..<count {
+                var glyph = ids[i]
+                let bounds = CTFontGetBoundingRectsForGlyphs(runFont, .default, &glyph, nil, 1)
+                    .offsetBy(dx: positions[i].x, dy: positions[i].y)
+                // The dotted circle is the string's first character.
+                if indices[i] == 0 {
+                    circle = circle.union(bounds)
+                } else if !bounds.isEmpty {
+                    glyphs.append((runFont, ids[i], positions[i], bounds))
+                }
+            }
+        }
+        let radius = size * 0.14
+        let centre = circle.isNull ? CGPoint(x: 0, y: CTFontGetXHeight(font) / 2) : CGPoint(x: circle.midX, y: circle.midY)
+        let moveIn = circle.isNull ? 0 : max(0, circle.height / 2 - radius)
+        // Marks over the circle move down to the small one, marks under it up.
+        let shifts = glyphs.map { $0.bounds.midY > centre.y ? -moveIn : moveIn }
+        var reach = CGSize(width: radius + 1, height: radius + 1)
+        for (glyph, shift) in zip(glyphs, shifts) {
+            let bounds = glyph.bounds.offsetBy(dx: 0, dy: shift)
+            reach.width = max(reach.width, abs(bounds.minX - centre.x), abs(bounds.maxX - centre.x))
+            reach.height = max(reach.height, abs(bounds.minY - centre.y), abs(bounds.maxY - centre.y))
+        }
+        // The circle at the image's centre, so every mark's circle sits at the middle of its key.
+        let imageSize = CGSize(width: ceil(2 * reach.width + 2), height: ceil(2 * reach.height + 2))
+        let image = UIGraphicsImageRenderer(size: imageSize).image { context in
+            let mid = CGPoint(x: imageSize.width / 2, y: imageSize.height / 2)
+            UIColor.black.setStroke()
+            let ring = UIBezierPath(arcCenter: mid, radius: radius, startAngle: 0, endAngle: 2 * .pi, clockwise: true)
+            ring.lineWidth = max(1, size / 26)
+            ring.lineCapStyle = .round
+            ring.setLineDash([0.01, 2 * .pi * radius / 8 - 0.01], count: 2, phase: 0)
+            ring.stroke()
+            let cg = context.cgContext
+            cg.saveGState()
+            cg.textMatrix = .identity
+            cg.translateBy(x: mid.x, y: mid.y)
+            cg.scaleBy(x: 1, y: -1)
+            cg.translateBy(x: -centre.x, y: -centre.y)
+            UIColor.black.setFill()
+            for (glyph, shift) in zip(glyphs, shifts) {
+                var id = glyph.glyph
+                var position = CGPoint(x: glyph.position.x, y: glyph.position.y + shift)
+                CTFontDrawGlyphs(glyph.font, &id, &position, 1, cg)
+            }
+            cg.restoreGState()
+        }.withRenderingMode(.alwaysTemplate)
+        marks[cacheKey] = image
+        return image
+    }
+    private static var marks: [String: UIImage] = [:]
 
     /// A symbol with three dots under it, for a key that also does something on a long press.
     static func menuKey(symbol: String) -> UIImage? {

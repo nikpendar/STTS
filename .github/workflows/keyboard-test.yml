@@ -1,10 +1,17 @@
 # Installs the app in the iOS Simulator, enables the dictation keyboard as the only
 # keyboard, focuses a text field and records whether the extension launches.
-# The screenshot and system log go to the `keyboard-test` branch.
+# The screenshots and system log go to the branch `keyboard-test-<ref>`.
 name: Keyboard test
 
 on:
   workflow_dispatch:
+    inputs:
+      device:
+        description: Simulator device type
+        default: iPhone 11 Pro
+      ios:
+        description: iOS major version of the simulator runtime (and of the Xcode that builds)
+        default: "26"
 
 permissions:
   contents: write
@@ -14,6 +21,13 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        if: inputs.ios == '26'
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
 
       - name: Download whisper.xcframework and model
         env:
@@ -42,7 +56,10 @@ jobs:
           APP=build/Release-iphonesimulator/PersianSTT.app
           ID=ir.nikpendar.PersianSTT
           KB=ir.nikpendar.PersianSTT.Keyboard
-          DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
+          xcrun simctl list runtimes
+          RUNTIME="$(xcrun simctl list runtimes -j | jq -r --arg v "${{ inputs.ios }}." '[.runtimes[] | select(.isAvailable and .platform == "iOS" and (.version | startswith($v)))] | sort_by(.version | split(".") | map(tonumber)) | last | .identifier')"
+          DEVICE="$(xcrun simctl create keyboard-test "${{ inputs.device }}" "$RUNTIME")"
+          echo "device ${{ inputs.device }} on $RUNTIME" > device.txt
           defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
           xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
@@ -64,6 +81,7 @@ jobs:
           xcrun simctl spawn "$DEVICE" defaults read -g AppleKeyboards || true
           xcrun simctl spawn "$DEVICE" defaults read -g KeyboardsCurrentAndNext || true
           mkdir -p out
+          mv device.txt out/
           xcrun simctl spawn "$DEVICE" log stream --level debug \
             --predicate 'process == "PersianSTT" OR process CONTAINS "PersianSTTKeyboard" OR process == "kbd" OR process == "InputUI" OR eventMessage CONTAINS "PersianSTT" OR eventMessage CONTAINS[c] "inputmode" OR eventMessage CONTAINS[c] "keyboard-service" OR (process == "runningboardd" AND eventMessage CONTAINS "Keyboard")' \
             > out/log.txt 2>&1 &
@@ -74,11 +92,16 @@ jobs:
           xcrun simctl io "$DEVICE" screenshot out/keyboard-test.png
           # Tap the globe key (bottom-left) to switch to the next keyboard, which is ours.
           axe describe-ui --udid "$DEVICE" > out/ui.json 2>&1 || true
-          axe tap -x 42 -y 833 --udid "$DEVICE" || true
+          HEIGHT="$(jq -r '[.. | objects | .frame?.height? // empty] | max' out/ui.json 2>/dev/null || true)"
+          HEIGHT="${HEIGHT%%.*}"
+          case "$HEIGHT" in ''|*[!0-9]*) HEIGHT=874 ;; esac
+          [ "$HEIGHT" -gt 400 ] || HEIGHT=874
+          GLOBE_Y=$((HEIGHT - 41))
+          axe tap -x 42 -y "$GLOBE_Y" --udid "$DEVICE" || true
           sleep 10
           xcrun simctl io "$DEVICE" screenshot out/keyboard-test-2.png
           axe describe-ui --udid "$DEVICE" > out/ui-2.json 2>&1 || true
-          axe tap -x 42 -y 833 --udid "$DEVICE" || true
+          axe tap -x 42 -y "$GLOBE_Y" --udid "$DEVICE" || true
           sleep 8
           xcrun simctl io "$DEVICE" screenshot out/keyboard-test-3.png
           kill $LOG || true
@@ -91,9 +114,9 @@ jobs:
         if: always()
         run: |
           cd out
-          git init -q -b keyboard-test
+          git init -q -b "keyboard-test-${GITHUB_REF_NAME}"
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add -A
-          git commit -qm "Keyboard test for ${GITHUB_SHA::7}"
-          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" keyboard-test
+          git commit -qm "Keyboard test for ${GITHUB_SHA::7}: $(cat device.txt 2>/dev/null)"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" "keyboard-test-${GITHUB_REF_NAME}"
