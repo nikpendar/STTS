@@ -68,6 +68,26 @@ jobs:
           zip -qry ShenavaTest.ipa Payload
           ls -lh ShenavaTest.ipa
 
+      # The app's own streaming code on the benchmark clips: its WER must match the Python
+      # benchmark (Rizeh FLEURS 15.6%), or the Swift features or decoding are off.
+      - name: Check the app's recognizer on FLEURS (Rizeh, CPU)
+        run: |
+          base=https://huggingface.co/datasets/google/fleurs/resolve/main/data/fa_ir
+          curl -fsSL -o test.tsv "$base/test.tsv"
+          curl -fsSL -o test.tar.gz "$base/audio/test.tar.gz"
+          tar xzf test.tar.gz
+          mkdir -p fleurs
+          head -n 80 test.tsv | while IFS=$'\t' read -r id file raw norm rest; do
+            src=$(find test -name "$file" | head -1)
+            [ -n "$src" ] || continue
+            python3 scripts/to_pcm16.py "$src" "fleurs/$file" >> durations
+            printf '%s\t%s\n' "$file" "$raw" >> fleurs/refs.tsv
+          done
+          xcrun swiftc -O -o shenava-check ShenavaTest/Sources/ShenavaStream.swift ShenavaTest/Check/main.swift
+          ./shenava-check ShenavaTest/Models/rizeh fleurs | tail -3
+          echo -n "RESULT "
+          python3 scripts/wer.py fleurs/refs.tsv fleurs app-rizeh 1 52000000 1 result.json
+
       - uses: actions/upload-artifact@v5
         with:
           name: ShenavaTest

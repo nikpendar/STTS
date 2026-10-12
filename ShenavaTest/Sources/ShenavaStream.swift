@@ -79,8 +79,11 @@ final class ShenavaStream {
 
     var audioMsPerStep: Int { shift * hop * 1000 / 16_000 }
 
-    init(model kind: ShenavaModel, computeUnits: MLComputeUnits) throws {
-        let dir = kind.folder
+    convenience init(model kind: ShenavaModel, computeUnits: MLComputeUnits) throws {
+        try self.init(directory: kind.folder, computeUnits: computeUnits)
+    }
+
+    init(directory dir: URL, computeUnits: MLComputeUnits) throws {
         func json(_ name: String) throws -> Any {
             let url = dir.appendingPathComponent(name)
             guard let data = try? Data(contentsOf: url) else { throw ShenavaError.missing(name) }
