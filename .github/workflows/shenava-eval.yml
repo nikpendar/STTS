@@ -57,9 +57,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: clips
+      # coremltools ships no native wheel for the runner's default Python 3.14.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Get model
         run: |
-          python3 -m venv venv
+          python -m venv venv
           venv/bin/pip install -q coremltools numpy huggingface_hub
           venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('${{ matrix.model }}', local_dir='model')"
           ls -la model
@@ -97,14 +101,19 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: clips
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # v1.7.5 no longer compiles with the runner's clang (i8mm); flash attention is on by default
+      # in newer releases, as in the app's whisper.xcframework.
       - name: Build whisper.cpp (CPU only, like the app)
         run: |
-          git clone -q --depth 1 --branch v1.7.5 https://github.com/ggml-org/whisper.cpp
+          git clone -q --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp
           cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF -DGGML_METAL=OFF -DGGML_BLAS=OFF > /dev/null
           cmake --build whisper.cpp/build -j 3 > /dev/null
       - name: Convert farbodbij/whisper-medium-Persian to q4_0
         run: |
-          python3 -m venv venv
+          python -m venv venv
           venv/bin/pip install -q torch transformers safetensors huggingface_hub numpy
           git clone -q --depth 1 https://github.com/openai/whisper openai-whisper
           venv/bin/python scripts/prepare_hf_model.py farbodbij/whisper-medium-Persian hf-model
