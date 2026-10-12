@@ -3,8 +3,9 @@
 (Transcriber.pieces): each piece ends at the latest pause in the next 28 s, leaving at least
 3 s for the next piece, so Whisper never runs a second 30 s window over the tail.
 
-Usage: split_long.py <in.wav> <out_prefix> [longest seconds, 28]. Writes <out_prefix>.<i>.wav
-and prints their paths.
+Usage: split_long.py <in.wav> <out_prefix> [seconds]. Writes <out_prefix>.<i>.wav and prints
+their paths. <seconds> is the longest piece (28 by default), or "<from>/<longest>": recordings of
+<from> seconds or more are cut into pieces shorter than <longest>.
 """
 import array
 import sys
@@ -12,7 +13,8 @@ import wave
 
 RATE = 16000
 FRAME = RATE // 10
-LONGEST = int(float(sys.argv[3]) * RATE) if len(sys.argv) > 3 else 28 * RATE
+LIMITS = (sys.argv[3] if len(sys.argv) > 3 else "28").split("/")
+FROM, LONGEST = (int(float(x) * RATE) for x in (LIMITS if len(LIMITS) == 2 else LIMITS * 2))
 SHORTEST = 3 * RATE
 
 
@@ -43,6 +45,8 @@ def quietest(samples):
 
 
 def pieces(samples):
+    if len(samples) < FROM:
+        return [(0, len(samples))]
     out, start = [], 0
     while len(samples) - start >= LONGEST:
         window = min(LONGEST, len(samples) - start - SHORTEST)
