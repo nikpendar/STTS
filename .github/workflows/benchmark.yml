@@ -13,11 +13,15 @@ on:
         default: fleurs
       models:
         description: >-
-          JSON list of {label, file (whisper.cpp ggml name) or hf (Hugging Face repo), quant, beam, bo (decoders on temperature fallback), prompt}
+          JSON list of {label, file (whisper.cpp ggml name) or hf (Hugging Face repo), quant, beam, bo (decoders on temperature fallback), prompt,
+          fa (flash attention), appctx (the app's shortened encoder window), ctxmin (its floor in frames)}
         default: >-
           [{"label":"base-q5_1","file":"base-q5_1"},{"label":"small-q5_1","file":"small-q5_1"},
           {"label":"medium-q5_0","file":"medium-q5_0"},{"label":"large-v3-turbo-q5_0","file":"large-v3-turbo-q5_0"},
           {"label":"large-v3-turbo-q4_0","file":"large-v3-turbo","quant":"q4_0"},{"label":"large-v3-q5_0","file":"large-v3-q5_0"}]
+
+permissions:
+  contents: write
 
 jobs:
   prepare:
@@ -90,14 +94,6 @@ jobs:
           cmake --build whisper.cpp/build -j 4
       - name: Get model
         run: |
-          if [ -n "${{ matrix.nemo }}" ]; then
-            # NeMo FastConformer: export the CTC branch to ONNX for sherpa-onnx.
-            pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch "nemo_toolkit[asr]" onnx onnxruntime sherpa-onnx huggingface_hub
-            python3 -c "from huggingface_hub import snapshot_download; snapshot_download('${{ matrix.nemo }}', local_dir='nemo-model')"
-            python3 scripts/export_nemo_ctc.py nemo-model/*.nemo nemo-onnx
-            cp nemo-onnx/${{ matrix.onnx || 'model.int8.onnx' }} model.bin
-            exit 0
-          fi
           if [ -n "${{ matrix.hf }}" ]; then
             # Fine-tuned Hugging Face checkpoint: convert to ggml (f16), quantized below.
             pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch transformers safetensors huggingface_hub numpy
@@ -125,9 +121,7 @@ jobs:
           files=()
           for f in clips/*.wav; do files+=(-f "$f"); done
           start=$(date +%s.%N)
-          if [ -n "${{ matrix.nemo }}" ]; then
-            python3 scripts/sherpa_transcribe.py model.bin nemo-onnx/tokens.txt clips 80
-          elif [ -n "${{ matrix.appctx }}" ]; then
+          if [ -n "${{ matrix.appctx }}" ]; then
             # Same shortened encoder window as the app (WhisperContext.audioContext);
             # ctxmin raises the floor (384 frames in the app, 1500 = the full 30 s window).
             for f in clips/*.wav; do
@@ -168,6 +162,11 @@ jobs:
           print("|---|---|---|---|---|")
           for r in rows:
               print(f"| {r['model']} | {r['wer']} | {r['cer']} | {r['size_mb']} | {r['rtf']} |")
+          print("\n| model | spellings in the transcripts (reference in brackets) |")
+          print("|---|---|")
+          for r in rows:
+              sp = r.get("spellings", {})
+              print(f"| {r['model']} | " + ", ".join(f"{k} {v} ({sp['ref'][k]})" for k, v in sp.get("hyp", {}).items()) + " |")
           for r in rows[:3]:
               print(f"\n### {r['model']}")
               for s in r["samples"][:3]:
@@ -179,3 +178,14 @@ jobs:
           path: |
             results.md
             results
+      # Also on the `benchmark-<dataset>` branch, readable where artifacts cannot be downloaded.
+      - name: Commit results
+        run: |
+          mkdir report && cp -r results.md results report/
+          cd report
+          git init -q -b "benchmark-${{ inputs.dataset }}"
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -qm "Benchmark for ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" "benchmark-${{ inputs.dataset }}"

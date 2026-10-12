@@ -33,16 +33,36 @@ def distance(a, b) -> int:
     return prev[-1]
 
 
+# Spellings the score forgives (normalize) but a reader sees: Arabic letters and digits, the
+# prefix «می» and the plural «ها» written as separate words instead of joined with ZWNJ.
+SPELLINGS = {
+    "arabic_letters": r"[يكى]",
+    "arabic_digits": r"[٠-٩]",
+    "latin_digits": r"[0-9]",
+    "persian_digits": r"[۰-۹]",
+    "zwnj": "\u200c",
+    "mi_spaced": r"(?:^|\s)ن?می\s",
+    "ha_spaced": r"\sها(?:ی|یی)?(?:\s|$)",
+}
+
+
+def spellings(texts) -> dict:
+    return {name: sum(len(re.findall(pattern, t)) for t in texts) for name, pattern in SPELLINGS.items()}
+
+
 def main():
     refs_path, hyp_dir, label, seconds, size, audio, out = sys.argv[1:]
     words = word_errors = chars = char_errors = 0
     samples = []
+    raw_refs, raw_hyps = [], []
     for line in open(refs_path, encoding="utf-8"):
         name, ref = line.rstrip("\n").split("\t", 1)
         try:
             hyp = open(f"{hyp_dir}/{name}.txt", encoding="utf-8", errors="replace").read()
         except FileNotFoundError:
             hyp = ""
+        raw_refs.append(ref)
+        raw_hyps.append(hyp)
         r, h = normalize(ref), normalize(hyp)
         we = distance(r.split(), h.split())
         ce = distance(r.replace(" ", ""), h.replace(" ", ""))
@@ -58,6 +78,7 @@ def main():
         "cer": round(100 * char_errors / max(chars, 1), 1),
         "size_mb": round(int(size) / 1e6),
         "rtf": round(float(seconds) / max(float(audio), 1), 3),
+        "spellings": {"hyp": spellings(raw_hyps), "ref": spellings(raw_refs)},
         "samples": samples,
     }
     json.dump(result, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)

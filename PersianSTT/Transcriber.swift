@@ -7,18 +7,17 @@ private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model"
 
 @MainActor
 final class Transcriber: ObservableObject {
-    /// Shared so the dictation shortcut (DictateIntent) can drive the same instance as the UI.
+    /// Shared by the keyboard session, the settings page and the dictation shortcut (DictateIntent).
     static let shared = Transcriber()
 
-    @Published var text = ""
+    /// The model's state, or the last shortcut dictation's result, for the settings page.
     @Published var status = "در حال بارگذاری مدل…"
+    /// The dictation shortcut is recording.
     @Published var isRecording = false
     @Published var isBusy = true
     @Published var modelName = ""
     /// A model is loaded. Builds without a bundled model need one imported (`ModelImporter`).
     @Published private(set) var hasModel = false
-    /// Recording that stops by itself after a pause, started from the dictation shortcut.
-    @Published var isQuickDictation = false
 
     private var whisper: WhisperContext?
     private var usesCoreML = false
@@ -128,20 +127,11 @@ final class Transcriber: ObservableObject {
     func appDidBecomeActive() {
         guard quickDictationPending, !isRecording else { return }
         quickDictationPending = false
-        Task { await startRecording(quick: true) }
+        Task { await startRecording() }
     }
 
-    // MARK: - Recording
-
-    func toggleRecording() async {
-        if isRecording {
-            stopAndTranscribe()
-        } else {
-            await startRecording(quick: false)
-        }
-    }
-
-    private func startRecording(quick: Bool) async {
+    /// Records until a pause after speech (`watchForSilence`), then transcribes.
+    private func startRecording() async {
         guard await AVAudioApplication.requestRecordPermission() else {
             status = "دسترسی به میکروفون داده نشده است. از تنظیمات آیفون فعالش کنید."
             return
@@ -164,27 +154,22 @@ final class Transcriber: ObservableObject {
                 AVLinearPCMIsBigEndianKey: false,
             ]
             let recorder = try AVAudioRecorder(url: recordingURL, settings: settings)
-            recorder.isMeteringEnabled = quick
+            recorder.isMeteringEnabled = true
             guard recorder.record() else {
                 status = "شروع ضبط ناموفق بود."
                 return
             }
             self.recorder = recorder
             isRecording = true
-            isQuickDictation = quick
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            if quick {
-                status = "در حال گوش دادن… بعد از مکث خودکار تمام می‌شود."
-                watchForSilence()
-            } else {
-                status = "در حال ضبط… برای پایان دوباره بزنید."
-            }
+            status = "در حال گوش دادن… بعد از مکث خودکار تمام می‌شود."
+            watchForSilence()
         } catch {
             status = "خطا در ضبط: \(error.localizedDescription)"
         }
     }
 
-    /// Stops a quick dictation after speech followed by a pause, or when nothing is said.
+    /// Stops the dictation after speech followed by a pause, or when nothing is said.
     private func watchForSilence() {
         meterTask?.cancel()
         meterTask = Task { [weak self] in
@@ -216,33 +201,14 @@ final class Transcriber: ObservableObject {
         recorder?.stop()
         recorder = nil
         isRecording = false
-        isQuickDictation = false
         if !KeyboardSession.shared.isActive {
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
         transcribe(url: recordingURL)
     }
 
-    func importFile(_ result: Result<URL, Error>) {
-        switch result {
-        case .success(let url):
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            let copy = FileManager.default.temporaryDirectory.appendingPathComponent(url.lastPathComponent)
-            do {
-                try? FileManager.default.removeItem(at: copy)
-                try FileManager.default.copyItem(at: url, to: copy)
-                transcribe(url: copy)
-            } catch {
-                status = "خواندن فایل ناموفق بود: \(error.localizedDescription)"
-            }
-        case .failure(let error):
-            status = error.localizedDescription
-        }
-    }
-
-    /// Used by the keyboard session, which records its own audio. The result goes only to the
-    /// keyboard, not to the app's text box. Setting `abort` stops it with `WhisperError.cancelled`.
+    /// Used by the keyboard session, which records its own audio; the result goes back to the
+    /// keyboard. Setting `abort` stops it with `WhisperError.cancelled`.
     /// `onEncoded` runs on the main actor once the encoder is done, with the seconds still expected.
     func transcribe(samples: [Float], abort: AbortFlag, preview: Bool = false,
                     onEncoded: ((Double) -> Void)? = nil) async throws -> String {
@@ -337,7 +303,7 @@ final class Transcriber: ObservableObject {
                 let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
                 let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext,
                                                           abort: AbortFlag())
-                text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
                 let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
                 let elapsed = Date().timeIntervalSince(start)
                 var summary = String(format: "%.1f ثانیه صدا در %.1f ثانیه تبدیل شد", audioSeconds, elapsed)

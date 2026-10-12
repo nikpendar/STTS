@@ -261,10 +261,6 @@ final class Lexicon {
     /// Letters a Persian word is made of, plus ZWNJ.
     static let letters = Set("آابپتثجچحخدذرزژسشصضطظعغفقکگلمنوهیئءأؤةيك\u{200C}".unicodeScalars)
 
-    static func isPersianWord(_ text: Substring) -> Bool {
-        !text.isEmpty && text.unicodeScalars.allSatisfy { letters.contains($0) }
-    }
-
     /// The Persian `Language.key`.
     static func key(_ word: String) -> String {
         Language.persian.key(word)
