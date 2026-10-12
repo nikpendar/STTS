@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import PhotosUI
 import UIKit
 import UniformTypeIdentifiers
 
@@ -20,6 +21,7 @@ struct ContentView: View {
     @AppStorage(KeyboardSession.autoStopKey) private var autoStop = KeyboardSession.defaultAutoStop
     @State private var style = KeyStyle.saved
     @State private var options = KeyboardOptions.saved
+    @State private var photoItem: PhotosPickerItem?
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -87,6 +89,7 @@ struct ContentView: View {
         .onAppear {
             style.save()
             options.save()
+            KeyboardBackground.handToKeyboard(style.backgroundImage)
             syncTraining()
         }
         .onOpenURL { url in
@@ -200,7 +203,7 @@ struct ContentView: View {
             } header: {
                 Text("ردیف پیشنهاد").font(.app(.footnote))
             } footer: {
-                Text("چیزی خودکار عوض نمی‌شود.").font(.app(.footnote))
+                Text("در فارسی و انگلیسی، بعد از هر فاصله کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند و کیبورد کلمه‌هایی را که خودتان پشت سر هم می‌نویسید هم یاد می‌گیرد. برای کلمه‌ای که در فهرست نیست، نزدیک‌ترین کلمه‌ی درست هم پیشنهاد می‌شود و چیزی خودکار عوض نمی‌شود.").font(.app(.footnote))
             }
             Section {
                 Toggle(isOn: $options.keyPreview) {
@@ -212,10 +215,13 @@ struct ContentView: View {
                 Toggle(isOn: $options.numberRow) {
                     SettingLabel("ردیف اعداد بالای حروف", symbol: "number", color: .teal)
                 }
+                Toggle(isOn: $options.keySounds) {
+                    SettingLabel("صدای کلیدها", symbol: "speaker.wave.2.fill", color: .pink)
+                }
             } header: {
                 Text("کلیدها").font(.app(.footnote))
             } footer: {
-                Text("دو بار زدن پشت سر هم فاصله بعد از یک کلمه «. » تایپ می‌کند و بار سوم آن را «، » می‌کند (در انگلیسی «, »). تنوین و اعراب در صفحه‌ی ۱۲۳ هستند. ردیف اعداد کیبورد را یک ردیف بلندتر می‌کند.").font(.app(.footnote))
+                Text("دو بار زدن پشت سر هم فاصله بعد از یک کلمه «. » تایپ می‌کند و بار سوم آن را «، » می‌کند (در انگلیسی «, »). تنوین و اعراب در صفحه‌ی ۱۲۳ هستند. ردیف اعداد کوتاه است و کیبورد را کمی بلندتر می‌کند. صدای کلیدها مثل کیبورد آیفون است و با سوییچ بی‌صدای گوشی قطع می‌شود.").font(.app(.footnote))
             }
             Section {
                 Toggle(isOn: $options.autoZWNJ) {
@@ -250,7 +256,16 @@ struct ContentView: View {
         page("ظاهر دکمه‌ها") {
             Section {
                 KeyPreview(style: style)
-                    .listRowBackground(style.backgroundColor.map { Color($0) } ?? Color(.systemGray5))
+                    .listRowBackground(KeyPreviewBackground(style: style))
+                HStack {
+                    SettingLabel("اندازه‌ی حروف", symbol: "textformat.size", color: .orange)
+                    Slider(value: Binding { style.letterSize ?? KeyStyle.standardLetterSize } set: { style.letterSize = $0.rounded() },
+                           in: 16...32, step: 1)
+                    Text("\(Int(style.letterSize ?? KeyStyle.standardLetterSize))")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28)
+                }
                 ColorPicker(selection: backgroundColorBinding, supportsOpacity: false) {
                     SettingLabel("رنگ پس‌زمینه‌ی کیبورد", symbol: "keyboard.fill", color: .brown)
                 }
@@ -268,6 +283,43 @@ struct ContentView: View {
                 Button("بازگشت به پیش‌فرض") { style = .standard }
             } footer: {
                 Text("تغییرها دفعه‌ی بعد که کیبورد باز شود اعمال می‌شوند.").font(.app(.footnote))
+            }
+
+            Section {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        BackgroundChoice(image: nil, title: "بدون عکس", selected: style.backgroundImage == nil) {
+                            style.backgroundImage = nil
+                        }
+                        if let id = style.backgroundImage, KeyboardBackground.isPhoto(id) {
+                            BackgroundChoice(image: KeyboardBackground.image(id, size: .zero), title: "عکس شما", selected: true) {}
+                        }
+                        ForEach(KeyboardBackground.presets) { preset in
+                            BackgroundChoice(image: KeyboardBackground.thumbnail(preset.id), title: preset.name,
+                                             selected: style.backgroundImage == preset.id) {
+                                style.backgroundImage = preset.id
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    SettingLabel("انتخاب عکس از گالری", symbol: "photo.fill", color: .orange)
+                }
+            } header: {
+                Text("عکس پس‌زمینه").font(.app(.footnote))
+            } footer: {
+                Text("عکس جای رنگ پس‌زمینه را می‌گیرد و وسط آن به اندازه‌ی کیبورد بریده می‌شود. اگر رنگ حروف را انتخاب نکرده باشید، حروف روی عکس تیره روشن و روی عکس روشن تیره می‌شوند.").font(.app(.footnote))
+            }
+            .onChange(of: photoItem) { _, item in
+                guard let item else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data),
+                       let id = KeyboardBackground.savePhoto(image) {
+                        style.backgroundImage = id
+                    }
+                    photoItem = nil
+                }
             }
         }
     }
@@ -553,7 +605,7 @@ private struct KeyPreview: View {
         HStack(spacing: 6) {
             ForEach(["ض", "ص", "ق", "ف", "غ", "ع"], id: \.self) { letter in
                 Text(letter)
-                    .font(.app(.title3))
+                    .font(.custom(AppFont.name ?? "", size: CGFloat(style.letterSize ?? KeyStyle.standardLetterSize)))
                     .foregroundStyle(Color(style.textColor))
                     .frame(maxWidth: .infinity, minHeight: 42)
                     .background(RoundedRectangle(cornerRadius: 6).fill(Color(style.fill.color)))
@@ -562,6 +614,61 @@ private struct KeyPreview: View {
             }
         }
         .padding(.vertical, 6)
+        // As on the keyboard: letters left to the system colour follow the background's lightness.
+        .environment(\.colorScheme, KeyPreviewBackground.isDark(style).map { $0 ? ColorScheme.dark : ColorScheme.light } ?? colorScheme)
+    }
+
+    @Environment(\.colorScheme) private var colorScheme
+}
+
+/// The keyboard's background behind the preview: the picture, else the colour, else the system's.
+private struct KeyPreviewBackground: View {
+    let style: KeyStyle
+
+    var body: some View {
+        if let id = style.backgroundImage, let image = KeyboardBackground.isPhoto(id)
+            ? KeyboardBackground.image(id, size: .zero) : KeyboardBackground.thumbnail(id) {
+            Image(uiImage: image).resizable().scaledToFill()
+        } else {
+            style.backgroundColor.map { Color($0) } ?? Color(.systemGray5)
+        }
+    }
+
+    /// Whether the keyboard turns letters of the system colour light: nil when they keep it.
+    static func isDark(_ style: KeyStyle) -> Bool? {
+        guard style.text == nil else { return nil }
+        if let id = style.backgroundImage, let dark = KeyboardBackground.isDark(id) { return dark }
+        return style.backgroundColor.map { KeyboardBackground.luminance($0) < 0.5 }
+    }
+}
+
+/// One picture to choose in the background row, outlined when chosen.
+private struct BackgroundChoice: View {
+    let image: UIImage?
+    let title: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Group {
+                    if let image {
+                        Image(uiImage: image).resizable().scaledToFill()
+                    } else {
+                        Color(.systemGray5).overlay(Image(systemName: "nosign").foregroundStyle(.secondary))
+                    }
+                }
+                .frame(width: 72, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? Color.accentColor : .clear, lineWidth: 2.5))
+                Text(title)
+                    .font(.app(.caption))
+                    .foregroundStyle(selected ? Color.accentColor : .secondary)
+                    .lineLimit(1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

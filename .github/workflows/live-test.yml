@@ -3,11 +3,15 @@
 # text before the final one. Then the dictated text is edited on the keys, and the correction
 # should reach the training server (server/server.py on the runner); on the next launch the
 # app should download and load the model that server publishes. Screenshots (portrait and
-# landscape) and the app's log go to the `live-test` branch.
+# landscape) and the app's log go to the `live-test` branch (`live-test-ios26` with ios 26).
 name: Live dictation test
 
 on:
   workflow_dispatch:
+    inputs:
+      ios:
+        description: iOS major version of the simulator, built with that Xcode (empty for the runner's default)
+        default: ""
 
 permissions:
   contents: write
@@ -17,6 +21,13 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        if: inputs.ios == '26'
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
 
       - name: Download whisper.xcframework and model
         env:
@@ -50,7 +61,12 @@ jobs:
           APP=build/Release-iphonesimulator/PersianSTT.app
           ID=ir.nikpendar.PersianSTT
           KB=ir.nikpendar.PersianSTT.Keyboard
-          DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
+          if [ -n "${{ inputs.ios }}" ]; then
+            RUNTIME="$(xcrun simctl list runtimes -j | jq -r --arg v "${{ inputs.ios }}." '[.runtimes[] | select(.isAvailable and .platform == "iOS" and (.version | startswith($v)))] | sort_by(.version | split(".") | map(tonumber)) | last | .identifier')"
+            DEVICE="$(xcrun simctl create live-test "iPhone 16 Pro" "$RUNTIME")"
+          else
+            DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
+          fi
           defaults write com.apple.iphonesimulator ConnectHardwareKeyboard -bool false
           xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
@@ -277,11 +293,7 @@ jobs:
           PY
           }
           frames PERSIAN out/ui-9.json '^(letter-|backspaceKey|layerKey|emojiKey|spaceKey|returnKey|dictationMic|suggestion-)'
-          # Holding space shows ZWNJ; lifting on the key types a space.
           read SPX SPY < <(python3 find.py spaceKey out/ui-9.json || echo "240 817")
-          axe touch -x "$SPX" -y "$SPY" --down --udid "$DEVICE" && sleep 0.8 && \
-            xcrun simctl io "$DEVICE" screenshot out/5h-space-forms.png; axe touch -x "$SPX" -y "$SPY" --up --udid "$DEVICE" || true
-          sleep 0.5
           # Two quick spaces after a letter type a full stop.
           read BX BY < <(python3 find.py letter-1-3 out/ui-9.json || echo "125 735")
           axe tap -x "$BX" -y "$BY" --udid "$DEVICE"; sleep 0.4
@@ -353,6 +365,19 @@ jobs:
             "${TRAIN_ARGS[@]}" -trainingAutoUpdate YES -personalModelLastCheck 0
           sleep 25
           xcrun simctl io "$DEVICE" screenshot out/6-landscape.png
+          # A preset picture behind clear keys, larger letters and the number row.
+          xcrun simctl terminate "$DEVICE" "$ID" || true
+          STYLE='{"fill":{"r":0.5,"g":0.5,"b":0.5,"a":0},"stroke":{"r":0.5,"g":0.5,"b":0.5,"a":0},"backgroundImage":"aurora","letterSize":28}'
+          OPTIONS='{"numberRow":true}'
+          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav" \
+            -keyStyle "<$(printf '%s' "$STYLE" | xxd -p | tr -d '\n')>" -keyboardOptions "<$(printf '%s' "$OPTIONS" | xxd -p | tr -d '\n')>"
+          sleep 12
+          xcrun simctl io "$DEVICE" screenshot out/7-background.png
+          dump out/ui-13.json || true
+          frames BACKGROUND out/ui-13.json '^(number-|letter-0-0|spaceKey)'
+          read DX DY < <(python3 find.py letter-1-5 out/ui-13.json || echo "0 0")
+          axe touch -x "$DX" -y "$DY" --down --udid "$DEVICE" && sleep 0.8 && \
+            xcrun simctl io "$DEVICE" screenshot out/7b-background-variants.png; axe touch -x "$DX" -y "$DY" --up --udid "$DEVICE" || true
           kill $LOG || true
           echo "===== log"
           grep -E "live |final pass|recording started|test audio|whisper_full|correction|personal|loaded|model v|edits|dictation |auto stop|no speech|glide" out/log.txt | cut -c1-300 || true
@@ -364,9 +389,11 @@ jobs:
         if: always()
         run: |
           cd out
-          git init -q -b live-test
+          BRANCH=live-test
+          if [ -n "${{ inputs.ios }}" ]; then BRANCH="live-test-ios${{ inputs.ios }}"; fi
+          git init -q -b "$BRANCH"
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add -A
           git commit -qm "Live test for ${GITHUB_SHA::7}"
-          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" live-test
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" "$BRANCH"

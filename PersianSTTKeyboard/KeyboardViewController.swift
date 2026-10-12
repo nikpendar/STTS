@@ -1,3 +1,4 @@
+import AudioToolbox
 import UIKit
 import os
 
@@ -19,6 +20,10 @@ final class KeyboardViewController: UIInputViewController {
     /// Holds every key; hidden while dictating, when the keyboard shrinks to `orb`.
     private let keysView = KeysView()
     private let orb = DictationOrbView()
+    /// The picture chosen in the app (`KeyboardBackground`), behind everything.
+    private let backgroundImageView = UIImageView()
+    /// The preset drawn last and the size it was drawn at.
+    private var drawnBackground: (id: String, size: CGSize)?
     private var heightConstraint: NSLayoutConstraint?
     /// Row height of the system keyboard, measured in the iOS simulator (ios-keyboard.yml on the
     /// ios-ref branch): 54 on iPhones up to 393 points wide (SE, 11 Pro, 16), 56 on the wider ones
@@ -29,8 +34,10 @@ final class KeyboardViewController: UIInputViewController {
     }
     /// The suggestion bar above the keys.
     private var barHeight: CGFloat { isLandscape ? 38 : 46 }
+    /// The optional digits over the letters: as low as keys can be and still be hit.
+    private var numberRowHeight: CGFloat { isLandscape ? 28 : 34 }
     /// No margin under the bottom row: the keys sit as low as the extension can draw.
-    private var fullHeight: CGFloat { barHeight + CGFloat(options.numberRow ? 5 : 4) * rowHeight }
+    private var fullHeight: CGFloat { barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) }
     private var compactHeight: CGFloat { isLandscape ? 120 : 150 }
     private var isLandscape: Bool { UIScreen.main.bounds.width > UIScreen.main.bounds.height }
     private var messageTimer: Timer?
@@ -622,35 +629,34 @@ final class KeyboardViewController: UIInputViewController {
         "ز": ["ز", "ژ"],
         "و": ["و", "ؤ"],
         "ه": ["ه", "ة"],
-        // The numbers layers, as on iOS.
-        "\u{064B}": KeyboardViewController.diacritics,
+        // The numbers layers: the diacritics in two rows (`diacriticRows`), the rest as on iOS.
+        "\u{064B}": KeyboardViewController.diacriticRows.flatMap { $0 },
         ".": [".", "…"],
         "،": ["،", ","],
         "!": ["!", "¡"],
     ]
-    /// The diacritics key of the Persian numbers layers: tanvin on the key, and on a long press
-    /// the row iOS shows, left to right: maddah, superscript alef, tatweel, damma, kasra, shadda,
-    /// dammatan, the key's fathatan, kasratan, sukun, fatha.
-    private static let diacritics = ["\u{0653}", "\u{0670}", "\u{0640}", "\u{064F}", "\u{0650}", "\u{0651}",
-                                     "\u{064C}", "\u{064B}", "\u{064D}", "\u{0652}", "\u{064E}"]
+    /// The diacritics key of the Persian numbers layers: fathatan on a tatweel, as SwiftKey
+    /// draws it, and on a long press twelve marks in two rows, as Gboard has them. Rows from the
+    /// key up, each left to right so that it reads right to left: fatha, kasra, damma and the
+    /// three tanvins, the key's fathatan over the key; then shadda, sukun, hamza, maddah,
+    /// superscript alef and tatweel.
+    private static let diacriticRows: [[String]] = [
+        ["\u{064C}", "\u{064D}", "\u{064B}", "\u{064F}", "\u{0650}", "\u{064E}"],
+        ["\u{0640}", "\u{0670}", "\u{0653}", "\u{0654}", "\u{0652}", "\u{0651}"],
+    ]
     /// Rows that open with another form than the key's own over the key, listed left to right:
-    /// the diacritics with the tanvin over the key, and «ا» with «آ» over the key and «ا» one
-    /// cell to its right.
+    /// «ا» with «آ» over the key and «ا» one cell to its right.
     private static let anchoredForms: [String: (forms: [String], anchor: String)] = [
-        "\u{064B}": (diacritics, "\u{064B}"),
         "ا": (["ء", "إ", "أ", "آ", "ا"], "آ"),
     ]
-    /// A mark alone has nothing to sit on: keys and popups show it over a small dotted circle
-    /// (`KeyIcons.mark`), as iOS does.
+    /// A mark alone has nothing to sit on: the popup shows it on a dotted circle
+    /// (`KeyIcons.mark`), and a key on a tatweel.
     private static func isMark(_ text: String) -> Bool {
         text.unicodeScalars.first?.properties.generalCategory == .nonspacingMark
     }
     /// Keys whose forms open to the right of the key instead of the left, where they are
     /// easier to reach with the thumb.
     private static let formsToTheRight: Set<String> = ["ز", "ی"]
-    /// On a long press of the Persian space bar: ZWNJ.
-    private static let spaceForms: [KeyPopupView.Item] =
-        [KeyPopupView.Item(text: "\u{200C}", label: "", image: KeyIcons.zwnj)]
     /// Brackets of the Persian symbol layers type their mirror image: right-to-left text draws
     /// each of them mirrored, so what appears then looks like the key.
     private static let mirrored: [String: String] = [
@@ -731,9 +737,8 @@ final class KeyboardViewController: UIInputViewController {
     /// English: #+= on the numbers layer and 123 behind it, where shift is on the letters.
     private let moreKey = KeyView(title: "#+=", fontSize: 16)
     /// No label: arrows around a globe show that swiping it changes the language, until the
-    /// user has done it a few times. Held in Persian: ZWNJ and the tanvins.
-    private let spaceKey = KeyView()
-    private lazy var spacePress = variantsPress()
+    /// user has done it a few times. Keys with no fill or outline name it, as iOS does.
+    private let spaceKey = KeyView(fontSize: 15)
     private lazy var spacePan = UIPanGestureRecognizer(target: self, action: #selector(spaceSwiped(_:)))
     private let returnKey = KeyView()
     private var repeatTimer: Timer?
@@ -802,6 +807,17 @@ final class KeyboardViewController: UIInputViewController {
         view.backgroundColor = .clear
         inputView?.backgroundColor = .clear
 
+        backgroundImageView.contentMode = .scaleAspectFill
+        backgroundImageView.clipsToBounds = true
+        backgroundImageView.layer.cornerRadius = 16
+        backgroundImageView.layer.cornerCurve = .continuous
+        backgroundImageView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        backgroundImageView.isHidden = true
+        view.addSubview(backgroundImageView)
+
+        // A keyboard's fully clear pixels take no touches: between the symbols of clear keys
+        // (space, return, the mic) taps were lost. An all but invisible tint takes them.
+        keysView.backgroundColor = Self.touchableClear
         view.addSubview(keysView)
         keysView.retarget = { [weak self] point, key in self?.retarget(point, hit: key) }
 
@@ -809,8 +825,15 @@ final class KeyboardViewController: UIInputViewController {
         micButton.accessibilityIdentifier = "dictationMic"
         micButton.accessibilityLabel = "Persian dictation"
         micButton.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
+        micButton.addAction(UIAction { [weak self] _ in
+            self?.click(.modifier)
+            KeyView.press(self?.micButton, down: true)
+        }, for: .touchDown)
+        micButton.addAction(UIAction { [weak self] _ in KeyView.press(self?.micButton, down: false) },
+                            for: [.touchUpInside, .touchUpOutside, .touchCancel])
         keysView.addSubview(micButton)
 
+        orb.backgroundColor = Self.touchableClear
         orb.isHidden = true
         // The simulator renders animations on the CPU, which slowed transcription in the test tenfold.
         orb.animates = testProxy == nil
@@ -841,8 +864,6 @@ final class KeyboardViewController: UIInputViewController {
         spaceKey.dimsImage = true
         spaceKey.accessibilityIdentifier = "spaceKey"
         spaceKey.addTarget(self, action: #selector(insertSpace), for: .touchUpInside)
-        spacePress.delegate = self
-        spaceKey.addGestureRecognizer(spacePress)
         spacePan.delegate = self
         spaceKey.addGestureRecognizer(spacePan)
         shiftKey.accessibilityIdentifier = "shiftKey"
@@ -857,6 +878,9 @@ final class KeyboardViewController: UIInputViewController {
         returnKey.addTarget(self, action: #selector(insertReturn), for: .touchUpInside)
         for key in [backspaceKey, layerKey, emojiKey, spaceKey, returnKey] {
             keysView.addSubview(key)
+        }
+        for key in [layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey] {
+            key.addAction(UIAction { [weak self] _ in self?.click(.modifier) }, for: .touchDown)
         }
         suggestionBar.onPick = { [weak self] item in self?.pick(item) }
         keysView.addSubview(suggestionBar)
@@ -898,7 +922,7 @@ final class KeyboardViewController: UIInputViewController {
         characterKeys.flatMap { $0 }.forEach { $0.removeFromSuperview() }
         numberKeys.forEach { $0.removeFromSuperview() }
         numberKeys = showsNumberRow ? (isEnglish ? Self.englishSymbolRows[0] : Self.symbolRows[0]).enumerated().map { index, digit in
-            let key = KeyView(title: digit, fontSize: 23)
+            let key = KeyView(title: digit, fontSize: numberFontSize)
             key.character = digit
             key.accessibilityIdentifier = "number-\(index)"
             key.addAction(UIAction { [weak self] _ in self?.insert(digit) }, for: .touchUpInside)
@@ -921,12 +945,7 @@ final class KeyboardViewController: UIInputViewController {
         characterKeys = rows.enumerated().map { rowIndex, row in
             row.enumerated().map { column, character in
                 // English letters follow shift (`setShifted`).
-                let mark = Self.isMark(character)
-                let key = KeyView(title: mark ? nil : character, fontSize: 23)
-                if mark {
-                    key.image = KeyIcons.mark(character, size: 30)
-                    key.accessibilityLabel = character
-                }
+                let key = KeyView(title: Self.isMark(character) ? "\u{0640}" + character : character, fontSize: letterFontSize)
                 key.character = character
                 key.accessibilityIdentifier = "letter-\(rowIndex)-\(column)"
                 key.addAction(UIAction { [weak self, weak key] _ in self?.tapped(key, character) }, for: .touchUpInside)
@@ -960,27 +979,78 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private var keyStyle = KeyStyle.standard
+    /// Letters and digits at the size chosen in the app; the low number row's no larger than fits.
+    private var letterFontSize: CGFloat { CGFloat(keyStyle.letterSize ?? KeyStyle.standardLetterSize) }
+    private var numberFontSize: CGFloat { min(letterFontSize, 19) }
 
     /// Close to the colour iOS draws behind a keyboard, for the glide lens.
     private static let systemKeyboardBackground = UIColor { traits in
         traits.userInterfaceStyle == .dark ? UIColor(white: 0.17, alpha: 1) : UIColor(red: 0.82, green: 0.83, blue: 0.86, alpha: 1)
     }
+    /// Clear to the eye, but it takes touches (see `buildUI`).
+    private static let touchableClear = UIColor(white: 0.5, alpha: 0.012)
 
     private func applyKeyStyle(_ style: KeyStyle) {
         keyStyle = style
-        view.backgroundColor = style.backgroundColor ?? .clear
+        updateBackgroundImage()
+        let picture = backgroundImageView.isHidden ? nil : backgroundImageView.image
+        let solid = picture == nil ? style.backgroundColor : nil
+        view.backgroundColor = solid ?? .clear
         // iOS draws the strip under the keys (globe and dictation) itself, and it cannot take
         // the colour; rounded top corners make the coloured keyboard sit well on the screen.
-        view.layer.cornerRadius = style.backgroundColor == nil ? 0 : 16
+        view.layer.cornerRadius = solid == nil ? 0 : 16
         view.layer.cornerCurve = .continuous
         view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        // Letters left to the system colour turn light on a dark background and dark on a light one.
+        let average = picture.map { KeyboardBackground.averageColor(of: $0) } ?? solid
+        var interface = UIUserInterfaceStyle.unspecified
+        if style.text == nil, let average {
+            interface = KeyboardBackground.luminance(average) < 0.5 ? .dark : .light
+        }
+        view.overrideUserInterfaceStyle = interface
         let functionKeys = [backspaceKey, layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey]
         for key in functionKeys + characterKeys.flatMap({ $0 }) + numberKeys {
             key.apply(style)
         }
+        for key in characterKeys.flatMap({ $0 }) { key.fontSize = letterFontSize }
+        for key in numberKeys { key.fontSize = numberFontSize }
+        updateSpaceImage()
         suggestionBar.textColor = style.textColor
-        glideTrail.lensBackground = style.backgroundColor ?? Self.systemKeyboardBackground
+        glideTrail.lensBackground = average ?? Self.systemKeyboardBackground
         render()
+    }
+
+    /// The chosen picture at the keyboard's full size, filling the view however high it is; a
+    /// preset is drawn again when the width changes.
+    private func updateBackgroundImage() {
+        guard let id = keyStyle.backgroundImage else {
+            backgroundImageView.image = nil
+            backgroundImageView.isHidden = true
+            drawnBackground = nil
+            return
+        }
+        let size = CGSize(width: view.bounds.width > 0 ? view.bounds.width : UIScreen.main.bounds.width, height: fullHeight)
+        if let drawn = drawnBackground, drawn.id == id, KeyboardBackground.isPhoto(id) || drawn.size == size { return }
+        let image = KeyboardBackground.image(id, size: size)
+        backgroundImageView.image = image
+        backgroundImageView.isHidden = image == nil
+        if image != nil {
+            drawnBackground = (id: id, size: size)
+        } else {
+            drawnBackground = nil
+        }
+    }
+
+    /// The system keyboard's clicks.
+    private enum Click: SystemSoundID {
+        case character = 1104, delete = 1155, modifier = 1156
+    }
+
+    /// Plays on a key's touch down, as on iOS, when switched on in the app; the ring/silent
+    /// switch silences it.
+    private func click(_ sound: Click) {
+        guard options.keySounds else { return }
+        AudioServicesPlaySystemSound(sound.rawValue)
     }
 
     /// English letter keys and their popups show capitals while shift or caps lock is on.
@@ -1069,9 +1139,13 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    /// The globe and arrows teach the swipe; after a few switches the bar is left plain.
+    /// The globe and arrows teach the swipe; after a few switches the bar is left plain. Keys
+    /// with neither fill nor outline would leave nothing of the bar to see: it is named instead.
     private func updateSpaceImage() {
-        spaceKey.image = languageSwitches >= 3 ? nil : KeyIcons.space
+        let named = keyStyle.keysAreClear
+        spaceKey.image = named || languageSwitches >= 3 ? nil : KeyIcons.space
+        spaceKey.title = named ? (isEnglish ? "space" : "فاصله") : nil
+        spaceKey.accessibilityLabel = isEnglish ? "space" : "فاصله"
     }
 
     /// A horizontal swipe on the space bar switches between Persian and English, like SwiftKey.
@@ -1093,6 +1167,7 @@ final class KeyboardViewController: UIInputViewController {
         emojiKeysBuilt = true
         for emoji in Self.emojis {
             let key = KeyView(title: emoji, fontSize: 28)
+            key.addAction(UIAction { [weak self] _ in self?.click(.character) }, for: .touchDown)
             key.addAction(UIAction { [weak self] _ in
                 self?.insert(emoji)
             }, for: .touchUpInside)
@@ -1109,6 +1184,8 @@ final class KeyboardViewController: UIInputViewController {
             height.constant = fullHeight
         }
         orb.frame = view.bounds
+        backgroundImageView.frame = view.bounds
+        updateBackgroundImage()
         // Keys keep the full-height layout while hidden or resizing, so they do not squeeze during
         // the animation. Otherwise they fill the height iOS gave the keyboard, which may be less
         // than asked: the suggestion bar must stay on screen.
@@ -1125,13 +1202,16 @@ final class KeyboardViewController: UIInputViewController {
         let width = view.bounds.width - insets.left - insets.right
         let bar = barHeight
         suggestionBar.frame = CGRect(x: left, y: 0, width: width, height: bar)
-        // With the number row on, the other layers spread their four rows over the same height.
-        let row = (height - bar) / (showsNumberRow ? 5 : 4)
+        // The low number row keeps its share of the height iOS gives, the letter rows the rest;
+        // with it on, the other layers spread their four rows over the same height.
+        let keysHeight = height - bar
+        let numbers = showsNumberRow ? keysHeight * numberRowHeight / (4 * rowHeight + numberRowHeight) : 0
+        let row = (keysHeight - numbers) / 4
         let unit = width / CGFloat(columns)
-        let top = bar + (showsNumberRow ? row : 0)
+        let top = bar + numbers
         for (index, key) in numberKeys.enumerated() {
             let cell = width / CGFloat(numberKeys.count)
-            key.frame = CGRect(x: left + CGFloat(index) * cell, y: bar, width: cell, height: row)
+            key.frame = CGRect(x: left + CGFloat(index) * cell, y: bar, width: cell, height: numbers)
         }
 
         let thirdY = top + 2 * row
@@ -1290,6 +1370,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func backspaceDown() {
+        click(.delete)
         if let change = lastAutoZWNJ, (proxy.documentContextBeforeInput ?? "").hasSuffix(change.inserted) {
             lastAutoZWNJ = nil
             zwnjDeclined.insert(String(change.original.dropLast()))
@@ -1311,6 +1392,7 @@ final class KeyboardViewController: UIInputViewController {
             MainActor.assumeIsolated {
                 self?.repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
                     MainActor.assumeIsolated {
+                        self?.click(.delete)
                         self?.touchDeleted(repeating: true)
                         self?.deleteBackward()
                     }
@@ -1642,12 +1724,8 @@ final class KeyboardViewController: UIInputViewController {
     // MARK: - Key popups
 
     @objc private func keyDown(_ key: KeyView) {
+        click(.character)
         guard options.keyPreview else { return }
-        if let character = key.character, Self.isMark(character) {
-            keysView.bringSubviewToFront(keyPopup)
-            keyPopup.showPreview(character, image: KeyIcons.mark(character, size: 34), on: key, style: keyStyle)
-            return
-        }
         guard var shown = key.title else { return }
         // English letters show the case they type, though the keys show capitals.
         if isEnglish, layer == .letters, let character = key.character {
@@ -1667,43 +1745,42 @@ final class KeyboardViewController: UIInputViewController {
         return press
     }
 
-    /// Holding a key opens its other forms; sliding along the row picks one and lifting the
-    /// finger types it. Lifting far from the row types nothing; lifting the space bar without
-    /// sliding up types a space.
+    /// Holding a key opens its other forms; sliding over them picks one and lifting the finger
+    /// types it. Lifting far from them types nothing.
     @objc private func variantsPressed(_ press: UILongPressGestureRecognizer) {
         guard let key = press.view as? KeyView else { return }
-        let isSpace = key === spaceKey
         switch press.state {
         case .began:
             let character = key.character ?? ""
-            let anchored = Self.anchoredForms[character]
-            let items = isSpace
-                ? Self.spaceForms
-                : (anchored?.forms ?? Self.variants[character] ?? []).map {
-                    Self.isMark($0) ? KeyPopupView.Item(text: $0, label: "", image: KeyIcons.mark($0, size: 28))
-                        : KeyPopupView.Item(text: $0, label: $0)
-                }
-            guard !items.isEmpty else { return }
+            if character == "\u{064B}" {
+                keyPopup.showGrid(Self.diacriticRows.map { $0.map(Self.popupItem) }, on: key, style: keyStyle,
+                                  anchor: Self.diacriticRows[0].firstIndex(of: character) ?? 0)
+            } else {
+                let anchored = Self.anchoredForms[character]
+                let items = (anchored?.forms ?? Self.variants[character] ?? []).map(Self.popupItem)
+                guard !items.isEmpty else { return }
+                keyPopup.showVariants(items, on: key, style: keyStyle,
+                                      toTheRight: Self.formsToTheRight.contains(character),
+                                      anchor: anchored.flatMap { $0.forms.firstIndex(of: $0.anchor) })
+            }
             keysView.bringSubviewToFront(keyPopup)
-            keyPopup.showVariants(items, on: key, style: keyStyle, overKey: isSpace,
-                                  toTheRight: Self.formsToTheRight.contains(character),
-                                  anchor: anchored.flatMap { $0.forms.firstIndex(of: $0.anchor) })
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         case .changed:
             keyPopup.select(at: press.location(in: keysView))
         case .ended:
             keyPopup.select(at: press.location(in: keysView))
-            let shown = keyPopup.isShowingVariants
-            let item = shown ? keyPopup.selectedItem : nil
+            let item = keyPopup.isShowingVariants ? keyPopup.selectedItem : nil
             keyPopup.hide()
-            if let item {
-                insert(item.text)
-            } else if isSpace, shown {
-                insertSpace()
-            }
+            if let item { insert(item.text) }
         default:
             keyPopup.hide()
         }
+    }
+
+    /// A form as the popup shows it: a mark on a dotted circle, anything else as text.
+    private static func popupItem(_ text: String) -> KeyPopupView.Item {
+        isMark(text) ? KeyPopupView.Item(text: text, label: "", image: KeyIcons.mark(text, size: 30))
+            : KeyPopupView.Item(text: text, label: text)
     }
 
     // MARK: - Emoji key menu
@@ -1762,10 +1839,9 @@ final class KeyboardViewController: UIInputViewController {
 }
 
 extension KeyboardViewController: UIGestureRecognizerDelegate {
-    /// Glides start on a letter key of the letters layer. Holding the space bar opens ZWNJ and
-    /// the tanvins in Persian only, and the language swipe waits while they are open.
+    /// Glides start on a letter key of the letters layer. The language swipe on the space bar
+    /// waits while a key's forms are open.
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        if gestureRecognizer === spacePress { return !isEnglish && !isCompact }
         if gestureRecognizer === spacePan { return !keyPopup.isShowingVariants }
         guard gestureRecognizer === glidePan else { return true }
         guard layer == .letters, !isCompact, keyMenu.isHidden, !keyPopup.isShowingVariants,
@@ -1790,6 +1866,8 @@ private final class KeysView: UIView {
 }
 
 private final class KeyView: UIControl {
+    /// Everything drawn, moved down and in a little while the key is pressed.
+    private let content = UIView()
     private let face = UIView()
     private let label = UILabel()
     private let imageView = UIImageView()
@@ -1844,7 +1922,9 @@ private final class KeyView: UIControl {
         didSet { imageView.alpha = dimsImage ? 0.4 : 1 }
     }
 
-    private let fontSize: CGFloat
+    var fontSize: CGFloat {
+        didSet { if fontSize != oldValue { updateLabel() } }
+    }
     /// The gap around the drawn key: as on the system keyboard, a tenth of the row height above
     /// and below (43 of 54 points drawn in portrait).
     private var faceInsets: UIEdgeInsets {
@@ -1872,24 +1952,24 @@ private final class KeyView: UIControl {
         backgroundColor = .clear
         isAccessibilityElement = true
         accessibilityTraits = .keyboardKey
+        content.isUserInteractionEnabled = false
+        addSubview(content)
         face.layer.cornerRadius = 6
-        face.isUserInteractionEnabled = false
-        addSubview(face)
+        content.addSubview(face)
         highlight.backgroundColor = UIColor.label.withAlphaComponent(0.12)
         highlight.layer.cornerRadius = 6
-        highlight.isUserInteractionEnabled = false
         highlight.alpha = 0
-        addSubview(highlight)
+        content.addSubview(highlight)
 
         label.textAlignment = .center
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.5
         updateLabel()
-        addSubview(label)
+        content.addSubview(label)
 
         imageView.tintColor = .label
         imageView.contentMode = .center
-        addSubview(imageView)
+        content.addSubview(imageView)
         self.symbol = symbol
         imageView.image = symbol.flatMap {
             UIImage(systemName: $0, withConfiguration: UIImage.SymbolConfiguration(pointSize: 19))
@@ -1911,6 +1991,9 @@ private final class KeyView: UIControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        // Not `frame`, which a pressed key's transform would distort.
+        content.bounds = bounds
+        content.center = CGPoint(x: bounds.midX, y: bounds.midY)
         let inner = bounds.inset(by: faceInsets)
         highlight.frame = inner
         face.frame = inner
@@ -1923,15 +2006,37 @@ private final class KeyView: UIControl {
     }
 
     override var isHighlighted: Bool {
-        didSet { highlight.alpha = isHighlighted ? 1 : 0 }
+        didSet {
+            guard isHighlighted != oldValue else { return }
+            highlight.alpha = isHighlighted ? 1 : 0
+            Self.press(content, down: isHighlighted)
+        }
+    }
+
+    /// A pressed key sinks a little and shrinks, as if pushed into the keyboard, and springs
+    /// back when let go.
+    static func press(_ view: UIView?, down: Bool) {
+        guard let view else { return }
+        let options: UIView.AnimationOptions = [.beginFromCurrentState, .allowUserInteraction]
+        if down {
+            UIView.animate(withDuration: 0.05, delay: 0, options: options) {
+                view.transform = CGAffineTransform(translationX: 0, y: 2).scaledBy(x: 0.94, y: 0.94)
+            }
+        } else {
+            UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.55, initialSpringVelocity: 0,
+                           options: options) {
+                view.transform = .identity
+            }
+        }
     }
 }
 
 /// The balloon over a pressed key, as on the system keyboard: the key is its foot and a wider
 /// card above it shows the letter large. On a long press the card holds the key's other forms
-/// in a row, right to left from the key's own letter, the one under the finger in blue. An
-/// extension cannot draw above its own view, so over the top row the card reaches only the top
-/// of the suggestion bar. The view covers the keys area and never takes touches.
+/// in a row, right to left from the key's own letter, or in rows (the diacritics), the one under
+/// the finger in blue. From iOS 26 the balloon is Liquid Glass, through which the keys under it
+/// show. An extension cannot draw above its own view, so over the top row the card reaches only
+/// the top of the suggestion bar. The view covers the keys area and never takes touches.
 private final class KeyPopupView: UIView {
     struct Item {
         /// What is typed.
@@ -1952,8 +2057,7 @@ private final class KeyPopupView: UIView {
     private var labels: [UILabel] = []
     private var images: [UIImageView] = []
     private var cells: [CGRect] = []
-    /// The space bar's row: nothing is chosen until the finger slides up from the key.
-    private var choosesAboveKeyOnly = false
+    private var glass: ShapeGlass?
     private var card = CGRect.zero
     private var foot = CGRect.zero
     private var textColor = UIColor.label
@@ -1976,8 +2080,18 @@ private final class KeyPopupView: UIView {
         shape.shadowOffset = CGSize(width: 0, height: 1)
         shape.lineWidth = 0.5
         layer.addSublayer(shape)
+        glass = ShapeGlass.make()
+        if let glass = glass?.view {
+            shape.isHidden = true
+            addSubview(glass)
+        }
         selection.fillColor = UIColor.systemBlue.cgColor
         layer.addSublayer(selection)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        glass?.view?.frame = bounds
     }
 
     required init?(coder: NSCoder) {
@@ -1995,11 +2109,9 @@ private final class KeyPopupView: UIView {
     }
 
     /// A letter's forms start over the key, its own letter first, and run to the left, or to
-    /// the right with `toTheRight`. `overKey` centres the row over a wide key (the space bar);
-    /// of several forms there, none is chosen until the finger slides up.
-    /// With `anchor`, the items run left to right and the one at `anchor` starts over the key and
-    /// is chosen first, as the diacritics row of iOS.
-    func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle, overKey: Bool = false,
+    /// the right with `toTheRight`. With `anchor`, the items run left to right and the one at
+    /// `anchor` starts over the key and is chosen first.
+    func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle,
                       toTheRight: Bool = false, anchor: Int? = nil) {
         let foot = key.faceFrame
         let pad: CGFloat = 3
@@ -2012,8 +2124,7 @@ private final class KeyPopupView: UIView {
         if let anchor {
             midX = foot.midX - (CGFloat(anchor) + 0.5) * cell - pad - inset + width / 2
         } else {
-            midX = overKey ? foot.midX
-                : toTheRight ? foot.midX - cell / 2 - pad + width / 2 : foot.midX + cell / 2 + pad - width / 2
+            midX = toTheRight ? foot.midX - cell / 2 - pad + width / 2 : foot.midX + cell / 2 + pad - width / 2
         }
         let card = cardFrame(width: width, midX: midX, foot: foot)
         let cells = items.indices.map { index in
@@ -2022,21 +2133,45 @@ private final class KeyPopupView: UIView {
             return CGRect(x: x, y: card.minY + pad, width: cell, height: card.height - 2 * pad)
         }
         isShowingVariants = true
-        choosesAboveKeyOnly = overKey && items.count > 1
         present(on: key, foot: foot, card: card, cells: cells, items: items,
                 style: style, fontSize: min(26, card.height * 0.62))
-        select(index: choosesAboveKeyOnly ? nil : (anchor ?? 0), feedback: false)
+        select(index: anchor ?? 0, feedback: false)
     }
 
-    /// Selects the form nearest the finger along the row, or none once it is far from the row.
+    /// Forms in rows, `rows[0]` nearest the key, each left to right, with `rows[0][anchor]` over
+    /// the key and chosen first.
+    func showGrid(_ rows: [[Item]], on key: KeyView, style: KeyStyle, anchor: Int) {
+        let foot = key.faceFrame
+        let pad: CGFloat = 3
+        let columns = CGFloat(rows.map(\.count).max() ?? 1)
+        let cellWidth = min(max(min(foot.width, 42), 30), (bounds.width - 2 * pad - 4) / columns)
+        let width = columns * cellWidth + 2 * pad
+        let midX = foot.midX - (CGFloat(anchor) + 0.5) * cellWidth - pad + width / 2
+        let wanted = CGFloat(rows.count) * max(min(foot.height, 44), 32) + 2 * pad
+        let card = cardFrame(width: width, midX: midX, foot: foot, height: wanted)
+        let cellHeight = (card.height - 2 * pad) / CGFloat(rows.count)
+        var cells: [CGRect] = []
+        for (row, items) in rows.enumerated() {
+            for column in items.indices {
+                cells.append(CGRect(x: card.minX + pad + CGFloat(column) * cellWidth,
+                                    y: card.maxY - pad - CGFloat(row + 1) * cellHeight, width: cellWidth, height: cellHeight))
+            }
+        }
+        isShowingVariants = true
+        present(on: key, foot: foot, card: card, cells: cells, items: rows.flatMap { $0 },
+                style: style, fontSize: min(26, cellHeight * 0.62))
+        select(index: anchor, feedback: false)
+    }
+
+    /// Selects the form nearest the finger, or none once it is far from them.
     func select(at point: CGPoint) {
         guard isShowingVariants, let first = cells.first else { return }
-        // The row runs either way from the key.
+        // A row runs either way from the key.
         let rowMin = cells.map(\.minX).min() ?? first.minX, rowMax = cells.map(\.maxX).max() ?? first.maxX
         let near = point.x > rowMin - first.width && point.x < rowMax + first.width
-            && point.y > card.minY - 2 * card.height && point.y < foot.maxY + foot.height
-            && (!choosesAboveKeyOnly || point.y < foot.minY)
-        let index = near ? cells.indices.min { abs(cells[$0].midX - point.x) < abs(cells[$1].midX - point.x) } : nil
+            && point.y > card.minY - 2 * first.height && point.y < foot.maxY + foot.height
+        let distance = { (cell: CGRect) in hypot(cell.midX - point.x, max(0, abs(cell.midY - point.y) - cell.height / 2)) }
+        let index = near ? cells.indices.min { distance(cells[$0]) < distance(cells[$1]) } : nil
         select(index: index, feedback: true)
     }
 
@@ -2049,19 +2184,20 @@ private final class KeyPopupView: UIView {
     func hide() {
         isHidden = true
         isShowingVariants = false
-        choosesAboveKeyOnly = false
         key = nil
         selected = nil
+        // Not shown for a frame at the old place when the next balloon opens.
+        glass?.update(nil, tint: nil)
     }
 
     /// Above the foot and inside the view, covering the foot's width. Where the view ends
     /// little above the key the card first gets lower, down to the key's own height, and only
     /// then comes down over the top of the key.
-    private func cardFrame(width: CGFloat, midX: CGFloat, foot: CGRect) -> CGRect {
+    private func cardFrame(width: CGFloat, midX: CGFloat, foot: CGRect, height wanted: CGFloat? = nil) -> CGRect {
         let lowest = max(bounds.minX + 1, foot.maxX - width)
         let highest = min(foot.minX, bounds.maxX - 1 - width)
         let x = max(lowest, min(highest, midX - width / 2))
-        let height = max(foot.height * 1.2, 34)
+        let height = wanted ?? max(foot.height * 1.2, 34)
         let room = foot.minY - Self.gap - 1
         if room >= foot.height {
             let cardHeight = min(height, room)
@@ -2091,6 +2227,8 @@ private final class KeyPopupView: UIView {
         shape.fillColor = (lightText ? UIColor(white: 0.36, alpha: 1) : UIColor.white).cgColor
         shape.strokeColor = UIColor.black.withAlphaComponent(lightText ? 0.35 : 0.1).cgColor
         CATransaction.commit()
+        // A light veil (dark under light letters) keeps the large letter readable over the keys.
+        glass?.update(path, tint: lightText ? UIColor(white: 0.1, alpha: 0.3) : UIColor(white: 1, alpha: 0.35))
         while labels.count < items.count {
             let label = UILabel()
             label.textAlignment = .center
@@ -2289,8 +2427,8 @@ private final class ProgressRing {
 /// The compact dictation view: a turning gradient orb (like Siri's) with the mic in the middle.
 /// While the recording starts, an arc turns around it. While recording it swells with the
 /// speaker's voice and breathes softly in silence; a teal ring fills until the next piece of
-/// live text arrives. After the recording, a blue ring
-/// fills while the app transcribes.
+/// live text arrives. After the recording, a blue ring fills while the app transcribes. The
+/// rings hug the orb and swell with it.
 /// The whole view is one button: it stops the recording, or cancels the transcription.
 private final class DictationOrbView: UIControl {
     enum Mode { case starting, recording, processing }
@@ -2307,7 +2445,11 @@ private final class DictationOrbView: UIControl {
     /// Live text while speaking.
     let liveRing = ProgressRing(color: .systemTeal, width: 3)
     /// The transcription after the recording.
-    let processingRing = ProgressRing(color: .systemBlue, width: 4)
+    let processingRing = ProgressRing(color: .systemBlue, width: 3)
+    /// Holds the rings and the arc, centred on the orb and scaled with it.
+    private let rings = CALayer()
+    /// Between the orb's edge and the rings.
+    private static let ringGap: CGFloat = 5
     private let icon = UIImageView()
     private let caption = UILabel()
 
@@ -2324,14 +2466,15 @@ private final class DictationOrbView: UIControl {
         layer.addSublayer(pulse)
 
         for ring in [liveRing, processingRing] {
-            layer.addSublayer(ring.track)
-            layer.addSublayer(ring.ring)
+            rings.addSublayer(ring.track)
+            rings.addSublayer(ring.ring)
         }
         loading.fillColor = UIColor.clear.cgColor
         loading.strokeColor = UIColor.systemTeal.cgColor
         loading.lineWidth = 3
         loading.lineCap = .round
-        layer.addSublayer(loading)
+        rings.addSublayer(loading)
+        layer.addSublayer(rings)
 
         icon.image = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold))
         icon.tintColor = .white
@@ -2354,10 +2497,10 @@ private final class DictationOrbView: UIControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // The size it had before the 2026-10-11 changes; the ring leaves room for the voice.
+        // The size it had before the 2026-10-11 changes, with room for the voice to swell it.
         let diameter = min(bounds.height - 64, 112)
         let center = CGPoint(x: bounds.midX, y: (bounds.height - 30) / 2 + 2)
-        let ringRadius = diameter / 2 * (1 + Self.voiceGrowth) + 4
+        let ringRadius = diameter / 2 + Self.ringGap
         let orbFrame = CGRect(x: center.x - diameter / 2, y: center.y - diameter / 2, width: diameter, height: diameter)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -2367,12 +2510,16 @@ private final class DictationOrbView: UIControl {
         gradient.bounds = pulse.bounds
         gradient.position = CGPoint(x: pulse.bounds.midX, y: pulse.bounds.midY)
         gradientMask.path = UIBezierPath(ovalIn: pulse.bounds).cgPath
-        let ringPath = UIBezierPath(arcCenter: center, radius: ringRadius,
+        let side = 2 * ringRadius + 8
+        rings.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+        rings.position = center
+        let middle = CGPoint(x: side / 2, y: side / 2)
+        let ringPath = UIBezierPath(arcCenter: middle, radius: ringRadius,
                                     startAngle: -.pi / 2, endAngle: 1.5 * .pi, clockwise: true).cgPath
         liveRing.path = ringPath
         processingRing.path = ringPath
         loading.bounds = CGRect(x: 0, y: 0, width: 2 * ringRadius, height: 2 * ringRadius)
-        loading.position = center
+        loading.position = middle
         loading.path = UIBezierPath(arcCenter: CGPoint(x: ringRadius, y: ringRadius), radius: ringRadius,
                                     startAngle: -.pi / 2, endAngle: -.pi / 2 + 0.56 * .pi, clockwise: true).cgPath
         CATransaction.commit()
@@ -2500,6 +2647,7 @@ private final class DictationOrbView: UIControl {
         displayLink?.invalidate()
         displayLink = nil
         pulse.setAffineTransform(.identity)
+        rings.setAffineTransform(.identity)
         guard on, animates else { return }
         lastFrame = CACurrentMediaTime()
         let link = CADisplayLink(target: self, selector: #selector(stepMotion))
@@ -2507,23 +2655,30 @@ private final class DictationOrbView: UIControl {
         displayLink = link
     }
 
-    /// Each frame: the shown loudness follows the app's like a spring, quick to rise and slower
-    /// to settle, so the 0.1 s steps blend into one motion, and the orb swells with it. In
-    /// silence it breathes a few percent. Before anyone speaks, the caption says nothing is heard.
+    /// Each frame: the shown loudness follows the app's like a stiff spring, quick to rise and
+    /// a little slower to settle, so the steps blend into one motion that keeps up with the
+    /// voice, and the orb swells and turns faster with it. In silence it breathes a few percent.
+    /// Before anyone speaks, the caption says nothing is heard.
     @objc private func stepMotion() {
         let now = CACurrentMediaTime()
         let dt = CGFloat(min(0.05, max(0, now - lastFrame)))
         lastFrame = now
-        let stiffness: CGFloat = voiceTarget > voice ? 180 : 50
-        voiceSpeed += (stiffness * (voiceTarget - voice) - 1.7 * stiffness.squareRoot() * voiceSpeed) * dt
-        voice = min(1.05, max(-0.05, voice + voiceSpeed * dt))
-        spin += dt * 2 * .pi / 3
+        // Steps of at most 1/120 s keep the stiff spring stable when frames are slow.
+        let steps = max(1, Int((dt * 120).rounded(.up)))
+        for _ in 0..<steps {
+            let stiffness: CGFloat = voiceTarget > voice ? 520 : 170
+            let step = dt / CGFloat(steps)
+            voiceSpeed += (stiffness * (voiceTarget - voice) - 1.7 * stiffness.squareRoot() * voiceSpeed) * step
+            voice = min(1.05, max(-0.05, voice + voiceSpeed * step))
+        }
+        spin += dt * 2 * .pi / 3 * (1 + 2.5 * max(0, voice))
         let t = CGFloat(now - motionStart)
         let breath = 0.04 * sin(2 * .pi * t / 2.4)
         let scale = 1 + breath * (1 - max(0, voice)) + Self.voiceGrowth * voice
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         pulse.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
+        rings.setAffineTransform(CGAffineTransform(scaleX: scale, y: scale))
         gradient.setAffineTransform(CGAffineTransform(rotationAngle: spin))
         CATransaction.commit()
         if mode == .recording {
@@ -2547,25 +2702,6 @@ private func keyFont(for text: String?, size: CGFloat) -> UIFont {
 
 /// Images for keys that no SF Symbol fits, drawn as templates so they take the key colour.
 private enum KeyIcons {
-    /// ZWNJ, as on the iOS Persian keyboard: a dotted bar under a small triangle.
-    static let zwnj: UIImage = UIGraphicsImageRenderer(size: CGSize(width: 16, height: 26)).image { _ in
-        UIColor.black.setFill()
-        let triangle = UIBezierPath()
-        triangle.move(to: CGPoint(x: 3.5, y: 1.5))
-        triangle.addLine(to: CGPoint(x: 12.5, y: 1.5))
-        triangle.addLine(to: CGPoint(x: 8, y: 7))
-        triangle.close()
-        triangle.fill()
-        UIColor.black.setStroke()
-        let bar = UIBezierPath()
-        bar.move(to: CGPoint(x: 8, y: 10.5))
-        bar.addLine(to: CGPoint(x: 8, y: 24.5))
-        bar.lineWidth = 1.9
-        bar.lineCapStyle = .round
-        bar.setLineDash([0.1, 3.4], count: 2, phase: 0)
-        bar.stroke()
-    }.withRenderingMode(.alwaysTemplate)
-
     /// Return, drawn as in a left-to-right layout: the symbol image itself would be mirrored
     /// in this right-to-left keyboard.
     static let returnKey = leftToRight("return")
@@ -2604,16 +2740,19 @@ private enum KeyIcons {
         }.withRenderingMode(.alwaysTemplate)
     }()
 
-    /// A mark alone, as on the iOS diacritics keys: large, over a small dotted circle standing
-    /// for the letter it goes on. The mark is set on the font's own dotted circle, so it sits
-    /// where the font puts it, then drawn without that circle and moved in to the small one.
+    /// Marks drawn under the letter; the rest go over it.
+    private static let marksBelow: Set<String> = ["\u{0650}", "\u{064D}", "\u{0655}", "\u{0656}"]
+
+    /// A mark alone, as Gboard shows the diacritics: on a dotted circle standing for the letter
+    /// it goes on, centred over it or under it a little apart. The mark is taken from the font
+    /// as it sits on a tatweel, so it keeps the shape and size it has in text.
     static func mark(_ mark: String, size: CGFloat) -> UIImage {
         let cacheKey = "\(mark) \(size)"
         if let image = marks[cacheKey] { return image }
-        let font = AppFont.font(ofSize: size) as CTFont
-        let line = CTLineCreateWithAttributedString(NSAttributedString(string: "\u{25CC}" + mark, attributes: [.font: font]))
-        var circle = CGRect.null
-        var glyphs: [(font: CTFont, glyph: CGGlyph, position: CGPoint, bounds: CGRect)] = []
+        let font = AppFont.font(ofSize: size * 1.15) as CTFont
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: "\u{0640}" + mark, attributes: [.font: font]))
+        var bounds = CGRect.null
+        var glyphs: [(font: CTFont, glyph: CGGlyph, position: CGPoint)] = []
         for run in CTLineGetGlyphRuns(line) as? [CTRun] ?? [] {
             let count = CTRunGetGlyphCount(run)
             var ids = [CGGlyph](repeating: 0, count: count)
@@ -2625,50 +2764,43 @@ private enum KeyIcons {
             CTRunGetStringIndices(run, all, &indices)
             let attributes = CTRunGetAttributes(run) as NSDictionary
             let runFont = attributes[kCTFontAttributeName as String].map { $0 as! CTFont } ?? font
-            for i in 0..<count {
+            // The tatweel is the string's first character.
+            for i in 0..<count where indices[i] > 0 {
                 var glyph = ids[i]
-                let bounds = CTFontGetBoundingRectsForGlyphs(runFont, .default, &glyph, nil, 1)
-                    .offsetBy(dx: positions[i].x, dy: positions[i].y)
-                // The dotted circle is the string's first character.
-                if indices[i] == 0 {
-                    circle = circle.union(bounds)
-                } else if !bounds.isEmpty {
-                    glyphs.append((runFont, ids[i], positions[i], bounds))
-                }
+                let box = CTFontGetBoundingRectsForGlyphs(runFont, .default, &glyph, nil, 1)
+                guard !box.isEmpty else { continue }
+                bounds = bounds.union(box.offsetBy(dx: positions[i].x, dy: positions[i].y))
+                glyphs.append((runFont, ids[i], positions[i]))
             }
         }
-        let radius = size * 0.14
-        let centre = circle.isNull ? CGPoint(x: 0, y: CTFontGetXHeight(font) / 2) : CGPoint(x: circle.midX, y: circle.midY)
-        // The font leaves a wide gap over its circle: a little of it goes too.
-        let moveIn = circle.isNull ? 0 : max(0, circle.height / 2 - radius + size * 0.05)
-        // Marks over the circle move down to the small one, marks under it up.
-        let shifts = glyphs.map { $0.bounds.midY > centre.y ? -moveIn : moveIn }
-        var reach = CGSize(width: radius + 1, height: radius + 1)
-        for (glyph, shift) in zip(glyphs, shifts) {
-            let bounds = glyph.bounds.offsetBy(dx: 0, dy: shift)
-            reach.width = max(reach.width, abs(bounds.minX - centre.x), abs(bounds.maxX - centre.x))
-            reach.height = max(reach.height, abs(bounds.minY - centre.y), abs(bounds.maxY - centre.y))
-        }
-        // The circle at the image's centre, so every mark's circle sits at the middle of its key.
-        let imageSize = CGSize(width: ceil(2 * reach.width + 2), height: ceil(2 * reach.height + 2))
+        let radius = size * 0.2
+        let gap = size * 0.08
+        let below = marksBelow.contains(mark)
+        let markSize = bounds.isNull ? .zero : bounds.size
+        // The circle at the image's centre, so it sits at the middle of its cell.
+        let imageSize = CGSize(width: ceil(2 * max(radius, markSize.width / 2) + 4),
+                               height: ceil(2 * (radius + gap + markSize.height) + 4))
         let image = UIGraphicsImageRenderer(size: imageSize).image { context in
             let mid = CGPoint(x: imageSize.width / 2, y: imageSize.height / 2)
             UIColor.black.setStroke()
             let ring = UIBezierPath(arcCenter: mid, radius: radius, startAngle: 0, endAngle: 2 * .pi, clockwise: true)
-            ring.lineWidth = max(1, size / 26)
+            ring.lineWidth = max(1.2, size / 22)
             ring.lineCapStyle = .round
-            ring.setLineDash([0.01, 2 * .pi * radius / 8 - 0.01], count: 2, phase: 0)
+            ring.setLineDash([0.01, 2 * .pi * radius / 10 - 0.01], count: 2, phase: 0)
             ring.stroke()
+            guard !bounds.isNull else { return }
             let cg = context.cgContext
             cg.saveGState()
             cg.textMatrix = .identity
-            cg.translateBy(x: mid.x, y: mid.y)
+            // Core Text's y axis points up.
+            cg.translateBy(x: 0, y: imageSize.height)
             cg.scaleBy(x: 1, y: -1)
-            cg.translateBy(x: -centre.x, y: -centre.y)
-            UIColor.black.setFill()
-            for (glyph, shift) in zip(glyphs, shifts) {
+            let dy = below ? mid.y - radius - gap - bounds.maxY : mid.y + radius + gap - bounds.minY
+            cg.translateBy(x: mid.x - bounds.midX, y: dy)
+            cg.setFillColor(UIColor.black.cgColor)
+            for glyph in glyphs {
                 var id = glyph.glyph
-                var position = CGPoint(x: glyph.position.x, y: glyph.position.y + shift)
+                var position = glyph.position
                 CTFontDrawGlyphs(glyph.font, &id, &position, 1, cg)
             }
             cg.restoreGState()
@@ -2788,7 +2920,10 @@ private final class KeyMenuView: UIView {
     }
     var onSelect: ((Item) -> Void)?
     var textColor = UIColor.label {
-        didSet { buildRows() }
+        didSet {
+            buildRows()
+            updateGlass()
+        }
     }
     private(set) var highlighted: Int?
     var highlightedItem: Item? { highlighted.map { items[$0] } }
@@ -2811,6 +2946,21 @@ private final class KeyMenuView: UIView {
         card.layer.cornerCurve = .continuous
         card.clipsToBounds = true
         addSubview(card)
+        updateGlass()
+    }
+
+    /// From iOS 26 the menu is Liquid Glass like the key popups, the keys showing through, with
+    /// a veil that keeps its words readable.
+    private func updateGlass() {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            let glass = UIGlassEffect(style: .clear)
+            let lightText = KeyboardBackground.luminance(textColor.resolvedColor(with: traitCollection)) > 0.5
+            glass.tintColor = lightText ? UIColor(white: 0.1, alpha: 0.35) : UIColor(white: 1, alpha: 0.4)
+            card.effect = glass
+            layer.shadowOpacity = 0
+        }
+        #endif
     }
 
     required init?(coder: NSCoder) {

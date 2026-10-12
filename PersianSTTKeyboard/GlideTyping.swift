@@ -383,6 +383,65 @@ private struct TrailGlassView: View {
 }
 #endif
 
+/// iOS 26 Liquid Glass in any shape, under the key popups: the keys show through it, bent at
+/// its edges, as through a drop of water.
+@MainActor
+final class ShapeGlass {
+    private let model = ShapeGlassModel()
+    private var host: UIViewController?
+    /// Covers the view the shapes are given in.
+    var view: UIView? { host?.view }
+
+    /// Nil before iOS 26, or when built with an SDK without Liquid Glass.
+    static func make() -> ShapeGlass? {
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) { return ShapeGlass(glass: ()) }
+        #endif
+        return nil
+    }
+
+    #if compiler(>=6.2)
+    @available(iOS 26.0, *)
+    private init(glass: Void) {
+        let host = UIHostingController(rootView: ShapeGlassView(model: model))
+        host.safeAreaRegions = []
+        host.view.backgroundColor = .clear
+        host.view.isUserInteractionEnabled = false
+        self.host = host
+    }
+    #endif
+
+    /// The shape in the view's coordinates, nil for none, and a colour the glass takes on.
+    func update(_ path: CGPath?, tint: UIColor?) {
+        model.path = path
+        model.tint = tint
+    }
+}
+
+private final class ShapeGlassModel: ObservableObject {
+    @Published var path: CGPath?
+    @Published var tint: UIColor?
+}
+
+#if compiler(>=6.2)
+@available(iOS 26.0, *)
+private struct ShapeGlassView: View {
+    @ObservedObject var model: ShapeGlassModel
+
+    var body: some View {
+        ZStack {
+            if let path = model.path {
+                Color.clear
+                    .glassEffect(.clear.tint(model.tint.map { Color(uiColor: $0) }), in: DropShape(path: path))
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+#endif
+
 /// A shape given in the trail view's own coordinates.
 private struct DropShape: Shape {
     let path: CGPath

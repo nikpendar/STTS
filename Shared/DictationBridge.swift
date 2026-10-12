@@ -337,9 +337,18 @@ struct KeyStyle: SharedSetting, Equatable {
     var text: RGBA?
     /// The whole keyboard's background, always opaque; nil leaves the system's own.
     var background: RGBA?
+    /// A picture behind the keys instead of the colour (`KeyboardBackground`): a preset's id or
+    /// the user's photo.
+    var backgroundImage: String?
+    /// Point size of the letters and digits on the keys; nil is the standard 23.
+    var letterSize: Double?
+
+    static let standardLetterSize = 23.0
 
     var textColor: UIColor { text.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) } ?? .label }
     var backgroundColor: UIColor? { background.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) } }
+    /// Keys with neither a fill nor an outline that can be seen.
+    var keysAreClear: Bool { fill.a < 0.03 && stroke.a < 0.03 }
 
     static let standard = KeyStyle(fill: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.18),
                                    stroke: RGBA(r: 0.5, g: 0.5, b: 0.5, a: 0.45),
@@ -370,6 +379,8 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var learnTouches = true
     /// Raised by the app to make the keyboard forget the touches it learned.
     var touchResets = 0
+    /// The system keyboard's clicks: one for characters, one for backspace, one for the other keys.
+    var keySounds = true
 
     static let standard = KeyboardOptions()
     static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardOptions")
@@ -390,5 +401,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
         autoZWNJ = try container.decodeIfPresent(Bool.self, forKey: .autoZWNJ) ?? true
         learnTouches = try container.decodeIfPresent(Bool.self, forKey: .learnTouches) ?? true
         touchResets = try container.decodeIfPresent(Int.self, forKey: .touchResets) ?? 0
+        keySounds = try container.decodeIfPresent(Bool.self, forKey: .keySounds) ?? true
     }
 }

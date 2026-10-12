@@ -41,6 +41,8 @@
 		A1000000000000000000003B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000038 /* Assets.xcassets */; };
 		A1000000000000000000003C /* TouchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* TouchModel.swift */; };
 		A1000000000000000000003D /* TouchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* TouchModel.swift */; };
+		A1000000000000000000003E /* KeyboardBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003A /* KeyboardBackground.swift */; };
+		A1000000000000000000003F /* KeyboardBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003A /* KeyboardBackground.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,6 +106,7 @@
 		A20000000000000000000033 /* ModelImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImporter.swift; sourceTree = "<group>"; };
 		A20000000000000000000034 /* VoiceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommands.swift; sourceTree = "<group>"; };
 		A20000000000000000000039 /* TouchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchModel.swift; sourceTree = "<group>"; };
+		A2000000000000000000003A /* KeyboardBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardBackground.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* fa_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = fa_bigrams.bin; sourceTree = "<group>"; };
 		A20000000000000000000036 /* en_words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = en_words.txt; sourceTree = "<group>"; };
 		A20000000000000000000037 /* en_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = en_bigrams.bin; sourceTree = "<group>"; };
@@ -200,6 +203,7 @@
 			isa = PBXGroup;
 			children = (
 				A2000000000000000000000B /* DictationBridge.swift */,
+				A2000000000000000000003A /* KeyboardBackground.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -328,6 +332,7 @@
 				A10000000000000000000032 /* GlideTyping.swift in Sources */,
 				A10000000000000000000036 /* VoiceCommands.swift in Sources */,
 				A1000000000000000000003C /* TouchModel.swift in Sources */,
+				A1000000000000000000003E /* KeyboardBackground.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -342,6 +347,7 @@
 				A10000000000000000000033 /* GlideTyping.swift in Sources */,
 				A10000000000000000000037 /* VoiceCommands.swift in Sources */,
 				A1000000000000000000003D /* TouchModel.swift in Sources */,
+				A1000000000000000000003F /* KeyboardBackground.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

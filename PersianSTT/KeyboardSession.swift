@@ -229,10 +229,10 @@ final class KeyboardSession: ObservableObject {
         if let testAudio { feedTestAudio(testAudio) }
     }
 
-    /// Every 0.1 s while recording: sends the level of the latest audio to the keyboard (as one
-    /// of `DictationBridge.levels` notifications, only when it changes), drops a recording in
-    /// which nobody has spoken for `noSpeechSeconds`, and ends one after `autoStopSeconds` of
-    /// silence following speech.
+    /// Every 0.05 s while recording: sends the level of the latest 0.1 s of audio to the
+    /// keyboard (as one of `DictationBridge.levels` notifications, only when it changes), so the
+    /// orb keeps up with the voice; twice a second it drops a recording in which nobody has
+    /// spoken for `noSpeechSeconds`, and ends one after `autoStopSeconds` of silence following speech.
     private func startMonitor() {
         monitorTask?.cancel()
         let autoStop = Self.autoStopSeconds
@@ -240,12 +240,9 @@ final class KeyboardSession: ObservableObject {
             var lastStep = -1
             var checked = 0
             while !Task.isCancelled, let self, self.isCapturing {
-                try? await Task.sleep(nanoseconds: 100_000_000)
+                try? await Task.sleep(nanoseconds: 50_000_000)
                 guard !Task.isCancelled, self.isCapturing else { break }
-                let levels = self.collector.levels()
-                guard let latest = levels.last else { continue }
-                // Two frames, so a short syllable still moves the orb.
-                let level = max(latest, levels.count > 1 ? levels[levels.count - 2] : 0)
+                let level = self.collector.recentLevel(Int(AudioLoader.sampleRate) / 10)
                 let db = 20 * log10(max(level, 1e-6))
                 let step = min(DictationBridge.levels - 1, max(0, Int((db + 55) / 2)))
                 if step != lastStep {
@@ -253,6 +250,7 @@ final class KeyboardSession: ObservableObject {
                     DictationBridge.post(DictationBridge.level(step))
                 }
                 // Speech decisions twice a second are enough.
+                let levels = self.collector.levels()
                 guard levels.count - checked >= 5 else { continue }
                 checked = levels.count
                 let seconds = Double(levels.count) / 10
@@ -723,6 +721,17 @@ private final class SampleCollector: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return samples.count
+    }
+
+    /// Level of the last `count` samples of the recording.
+    func recentLevel(_ count: Int) -> Float {
+        lock.lock()
+        defer { lock.unlock() }
+        let n = min(count, samples.count)
+        guard n > 0 else { return 0 }
+        var sum: Float = 0
+        for sample in samples[(samples.count - n)...] { sum += sample * sample }
+        return (sum / Float(n)).squareRoot()
     }
 
     /// A copy of the recording from sample `start` on, for a live pass.
