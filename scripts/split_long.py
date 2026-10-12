@@ -35,11 +35,18 @@ def pause(samples):
     return quietest * FRAME + FRAME // 2
 
 
+def quietest(samples):
+    """The quietest 0.1 s after 6 s, for a window with no pause."""
+    levels = [(sum(x * x for x in samples[s:s + FRAME]) / FRAME) ** 0.5
+              for s in range(60 * FRAME, len(samples) - FRAME + 1, FRAME)]
+    return (60 + min(range(len(levels)), key=lambda i: levels[i])) * FRAME + FRAME // 2
+
+
 def pieces(samples):
     out, start = [], 0
     while len(samples) - start >= LONGEST:
         window = min(LONGEST, len(samples) - start - SHORTEST)
-        cut = pause(samples[start:start + window]) or min(20 * RATE, window)
+        cut = pause(samples[start:start + window]) or quietest(samples[start:start + window])
         out.append((start, start + cut))
         start += cut
     out.append((start, len(samples)))
