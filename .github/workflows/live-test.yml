@@ -434,7 +434,7 @@ jobs:
           axe tap -x "$PX" -y "$PY_" --udid "$DEVICE"; sleep 2
           xcrun simctl io "$DEVICE" screenshot out/8b-settings-typing.png
           dump out/ui-16.json || true
-          read PX PY_ < <(python3 pick.py "ردیف پیشنهاد" out/ui-16.json switch || echo "60 200")
+          read PX PY_ < <(python3 pick.py "نمایش ردیف پیشنهاد" out/ui-16.json switch || echo "60 200")
           axe tap -x "$PX" -y "$PY_" --udid "$DEVICE"; sleep 1.5
           xcrun simctl io "$DEVICE" screenshot out/8c-settings-no-suggestion-row.png
           kill $LOG || true

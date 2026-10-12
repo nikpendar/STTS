@@ -195,7 +195,7 @@ struct ContentView: View {
         page("تایپ و پیشنهاد کلمه") {
             Section {
                 Toggle(isOn: $options.suggestionBar.animation(.easeInOut(duration: 0.3))) {
-                    SettingLabel("ردیف پیشنهاد", symbol: "rectangle.topthird.inset.filled", color: .cyan)
+                    SettingLabel("نمایش ردیف پیشنهاد", symbol: "rectangle.topthird.inset.filled", color: .cyan)
                 }
                 // Off, the bar's own options stay in view, greyed, so turning it back on finds them
                 // as they were.
@@ -272,17 +272,16 @@ struct ContentView: View {
                     .listRowSeparator(.hidden)
                 // Each slider sits in the row of the setting it belongs to, under its title, so
                 // every line between rows starts where the titles do.
-                VStack(spacing: 6) {
-                    HStack {
-                        SettingLabel("اندازه‌ی حروف", symbol: "textformat.size", color: .orange)
-                        Spacer()
-                        Text("\(Int(style.letterSize ?? KeyStyle.standardLetterSize))")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
+                VStack(alignment: .leading, spacing: 6) {
+                    SettingLabel("اندازه‌ی حروف", symbol: "textformat.size", color: .orange)
                     SliderLine(small: "textformat.size.smaller", large: "textformat.size.larger") {
                         Slider(value: Binding { style.letterSize ?? KeyStyle.standardLetterSize } set: { style.letterSize = $0.rounded() },
                                in: 16...32, step: 1)
+                    } value: {
+                        Text("\(Int(style.letterSize ?? KeyStyle.standardLetterSize))")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(minWidth: 40, alignment: .trailing)
                     }
                 }
                 ColorPicker(selection: backgroundColorBinding, supportsOpacity: false) {
@@ -598,12 +597,6 @@ private struct SliderLine<Control: View, Value: View>: View {
         }
         // Under the title, past the 29-point symbol square and Label's gap.
         .padding(.leading, 41)
-    }
-}
-
-extension SliderLine where Value == EmptyView {
-    init(small: String, large: String, @ViewBuilder control: () -> Control) {
-        self.init(small: small, large: large, control: control, value: { EmptyView() })
     }
 }
 

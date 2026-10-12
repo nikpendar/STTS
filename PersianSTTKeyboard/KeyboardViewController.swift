@@ -905,6 +905,7 @@ final class KeyboardViewController: UIInputViewController {
 
         keysView.addSubview(glideTrail)
         glideTrail.snapshotSource = view
+        glideTrail.snapshotExcluded = [keyPopup, keyMenu, menuShield]
         glidePan.maximumNumberOfTouches = 1
         glidePan.delegate = self
         keysView.addGestureRecognizer(glidePan)

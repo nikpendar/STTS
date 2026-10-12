@@ -81,8 +81,9 @@ enum GlideDecoder {
 /// within a third of a second.
 /// The magnifying is a row of discs along the line, each showing a snapshot of the keys (taken
 /// when the glide starts) enlarged around its own centre, the head disc on top. One outline
-/// around them is the drop's shape: from iOS 26 the system's Liquid Glass in that shape lies
-/// over the discs; before, a rim, a shine and a shadow.
+/// around them is the drop's shape: from iOS 26 the system's Liquid Glass in that shape, under
+/// the discs, which leave a band of it at the edge, as in the system's text loupe (glass laid
+/// over the discs bent the letters into smears); before, a rim, a shine and a shadow.
 final class GlideTrailView: UIView {
     private struct Point {
         let location: CGPoint
@@ -90,6 +91,8 @@ final class GlideTrailView: UIView {
     }
 
     private var points: [Point] = []
+    /// Holds `lens`, above the glass.
+    private let lensView = UIView()
     private let lens = CALayer()
     private let shadow = CALayer()
     private let rim = CAShapeLayer()
@@ -112,6 +115,11 @@ final class GlideTrailView: UIView {
     /// What the lens enlarges: the whole keyboard, its picture included. The trail's own
     /// superview when nil.
     weak var snapshotSource: UIView?
+    /// Views left out of the snapshot: the key balloon and the menu, whose glass `render(in:)`
+    /// cannot draw.
+    var snapshotExcluded: [UIView] = []
+    /// The share of the drop's radius the enlarged keys fill; the rest is the glass's edge.
+    private var discScale: CGFloat = 1
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -137,13 +145,18 @@ final class GlideTrailView: UIView {
         shine.fillColor = UIColor.white.withAlphaComponent(0.3).cgColor
         lens.addSublayer(shine)
         lens.isHidden = true
-        layer.addSublayer(lens)
+        lensView.isUserInteractionEnabled = false
+        lensView.frame = bounds
+        lensView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        lensView.layer.addSublayer(lens)
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
             glass = TrailGlass(in: self)
+            discScale = 0.84
             for decoration in [shadow, rim, shine] { decoration.isHidden = true }
         }
         #endif
+        addSubview(lensView)
     }
 
     required init?(coder: NSCoder) {
@@ -176,12 +189,15 @@ final class GlideTrailView: UIView {
         let source = snapshotSource ?? target
         // The trail draws in its superview's coordinates; the source may be larger.
         let origin = target.convert(CGPoint.zero, to: source)
+        let excluded = snapshotExcluded.filter { !$0.isHidden }
+        excluded.forEach { $0.isHidden = true }
         layer.isHidden = true
         let image = UIGraphicsImageRenderer(bounds: target.bounds).image { context in
             context.cgContext.translateBy(x: -origin.x, y: -origin.y)
             source.layer.render(in: context.cgContext)
         }
         layer.isHidden = false
+        excluded.forEach { $0.isHidden = false }
         snapshotSize = target.bounds.size
         let background = lensBackground.resolvedColor(with: traitCollection).cgColor
         for disc in discs {
@@ -277,8 +293,8 @@ final class GlideTrailView: UIView {
                 disc.isHidden = true
                 continue
             }
-            let c = centres[i].point, r = radii[i]
-            let zoom = 1 + 0.35 * r / Self.headRadius
+            let c = centres[i].point, r = radii[i] * discScale
+            let zoom = 1 + 0.35 * radii[i] / Self.headRadius
             disc.isHidden = false
             disc.zPosition = -centres[i].along
             disc.frame = CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)
