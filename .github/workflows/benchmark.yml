@@ -18,7 +18,7 @@ on:
         description: >-
           JSON list of {label, file (whisper.cpp ggml name) or hf (Hugging Face repo), quant, beam, bo (decoders on temperature fallback), prompt,
           fa (flash attention), appctx (the app's shortened encoder window), ctxmin (its floor in frames),
-          split (recordings of 28 s or more cut at pauses, as the app's final pass)}
+          split (seconds: recordings this long cut at pauses into shorter pieces, 28 as the app does)}
         default: >-
           [{"label":"base-q5_1","file":"base-q5_1"},{"label":"small-q5_1","file":"small-q5_1"},
           {"label":"medium-q5_0","file":"medium-q5_0"},{"label":"large-v3-turbo-q5_0","file":"large-v3-turbo-q5_0"},
@@ -135,7 +135,7 @@ jobs:
             for f in clips/*.wav; do
               name=$(basename "$f")
               if [ -n "${{ matrix.split }}" ]; then
-                parts=$(python3 scripts/split_long.py "$f" "pieces/$name")
+                parts=$(python3 scripts/split_long.py "$f" "pieces/$name" "${{ matrix.split }}")
               else
                 parts=$f
               fi
