@@ -20,9 +20,14 @@ final class KeyboardViewController: UIInputViewController {
     private let keysView = KeysView()
     private let orb = DictationOrbView()
     private var heightConstraint: NSLayoutConstraint?
-    /// Row height: as low as keys stay possible to hit, lower in landscape.
-    private var rowHeight: CGFloat { isLandscape ? 27 : 32 }
-    /// The suggestion bar above the keys, which has the height the rows gave up.
+    /// Row height of the system keyboard, measured in the iOS simulator (ios-keyboard.yml on the
+    /// ios-ref branch): 54 on iPhones up to 393 points wide (SE, 11 Pro, 16), 56 on the wider ones
+    /// (11, Plus, Pro Max). The simulator's keyboard stays upright, so landscape takes the usual 40.
+    private var rowHeight: CGFloat {
+        if isLandscape { return 40 }
+        return min(UIScreen.main.bounds.width, UIScreen.main.bounds.height) >= 414 ? 56 : 54
+    }
+    /// The suggestion bar above the keys.
     private var barHeight: CGFloat { isLandscape ? 38 : 46 }
     /// No margin under the bottom row: the keys sit as low as the extension can draw.
     private var fullHeight: CGFloat { barHeight + CGFloat(options.numberRow ? 5 : 4) * rowHeight }
