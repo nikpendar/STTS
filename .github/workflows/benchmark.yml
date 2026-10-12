@@ -11,10 +11,14 @@ on:
       dataset:
         description: fleurs (FLEURS fa_ir test) or cv17 (Common Voice 17 fa test)
         default: fleurs
+      join:
+        description: Consecutive clips joined into one recording, to test long dictations
+        default: "1"
       models:
         description: >-
           JSON list of {label, file (whisper.cpp ggml name) or hf (Hugging Face repo), quant, beam, bo (decoders on temperature fallback), prompt,
-          fa (flash attention), appctx (the app's shortened encoder window), ctxmin (its floor in frames)}
+          fa (flash attention), appctx (the app's shortened encoder window), ctxmin (its floor in frames),
+          split (recordings of 28 s or more cut at pauses, as the app's final pass)}
         default: >-
           [{"label":"base-q5_1","file":"base-q5_1"},{"label":"small-q5_1","file":"small-q5_1"},
           {"label":"medium-q5_0","file":"medium-q5_0"},{"label":"large-v3-turbo-q5_0","file":"large-v3-turbo-q5_0"},
@@ -54,6 +58,9 @@ jobs:
           curl -fsSL -o test.tsv "$base/transcript/fa/test.tsv"
           curl -fsSL -o test.tar "$base/audio/fa/test/fa_test_0.tar"
           python3 scripts/prepare_cv.py test.tsv test.tar "${{ inputs.clips }}" clips
+      - name: Join clips into long recordings
+        if: inputs.join != '1'
+        run: python3 scripts/join_clips.py clips "${{ inputs.join }}"
       - name: List Persian fine-tuned Whisper models
         run: |
           {
@@ -124,9 +131,21 @@ jobs:
           if [ -n "${{ matrix.appctx }}" ]; then
             # Same shortened encoder window as the app (WhisperContext.audioContext);
             # ctxmin raises the floor (384 frames in the app, 1500 = the full 30 s window).
+            mkdir -p pieces
             for f in clips/*.wav; do
-              ac=$(python3 -c "import wave,sys; w=wave.open(sys.argv[1]); s=w.getnframes()/w.getframerate(); m=int(sys.argv[2]); print(0 if s>=28 else min(1500,max(m,int(s*50)+128)))" "$f" "${{ matrix.ctxmin || 384 }}")
-              "$cli" "${args[@]}" -ac "$ac" -f "$f" 2>/dev/null
+              name=$(basename "$f")
+              if [ -n "${{ matrix.split }}" ]; then
+                parts=$(python3 scripts/split_long.py "$f" "pieces/$name")
+              else
+                parts=$f
+              fi
+              for p in $parts; do
+                ac=$(python3 -c "import wave,sys; w=wave.open(sys.argv[1]); s=w.getnframes()/w.getframerate(); m=int(sys.argv[2]); print(0 if s>=28 else min(1500,max(m,int(s*50)+128)))" "$p" "${{ matrix.ctxmin || 384 }}")
+                "$cli" "${args[@]}" -ac "$ac" -f "$p" 2>/dev/null
+              done
+              if [ -n "${{ matrix.split }}" ]; then
+                for p in $parts; do cat "$p.txt"; echo; done > "$f.txt"
+              fi
             done
           else
             "$cli" "${args[@]}" "${files[@]}"
@@ -178,14 +197,17 @@ jobs:
           path: |
             results.md
             results
-      # Also on the `benchmark-<dataset>` branch, readable where artifacts cannot be downloaded.
+      # Also on the `benchmark-<dataset>` branch (`-join<n>` for joined clips), readable where
+      # artifacts cannot be downloaded.
       - name: Commit results
+        env:
+          BRANCH: benchmark-${{ inputs.dataset }}${{ inputs.join != '1' && format('-join{0}', inputs.join) || '' }}
         run: |
           mkdir report && cp -r results.md results report/
           cd report
-          git init -q -b "benchmark-${{ inputs.dataset }}"
+          git init -q -b "$BRANCH"
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add -A
           git commit -qm "Benchmark for ${GITHUB_SHA::7}"
-          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" "benchmark-${{ inputs.dataset }}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" "$BRANCH"
