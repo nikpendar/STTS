@@ -391,9 +391,55 @@ jobs:
           sleep 1.3
           xcrun simctl io "$DEVICE" screenshot out/7c-background-glide-lens.png
           wait $SWIPE || true
+          # The keys moved up under a thin margin with the suggestion row off.
+          xcrun simctl terminate "$DEVICE" "$ID" || true
+          OPTIONS='{"suggestionBar":false}'
+          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav" \
+            -keyboardOptions "<$(printf '%s' "$OPTIONS" | xxd -p | tr -d '\n')>"
+          sleep 10
+          xcrun simctl io "$DEVICE" screenshot out/7d-no-suggestion-row.png
+          dump out/ui-14.json || true
+          frames NOBAR out/ui-14.json '^(letter-0-0|letter-3-0|spaceKey)'
+          # The app's settings: the colours page, then the typing page before and after the
+          # suggestion row is switched off (its switch is on the left, the page being right to left).
+          cat > pick.py <<'PY'
+          import json, sys
+          target, path = sys.argv[1], sys.argv[2]
+          found = []
+          def walk(n):
+              if isinstance(n, dict):
+                  if n.get("AXLabel") == target and isinstance(n.get("frame"), dict):
+                      found.append((str(n.get("type") or n.get("role") or ""), n["frame"]))
+                  for v in n.values(): walk(v)
+              elif isinstance(n, list):
+                  for v in n: walk(v)
+          walk(json.load(open(path)))
+          best = [f for k, f in found if k not in ("StaticText", "Heading")] or [f for _, f in found]
+          if not best: sys.exit(1)
+          f = best[0]
+          x = f["x"] + 40 if len(sys.argv) > 3 else f["x"] + f["width"] / 2
+          print(int(x), int(f["y"] + f["height"] / 2))
+          PY
+          xcrun simctl terminate "$DEVICE" "$ID" || true
+          xcrun simctl launch "$DEVICE" "$ID"
+          sleep 6
+          dump out/ui-15.json || true
+          read PX PY_ < <(python3 pick.py "ظاهر دکمه‌ها" out/ui-15.json || echo "200 500")
+          axe tap -x "$PX" -y "$PY_" --udid "$DEVICE"; sleep 2
+          xcrun simctl io "$DEVICE" screenshot out/8a-settings-colours.png
+          xcrun simctl terminate "$DEVICE" "$ID" || true
+          xcrun simctl launch "$DEVICE" "$ID"
+          sleep 6
+          read PX PY_ < <(python3 pick.py "تایپ و پیشنهاد کلمه" out/ui-15.json || echo "200 450")
+          axe tap -x "$PX" -y "$PY_" --udid "$DEVICE"; sleep 2
+          xcrun simctl io "$DEVICE" screenshot out/8b-settings-typing.png
+          dump out/ui-16.json || true
+          read PX PY_ < <(python3 pick.py "ردیف پیشنهاد" out/ui-16.json switch || echo "60 200")
+          axe tap -x "$PX" -y "$PY_" --udid "$DEVICE"; sleep 1.5
+          xcrun simctl io "$DEVICE" screenshot out/8c-settings-no-suggestion-row.png
           kill $LOG || true
           echo "===== log"
-          grep -E "live |final pass|recording started|test audio|whisper_full|correction|personal|loaded|model v|edits|dictation |auto stop|no speech|glide" out/log.txt | cut -c1-300 || true
+          grep -E "live |final pass|recording started|test audio|whisper_full|correction|personal|loaded|model v|edits|dictation |auto stop|no speech|glide|keyboard given" out/log.txt | cut -c1-300 || true
           echo "===== training server"
           cat out/server.log || true
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian && cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ || echo "no crash reports"

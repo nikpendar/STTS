@@ -359,6 +359,8 @@ struct KeyStyle: SharedSetting, Equatable {
 
 /// Keyboard features that can be turned off in the app.
 struct KeyboardOptions: SharedSetting, Equatable {
+    /// The row of suggestions above the keys; off, the keys move up under a thin margin.
+    var suggestionBar = true
     /// Suggest the next word after a space.
     var predictNextWord = true
     /// Offer the listed word a typed one is probably a misspelling of.
@@ -391,6 +393,7 @@ struct KeyboardOptions: SharedSetting, Equatable {
     /// Options added later take their default when an older copy lacks them.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        suggestionBar = try container.decodeIfPresent(Bool.self, forKey: .suggestionBar) ?? true
         predictNextWord = try container.decodeIfPresent(Bool.self, forKey: .predictNextWord) ?? true
         correctTypos = try container.decodeIfPresent(Bool.self, forKey: .correctTypos) ?? true
         voicePunctuation = try container.decodeIfPresent(Bool.self, forKey: .voicePunctuation) ?? true

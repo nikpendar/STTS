@@ -194,16 +194,28 @@ struct ContentView: View {
     private var typingPage: some View {
         page("تایپ و پیشنهاد کلمه") {
             Section {
-                Toggle(isOn: $options.predictNextWord) {
-                    SettingLabel("پیش‌بینی کلمه‌ی بعدی", symbol: "text.append", color: .blue)
+                Toggle(isOn: $options.suggestionBar.animation(.easeInOut(duration: 0.3))) {
+                    SettingLabel("ردیف پیشنهاد", symbol: "rectangle.topthird.inset.filled", color: .cyan)
                 }
-                Toggle(isOn: $options.correctTypos) {
-                    SettingLabel("اصلاح غلط تایپی", symbol: "checkmark.seal.fill", color: .green)
+                // Off, the bar's own options stay in view, greyed, so turning it back on finds them
+                // as they were.
+                Group {
+                    Toggle(isOn: $options.predictNextWord) {
+                        SettingLabel("پیش‌بینی کلمه‌ی بعدی", symbol: "text.append", color: .blue)
+                    }
+                    Toggle(isOn: $options.correctTypos) {
+                        SettingLabel("اصلاح غلط تایپی", symbol: "checkmark.seal.fill", color: .green)
+                    }
                 }
+                .disabled(!options.suggestionBar)
+                .opacity(options.suggestionBar ? 1 : 0.45)
             } header: {
                 Text("ردیف پیشنهاد").font(.app(.footnote))
             } footer: {
-                Text("در فارسی و انگلیسی، بعد از هر فاصله کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند و کیبورد کلمه‌هایی را که خودتان پشت سر هم می‌نویسید هم یاد می‌گیرد. برای کلمه‌ای که در فهرست نیست، نزدیک‌ترین کلمه‌ی درست هم پیشنهاد می‌شود و چیزی خودکار عوض نمی‌شود.").font(.app(.footnote))
+                Text(options.suggestionBar
+                     ? "در فارسی و انگلیسی، بعد از هر فاصله کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند و کیبورد کلمه‌هایی را که خودتان پشت سر هم می‌نویسید هم یاد می‌گیرد. برای کلمه‌ای که در فهرست نیست، نزدیک‌ترین کلمه‌ی درست هم پیشنهاد می‌شود و چیزی خودکار عوض نمی‌شود."
+                     : "ردیف بالای کلیدها پنهان است و کیبورد کوتاه‌تر می‌شود.")
+                    .font(.app(.footnote))
             }
             Section {
                 Toggle(isOn: $options.keyPreview) {
@@ -257,26 +269,37 @@ struct ContentView: View {
             Section {
                 KeyPreview(style: style)
                     .listRowBackground(KeyPreviewBackground(style: style))
-                HStack {
-                    SettingLabel("اندازه‌ی حروف", symbol: "textformat.size", color: .orange)
-                    Slider(value: Binding { style.letterSize ?? KeyStyle.standardLetterSize } set: { style.letterSize = $0.rounded() },
-                           in: 16...32, step: 1)
-                    Text("\(Int(style.letterSize ?? KeyStyle.standardLetterSize))")
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                        .frame(width: 28)
+                    .listRowSeparator(.hidden)
+                // Each slider sits in the row of the setting it belongs to, under its title, so
+                // every line between rows starts where the titles do.
+                VStack(spacing: 6) {
+                    HStack {
+                        SettingLabel("اندازه‌ی حروف", symbol: "textformat.size", color: .orange)
+                        Spacer()
+                        Text("\(Int(style.letterSize ?? KeyStyle.standardLetterSize))")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    SliderLine(small: "textformat.size.smaller", large: "textformat.size.larger") {
+                        Slider(value: Binding { style.letterSize ?? KeyStyle.standardLetterSize } set: { style.letterSize = $0.rounded() },
+                               in: 16...32, step: 1)
+                    }
                 }
                 ColorPicker(selection: backgroundColorBinding, supportsOpacity: false) {
                     SettingLabel("رنگ پس‌زمینه‌ی کیبورد", symbol: "keyboard.fill", color: .brown)
                 }
-                ColorPicker(selection: colorBinding(\.fill), supportsOpacity: false) {
-                    SettingLabel("رنگ دکمه", symbol: "square.fill", color: .pink)
+                VStack(spacing: 6) {
+                    ColorPicker(selection: colorBinding(\.fill), supportsOpacity: false) {
+                        SettingLabel("رنگ دکمه", symbol: "square.fill", color: .pink)
+                    }
+                    opacitySlider(\.fill)
                 }
-                opacitySlider(\.fill)
-                ColorPicker(selection: colorBinding(\.stroke), supportsOpacity: false) {
-                    SettingLabel("رنگ دور دکمه", symbol: "square", color: .indigo)
+                VStack(spacing: 6) {
+                    ColorPicker(selection: colorBinding(\.stroke), supportsOpacity: false) {
+                        SettingLabel("رنگ دور دکمه", symbol: "square", color: .indigo)
+                    }
+                    opacitySlider(\.stroke)
                 }
-                opacitySlider(\.stroke)
                 ColorPicker(selection: textColorBinding, supportsOpacity: false) {
                     SettingLabel("رنگ حروف", symbol: "textformat", color: .teal)
                 }
@@ -303,6 +326,7 @@ struct ContentView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
                 PhotosPicker(selection: $photoItem, matching: .images) {
                     SettingLabel("انتخاب عکس از گالری", symbol: "photo.fill", color: .orange)
                 }
@@ -541,17 +565,45 @@ struct ContentView: View {
         }
     }
 
+    /// How much of the colour shows, under its picker.
     private func opacitySlider(_ path: WritableKeyPath<KeyStyle, KeyStyle.RGBA>) -> some View {
-        HStack {
-            Image(systemName: "circle.lefthalf.filled")
-                .foregroundStyle(.secondary)
-                .frame(width: 29)
+        SliderLine(small: "circle.dotted", large: "circle.fill") {
             Slider(value: Binding { style[keyPath: path].a } set: { style[keyPath: path].a = $0 }, in: 0...1)
+        } value: {
             Text("\(Int(style[keyPath: path].a * 100))٪")
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .frame(width: 44)
+                .frame(minWidth: 40, alignment: .trailing)
         }
+    }
+}
+
+/// A slider under a row's title, between a small and a large symbol, with its value at the end.
+private struct SliderLine<Control: View, Value: View>: View {
+    let small: String
+    let large: String
+    @ViewBuilder let control: Control
+    @ViewBuilder let value: Value
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: small)
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+            control
+            Image(systemName: large)
+                .font(.system(size: 17))
+                .foregroundStyle(.secondary)
+            value
+        }
+        // Under the title, past the 29-point symbol square and Label's gap.
+        .padding(.leading, 41)
+    }
+}
+
+extension SliderLine where Value == EmptyView {
+    init(small: String, large: String, @ViewBuilder control: () -> Control) {
+        self.init(small: small, large: large, control: control, value: { EmptyView() })
     }
 }
 
@@ -560,6 +612,8 @@ private struct SettingLabel: View {
     let title: String
     let symbol: String
     let color: Color
+    /// A disabled row turns grey, its symbol's square too.
+    @Environment(\.isEnabled) private var isEnabled
 
     init(_ title: String, symbol: String, color: Color) {
         self.title = title
@@ -569,13 +623,16 @@ private struct SettingLabel: View {
 
     var body: some View {
         Label {
-            Text(title).foregroundStyle(Color.primary)
+            Text(title)
+                .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
+                // The line under the row starts at the title, wherever the label sits in it.
+                .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
         } icon: {
             Image(systemName: symbol)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(width: 29, height: 29)
-                .background(RoundedRectangle(cornerRadius: 7).fill(color))
+                .background(RoundedRectangle(cornerRadius: 7).fill(isEnabled ? color : Color(uiColor: .systemGray3)))
         }
     }
 }

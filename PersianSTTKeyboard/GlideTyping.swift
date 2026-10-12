@@ -109,6 +109,9 @@ final class GlideTrailView: UIView {
 
     /// The colour behind the keys, shown in the lens between them.
     var lensBackground: UIColor = .systemGray5
+    /// What the lens enlarges: the whole keyboard, its picture included. The trail's own
+    /// superview when nil.
+    weak var snapshotSource: UIView?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -169,13 +172,17 @@ final class GlideTrailView: UIView {
 
     /// The keys as they are now, without the trail, for the discs to enlarge.
     private func takeSnapshot() {
-        guard let source = superview, source.bounds.width > 0, source.bounds.height > 0 else { return }
+        guard let target = superview, target.bounds.width > 0, target.bounds.height > 0 else { return }
+        let source = snapshotSource ?? target
+        // The trail draws in its superview's coordinates; the source may be larger.
+        let origin = target.convert(CGPoint.zero, to: source)
         layer.isHidden = true
-        let image = UIGraphicsImageRenderer(bounds: source.bounds).image { context in
+        let image = UIGraphicsImageRenderer(bounds: target.bounds).image { context in
+            context.cgContext.translateBy(x: -origin.x, y: -origin.y)
             source.layer.render(in: context.cgContext)
         }
         layer.isHidden = false
-        snapshotSize = source.bounds.size
+        snapshotSize = target.bounds.size
         let background = lensBackground.resolvedColor(with: traitCollection).cgColor
         for disc in discs {
             disc.contents = image.cgImage

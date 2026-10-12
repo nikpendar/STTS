@@ -32,10 +32,22 @@ final class KeyboardViewController: UIInputViewController {
         if isLandscape { return 40 }
         return min(UIScreen.main.bounds.width, UIScreen.main.bounds.height) >= 414 ? 56 : 54
     }
-    /// The suggestion bar above the keys.
-    private var barHeight: CGFloat { isLandscape ? 38 : 46 }
-    /// The optional digits over the letters: as low as keys can be and still be hit.
-    private var numberRowHeight: CGFloat { isLandscape ? 28 : 34 }
+    /// The suggestion bar above the keys, or a thin margin in its place when it is switched off.
+    private var barHeight: CGFloat {
+        guard options.suggestionBar else { return isLandscape ? 2 : 3 }
+        return isLandscape ? 38 : 46
+    }
+    /// The optional digits over the letters, the one row lower than the system's: down to keys
+    /// as tall as they are wide, never flatter. In landscape the keys are wider than the letter
+    /// rows are tall, so the row keeps their height.
+    private var numberRowHeight: CGFloat {
+        let insets = view.safeAreaInsets
+        let width = view.bounds.width > 0 ? view.bounds.width - insets.left - insets.right : UIScreen.main.bounds.width
+        // KeyView draws 2.5 points in from each side, and a tenth of the height (at least 3)
+        // from the top and the bottom.
+        let face = width / 10 - 5
+        return min(rowHeight, max(face / 0.8, face + 6).rounded(.up))
+    }
     /// No margin under the bottom row: the keys sit as low as the extension can draw.
     private var fullHeight: CGFloat { barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) }
     private var compactHeight: CGFloat { isLandscape ? 120 : 150 }
@@ -165,8 +177,13 @@ final class KeyboardViewController: UIInputViewController {
         }
         applyKeyStyle(KeyStyle.load())
         let hadNumberRow = options.numberRow
+        let hadBar = options.suggestionBar
         options = KeyboardOptions.load()
         if options.numberRow != hadNumberRow { buildCharacterKeys() }
+        if options.suggestionBar != hadBar {
+            view.setNeedsLayout()
+            updateSuggestions()
+        }
         if options.touchResets != UserDefaults.standard.integer(forKey: "touchResets") {
             UserDefaults.standard.set(options.touchResets, forKey: "touchResets")
             touchModel = TouchModel()
@@ -887,6 +904,7 @@ final class KeyboardViewController: UIInputViewController {
         buildCharacterKeys()
 
         keysView.addSubview(glideTrail)
+        glideTrail.snapshotSource = view
         glidePan.maximumNumberOfTouches = 1
         glidePan.delegate = self
         keysView.addGestureRecognizer(glidePan)
@@ -1190,6 +1208,9 @@ final class KeyboardViewController: UIInputViewController {
         // the animation. Otherwise they fill the height iOS gave the keyboard, which may be less
         // than asked: the suggestion bar must stay on screen.
         let height = isCompact || isResizing ? max(view.bounds.height, fullHeight) : view.bounds.height
+        if !isCompact, !isResizing, height < fullHeight - 0.5 {
+            log.info("keyboard given \(Double(height), privacy: .public) of \(Double(self.fullHeight), privacy: .public) points")
+        }
         keysView.frame = CGRect(x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
         glideTrail.frame = keysView.bounds
         menuShield.frame = keysView.bounds
@@ -1200,13 +1221,18 @@ final class KeyboardViewController: UIInputViewController {
         let insets = view.safeAreaInsets
         let left = insets.left
         let width = view.bounds.width - insets.left - insets.right
-        let bar = barHeight
+        // The rows keep the system keyboard's height whatever iOS gives. Less than asked comes
+        // out of the suggestion bar, down to a thin strip, and only then out of the rows; more
+        // goes to the bar. With the number row on, the other layers spread their four rows over
+        // the letters' and the digits' height.
+        let keysNeeded = 4 * rowHeight + (options.numberRow ? numberRowHeight : 0)
+        let leastBar: CGFloat = options.suggestionBar ? (isLandscape ? 26 : 30) : barHeight
+        let bar = max(leastBar, height - keysNeeded)
+        let scale = min(1, (height - bar) / keysNeeded)
+        let numbers = showsNumberRow ? numberRowHeight * scale : 0
+        let row = (keysNeeded * scale - numbers) / 4
         suggestionBar.frame = CGRect(x: left, y: 0, width: width, height: bar)
-        // The low number row keeps its share of the height iOS gives, the letter rows the rest;
-        // with it on, the other layers spread their four rows over the same height.
-        let keysHeight = height - bar
-        let numbers = showsNumberRow ? keysHeight * numberRowHeight / (4 * rowHeight + numberRowHeight) : 0
-        let row = (keysHeight - numbers) / 4
+        suggestionBar.isHidden = !options.suggestionBar
         let unit = width / CGFloat(columns)
         let top = bar + numbers
         for (index, key) in numberKeys.enumerated() {
@@ -1493,7 +1519,8 @@ final class KeyboardViewController: UIInputViewController {
     /// After a glide, the glided word sits in the middle with its other readings beside it.
     private func updateSuggestions() {
         guard isViewLoaded else { return }
-        guard layer == .letters, state != .recording, state != .transcribing, state != .starting else {
+        guard options.suggestionBar, layer == .letters, state != .recording, state != .transcribing,
+              state != .starting else {
             suggestionBar.show([nil, nil, nil])
             return
         }
@@ -1685,6 +1712,8 @@ final class KeyboardViewController: UIInputViewController {
             let start = CGPoint(x: point.x - moved.x, y: point.y - moved.y)
             glidePath = [start, point]
             keysView.bringSubviewToFront(glideTrail)
+            // The lens shows the keys as they stand, without the balloon of the first key.
+            keyPopup.hide()
             glideTrail.begin(at: start)
             glideTrail.add(point)
         case .changed:
@@ -2928,6 +2957,11 @@ private final class KeyMenuView: UIView {
     private(set) var highlighted: Int?
     var highlightedItem: Item? { highlighted.map { items[$0] } }
     private let card = UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))
+    /// Under the rows: a faint wash of the app icon's colours, a shine along the top and a fine
+    /// grain, like frosted glass.
+    private let texture = UIView()
+    private let wash = CAGradientLayer()
+    private let shine = CAGradientLayer()
     private var rows: [UIView] = []
     private static let rowHeight: CGFloat = 40
     private static let padding: CGFloat = 4
@@ -2942,26 +2976,62 @@ private final class KeyMenuView: UIView {
         layer.shadowOpacity = 0.18
         layer.shadowRadius = 10
         layer.shadowOffset = CGSize(width: 0, height: 3)
-        card.layer.cornerRadius = 12
+        card.layer.cornerRadius = 14
         card.layer.cornerCurve = .continuous
         card.clipsToBounds = true
         addSubview(card)
+        texture.isUserInteractionEnabled = false
+        texture.backgroundColor = UIColor(patternImage: Self.grain)
+        wash.startPoint = CGPoint(x: 0, y: 0)
+        wash.endPoint = CGPoint(x: 1, y: 1)
+        shine.colors = [UIColor(white: 1, alpha: 0.5).cgColor, UIColor(white: 1, alpha: 0).cgColor]
+        shine.endPoint = CGPoint(x: 0.5, y: 0.45)
+        shine.startPoint = CGPoint(x: 0.35, y: 0)
+        texture.layer.insertSublayer(wash, at: 0)
+        texture.layer.addSublayer(shine)
+        card.contentView.addSubview(texture)
         updateGlass()
     }
 
-    /// From iOS 26 the menu is Liquid Glass like the key popups, the keys showing through, with
-    /// a veil that keeps its words readable.
+    /// Frosted: the keys behind are blurred out of the way of the words. From iOS 26 that is
+    /// Liquid Glass, as on the key popups, with a veil for the words' colour.
     private func updateGlass() {
+        let lightText = KeyboardBackground.luminance(textColor.resolvedColor(with: traitCollection)) > 0.5
+        let colours: [UIColor] = [.systemPink, .systemPurple, .systemBlue, .systemTeal]
+        wash.colors = colours.map { $0.withAlphaComponent(lightText ? 0.22 : 0.13).cgColor }
+        shine.opacity = lightText ? 0.35 : 1
+        card.effect = UIBlurEffect(style: lightText ? .systemThickMaterialDark : .systemThickMaterialLight)
+        card.layer.borderWidth = 0.5
+        card.layer.borderColor = UIColor(white: 1, alpha: lightText ? 0.2 : 0.6).cgColor
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
-            let glass = UIGlassEffect(style: .clear)
-            let lightText = KeyboardBackground.luminance(textColor.resolvedColor(with: traitCollection)) > 0.5
-            glass.tintColor = lightText ? UIColor(white: 0.1, alpha: 0.35) : UIColor(white: 1, alpha: 0.4)
+            let glass = UIGlassEffect(style: .regular)
+            glass.tintColor = lightText ? UIColor(white: 0.08, alpha: 0.55) : UIColor(white: 1, alpha: 0.6)
             card.effect = glass
+            card.layer.borderWidth = 0
             layer.shadowOpacity = 0
         }
         #endif
     }
+
+    /// Specks of light and shade, half a point each, few enough to feel rather than see.
+    private static let grain: UIImage = {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 2
+        format.opaque = false
+        let side = 64
+        var random = SystemRandomNumberGenerator()
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image { context in
+            for y in 0..<(2 * side) {
+                for x in 0..<(2 * side) {
+                    let speck = Double.random(in: 0..<1, using: &random)
+                    guard speck < 0.35 else { continue }
+                    UIColor(white: speck < 0.15 ? 0 : 1, alpha: speck < 0.15 ? 0.05 : 0.09).setFill()
+                    context.fill(CGRect(x: CGFloat(x) / 2, y: CGFloat(y) / 2, width: 0.5, height: 0.5))
+                }
+            }
+        }
+    }()
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
@@ -2997,6 +3067,12 @@ private final class KeyMenuView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         card.frame = bounds
+        texture.frame = card.contentView.bounds
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        wash.frame = texture.bounds
+        shine.frame = texture.bounds
+        CATransaction.commit()
         for (index, row) in rows.enumerated() {
             row.frame = CGRect(x: Self.padding, y: Self.padding + CGFloat(index) * Self.rowHeight,
                                width: bounds.width - 2 * Self.padding, height: Self.rowHeight)
