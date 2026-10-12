@@ -366,8 +366,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var numberRow = false
     /// A space after a word the list writes with ZWNJ puts it in (میخوام, کتاب ها).
     var autoZWNJ = true
-    /// A joining letter typed twice quickly types ZWNJ the second time (می + ی).
-    var doubleTapZWNJ = true
     /// TapMap: touches between keys go to the key the user's habits and the word make likelier.
     var learnTouches = true
     /// Raised by the app to make the keyboard forget the touches it learned.
@@ -390,7 +388,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
         doubleSpacePunctuation = try container.decodeIfPresent(Bool.self, forKey: .doubleSpacePunctuation) ?? true
         numberRow = try container.decodeIfPresent(Bool.self, forKey: .numberRow) ?? false
         autoZWNJ = try container.decodeIfPresent(Bool.self, forKey: .autoZWNJ) ?? true
-        doubleTapZWNJ = try container.decodeIfPresent(Bool.self, forKey: .doubleTapZWNJ) ?? true
         learnTouches = try container.decodeIfPresent(Bool.self, forKey: .learnTouches) ?? true
         touchResets = try container.decodeIfPresent(Int.self, forKey: .touchResets) ?? 0
     }

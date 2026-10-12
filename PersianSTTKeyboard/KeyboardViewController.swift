@@ -36,6 +36,8 @@ final class KeyboardViewController: UIInputViewController {
     private var messageTimer: Timer?
     private var recordingStart = Date()
     private var isCompact = false
+    /// While the keyboard grows or shrinks for dictation, the keys keep the full-height layout.
+    private var isResizing = false
     private var timeout: DispatchWorkItem?
     private var previewTimer: Timer?
     private var previewIndex = 0
@@ -138,6 +140,9 @@ final class KeyboardViewController: UIInputViewController {
     /// let through at once.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        // iOS takes a keyboard's own height once its view is on screen.
+        heightConstraint?.isActive = false
+        heightConstraint?.isActive = true
         var view: UIView? = self.view.window
         while let current = view {
             current.gestureRecognizers?.forEach { $0.delaysTouchesBegan = false }
@@ -771,6 +776,7 @@ final class KeyboardViewController: UIInputViewController {
         guard isCompact != compact else { return }
         isCompact = compact
         heightConstraint?.constant = compact ? compactHeight : fullHeight
+        isResizing = true
         if compact {
             keyPopup.hide()
             orb.alpha = 0
@@ -787,6 +793,8 @@ final class KeyboardViewController: UIInputViewController {
             // A later state change may have reversed this one while it animated.
             self.keysView.isHidden = self.isCompact
             self.orb.isHidden = !self.isCompact
+            self.isResizing = false
+            self.view.setNeedsLayout()
         })
     }
 
@@ -876,8 +884,10 @@ final class KeyboardViewController: UIInputViewController {
         keysView.addSubview(keyMenu)
         keysView.addSubview(keyPopup)
 
+        // Just under required, as Apple's guide for keyboard heights has it: a lower priority lost
+        // to the height iOS gives the keyboard by default.
         let height = view.heightAnchor.constraint(equalToConstant: fullHeight)
-        height.priority = .defaultHigh
+        height.priority = UILayoutPriority(999)
         height.isActive = true
         heightConstraint = height
         render()
@@ -1026,7 +1036,7 @@ final class KeyboardViewController: UIInputViewController {
     /// time (می and another ی: «می‌»), unless the doubled letter starts a word, as in ممنون.
     private func tapped(_ key: KeyView?, _ character: String) {
         let now = CACurrentMediaTime()
-        if !isEnglish, layer == .letters, options.doubleTapZWNJ, let last = lastLetterTap, last.character == character,
+        if !isEnglish, layer == .letters, let last = lastLetterTap, last.character == character,
            now - last.time < 0.4, Self.joiningLetters.contains(character), lexicon.isLoaded {
             let word = currentWord(before: contextBefore())
             if word.hasSuffix(character), !lexicon.startsWord(word + character) {
@@ -1094,8 +1104,10 @@ final class KeyboardViewController: UIInputViewController {
             height.constant = fullHeight
         }
         orb.frame = view.bounds
-        // Keys keep the full-height layout while hidden, so they do not squeeze during the animation.
-        let height = max(view.bounds.height, fullHeight)
+        // Keys keep the full-height layout while hidden or resizing, so they do not squeeze during
+        // the animation. Otherwise they fill the height iOS gave the keyboard, which may be less
+        // than asked: the suggestion bar must stay on screen.
+        let height = isCompact || isResizing ? max(view.bounds.height, fullHeight) : view.bounds.height
         keysView.frame = CGRect(x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
         glideTrail.frame = keysView.bounds
         menuShield.frame = keysView.bounds
