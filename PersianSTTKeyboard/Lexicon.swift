@@ -440,16 +440,26 @@ final class Lexicon {
                                                     "هایشان", "ای", "ام", "ات", "اش", "ایم", "اید", "اند", "ی", "یی"]
     private static let zwnjJoinSuffixes = zwnjSuffixes.union(["تر", "ترین"])
 
+    /// ZWNJ is looked for by scalars: Swift joins it to the letter before into one Character.
+    private static func hasZWNJ(_ word: String) -> Bool {
+        word.unicodeScalars.contains("\u{200C}")
+    }
+
+    private static func zwnjParts(_ word: String) -> [String] {
+        word.unicodeScalars.split(separator: "\u{200C}", omittingEmptySubsequences: false)
+            .map { String(String.UnicodeScalarView($0)) }
+    }
+
     /// The list's spelling with ZWNJ of a word typed without one (می‌خوام for میخوام, کتاب‌ها for
     /// کتابها), when the ZWNJ comes after a verb prefix or before an ending.
     func zwnjSpelling(of typed: String) -> String? {
-        guard language == .persian, !typed.contains(Self.zwnj) else { return nil }
+        guard language == .persian, !Self.hasZWNJ(typed) else { return nil }
         let forms = spellings(ofKey: language.key(typed))
-        guard let joined = forms.filter({ $0.word.contains(Self.zwnj) }).max(by: { $0.zipf < $1.zipf }) else { return nil }
-        if let plain = forms.filter({ !$0.word.contains(Self.zwnj) }).map({ $0.zipf }).max(), joined.zipf - plain < 0.5 {
+        guard let joined = forms.filter({ Self.hasZWNJ($0.word) }).max(by: { $0.zipf < $1.zipf }) else { return nil }
+        if let plain = forms.filter({ !Self.hasZWNJ($0.word) }).map({ $0.zipf }).max(), joined.zipf - plain < 0.5 {
             return nil
         }
-        let parts = joined.word.split(separator: Self.zwnj).map(String.init)
+        let parts = Self.zwnjParts(joined.word)
         guard parts.count >= 2, Self.zwnjPrefixes.contains(parts[0]) || Self.zwnjSuffixes.contains(parts[parts.count - 1]) else {
             return nil
         }
@@ -464,7 +474,7 @@ final class Lexicon {
         let secondKey = language.key(second)
         guard Self.zwnjPrefixes.contains(firstKey) || Self.zwnjJoinSuffixes.contains(secondKey) else { return nil }
         let candidates = spellings(ofKey: firstKey + secondKey).filter { form in
-            let parts = form.word.split(separator: Self.zwnj, omittingEmptySubsequences: false)
+            let parts = Self.zwnjParts(form.word)
             var prefix = ""
             for part in parts.dropLast() {
                 prefix += part
@@ -475,13 +485,18 @@ final class Lexicon {
         return candidates.max(by: { $0.zipf < $1.zipf })?.word
     }
 
-    /// Whether some listed or learned word starts with `text` (ZWNJ ignored).
+    /// Whether some listed or learned word is spelled starting with `text`, ZWNJ included: «مم»
+    /// starts ممنون, but «میی» starts no word, as می‌یابد has ZWNJ between the two ی.
     func startsWord(_ text: String) -> Bool {
         let key = language.key(text)
         guard !key.isEmpty else { return true }
-        let i = lowerBound(key)
-        if i < entries.count, entries[i].key.hasPrefix(key) { return true }
-        return userWords.contains { $0.value.count >= 2 && $0.key.hasPrefix(key) }
+        let typed = text.unicodeScalars
+        var i = lowerBound(key)
+        while i < entries.count, entries[i].key.hasPrefix(key) {
+            if entries[i].word.unicodeScalars.starts(with: typed) { return true }
+            i += 1
+        }
+        return userWords.values.contains { $0.count >= 2 && $0.word.unicodeScalars.starts(with: typed) }
     }
 
     /// How common the words are that continue `prefix` with each of `letters`: sums of their
