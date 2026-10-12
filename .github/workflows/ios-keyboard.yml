@@ -35,7 +35,8 @@ jobs:
           brew trust cameroncooke/axe || true
           brew install axe
 
-      - name: Keyboard rows on several iPhones, portrait and landscape
+      - name: Keyboard rows on several iPhones in portrait
+        timeout-minutes: 30
         run: |
           set -x
           mkdir -p out
@@ -71,21 +72,22 @@ jobs:
             xcrun simctl bootstatus "$DEVICE" -b
             xcrun simctl install "$DEVICE" "$APP"
             open -a Simulator --args -CurrentDeviceUDID "$DEVICE"
-            sleep 8
+            sleep 5
             xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1
             sleep 10
             xcrun simctl io "$DEVICE" screenshot "out/$type-portrait.png"
             axe describe-ui --udid "$DEVICE" > "out/$type-portrait.json" 2>&1 || true
             echo "== $type portrait" >> out/rows.txt
             python3 rows.py "out/$type-portrait.json" >> out/rows.txt
-            # Device > Rotate Left in the Simulator app.
-            osascript -e 'tell application "Simulator" to activate' \
-                      -e 'tell application "System Events" to key code 123 using {command down}' 2>> out/rows.txt || true
-            sleep 4
+            # The app allows only landscape with -testLandscape; the keyboard should follow it.
+            xcrun simctl terminate "$DEVICE" "$ID" || true
+            xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testLandscape 1
+            sleep 8
             xcrun simctl io "$DEVICE" screenshot "out/$type-landscape.png"
             axe describe-ui --udid "$DEVICE" > "out/$type-landscape.json" 2>&1 || true
             echo "== $type landscape" >> out/rows.txt
             python3 rows.py "out/$type-landscape.json" >> out/rows.txt
+            tail -n 20 out/rows.txt
             xcrun simctl shutdown "$DEVICE" || true
           done
           cat out/rows.txt
