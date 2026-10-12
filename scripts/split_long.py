@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Cuts a recording of 28 s or more into pieces at pauses, as the app's final pass does
-(KeyboardSession.pieces): each piece ends at the latest pause in the next 28 s, so Whisper
-never runs a second 30 s window over the tail.
+"""Cuts a recording of 28 s or more into pieces at pauses, as the app does
+(Transcriber.pieces): each piece ends at the latest pause in the next 28 s, leaving at least
+3 s for the next piece, so Whisper never runs a second 30 s window over the tail.
 
 Usage: split_long.py <in.wav> <out_prefix>. Writes <out_prefix>.<i>.wav and prints their paths.
 """
@@ -12,10 +12,11 @@ import wave
 RATE = 16000
 FRAME = RATE // 10
 LONGEST = 28 * RATE
+SHORTEST = 3 * RATE
 
 
 def pause(samples):
-    """KeyboardSession.pause(in:): the latest pause after 6 s, else the quietest point
+    """AudioLoader.pause(in:): the latest pause after 6 s, else the quietest point
     between 10 and 20 s once the audio is 20 s long."""
     levels = []
     for start in range(0, len(samples) - FRAME + 1, FRAME):
@@ -36,7 +37,8 @@ def pause(samples):
 def pieces(samples):
     out, start = [], 0
     while len(samples) - start >= LONGEST:
-        cut = pause(samples[start:start + LONGEST]) or 20 * RATE
+        window = min(LONGEST, len(samples) - start - SHORTEST)
+        cut = pause(samples[start:start + window]) or 20 * RATE
         out.append((start, start + cut))
         start += cut
     out.append((start, len(samples)))
