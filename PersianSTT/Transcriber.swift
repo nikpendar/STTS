@@ -210,28 +210,55 @@ final class Transcriber: ObservableObject {
         transcribe(url: recordingURL)
     }
 
-    /// Used by the keyboard session, which records its own audio; the result goes back to the
-    /// keyboard. Setting `abort` stops it with `WhisperError.cancelled`.
+    /// Used by the keyboard session, which records its own audio, and the dictation shortcut.
+    /// Setting `abort` stops it with `WhisperError.cancelled`.
     /// `onEncoded` runs on the main actor once the encoder is done, with the seconds still expected.
+    /// A recording of 28 s or more is transcribed in pieces cut at pauses (`pieces(of:)`).
     func transcribe(samples: [Float], abort: AbortFlag, preview: Bool = false,
                     onEncoded: ((Double) -> Void)? = nil) async throws -> String {
         if whisper == nil {
             await loadTask?.value
         }
         guard let whisper else { throw WhisperError.cannotLoadModel }
-        let remaining = decodeSeconds(sampleCount: samples.count, preview: preview)
-        var encoded: (@Sendable () -> Void)?
-        if let onEncoded {
-            encoded = { DispatchQueue.main.async { MainActor.assumeIsolated { onEncoded(remaining) } } }
+        let pieces = preview ? [0..<samples.count] : Self.pieces(of: samples)
+        var segments: [String] = []
+        for (i, piece) in pieces.enumerated() {
+            let audio = pieces.count == 1 ? samples : Array(samples[piece])
+            let later = pieces[(i + 1)...].reduce(0) { $0 + estimatedSeconds(sampleCount: $1.count) }
+            let remaining = decodeSeconds(sampleCount: audio.count, preview: preview) + later
+            var encoded: (@Sendable () -> Void)?
+            if let onEncoded {
+                encoded = { DispatchQueue.main.async { MainActor.assumeIsolated { onEncoded(remaining) } } }
+            }
+            let result = try await whisper.transcribe(samples: audio, minimumAudioContext: minimumAudioContext,
+                                                      abort: abort, preview: preview,
+                                                      onEncoded: encoded)
+            learnSpeed(sampleCount: audio.count, result: result, preview: preview)
+            segments += result.segments
         }
-        let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext,
-                                                  abort: abort, preview: preview,
-                                                  onEncoded: encoded)
-        learnSpeed(sampleCount: samples.count, result: result, preview: preview)
         // Segments are joined with pause marks, by which the keyboard reads spoken commands.
-        return result.segments.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        return segments.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: String(DictationBridge.pauseMark))
+    }
+
+    /// Whisper runs a recording of 28 s or more in 30 s windows, the last one mostly padding,
+    /// where it added words that were never said («ممنون», «دوست دارید» after a sentence) and
+    /// encoded a full window for a few seconds of speech. Such a recording is cut into pieces
+    /// under 28 s instead, each fitting one shortened window: every piece ends at the latest
+    /// pause (`AudioLoader.pause(in:)`) that leaves at least 3 s for the next.
+    nonisolated static func pieces(of samples: [Float]) -> [Range<Int>] {
+        let rate = Int(AudioLoader.sampleRate)
+        var pieces: [Range<Int>] = []
+        var start = 0
+        while samples.count - start >= 28 * rate {
+            let window = min(28 * rate, samples.count - start - 3 * rate)
+            let cut = AudioLoader.pause(in: Array(samples[start..<(start + window)])) ?? 20 * rate
+            pieces.append(start..<(start + cut))
+            start += cut
+        }
+        pieces.append(start..<samples.count)
+        return pieces
     }
 
     // MARK: - Time estimate
@@ -264,13 +291,15 @@ final class Transcriber: ObservableObject {
     }
 
     /// The encoder runs on a window of at least `minimumAudioContext` frames (50 per second),
-    /// and on full 30 s windows for long recordings or when the window is not shortened.
+    /// or on a full 30 s window when the window is not shortened. A recording of 28 s or more
+    /// is transcribed in pieces (`pieces(of:)`), here about 26 s each.
     private func windowSeconds(_ sampleCount: Int) -> Double {
         let seconds = Double(sampleCount) / AudioLoader.sampleRate
-        if minimumAudioContext == 0 || seconds >= 28 {
-            return 30 * max(1, (seconds / 30).rounded(.up))
+        let pieces = seconds >= 28 ? (seconds / 26).rounded(.up) : 1
+        if minimumAudioContext == 0 {
+            return 30 * pieces
         }
-        return min(30, max(seconds + 2.56, Double(minimumAudioContext) / 50))
+        return min(30 * pieces, max(seconds + 2.56 * pieces, pieces * Double(minimumAudioContext) / 50))
     }
 
     private func learnSpeed(sampleCount: Int, result: WhisperContext.Result, preview: Bool) {
@@ -296,7 +325,7 @@ final class Transcriber: ObservableObject {
                 status = "در حال بارگذاری مدل…"
                 await loadTask?.value
             }
-            guard let whisper else {
+            guard whisper != nil else {
                 isBusy = false
                 return
             }
@@ -304,9 +333,7 @@ final class Transcriber: ObservableObject {
             do {
                 let start = Date()
                 let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
-                let result = try await whisper.transcribe(samples: samples, minimumAudioContext: minimumAudioContext,
-                                                          abort: AbortFlag())
-                let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                let text = DictationBridge.removingPauseMarks(try await transcribe(samples: samples, abort: AbortFlag()))
                 let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
                 let elapsed = Date().timeIntervalSince(start)
                 var summary = String(format: "%.1f ثانیه صدا در %.1f ثانیه تبدیل شد", audioSeconds, elapsed)

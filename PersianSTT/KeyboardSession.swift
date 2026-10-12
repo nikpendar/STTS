@@ -369,7 +369,7 @@ final class KeyboardSession: ObservableObject {
                     piece = self.collector.snapshot(from: self.committedCount)
                 } else if speech?.paused == false, count - self.committedCount >= rate, count - passedCount >= rate * 3 / 2 {
                     let tail = self.collector.snapshot(from: self.committedCount)
-                    let cut = tail.count >= rate * 10 ? Self.pause(in: tail) : nil
+                    let cut = tail.count >= rate * 10 ? AudioLoader.pause(in: tail) : nil
                     kind = cut == nil ? .preview : .commit
                     piece = cut.map { Array(tail[..<$0]) } ?? tail
                 } else {
@@ -520,26 +520,6 @@ final class KeyboardSession: ObservableObject {
         // Speech up to the last complete frame: the audio after it may be the start of a word.
         let to = frames.upperBound + 1 >= levels.count ? end : min(end, (frames.upperBound + 1 + 5) * frame)
         return from < to ? from..<to : nil
-    }
-
-    /// Where to split a piece of at least 10 s: the latest pause after 6 s (0.3 s quieter than a
-    /// third of the average level), else, once the piece reaches 20 s, its quietest point after 10 s.
-    private static func pause(in samples: [Float]) -> Int? {
-        let frame = Int(AudioLoader.sampleRate) / 10
-        let levels = stride(from: 0, to: samples.count - frame + 1, by: frame).map { start in
-            var sum: Float = 0
-            for i in start..<(start + frame) { sum += samples[i] * samples[i] }
-            return (sum / Float(frame)).squareRoot()
-        }
-        guard levels.count > 64 else { return nil }
-        let quiet = levels.reduce(0, +) / Float(levels.count) / 3
-        for i in stride(from: levels.count - 3, through: 61, by: -1)
-        where levels[i - 1] < quiet && levels[i] < quiet && levels[i + 1] < quiet {
-            return i * frame + frame / 2
-        }
-        guard levels.count >= 200 else { return nil }
-        let quietest = (100..<200).min { levels[$0] < levels[$1] } ?? 150
-        return quietest * frame + frame / 2
     }
 
     /// Pieces of a recording are cut at pauses, so they are joined with a pause mark.
