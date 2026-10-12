@@ -89,13 +89,15 @@ final class ShenavaStream {
         let pre = try json("preprocessor.json") as? [String: Any] ?? [:]
         let manifest = try json("manifest.json") as? [String: Any] ?? [:]
         let vocab = try json("tokens.json") as? [String: Any] ?? [:]
-        tokens = vocab["tokens"] as? [String] ?? []
-        blank = vocab["blank_id"] as? Int ?? tokens.count
-        special = Set(tokens.indices.filter { tokens[$0].hasPrefix("<") && tokens[$0].hasSuffix(">") })
-        melFilters = (try json("mel_filters_slaney_80x257.json") as? [[Double]] ?? []).map { $0.map(Float.init) }
-        guard melFilters.count == nMels, melFilters.allSatisfy({ $0.count == nFFT / 2 + 1 }) else {
+        let vocabTokens = vocab["tokens"] as? [String] ?? []
+        tokens = vocabTokens
+        blank = vocab["blank_id"] as? Int ?? vocabTokens.count
+        special = Set(vocabTokens.indices.filter { vocabTokens[$0].hasPrefix("<") && vocabTokens[$0].hasSuffix(">") })
+        let filters = (try json("mel_filters_slaney_80x257.json") as? [[Double]] ?? []).map { $0.map(Float.init) }
+        guard filters.count == 80, filters.allSatisfy({ $0.count == 257 }) else {
             throw ShenavaError.missing("mel_filters_slaney_80x257.json")
         }
+        melFilters = filters
         logGuard = Float(pre["log_zero_guard_value"] as? Double ?? 5.960464477539063e-08)
         preemphasis = Float(pre["preemphasis"] as? Double ?? 0.97)
         padValue = Float(pre["pad_value"] as? Double ?? 0)

@@ -49,8 +49,9 @@ jobs:
           xcodebuild -project ShenavaTest/ShenavaTest.xcodeproj -target ShenavaTest \
             -configuration Release -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            build 2>&1 | tee build.log | grep -E "error|warning: .*Shenava|BUILD" || true
-          test -d ShenavaTest/build/Release-iphoneos/ShenavaTest.app
+            build > build.log 2>&1 || true
+          grep -E "error:|warning: .*Sources/|BUILD (SUCCEEDED|FAILED)" build.log || true
+          grep -q "BUILD SUCCEEDED" build.log
 
       - name: Package IPA
         run: |
