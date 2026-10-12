@@ -55,7 +55,8 @@ actor WhisperContext {
     /// Setting `abort` from any thread stops this transcription, even before it has started.
     /// `preview` is for live text while the user is still speaking: one segment, no timestamps,
     /// no temperature fallback and a token cap. Without these a pass over the first second or two
-    /// of a recording could loop on repeated tokens for close to a minute.
+    /// of a recording could loop on repeated tokens for close to a minute. Full passes have a
+    /// looser cap per segment.
     /// `onEncoded` is called (on whisper's thread) when the encoder
     /// has finished the first 30 s window, so a progress estimate can be corrected.
     func transcribe(samples: [Float], minimumAudioContext: Int, abort: AbortFlag,
@@ -97,11 +98,17 @@ actor WhisperContext {
             // temperature, by default with 5 decoders at once. One is as accurate (FLEURS 11.0%,
             // Common Voice 20.2% WER either way) and costs a fifth when it happens.
             params.greedy.best_of = 1
+            let seconds = Double(samples.count) / 16_000
             if preview {
                 params.single_segment = true
                 params.no_timestamps = true
                 params.temperature_inc = 0
-                params.max_tokens = Int32(Double(samples.count) / 16_000 * 10) + 16
+                params.max_tokens = Int32(seconds * 10) + 16
+            } else {
+                // Noise such as a cough can make Whisper repeat tokens up to the end of its
+                // window, again at each fallback temperature, which kept the keyboard waiting
+                // for minutes. Speech has well under 20 tokens a second.
+                params.max_tokens = Int32(seconds * 20) + 32
             }
             let qos = qos_class_self().rawValue
             let code = withExtendedLifetime(timing) {

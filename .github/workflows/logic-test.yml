@@ -8,6 +8,7 @@ on:
     paths:
       - PersianSTTKeyboard/Lexicon.swift
       - PersianSTTKeyboard/VoiceCommands.swift
+      - PersianSTTKeyboard/TouchModel.swift
       - PersianSTTKeyboard/fa_words.txt
       - PersianSTTKeyboard/fa_bigrams.bin
       - PersianSTTKeyboard/en_words.txt
@@ -23,5 +24,5 @@ jobs:
       - name: Build and run
         run: |
           swiftc -O -module-name KeyboardLogic PersianSTTKeyboard/Lexicon.swift PersianSTTKeyboard/VoiceCommands.swift \
-            Tests/KeyboardLogic/main.swift -o logic-test
+            PersianSTTKeyboard/TouchModel.swift Tests/KeyboardLogic/main.swift -o logic-test
           ./logic-test PersianSTTKeyboard

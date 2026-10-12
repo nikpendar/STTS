@@ -1,4 +1,4 @@
-// Checks the keyboard's word logic (Lexicon.swift, VoiceCommands.swift) without a simulator:
+// Checks the keyboard's word logic (Lexicon.swift, VoiceCommands.swift, TouchModel.swift) without a simulator:
 // .github/workflows/logic-test.yml compiles these files with this one on a Mac and runs them.
 import Foundation
 
@@ -117,6 +117,40 @@ check("en typo thw", english.corrections(for: "thw", limit: 1).first?.word ?? ""
 check("en glide letters skip the apostrophe", String(english.language.pathLetters("don't")), "dont")
 english.learn("Keyless", after: .word("the"), confirmed: true)
 check("en learned word", english.completions(for: "keyl", limit: 1).first ?? "", "Keyless")
+
+// ZWNJ.
+let fa = Lexicon.shared
+check("zwnj verb", fa.zwnjSpelling(of: "میخوام") ?? "nil", "می‌خوام")
+check("zwnj plural", fa.zwnjSpelling(of: "کتابها") ?? "nil", "کتاب‌ها")
+check("zwnj compound left alone", fa.zwnjSpelling(of: "بیشتر") ?? "nil", "nil")
+check("zwnj compound left alone 2", fa.zwnjSpelling(of: "همچنین") ?? "nil", "nil")
+check("zwnj typed already", fa.zwnjSpelling(of: "می‌خوام") ?? "nil", "nil")
+check("zwnj join prefix", fa.zwnjJoin("می", "خوام") ?? "nil", "می‌خوام")
+check("zwnj join plural", fa.zwnjJoin("کتاب", "ها") ?? "nil", "کتاب‌ها")
+check("zwnj join comparative", fa.zwnjJoin("بیش", "تر") ?? "nil", "بیش‌تر")
+check("zwnj no join این که", fa.zwnjJoin("این", "که") ?? "nil", "nil")
+check("zwnj no join از این", fa.zwnjJoin("از", "این") ?? "nil", "nil")
+check("double letter starts a word", fa.startsWord("مم"), true)
+check("double letter starts a word 2", fa.startsWord("بب"), true)
+check("doubled ی after می", fa.startsWord("میی"), false)
+check("doubled ب after کتاب", fa.startsWord("کتابب"), false)
+let afterSala = fa.continuationWeights(after: "سلا", letters: ["م", "ن", "ک"])
+check("next letter after سلا", afterSala.max { $0.value < $1.value }?.key ?? "", "م")
+
+// TapMap: three keys in a row, 34 wide and 54 high.
+let frames = (0..<3).map { CGRect(x: CGFloat($0) * 34, y: 0, width: 34, height: 54) }
+func keys(_ weights: [Double] = [0, 0, 0]) -> [TouchModel.Candidate] {
+    zip(["a", "b", "c"], zip(frames, weights)).map { TouchModel.Candidate(key: $0, frame: $1.0, weight: $1.1) }
+}
+var touches = TouchModel()
+check("tap centre", touches.choose(CGPoint(x: 51, y: 27), among: keys(), hit: 1, layout: "t"), 1)
+check("tap near the edge, nothing learned", touches.choose(CGPoint(x: 66, y: 27), among: keys(), hit: 1, layout: "t"), 1)
+check("likely letter wins the edge", touches.choose(CGPoint(x: 69, y: 27), among: keys([1, 100, 1]), hit: 2, layout: "t"), 1)
+check("centre beats the likely letter", touches.choose(CGPoint(x: 85, y: 27), among: keys([1, 100, 1]), hit: 2, layout: "t"), 2)
+for _ in 0..<30 { touches.learn(CGPoint(x: 0.55, y: 0), key: "b", layout: "t") }
+check("learned habit", touches.choose(CGPoint(x: 70, y: 27), among: keys(), hit: 2, layout: "t"), 1)
+check("learned habit keeps centres", touches.choose(CGPoint(x: 85, y: 27), among: keys(), hit: 2, layout: "t"), 2)
+check("far touches are not learned", { var m = TouchModel(); m.learn(CGPoint(x: 2, y: 0), key: "b", layout: "t"); return m.isEmpty }(), true)
 
 let start = Date()
 for word in ["سلان", "کتاا", "مرسس", "زندگس", "صحبط", "اسفاده", "دوستت", "ممنوم"] {

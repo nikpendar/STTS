@@ -39,6 +39,8 @@
 		A10000000000000000000039 /* en_words.txt in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000036 /* en_words.txt */; };
 		A1000000000000000000003A /* en_bigrams.bin in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000037 /* en_bigrams.bin */; };
 		A1000000000000000000003B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000038 /* Assets.xcassets */; };
+		A1000000000000000000003C /* TouchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* TouchModel.swift */; };
+		A1000000000000000000003D /* TouchModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* TouchModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +103,7 @@
 		A20000000000000000000032 /* fa_words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = fa_words.txt; sourceTree = "<group>"; };
 		A20000000000000000000033 /* ModelImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImporter.swift; sourceTree = "<group>"; };
 		A20000000000000000000034 /* VoiceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommands.swift; sourceTree = "<group>"; };
+		A20000000000000000000039 /* TouchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* fa_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = fa_bigrams.bin; sourceTree = "<group>"; };
 		A20000000000000000000036 /* en_words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = en_words.txt; sourceTree = "<group>"; };
 		A20000000000000000000037 /* en_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = en_bigrams.bin; sourceTree = "<group>"; };
@@ -184,6 +187,7 @@
 				A20000000000000000000031 /* GlideTyping.swift */,
 				A20000000000000000000032 /* fa_words.txt */,
 				A20000000000000000000034 /* VoiceCommands.swift */,
+				A20000000000000000000039 /* TouchModel.swift */,
 				A20000000000000000000035 /* fa_bigrams.bin */,
 				A20000000000000000000036 /* en_words.txt */,
 				A20000000000000000000037 /* en_bigrams.bin */,
@@ -323,6 +327,7 @@
 				A10000000000000000000030 /* Lexicon.swift in Sources */,
 				A10000000000000000000032 /* GlideTyping.swift in Sources */,
 				A10000000000000000000036 /* VoiceCommands.swift in Sources */,
+				A1000000000000000000003C /* TouchModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -336,6 +341,7 @@
 				A10000000000000000000031 /* Lexicon.swift in Sources */,
 				A10000000000000000000033 /* GlideTyping.swift in Sources */,
 				A10000000000000000000037 /* VoiceCommands.swift in Sources */,
+				A1000000000000000000003D /* TouchModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -362,6 +362,16 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var keyPreview = true
     /// Two spaces in a row type a full stop, three a comma.
     var doubleSpacePunctuation = true
+    /// A row of digits above the letters.
+    var numberRow = false
+    /// A space after a word the list writes with ZWNJ puts it in (میخوام, کتاب ها).
+    var autoZWNJ = true
+    /// A joining letter typed twice quickly types ZWNJ the second time (می + ی).
+    var doubleTapZWNJ = true
+    /// TapMap: touches between keys go to the key the user's habits and the word make likelier.
+    var learnTouches = true
+    /// Raised by the app to make the keyboard forget the touches it learned.
+    var touchResets = 0
 
     static let standard = KeyboardOptions()
     static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardOptions")
@@ -369,7 +379,7 @@ struct KeyboardOptions: SharedSetting, Equatable {
 
     init() {}
 
-    /// Options added later are on when an older copy lacks them.
+    /// Options added later take their default when an older copy lacks them.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         predictNextWord = try container.decodeIfPresent(Bool.self, forKey: .predictNextWord) ?? true
@@ -378,5 +388,10 @@ struct KeyboardOptions: SharedSetting, Equatable {
         voiceCommands = try container.decodeIfPresent(Bool.self, forKey: .voiceCommands) ?? true
         keyPreview = try container.decodeIfPresent(Bool.self, forKey: .keyPreview) ?? true
         doubleSpacePunctuation = try container.decodeIfPresent(Bool.self, forKey: .doubleSpacePunctuation) ?? true
+        numberRow = try container.decodeIfPresent(Bool.self, forKey: .numberRow) ?? false
+        autoZWNJ = try container.decodeIfPresent(Bool.self, forKey: .autoZWNJ) ?? true
+        doubleTapZWNJ = try container.decodeIfPresent(Bool.self, forKey: .doubleTapZWNJ) ?? true
+        learnTouches = try container.decodeIfPresent(Bool.self, forKey: .learnTouches) ?? true
+        touchResets = try container.decodeIfPresent(Int.self, forKey: .touchResets) ?? 0
     }
 }

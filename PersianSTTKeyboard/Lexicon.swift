@@ -362,13 +362,7 @@ final class Lexicon {
     private func scoredCompletions(for key: String, context: Context) -> [(word: String, score: Double)] {
         guard !key.isEmpty else { return [] }
         var found: [(word: String, score: Double)] = []
-        // Binary search for the first entry not below the prefix.
-        var low = 0, high = entries.count
-        while low < high {
-            let mid = (low + high) / 2
-            if entries[mid].key < key { low = mid + 1 } else { high = mid }
-        }
-        var i = low
+        var i = lowerBound(key)
         while i < entries.count, entries[i].key.hasPrefix(key) {
             let entry = entries[i]
             if let score = rankScore(key: entry.key, zipf: entry.zipf, context: context) { found.append((entry.word, score)) }
@@ -412,6 +406,103 @@ final class Lexicon {
         let conditional = bundledProbability(of: b.rank, after: a.rank)
         guard conditional >= 0.002 else { return 0 }
         return conditional / pow(10, b.zipf - 9)
+    }
+
+    // MARK: - ZWNJ and next letters
+
+    /// Index of the first entry whose key is not below `key`.
+    private func lowerBound(_ key: String) -> Int {
+        var low = 0, high = entries.count
+        while low < high {
+            let mid = (low + high) / 2
+            if entries[mid].key < key { low = mid + 1 } else { high = mid }
+        }
+        return low
+    }
+
+    /// Every listed spelling of a word key (as بیشتر and بیش‌تر), with its frequency.
+    private func spellings(ofKey key: String) -> [(word: String, zipf: Double)] {
+        var result: [(word: String, zipf: Double)] = []
+        var i = lowerBound(key)
+        while i < entries.count, entries[i].key == key {
+            result.append((entries[i].word, entries[i].zipf))
+            i += 1
+        }
+        return result
+    }
+
+    /// Where the standard spelling needs ZWNJ, however people type it: after the verb prefixes
+    /// می and نمی, and before plural and personal endings. The list keeps one spelling per word,
+    /// with ZWNJ wherever any writer used it, so compounds (بیش‌تر, هم‌چنین) are not changed by
+    /// themselves; typed as two words, comparatives join too (بیش تر).
+    private static let zwnjPrefixes: Set<String> = ["می", "نمی"]
+    private static let zwnjSuffixes: Set<String> = ["ها", "های", "هایی", "هایم", "هایت", "هایش", "هایمان", "هایتان",
+                                                    "هایشان", "ای", "ام", "ات", "اش", "ایم", "اید", "اند", "ی", "یی"]
+    private static let zwnjJoinSuffixes = zwnjSuffixes.union(["تر", "ترین"])
+
+    /// The list's spelling with ZWNJ of a word typed without one (می‌خوام for میخوام, کتاب‌ها for
+    /// کتابها), when the ZWNJ comes after a verb prefix or before an ending.
+    func zwnjSpelling(of typed: String) -> String? {
+        guard language == .persian, !typed.contains(Self.zwnj) else { return nil }
+        let forms = spellings(ofKey: language.key(typed))
+        guard let joined = forms.filter({ $0.word.contains(Self.zwnj) }).max(by: { $0.zipf < $1.zipf }) else { return nil }
+        if let plain = forms.filter({ !$0.word.contains(Self.zwnj) }).map({ $0.zipf }).max(), joined.zipf - plain < 0.5 {
+            return nil
+        }
+        let parts = joined.word.split(separator: Self.zwnj).map(String.init)
+        guard parts.count >= 2, Self.zwnjPrefixes.contains(parts[0]) || Self.zwnjSuffixes.contains(parts[parts.count - 1]) else {
+            return nil
+        }
+        return joined.word
+    }
+
+    /// Two typed words that the list writes as one with ZWNJ where the space was (می خوام,
+    /// کتاب ها, بزرگ تر): the list's spelling.
+    func zwnjJoin(_ first: String, _ second: String) -> String? {
+        guard language == .persian, !first.isEmpty, !second.isEmpty else { return nil }
+        let firstKey = language.key(first)
+        let secondKey = language.key(second)
+        guard Self.zwnjPrefixes.contains(firstKey) || Self.zwnjJoinSuffixes.contains(secondKey) else { return nil }
+        let candidates = spellings(ofKey: firstKey + secondKey).filter { form in
+            let parts = form.word.split(separator: Self.zwnj, omittingEmptySubsequences: false)
+            var prefix = ""
+            for part in parts.dropLast() {
+                prefix += part
+                if language.key(prefix) == firstKey { return true }
+            }
+            return false
+        }
+        return candidates.max(by: { $0.zipf < $1.zipf })?.word
+    }
+
+    /// Whether some listed or learned word starts with `text` (ZWNJ ignored).
+    func startsWord(_ text: String) -> Bool {
+        let key = language.key(text)
+        guard !key.isEmpty else { return true }
+        let i = lowerBound(key)
+        if i < entries.count, entries[i].key.hasPrefix(key) { return true }
+        return userWords.contains { $0.value.count >= 2 && $0.key.hasPrefix(key) }
+    }
+
+    /// How common the words are that continue `prefix` with each of `letters`: sums of their
+    /// frequencies, for TapMap's guess at the next letter. Empty when no word continues it.
+    func continuationWeights(after prefix: String, letters: [String]) -> [String: Double] {
+        var result: [String: Double] = [:]
+        var total = 0.0
+        for letter in letters {
+            let key = language.key(prefix + letter)
+            var sum = 0.0
+            var i = lowerBound(key)
+            var seen = 0
+            while i < entries.count, seen < 3000, entries[i].key.hasPrefix(key) {
+                if let score = score(key: entries[i].key, zipf: entries[i].zipf) { sum += pow(10, score - 3) }
+                i += 1
+                seen += 1
+            }
+            result[letter] = sum
+            total += sum
+        }
+        return total > 0 ? result : [:]
     }
 
     // MARK: - Typos

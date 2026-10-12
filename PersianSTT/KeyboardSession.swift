@@ -595,14 +595,27 @@ final class KeyboardSession: ObservableObject {
         let live = liveTask != nil
         finalAbort = AbortFlag()
         let abort = finalAbort
-        if live { publishEstimate(estimateAfterStop(samples: samples.count, levels: levels)) }
+        let firstEstimate = live ? estimateAfterStop(samples: samples.count, levels: levels)
+            : Transcriber.shared.estimatedSeconds(sampleCount: samples.count)
+        if live { publishEstimate(firstEstimate) }
+        // A pass that runs far past its estimate is stopped, and the text so far delivered, so
+        // the keyboard is never left waiting.
+        let deadline = max(20, 3 * firstEstimate + 10)
+        let watchdog = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(deadline * 1_000_000_000))
+            guard !Task.isCancelled, let self, id == self.dictationID else { return }
+            log.info("final pass: no result after \(deadline, format: .fixed(precision: 0)) s; stopped")
+            self.liveAbort.set()
+            abort.set()
+        }
         Task {
+            defer { watchdog.cancel() }
             await stopLiveTranscription()
             guard id == dictationID else { return }
             // With live text, only the piece after the last committed one is left to transcribe.
             let restStart = live ? min(committedCount, samples.count) : 0
+            var text = live ? committedText : ""
             do {
-                var text = live ? committedText : ""
                 if live, let candidate, candidate.start == committedCount, Self.isSilent(levels, from: candidate.end) {
                     text = Self.join(text, candidate.text)
                     log.info("final pass: not needed, the pass from the pause is final")
@@ -638,7 +651,14 @@ final class KeyboardSession: ObservableObject {
                 server.publish(DictationBridge.finalPrefix + dictation + "\n" + text)
                 DictationBridge.post(DictationBridge.done)
             } catch {
-                if id == dictationID { DictationBridge.post(DictationBridge.failed) }
+                guard id == dictationID else { return }
+                // Stopped by the watchdog: the committed text, if any, is still worth having.
+                if abort.isSet, !text.isEmpty {
+                    server.publish(DictationBridge.finalPrefix + UUID().uuidString + "\n" + text)
+                    DictationBridge.post(DictationBridge.done)
+                } else {
+                    DictationBridge.post(DictationBridge.failed)
+                }
             }
         }
     }

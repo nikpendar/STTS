@@ -209,10 +209,39 @@ struct ContentView: View {
                 Toggle(isOn: $options.doubleSpacePunctuation) {
                     SettingLabel("دو فاصله: نقطه، سه فاصله: ویرگول", symbol: "space", color: .orange)
                 }
+                Toggle(isOn: $options.numberRow) {
+                    SettingLabel("ردیف اعداد بالای حروف", symbol: "number", color: .teal)
+                }
             } header: {
                 Text("کلیدها").font(.app(.footnote))
             } footer: {
-                Text("دو بار زدن پشت سر هم فاصله بعد از یک کلمه «. » تایپ می‌کند و بار سوم آن را «، » می‌کند (در انگلیسی «, »). نیم‌فاصله و تنوین‌ها با نگه داشتن فاصله در کیبورد فارسی باز می‌شوند.").font(.app(.footnote))
+                Text("دو بار زدن پشت سر هم فاصله بعد از یک کلمه «. » تایپ می‌کند و بار سوم آن را «، » می‌کند (در انگلیسی «, »). تنوین و اعراب در صفحه‌ی ۱۲۳ هستند. ردیف اعداد کیبورد را یک ردیف بلندتر می‌کند.").font(.app(.footnote))
+            }
+            Section {
+                Toggle(isOn: $options.autoZWNJ) {
+                    SettingLabel("خودکار", symbol: "wand.and.stars", color: .indigo)
+                }
+                Toggle(isOn: $options.doubleTapZWNJ) {
+                    SettingLabel("پیوندی (دو بار زدن حرف)", symbol: "hand.tap.fill", color: .mint)
+                }
+            } header: {
+                Text("نیم‌فاصله").font(.app(.footnote))
+            } footer: {
+                Text("خودکار: «میخوام» یا «کتاب ها» با زدن فاصله «می‌خوام» و «کتاب‌ها» می‌شود، اگر فهرست کلمات آن را با نیم‌فاصله بنویسد. یک بار حذف بلافاصله بعد از آن، متن شما را برمی‌گرداند و آن مورد دیگر عوض نمی‌شود.\nپیوندی: حرف پیوندی را دو بار سریع بزنید تا بار دوم نیم‌فاصله شود؛ «م ی ی» می‌شود «می‌». کلمه‌هایی مثل «ممنون» که با حرف تکراری ادامه پیدا می‌کنند عوض نمی‌شوند.\nنگه داشتن فاصله هم مثل قبل نیم‌فاصله می‌زند.").font(.app(.footnote))
+            }
+            Section {
+                Toggle(isOn: $options.learnTouches) {
+                    SettingLabel("یادگیری محل لمس (TapMap)", symbol: "hand.point.up.left.fill", color: .orange)
+                }
+                Button(role: .destructive) {
+                    options.touchResets += 1
+                } label: {
+                    SettingLabel("پاک کردن یادگرفته‌های لمس", symbol: "arrow.counterclockwise", color: .red)
+                }
+            } header: {
+                Text("لمس هوشمند").font(.app(.footnote))
+            } footer: {
+                Text("کیبورد یاد می‌گیرد هر حرف را معمولاً کجای کلید می‌زنید: از کلمه‌هایی که نگه می‌دارید، از حرفی که بعد از پاک کردن جایش می‌زنید و از اصلاح‌هایی که از ردیف پیشنهاد انتخاب می‌کنید. لمسِ نزدیک مرز دو کلید به حرفی می‌رسد که با عادت شما و کلمه‌ی در حال نوشتن جورتر است. وسط هر کلید همیشه همان حرف را می‌زند، ظاهر کلیدها عوض نمی‌شود و همه‌چیز روی همین گوشی می‌ماند.").font(.app(.footnote))
             }
         }
     }
