@@ -2639,7 +2639,8 @@ private enum KeyIcons {
         }
         let radius = size * 0.14
         let centre = circle.isNull ? CGPoint(x: 0, y: CTFontGetXHeight(font) / 2) : CGPoint(x: circle.midX, y: circle.midY)
-        let moveIn = circle.isNull ? 0 : max(0, circle.height / 2 - radius)
+        // The font leaves a wide gap over its circle: a little of it goes too.
+        let moveIn = circle.isNull ? 0 : max(0, circle.height / 2 - radius + size * 0.05)
         // Marks over the circle move down to the small one, marks under it up.
         let shifts = glyphs.map { $0.bounds.midY > centre.y ? -moveIn : moveIn }
         var reach = CGSize(width: radius + 1, height: radius + 1)
