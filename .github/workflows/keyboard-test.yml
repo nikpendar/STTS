@@ -90,20 +90,21 @@ jobs:
           xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1
           sleep 15
           xcrun simctl io "$DEVICE" screenshot out/keyboard-test.png
-          # Tap the globe key (bottom-left) to switch to the next keyboard, which is ours.
+          # Tap the globe key (bottom-left) until the system keyboard (UIKeyboardLayoutStar) gives way
+          # to ours, whose keys the accessibility dump does not show.
           axe describe-ui --udid "$DEVICE" > out/ui.json 2>&1 || true
           HEIGHT="$(jq -r '[.. | objects | .frame?.height? // empty] | max' out/ui.json 2>/dev/null || true)"
           HEIGHT="${HEIGHT%%.*}"
           case "$HEIGHT" in ''|*[!0-9]*) HEIGHT=874 ;; esac
           [ "$HEIGHT" -gt 400 ] || HEIGHT=874
           GLOBE_Y=$((HEIGHT - 41))
-          axe tap -x 42 -y "$GLOBE_Y" --udid "$DEVICE" || true
-          sleep 10
-          xcrun simctl io "$DEVICE" screenshot out/keyboard-test-2.png
-          axe describe-ui --udid "$DEVICE" > out/ui-2.json 2>&1 || true
-          axe tap -x 42 -y "$GLOBE_Y" --udid "$DEVICE" || true
-          sleep 8
-          xcrun simctl io "$DEVICE" screenshot out/keyboard-test-3.png
+          for i in 2 3 4 5; do
+            axe tap --label "Next keyboard" --udid "$DEVICE" || axe tap -x 42 -y "$GLOBE_Y" --udid "$DEVICE" || true
+            sleep 10
+            xcrun simctl io "$DEVICE" screenshot "out/keyboard-test-$i.png"
+            axe describe-ui --udid "$DEVICE" > "out/ui-$i.json" 2>&1 || true
+            if ! grep -q 'UIKeyboardLayoutStar' "out/ui-$i.json"; then echo "the system keyboard is gone"; break; fi
+          done
           kill $LOG || true
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian || echo "no crash reports"
           cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ 2>/dev/null || true
