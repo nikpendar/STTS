@@ -174,7 +174,12 @@ jobs:
           dump out/ui-5.json || true
           read SX SY < <(python3 find.py letter-1-1 out/ui-5.json || echo "54 735")
           read MX2 MY2 < <(python3 find.py letter-1-8 out/ui-5.json || echo "300 735")
-          axe swipe --start-x "$SX" --start-y "$SY" --end-x "$MX2" --end-y "$MY2" --duration 0.6 --udid "$DEVICE" || true
+          # Slow enough to photograph the glass lens over the keys half way.
+          axe swipe --start-x "$SX" --start-y "$SY" --end-x "$MX2" --end-y "$MY2" --duration 2.4 --udid "$DEVICE" &
+          SWIPE=$!
+          sleep 1.3
+          xcrun simctl io "$DEVICE" screenshot out/5a0-glide-lens.png
+          wait $SWIPE || true
           sleep 2
           xcrun simctl io "$DEVICE" screenshot out/5a-glide.png
           dump out/ui-5b.json || true
@@ -378,6 +383,14 @@ jobs:
           read DX DY < <(python3 find.py letter-1-5 out/ui-13.json || echo "0 0")
           axe touch -x "$DX" -y "$DY" --down --udid "$DEVICE" && sleep 0.8 && \
             xcrun simctl io "$DEVICE" screenshot out/7b-background-variants.png; axe touch -x "$DX" -y "$DY" --up --udid "$DEVICE" || true
+          # The glide lens over the picture and clear keys.
+          read GX GY < <(python3 find.py letter-1-1 out/ui-13.json || echo "54 735")
+          read HX HY < <(python3 find.py letter-1-8 out/ui-13.json || echo "300 735")
+          axe swipe --start-x "$GX" --start-y "$GY" --end-x "$HX" --end-y "$HY" --duration 2.4 --udid "$DEVICE" &
+          SWIPE=$!
+          sleep 1.3
+          xcrun simctl io "$DEVICE" screenshot out/7c-background-glide-lens.png
+          wait $SWIPE || true
           kill $LOG || true
           echo "===== log"
           grep -E "live |final pass|recording started|test audio|whisper_full|correction|personal|loaded|model v|edits|dictation |auto stop|no speech|glide" out/log.txt | cut -c1-300 || true
