@@ -36,6 +36,7 @@ def distance(a, b) -> int:
 def main():
     refs_path, hyp_dir, label, seconds, size, audio, out = sys.argv[1:]
     words = word_errors = chars = char_errors = 0
+    nd_words = nd_errors = 0  # references without digits: fair to models that spell numbers out
     samples = []
     for line in open(refs_path, encoding="utf-8"):
         name, ref = line.rstrip("\n").split("\t", 1)
@@ -48,6 +49,9 @@ def main():
         ce = distance(r.replace(" ", ""), h.replace(" ", ""))
         words += len(r.split())
         word_errors += we
+        if not re.search(r"\d", r):
+            nd_words += len(r.split())
+            nd_errors += we
         chars += len(r.replace(" ", ""))
         char_errors += ce
         if len(samples) < 5:
@@ -55,6 +59,7 @@ def main():
     result = {
         "model": label,
         "wer": round(100 * word_errors / max(words, 1), 1),
+        "wer_nodigit": round(100 * nd_errors / max(nd_words, 1), 1),
         "cer": round(100 * char_errors / max(chars, 1), 1),
         "size_mb": round(int(size) / 1e6),
         "rtf": round(float(seconds) / max(float(audio), 1), 3),

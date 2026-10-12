@@ -1,0 +1,134 @@
+# Stage 1 of the Shenava test (separate from Keyless): accuracy and speed of the Shenava streaming
+# Core ML models against the Keyless whisper model, on the same 80 FLEURS and 80 Common Voice 17 clips
+# used by benchmark.yml. Runs on push to this branch only; nothing here touches the app.
+name: Shenava eval
+
+on:
+  push:
+    branches: [claude/shenava-streaming-eval-enfpnp]
+    paths: [.github/workflows/shenava-eval.yml, scripts/shenava_stream.py, scripts/wer.py]
+  workflow_dispatch:
+
+jobs:
+  clips:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: FLEURS fa_ir test, first 80
+        run: |
+          base=https://huggingface.co/datasets/google/fleurs/resolve/main/data/fa_ir
+          curl -fsSL -o test.tsv "$base/test.tsv"
+          curl -fsSL -o test.tar.gz "$base/audio/test.tar.gz"
+          tar xzf test.tar.gz
+          mkdir -p fleurs
+          head -n 80 test.tsv | while IFS=$'\t' read -r id file raw norm rest; do
+            src=$(find test -name "$file" | head -1)
+            [ -n "$src" ] || continue
+            python3 scripts/to_pcm16.py "$src" "fleurs/$file" >> durations
+            printf '%s\t%s\n' "$file" "$raw" >> fleurs/refs.tsv
+          done
+          awk '{ s += $1 } END { printf "%.1f", s }' durations > fleurs/audio_seconds
+          echo "fleurs: $(wc -l < fleurs/refs.tsv) clips, $(cat fleurs/audio_seconds) s"
+      - name: Common Voice 17 fa test, 80 spread
+        run: |
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          base=https://huggingface.co/datasets/fsicoli/common_voice_17_0/resolve/main
+          curl -fsSL -o cv.tsv "$base/transcript/fa/test.tsv"
+          curl -fsSL -o cv.tar "$base/audio/fa/test/fa_test_0.tar"
+          python3 scripts/prepare_cv.py cv.tsv cv.tar 80 cv17
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clips
+          path: |
+            fleurs
+            cv17
+
+  shenava:
+    needs: clips
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [Reza2kn/Shenava-Rizeh-v1.0-CoreML-iOS15-fp16, Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16]
+        units: [cpu, all]
+    name: ${{ matrix.model }} ${{ matrix.units }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: clips
+      - name: Get model
+        run: |
+          python3 -m venv venv
+          venv/bin/pip install -q coremltools numpy huggingface_hub
+          venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('${{ matrix.model }}', local_dir='model')"
+          ls -la model
+          sysctl -n machdep.cpu.brand_string hw.ncpu
+      - name: Transcribe and score
+        run: |
+          label=$(basename "${{ matrix.model }}" | sed 's/-CoreML-iOS15-fp16//')
+          size=$(stat -f %z model/*.mlmodel)
+          mkdir -p result
+          for ds in fleurs cv17; do
+            venv/bin/python scripts/shenava_stream.py model "$ds" "${{ matrix.units }}" "result/timing-$ds.json" > "result/hyp-$ds.txt"
+            tail -1 "result/hyp-$ds.txt"
+            secs=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['rtf'] * float(open(sys.argv[2]).read()))" "result/timing-$ds.json" "$ds/audio_seconds")
+            echo -n "RESULT $ds ${{ matrix.units }} "
+            python3 scripts/wer.py "$ds/refs.tsv" "$ds" "$label" "$secs" "$size" "$(cat $ds/audio_seconds)" "result/$ds.json"
+            python3 - "$ds/refs.tsv" "$ds" <<'PY'
+          import sys
+          for line in list(open(sys.argv[1], encoding="utf-8"))[:6]:
+              name, ref = line.rstrip("\n").split("\t", 1)
+              print("REF", ref)
+              print("HYP", open(f"{sys.argv[2]}/{name}.txt", encoding="utf-8").read())
+          PY
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ strategy.job-index }}
+          path: result
+
+  whisper:
+    needs: clips
+    runs-on: macos-15
+    name: farbodbij medium q4_0 (Keyless)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: clips
+      - name: Build whisper.cpp (CPU only, like the app)
+        run: |
+          git clone -q --depth 1 --branch v1.7.5 https://github.com/ggml-org/whisper.cpp
+          cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF -DGGML_METAL=OFF -DGGML_BLAS=OFF > /dev/null
+          cmake --build whisper.cpp/build -j 3 > /dev/null
+      - name: Convert farbodbij/whisper-medium-Persian to q4_0
+        run: |
+          python3 -m venv venv
+          venv/bin/pip install -q torch transformers safetensors huggingface_hub numpy
+          git clone -q --depth 1 https://github.com/openai/whisper openai-whisper
+          venv/bin/python scripts/prepare_hf_model.py farbodbij/whisper-medium-Persian hf-model
+          mkdir -p converted
+          venv/bin/python whisper.cpp/models/convert-h5-to-ggml.py hf-model openai-whisper converted
+          q=$(find whisper.cpp/build/bin -name '*quantize*' -type f | head -1)
+          "$q" converted/ggml-model.bin model.bin q4_0 > /dev/null
+          ls -la model.bin
+      - name: Transcribe (app settings, audio_ctx floor 1000) and score
+        run: |
+          cli=whisper.cpp/build/bin/whisper-cli
+          mkdir -p result
+          for ds in fleurs cv17; do
+            : > "result/timings-$ds.log"
+            for f in "$ds"/*.wav; do
+              ac=$(python3 -c "import wave,sys; w=wave.open(sys.argv[1]); s=w.getnframes()/w.getframerate(); print(0 if s>=28 else min(1500,max(1000,int(s*50)+128)))" "$f")
+              "$cli" -m model.bin -l fa -t 3 -nt -otxt -bs 1 -bo 1 -ac "$ac" -f "$f" 2>&1 > /dev/null | grep -E "(load|total) time" >> "result/timings-$ds.log"
+            done
+            # Transcription time without the per-clip model load (the app loads the model once).
+            secs=$(python3 -c "import re,sys; t=open(sys.argv[1]).read(); f=lambda k: sum(float(x) for x in re.findall(k + r' time =\s*([\d.]+) ms', t)); print((f('total') - f('load')) / 1000)" "result/timings-$ds.log")
+            echo -n "RESULT $ds cpu "
+            python3 scripts/wer.py "$ds/refs.tsv" "$ds" farbodbij-medium-q4_0 "$secs" "$(stat -f %z model.bin)" "$(cat $ds/audio_seconds)" "result/$ds.json"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: result-whisper
+          path: result
