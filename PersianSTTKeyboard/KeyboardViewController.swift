@@ -2227,8 +2227,8 @@ private final class KeyPopupView: UIView {
         shape.fillColor = (lightText ? UIColor(white: 0.36, alpha: 1) : UIColor.white).cgColor
         shape.strokeColor = UIColor.black.withAlphaComponent(lightText ? 0.35 : 0.1).cgColor
         CATransaction.commit()
-        // A light veil (dark under light letters) keeps the large letter readable over the keys.
-        glass?.update(path, tint: lightText ? UIColor(white: 0.1, alpha: 0.3) : UIColor(white: 1, alpha: 0.35))
+        // A light veil (dark under light letters) sets the letters off from the keys below.
+        glass?.update(path, tint: lightText ? UIColor(white: 0.1, alpha: 0.2) : UIColor(white: 1, alpha: 0.25))
         while labels.count < items.count {
             let label = UILabel()
             label.textAlignment = .center

@@ -383,8 +383,9 @@ private struct TrailGlassView: View {
 }
 #endif
 
-/// iOS 26 Liquid Glass in any shape, under the key popups: the keys show through it, bent at
-/// its edges, as through a drop of water.
+/// iOS 26 Liquid Glass in any shape, under the key popups: the keys show through it, softened
+/// and bent at its edges. The clear glass of the glide lens left the keys under a row of forms
+/// as sharp as the forms themselves; the regular glass keeps them readable.
 @MainActor
 final class ShapeGlass {
     private let model = ShapeGlassModel()
@@ -432,7 +433,7 @@ private struct ShapeGlassView: View {
         ZStack {
             if let path = model.path {
                 Color.clear
-                    .glassEffect(.clear.tint(model.tint.map { Color(uiColor: $0) }), in: DropShape(path: path))
+                    .glassEffect(.regular.tint(model.tint.map { Color(uiColor: $0) }), in: DropShape(path: path))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
