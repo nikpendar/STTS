@@ -15,6 +15,7 @@ struct DictateIntent: AppIntent {
     }
 }
 
+/// Lists the dictation shortcut in the Shortcuts app and Siri.
 struct PersianSTTShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(

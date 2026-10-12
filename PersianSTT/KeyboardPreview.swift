@@ -27,6 +27,7 @@ struct KeyboardPreview: View {
     }
 }
 
+/// The keyboard's view controller hosted as a SwiftUI view.
 private struct KeyboardHost: UIViewControllerRepresentable {
     let state: String
 

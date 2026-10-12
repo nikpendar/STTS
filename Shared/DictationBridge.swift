@@ -297,6 +297,8 @@ protocol SharedSetting: Codable {
     static var standard: Self { get }
 }
 
+/// Saving in the app hands the setting to the keyboard on its named pasteboard; the keyboard
+/// keeps the last copy it read.
 extension SharedSetting {
     private static var pasteboardType: String { "public.json" }
 
@@ -324,7 +326,8 @@ extension SharedSetting {
     }
 }
 
-/// Key background and outline colors.
+/// The keyboard's look, set in the app: key fill, outline and letter colours, the background
+/// colour or picture, and the letter size.
 struct KeyStyle: SharedSetting, Equatable {
     struct RGBA: Codable, Equatable {
         var r, g, b, a: Double

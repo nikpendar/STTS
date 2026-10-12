@@ -190,6 +190,7 @@ private final class PassTiming: @unchecked Sendable {
     var total: TimeInterval { Date().timeIntervalSince(started) }
 }
 
+/// Set from any thread to stop a transcription; whisper.cpp polls it between steps.
 final class AbortFlag: @unchecked Sendable {
     private let lock = NSLock()
     private var value = false

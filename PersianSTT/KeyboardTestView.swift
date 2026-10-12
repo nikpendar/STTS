@@ -53,6 +53,7 @@ final class TestDocument: NSObject, ObservableObject, UITextDocumentProxy {
     func unmarkText() {}
 }
 
+/// The keyboard's view controller hosted under the test field, typing into `document`.
 private struct HostedKeyboard: UIViewControllerRepresentable {
     let document: TestDocument
 

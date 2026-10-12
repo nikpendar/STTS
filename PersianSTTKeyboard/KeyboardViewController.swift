@@ -1895,6 +1895,8 @@ private final class KeysView: UIView {
     }
 }
 
+/// One key: a rounded face with a letter, a symbol or a status message (the space bar), drawn
+/// inside its touch area as the system keyboard draws its keys, in the colours of `KeyStyle`.
 private final class KeyView: UIControl {
     /// Everything drawn, moved down and in a little while the key is pressed.
     private let content = UIView()

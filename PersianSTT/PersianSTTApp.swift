@@ -1,6 +1,8 @@
 import SwiftUI
 import UIKit
 
+/// The app's one window: the settings page (`ContentView`), or a test screen chosen by a
+/// launch argument (`-keyboardTest`, `-keyboardPreview`) in the simulator workflows.
 @main
 struct PersianSTTApp: App {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate

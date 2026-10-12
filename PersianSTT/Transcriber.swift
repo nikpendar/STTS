@@ -5,6 +5,9 @@ import os
 
 private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model")
 
+/// Owns the speech model: loads the personal, imported or bundled model (in that order),
+/// transcribes the keyboard session's recordings, and records and transcribes the dictation
+/// shortcut, whose text goes to the clipboard.
 @MainActor
 final class Transcriber: ObservableObject {
     /// Shared by the keyboard session, the settings page and the dictation shortcut (DictateIntent).

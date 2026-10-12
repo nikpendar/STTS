@@ -630,6 +630,7 @@ private struct SettingLabel: View {
     }
 }
 
+/// A numbered step of the keyboard setup instructions.
 private struct SetupStep: View {
     let number: String
     let text: String

@@ -12,6 +12,7 @@ enum AudioLoaderError: LocalizedError {
     }
 }
 
+/// Decodes recordings into the samples whisper.cpp takes (the dictation shortcut's WAV).
 enum AudioLoader {
     static let sampleRate: Double = 16_000
 

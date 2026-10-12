@@ -1,32 +1,35 @@
-# PersianSTT: تبدیل آفلاین گفتار فارسی به متن روی آیفون
+# کیلس (Keyless): کیبورد دیکته‌ی آفلاین فارسی برای آیفون
 
-موتور: whisper.cpp روی CPU، زبان ثابت روی فارسی. پس از نصب، هیچ اتصال اینترنتی لازم نیست.
+کیبورد فارسی و انگلیسی با دیکته‌ی فارسی که بدون اینترنت روی خود گوشی کار می‌کند. موتور گفتار whisper.cpp روی CPU است
+و زبان روی فارسی ثابت است. برنامه خودش صفحه‌ی تنظیمات کیبورد است و جلسه‌ی میکروفون را برای کیبورد باز نگه می‌دارد.
 
-مدل پیش‌فرض: `farbodbij/whisper-medium-Persian` با کوانتیزه‌ی q4_0 (۴۴۴ مگابایت، IPA حدود ۳۹۳ مگابایت).
-خطای کلمه روی FLEURS فارسی ۱۱.۳٪ و روی Common Voice ۲۰.۲٪، در برابر ۲۰.۶٪ و ۴۶.۱٪ برای large-v3-turbo معمولی.
+## مدل گفتار
+`farbodbij/whisper-medium-Persian` با کوانتیزه‌ی q4_0 (۴۴۴ مگابایت). خطای کلمه روی FLEURS فارسی ۱۱٪ و روی
+Common Voice ۲۰٪ است، در برابر ۲۰.۶٪ و ۴۶.۱٪ برای large-v3-turbo معمولی. مدل داخل IPA نیست (IPA حدود ۵ مگابایت است)
+و یک بار از Files وارد برنامه می‌شود.
 
 ## ساخت
 نیازی به Xcode نیست. هر push به `main` در GitHub Actions یک `Keyless.ipa` امضانشده (artifact به نام `Keyless`) می‌سازد
 (`.github/workflows/build.yml`). فایل را از بخش Artifacts همان اجرا دانلود و از zip خارج کنید.
 
-مدل داخل IPA نیست تا هر نسخه فقط چند مگابایت باشد. فایل مدل (artifact به نام `Model`، ۹۰ روز نگه داشته می‌شود)
-یک بار در برنامه وارد می‌شود: «وارد کردن مدل از Files»، یا کشیدن فایل در Finder روی برنامه در بخش Files آیفون.
-مدل در پوشه‌ی Documents برنامه می‌ماند و نصب نسخه‌ی جدید روی برنامه آن را پاک نمی‌کند. برای IPA با مدل داخلی،
-اجرای دستی با `bundle_model` را انتخاب کنید.
+فایل مدل artifact جداگانه‌ای به نام `Model` است (۹۰ روز نگه داشته می‌شود) و فقط وقتی مدل عوض شود لازم است. در برنامه با
+«وارد کردن مدل از Files»، یا با کشیدن فایل در Finder روی برنامه در بخش Files آیفون، وارد می‌شود. مدل در پوشه‌ی Documents
+برنامه می‌ماند و نصب نسخه‌ی جدید روی برنامه آن را پاک نمی‌کند.
 
 فونت تنظیمات و کلیدها (`fonts/AppFont.ttf.enc`) چون مجوزدار است رمزنگاری‌شده در مخزن است و با secret به نام `FONT_KEY`
-باز می‌شود؛ بدون آن، فونت سیستم به کار می‌رود.
+باز می‌شود؛ بدون آن، فونت سیستم به کار می‌رود. فایل خام فونت هرگز نباید commit شود.
 
 ورودی‌های اجرای دستی:
-- `hf`: مدل fine-tune شده از Hugging Face که تبدیل و داخل برنامه قرار می‌گیرد؛ `none` یعنی از `model` استفاده شود.
+- `hf`: مدل fine-tune شده از Hugging Face که تبدیل می‌شود؛ `none` یعنی از `model` استفاده شود.
 - `quant`: نوع کوانتیزه برای مدل Hugging Face (پیش‌فرض q4_0).
 - `model`: مدل ggml رسمی whisper.cpp، وقتی `hf=none` باشد.
 - `bundle_model`: مدل داخل IPA قرار بگیرد.
+- `coreml`: اجرای encoder روی Neural Engine (روی آیفون‌های ۴ گیگابایتی گیر می‌کند و پیش‌فرض خاموش است).
 
-## نصب روی آیفون
-با AltServer (مک یا ویندوز) و Apple ID رایگان:
-1. AltServer را از altstore.io نصب کنید و AltStore را روی گوشی نصب کنید.
-2. گوشی را وصل کنید، Option را نگه دارید، روی آیکون AltServer کلیک کنید و Sideload .ipa… را بزنید.
+## نصب آزمایشی روی آیفون
+با AltServer روی مک و Apple ID رایگان (روی macOS 27 نسخه‌ی 1.8.1 یا بالاتر لازم است):
+1. AltServer را از altstore.io نصب کنید و از منوی آن «Install AltStore» را بزنید.
+2. گوشی را با کابل وصل کنید، Option را نگه دارید، روی آیکون AltServer کلیک کنید و «Sideload .ipa…» را بزنید.
 3. هر ۷ روز در AltStore گزینه‌ی Refresh All را بزنید.
 
 Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کیبورد را با پروفایل خود برنامه امضا می‌کند و iOS آن را
@@ -36,9 +39,12 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 کیبورد «کیلس» را در Settings > General > Keyboard > Keyboards اضافه کنید و Full Access را روشن کنید.
 در برنامه «شروع جلسه» را بزنید؛ سپس در هر برنامه‌ای با میکروفون کیبورد دیکته کنید. خود برنامه صفحه‌ی تنظیمات کیبورد است.
 
+### دیکته
 در دیکته، «نقطه»، «ویرگول»، «علامت سؤال»، «علامت تعجب»، «دونقطه»، «نقطه‌ویرگول»، «خط بعد»، «پاراگراف جدید» و
 «پرانتز/گیومه باز و بسته» به نشانه تبدیل می‌شوند، مگر بافت نشان دهد خود کلمه است («این نقطه»، «نقطه‌نظر»)؛ «کلمه‌ی نقطه»
 همیشه خود کلمه است. «پاک کن» (آخرین جمله)، «همه رو پاک کن» و «برگردون» فقط وقتی تنها و با مکث گفته شوند اجرا می‌شوند.
+
+### تایپ
 ردیف پیشنهاد، در فارسی و انگلیسی، بعد از هر فاصله کلمه‌ی بعدی را پیش‌بینی می‌کند و برای کلمه‌ی ناشناخته نزدیک‌ترین کلمه‌ی
 درست را پیشنهاد می‌دهد. دو بار زدن پشت سر هم فاصله «. » و بار سوم «، » (در انگلیسی «, ») تایپ می‌کند.
 نیم‌فاصله‌ی خودکار: با زدن فاصله، «میخوام» یا «می خوام» می‌شود «می‌خوام» و «کتابها» یا «کتاب ها» می‌شود «کتاب‌ها»
@@ -51,6 +57,8 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 ردیف‌های حروف همیشه هم‌قد کیبورد خود iOS هستند و اگر iOS جای کمتری بدهد، اول ردیف پیشنهاد باریک می‌شود. ردیف اعداد بالای حروف
 (کوتاه‌تر از ردیف‌های حروف، ولی هیچ‌وقت پهن‌تر از مربع) و صدای کلیدها مثل آیفون در تنظیمات برنامه اختیاری‌اند. خود ردیف
 پیشنهاد هم خاموش‌شدنی است و با خاموش شدنش دو گزینه‌ی آن خاکستری می‌شوند.
+
+### ظاهر و شکل‌های حروف
 در تنظیمات ظاهر، اندازه‌ی حروف، رنگ‌ها و عکس پس‌زمینه (شش طرح آماده یا عکس گالری) انتخاب می‌شوند؛ کلیدها هنگام زدن کمی پایین می‌روند.
 
 هر حرف هنگام فشردن، بزرگ‌تر بالای کلید نشان داده می‌شود (خاموش‌شدنی). با نگه داشتن کلید، شکل‌های دیگر حرف باز می‌شوند:
@@ -80,29 +88,50 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 نمونه‌ها و مدل‌ها در `server/data` می‌مانند و گزارش آموزش در `server/data/train.log` است. دیکته‌های بلندتر از ۳۰ ثانیه
 استفاده نمی‌شوند. گزینه‌های بیشتر: `server/start.sh --help` و `server/.venv/bin/python server/train.py --help`.
 
-## ساختار
-- `PersianSTT/WhisperContext.swift`: فراخوانی whisper.cpp، لغو تبدیل، کوتاه کردن پنجره‌ی صدا (حداقل ۲۰ ثانیه برای مدل‌های fine-tune)
-- `PersianSTT/Transcriber.swift`: ضبط و تبدیل داخل برنامه
-- `PersianSTT/ModelImporter.swift`: وارد کردن فایل مدل از Files به Documents برنامه
-- `PersianSTT/KeyboardSession.swift`: جلسه‌ی میکروفون پس‌زمینه برای کیبورد
-- `PersianSTTKeyboard/KeyboardViewController.swift`: کیبورد فارسی با دکمه‌ی میکروفون
-- `PersianSTTKeyboard/EditTracker.swift`: تشخیص اصلاح متن دیکته‌شده
-- `PersianSTTKeyboard/Lexicon.swift` و `fa_words.txt`: کلمات پیشنهادی و یادگیری کلمات کاربر. فهرست کلمات از
-  [wordfreq](https://github.com/rspeer/wordfreq) (داده با مجوز CC BY-SA 4.0) با `scripts/make_wordlist.py` ساخته شده است.
-- `PersianSTTKeyboard/fa_bigrams.bin`: کلمه‌هایی که در ویکی‌پدیای فارسی بیشتر بعد از هر کلمه می‌آیند، برای پیش‌بینی کلمه‌ی
-  بعدی و تشخیص فرمان‌های صوتی؛ متن از [ویکی‌پدیا](https://fa.wikipedia.org) (CC BY-SA 4.0)، ساخته با `scripts/make_bigrams.py`
-  در `.github/workflows/wordlists.yml` که فایل را در همان شاخه commit می‌کند.
-- `PersianSTTKeyboard/en_words.txt` و `en_bigrams.bin`: همین دو فهرست برای انگلیسی، از wordfreq و
-  [ویکی‌پدیای انگلیسی](https://en.wikipedia.org) (هر دو CC BY-SA 4.0)، ساخته با `scripts/make_english_lists.py` در
-  `.github/workflows/wordlists-en.yml`.
-- `PersianSTTKeyboard/VoiceCommands.swift`: نشانه‌گذاری و فرمان‌های ویرایش صوتی؛ برنامه مکث‌ها را با `DictationBridge.pauseMark`
-  در متن نشان می‌دهد.
-- `Tests/KeyboardLogic` و `.github/workflows/logic-test.yml`: آزمون پیشنهاد کلمه، اصلاح غلط تایپی و فرمان‌های صوتی بدون شبیه‌ساز
-- `PersianSTTKeyboard/GlideTyping.swift`: تایپ کشیدنی و رد آن (از iOS 26 با Liquid Glass)
-- `PersianSTTKeyboard/TouchModel.swift`: TapMap، یادگیری محل لمس کلیدها و انتخاب کلید لمس‌شده
-- `PersianSTT/PersonalModel.swift`: صف و ارسال اصلاح‌ها، دانلود و نصب مدل شخصی
-- `server/`: سرور آموزش (`server.py`) و آموزش و انتشار مدل (`train.py`)؛ تست: `.github/workflows/training-test.yml`
-- `Shared/DictationBridge.swift`: ارتباط کیبورد و برنامه؛ فرمان‌ها با Darwin notification و متن از راه سوکت 127.0.0.1
-  (برنامه‌ی پس‌زمینه نمی‌تواند در کلیپ‌بورد بنویسد و App Group با حساب رایگان در دسترس نیست)
-- `.github/workflows/benchmark.yml` و `scripts/wer.py`: سنجش WER مدل‌ها روی FLEURS و Common Voice
-- `.github/workflows/keyboard-test.yml`: اجرای کیبورد در شبیه‌ساز و ثبت لاگ
+## ساختار کد
+برنامه (`PersianSTT/`):
+- `ContentView.swift`: صفحه‌ی تنظیمات (جلسه، گفتار، تایپ، ظاهر، مدل، یادگیری، راه‌اندازی)
+- `KeyboardSession.swift`: جلسه‌ی میکروفون پس‌زمینه برای کیبورد، تشخیص گفتار و سکوت، متن زنده و تبدیل نهایی
+- `Transcriber.swift`: بارگذاری مدل (شخصی، وارد‌شده یا داخلی) و تبدیل؛ ضبط میان‌بر دیکته (`DictateIntent.swift`)
+- `WhisperContext.swift`: فراخوانی whisper.cpp، لغو تبدیل، کوتاه کردن پنجره‌ی صدا (حداقل ۲۰ ثانیه برای مدل‌های fine-tune)
+- `ModelImporter.swift`: وارد کردن فایل مدل از Files به Documents برنامه
+- `PersonalModel.swift`: صف و ارسال اصلاح‌ها، دانلود و نصب مدل شخصی
+- `AudioLoader.swift`: خواندن فایل صوتی به نمونه‌های ۱۶ کیلوهرتز
+- `KeyboardPreview.swift` و `KeyboardTestView.swift`: نمایش کیبورد داخل برنامه برای آزمون‌های شبیه‌ساز
+
+کیبورد (`PersianSTTKeyboard/`):
+- `KeyboardViewController.swift`: کیبورد فارسی و انگلیسی، میکروفون و دایره‌ی دیکته، بالن‌ها، منوها و ردیف پیشنهاد
+- `GlideTyping.swift`: تایپ کشیدنی، قطره‌ی ذره‌بین آن و شیشه‌ی iOS 26
+- `Lexicon.swift`: کلمات پیشنهادی، پیش‌بینی کلمه‌ی بعدی، اصلاح غلط تایپی، نیم‌فاصله و یادگیری کلمات کاربر
+- `TouchModel.swift`: TapMap، یادگیری محل لمس کلیدها و انتخاب کلید لمس‌شده
+- `VoiceCommands.swift`: نشانه‌گذاری و فرمان‌های ویرایش صوتی؛ برنامه مکث‌ها را با `DictationBridge.pauseMark` در متن نشان می‌دهد
+- `EditTracker.swift`: تشخیص اصلاح متن دیکته‌شده برای یادگیری
+- `fa_words.txt` و `en_words.txt`: فهرست کلمات از [wordfreq](https://github.com/rspeer/wordfreq) (CC BY-SA 4.0)، ساخته با
+  `scripts/make_wordlist.py` و `scripts/make_english_lists.py`
+- `fa_bigrams.bin` و `en_bigrams.bin`: کلمه‌هایی که در ویکی‌پدیای [فارسی](https://fa.wikipedia.org) و
+  [انگلیسی](https://en.wikipedia.org) (CC BY-SA 4.0) بیشتر بعد از هر کلمه می‌آیند، ساخته با `scripts/make_bigrams.py` و
+  `scripts/make_english_lists.py`
+
+مشترک (`Shared/`):
+- `DictationBridge.swift`: ارتباط کیبورد و برنامه؛ فرمان‌ها با Darwin notification، متن از راه سوکت 127.0.0.1 و تنظیمات روی
+  pasteboard نام‌دار (برنامه‌ی پس‌زمینه نمی‌تواند در کلیپ‌بورد بنویسد و App Group با حساب رایگان در دسترس نیست)
+- `KeyboardBackground.swift`: عکس‌های پس‌زمینه‌ی کیبورد (طرح‌های آماده و عکس کاربر)
+
+سایر:
+- `server/`: سرور آموزش روی Mac (`server.py`) و آموزش و انتشار مدل (`train.py`)
+- `Tests/KeyboardLogic`: آزمون پیشنهاد کلمه، اصلاح غلط تایپی، نیم‌فاصله و فرمان‌های صوتی بدون شبیه‌ساز
+- `setup.sh`: دانلود whisper.xcframework (و در صورت نیاز یک مدل) برای ساخت
+- `scripts/`: ساخت فهرست‌های کلمات، آیکون برنامه (`make_icon.py`)، تبدیل مدل‌های Hugging Face (`prepare_hf_model.py`)،
+  encoder برای Core ML (`convert_encoder_coreml.py`) و ابزار سنجش (`wer.py`، `prepare_cv.py`، `to_pcm16.py`)
+
+## Workflowها
+- `build.yml`: ساخت IPA با هر push به `main`، و تبدیل و کوانتیزه‌ی مدل (artifact `Model`)
+- `live-test.yml`: کیبورد داخل برنامه در شبیه‌ساز با صدای آزمایشی: دیکته، متن زنده، اصلاح و آموزش، تایپ کشیدنی، منوها،
+  پس‌زمینه و صفحه‌های تنظیمات؛ عکس‌ها در شاخه‌ی `live-test` (و با `ios=26` در `live-test-ios26`)
+- `keyboard-test.yml`: اکستنشن واقعی کیبورد در شبیه‌ساز و ثبت لاگ
+- `screenshots.yml`: عکس صفحه‌های برنامه و حالت‌های کیبورد در شاخه‌ی `screenshots`
+- `logic-test.yml`: اجرای `Tests/KeyboardLogic` با هر تغییر در منطق کیبورد
+- `training-test.yml`: آزمون سرور آموزش
+- `benchmark.yml`: سنجش WER و سرعت مدل‌ها روی FLEURS یا Common Voice؛ گزارش در شاخه‌ی `benchmark-<dataset>`
+- `hf-search.yml`: جست‌وجوی مدل‌ها در Hugging Face
+- `wordlists.yml` و `wordlists-en.yml`: ساخت دوباره‌ی فهرست‌های کلمات کیبورد
