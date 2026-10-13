@@ -41,7 +41,7 @@ check("brackets", text("باز کردن پرانتز مثال بستن پران�
 check("whisper's full stop", text("سلام نقطه."), "سلام.")
 check("question replaces whisper's stop", text("خوبی. علامت سوال"), "خوبی؟")
 check("دو نقطه at a pause", text("موارد دو نقطه"), "موارد:")
-check("دو نقطه as text", text("بین دو نقطه خط بکشید"), "بین دو نقطه خط بکشید")
+check("دو نقطه as text", text("بین دو نقطه خط بکشید"), "بین ۲ نقطه خط بکشید")
 check("off", text("سلام نقطه", punctuation: false), "سلام نقطه")
 check("pause marks become spaces", text("سلام" + pause + "خوبی", punctuation: false), "سلام خوبی")
 
@@ -75,7 +75,7 @@ check("lone ده stays", text("ده بزرگ"), "ده بزرگ")
 check("ordinal stays", text("بیست و سوم مهر"), "بیست و سوم مهر")
 check("two numbers", text("دو سه روز"), "۲ ۳ روز")
 check("number then و", text("دو و سه"), "۲ و ۳")
-check("number before full stop", text("بیست و یک نقطه"), "۲۱.")
+check("number before full stop", text("قیمت بیست تومن نقطه"), "قیمت ۲۰ تومن.")
 check("دو نقطه still a colon", text("موارد دو نقطه"), "موارد:")
 check("numbers with punctuation off", text("سی و دو", punctuation: false), "۳۲")
 check("words back for training", SpokenNumbers.words(in: "۲۳ نفر در سال ۱۴۰۳ و ۲٬۵۰۰٬۰۰۰ تومن، ۳٫۵ درصد."),
