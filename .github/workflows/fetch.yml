@@ -1,0 +1,47 @@
+# One-off: copies Shenava Koochik's text files (cards, export script, tokenizer, manifests) and
+# the training checkpoint's config from Hugging Face into this branch, to be read and reviewed.
+# Nothing downloaded is run.
+name: Fetch Shenava files
+
+on:
+  push:
+    branches: [shenava-files]
+    paths: [.github/workflows/fetch.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download
+        run: |
+          mkdir -p files
+          hf=https://huggingface.co
+          ios=Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16
+          for f in README.md export_koochik10_streaming_coreml.py tokens.json preprocessor.json shenava_koochik_1_0_ctc_streaming_att70_0_ios15_fp16_manifest.json; do
+            curl -fsSL "$hf/$ios/resolve/main/$f" -o "files/$f"
+          done
+          curl -fsSL "$hf/Reza2kn/Shenava-Koochik-v1.0/resolve/main/README.md" -o files/nemo-README.md
+          curl -fsSL "$hf/Reza2kn/Shenava-Koochik-v1.0-tract-streaming/resolve/main/persian_itn.py" -o files/persian_itn.py.txt || true
+          curl -fsSL "$hf/Reza2kn/Shenava-Koochik-v1.0/resolve/main/shenava-koochik-v1.0.nemo" -o model.nemo
+          sha256sum model.nemo > files/nemo-sha256.txt
+          tar -tvf model.nemo > files/nemo-contents.txt
+          name="$(tar -tf model.nemo | grep -m1 'model_config.yaml')"
+          tar -xOf model.nemo "$name" > files/model_config.yaml
+          python3 -c '
+          import json
+          toks = json.load(open("files/tokens.json"))["tokens"]
+          zw = [s for s in toks if "‌" in s]
+          open("files/tokens-summary.txt", "w").write(f"tokens {len(toks)} with ZWNJ {len(zw)}: {zw}\n")
+          '
+          ls -la files
+      - name: Commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add files
+          git commit -qm "Shenava files from Hugging Face"
+          git push origin HEAD:shenava-files
