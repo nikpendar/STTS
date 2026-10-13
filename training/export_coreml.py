@@ -6,8 +6,8 @@ interface as the published Koochik.mlmodel (ShenavaStream in the app):
         -> logits [1,1,1025] + the next caches
 
 Adapted from export_koochik10_streaming_coreml.py by Reza2kn (Apache-2.0), published with
-Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16. Changes: it takes the model in memory, writes
-the fp16 weights through the spec so it runs on Linux, and checks the result with a prediction
+Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16. Changes: it takes the model in memory, works
+on Linux with current NumPy, and checks the result with a prediction
 only on macOS (the training workflow checks the Core ML model on macOS with the app's own code).
 """
 from __future__ import annotations
@@ -137,10 +137,10 @@ def export(model, out_path: Path, att_context=(70, 0)) -> dict:
             ct.TensorType(name="cache_last_time_next"),
         ],
     )
-    spec = ct.utils.convert_neural_network_spec_weights_to_fp16(mlmodel.get_spec())
+    from coremltools.models.neural_network import quantization_utils
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    ct.utils.save_spec(spec, str(out_path))
+    quantization_utils.quantize_weights(mlmodel, nbits=16).save(str(out_path))
     shapes = {
         "feature_frames": feature_frames,
         "processed_signal": list(x.shape),
