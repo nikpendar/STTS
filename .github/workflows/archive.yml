@@ -1,0 +1,33 @@
+# Keeps the last Whisper version of Keyless as release `whisper-final`: the IPA and the speech
+# model of build 38382104929 (main = a4a1339), whose artifacts expire after 90 days. The source,
+# including the Mac mini training server (server/), is this branch, archive/whisper.
+name: Archive Whisper release
+
+on:
+  push:
+    branches: [archive/whisper]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the build's IPA and model
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 38382104929 -R "${{ github.repository }}" -n Keyless -D ipa
+          gh run download 38382104929 -R "${{ github.repository }}" -n Model -D model
+          ls -la ipa model
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view whisper-final -R "${{ github.repository }}" > /dev/null 2>&1 && exit 0
+          gh release create whisper-final -R "${{ github.repository }}" --target "${{ github.sha }}" \
+            --title "Keyless with Whisper (archive)" \
+            --notes "Last Keyless version with Whisper (farbodbij/whisper-medium-Persian q4_0) and the Mac mini training server (server/). Source: branch archive/whisper. To build it again, push this source to main. The model file is imported into the app once from Files." \
+            ipa/*.ipa model/*
