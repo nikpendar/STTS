@@ -1,0 +1,81 @@
+{
+  "created_at_utc": "2026-06-26T04:55:13Z",
+  "source_repo": "Reza2kn/Shenava-Koochik-1.0",
+  "source_nemo": "/Users/Ajab/conductor/workspaces/visualears/stockholm/.artifacts/koochik10/src/shenava-koochik-1.0.nemo",
+  "format": "CoreML NeuralNetwork iOS14-target fp16-weight true cache-aware streaming CTC step",
+  "att_context": [
+    70,
+    0
+  ],
+  "self_attention_model": "static_full_cache_mask",
+  "pre_encode_cache_size": 9,
+  "chunk_size": 8,
+  "shift_size": 8,
+  "feature_frames": 17,
+  "audio_ms_per_prediction": 170,
+  "valid_out_len": 1,
+  "constant_cache_len": 70,
+  "vocab_size": 1025,
+  "inputs": {
+    "processed_signal": [
+      1,
+      80,
+      17
+    ],
+    "cache_last_channel": [
+      17,
+      1,
+      70,
+      512
+    ],
+    "cache_last_time": [
+      17,
+      1,
+      512,
+      8
+    ]
+  },
+  "outputs": {
+    "logits": [
+      1,
+      1,
+      1025
+    ],
+    "cache_last_channel_next": [
+      17,
+      1,
+      70,
+      512
+    ],
+    "cache_last_time_next": [
+      17,
+      1,
+      512,
+      8
+    ]
+  },
+  "coreml_predict_shapes": {
+    "cache_last_time_next": [
+      17,
+      1,
+      512,
+      8
+    ],
+    "cache_last_channel_next": [
+      17,
+      1,
+      70,
+      512
+    ],
+    "logits": [
+      1,
+      1,
+      1025
+    ]
+  },
+  "fp16_vs_fp32_argmax_agreement": 1.0,
+  "artifacts": {
+    "mlmodel": "/Users/Ajab/conductor/workspaces/visualears/stockholm/.artifacts/koochik10/family_coreml/shenava_koochik_1_0_ctc_streaming_att70_0_ios15_fp16.mlmodel",
+    "bytes": 212469225
+  }
+}

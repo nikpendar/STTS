@@ -1,0 +1,66 @@
+{
+  "schema": "visualears-preprocessor-v2-nemo-fbank",
+  "description": "NeMo AudioToMelSpectrogramPreprocessor-compatible browser feature pipeline for shenava_koochik_1_0. normalize=NA, preemphasis=0.97, torch.stft center=True, Slaney mel filters, requires processed_signal_length.",
+  "sample_rate": 16000,
+  "n_fft": 512,
+  "win_length": 400,
+  "hop_length": 160,
+  "n_mels": 80,
+  "window": "hann_periodic_false",
+  "window_formula": "0.5 - 0.5*cos(2*pi*i/(win_length-1))",
+  "center": true,
+  "center_pad": 256,
+  "pad_mode": "reflect",
+  "preemphasis": 0.97,
+  "mel_scale": "slaney/librosa.filters.mel(htk=False,norm='slaney')",
+  "mel_filters_file": "mel_filters_slaney_80x257.json",
+  "spectrum": "magnitude_power_2_no_fft_normalization",
+  "log": "natural",
+  "log_zero_guard_type": "add",
+  "log_zero_guard_value": 5.960464477539063e-08,
+  "normalize": "NA",
+  "fixed_frames": 2005,
+  "pad_value": 0.0,
+  "frame_count_formula": "max(1, min(fixed_frames, floor(num_samples / hop_length) + 1))",
+  "inputs": [
+    {
+      "name": "processed_signal",
+      "dtype": "float16",
+      "shape": [
+        "batch",
+        80,
+        2005
+      ]
+    },
+    {
+      "name": "processed_signal_length",
+      "dtype": "int64",
+      "shape": [
+        "batch"
+      ]
+    }
+  ],
+  "outputs": [
+    {
+      "name": "logits",
+      "dtype": "float16",
+      "shape": [
+        "batch",
+        252,
+        1025
+      ]
+    },
+    {
+      "name": "encoded_lengths",
+      "dtype": "int64",
+      "shape": [
+        "batch"
+      ]
+    }
+  ],
+  "output_stride": 8,
+  "usable_steps_formula": "min(encoded_lengths[0], logits_steps)",
+  "ms_per_output_step": 80,
+  "blank_id": 1024,
+  "ctc_decode": "greedy argmax; drop blank, repeats, and SentencePiece special tokens; join pieces; '▁' -> space"
+}
