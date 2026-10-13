@@ -1,17 +1,18 @@
+import CoreML
 import Foundation
 import os
 
 private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model")
 
-/// The speech model is not inside the app, which made every build 400 MB, but imported once
-/// from Files into the app's Documents folder. Installing a new build over the app keeps it.
-/// The folder also shows in the Files app (On My iPhone) and in the Mac's Finder, so the model
-/// can be copied there directly too.
+/// The speech model (Shenava Koochik, a 212 MB Core ML .mlmodel file) is not inside the app,
+/// so each build stays a few MB, but imported once from Files and compiled on the phone into
+/// Application Support. Installing a new build over the app keeps it. A .mlmodel copied with
+/// Finder into the app's Documents folder (On My iPhone › کیلس) is imported at the next launch.
 @MainActor
 final class ModelImporter: ObservableObject {
     static let shared = ModelImporter()
 
-    /// 0...1 while a model is being copied.
+    /// Set while a model is being imported (no fraction: Core ML's compiler reports none).
     @Published private(set) var progress: Double?
     @Published private(set) var message = ""
 
@@ -19,7 +20,7 @@ final class ModelImporter: ObservableObject {
         case notModel
 
         var errorDescription: String? {
-            "این فایل مدل whisper نیست. فایل ggml با پسوند bin را انتخاب کنید (اگر zip است، اول در Files بازش کنید)."
+            "این فایل مدل گفتار نیست. فایل Koochik.mlmodel را انتخاب کنید (اگر zip است، اول در Files بازش کنید)."
         }
     }
 
@@ -27,93 +28,74 @@ final class ModelImporter: ObservableObject {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
 
-    /// The imported model: a ggml file in Documents.
+    nonisolated static var modelsDir: URL {
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return support.appendingPathComponent("Models", isDirectory: true)
+    }
+
+    /// The imported model, compiled.
     nonisolated static var installedModel: URL? {
+        let url = modelsDir.appendingPathComponent("Koochik.mlmodelc", isDirectory: true)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    /// A .mlmodel put into Documents with Finder, not imported yet.
+    nonisolated static var waitingModel: URL? {
         let files = (try? FileManager.default.contentsOfDirectory(at: documents, includingPropertiesForKeys: nil)) ?? []
-        return files.filter { $0.pathExtension.lowercased() == "bin" && isModel($0) }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .first
+        return files.first { $0.pathExtension.lowercased() == "mlmodel" }
     }
 
-    /// ggml model files start with the magic number 0x67676d6c, stored little-endian.
-    nonisolated static func isModel(_ url: URL) -> Bool {
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
-        defer { try? handle.close() }
-        guard let head = try? handle.read(upToCount: 4) else { return false }
-        return head.elementsEqual([0x6c, 0x6d, 0x67, 0x67])
-    }
-
-    /// Copies the picked file into Documents (replacing the model there) and loads it.
+    /// Compiles the picked .mlmodel into Application Support (replacing the model there) and loads it.
     func importModel(from source: URL) {
         guard progress == nil else { return }
         progress = 0
-        message = ""
+        message = "در حال آماده کردن مدل… ممکن است یک دقیقه طول بکشد."
         Task {
             do {
-                let destination = try await Task.detached(priority: .userInitiated) {
-                    try Self.copy(source) { value in
-                        Task { @MainActor in ModelImporter.shared.progress = value }
-                    }
-                }.value
-                Self.removeModels(except: destination)
-                log.info("imported \(destination.lastPathComponent, privacy: .public)")
+                try await Self.install(source)
+                log.info("imported \(source.lastPathComponent, privacy: .public)")
                 message = "مدل وارد شد."
                 Transcriber.shared.reloadModel()
             } catch {
                 log.error("import failed: \(error.localizedDescription, privacy: .public)")
-                message = error.localizedDescription
+                message = error is ImportError ? error.localizedDescription
+                    : "فایل مدل باز نشد؛ ممکن است ناقص کپی شده باشد. " + error.localizedDescription
             }
             progress = nil
         }
     }
 
-    nonisolated private static func copy(_ source: URL, progress: @escaping @Sendable (Double) -> Void) throws -> URL {
-        let scoped = source.startAccessingSecurityScopedResource()
-        defer { if scoped { source.stopAccessingSecurityScopedResource() } }
-        guard isModel(source) else { throw ImportError.notModel }
-        var name = source.lastPathComponent
-        if !name.lowercased().hasSuffix(".bin") { name += ".bin" }
-        let destination = documents.appendingPathComponent(name)
-        // Picked from the app's own folder (copied there with Finder): nothing to copy.
-        if source.resolvingSymlinksInPath().standardizedFileURL == destination.resolvingSymlinksInPath().standardizedFileURL {
-            return destination
-        }
-        let size = (try? source.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        let partial = documents.appendingPathComponent(name + ".part")
-        try? FileManager.default.removeItem(at: partial)
-        FileManager.default.createFile(atPath: partial.path, contents: nil)
-        let input = try FileHandle(forReadingFrom: source)
-        defer { try? input.close() }
-        let output = try FileHandle(forWritingTo: partial)
-        var copied = 0
-        do {
-            while let chunk = try input.read(upToCount: 8 << 20), !chunk.isEmpty {
-                try output.write(contentsOf: chunk)
-                copied += chunk.count
-                if size > 0 { progress(Double(copied) / Double(size)) }
-            }
-            try output.close()
-        } catch {
-            try? output.close()
-            try? FileManager.default.removeItem(at: partial)
-            throw error
-        }
-        try? FileManager.default.removeItem(at: destination)
-        try FileManager.default.moveItem(at: partial, to: destination)
-        // 400 MB that can be imported again does not belong in the iCloud backup.
-        var values = URLResourceValues()
-        values.isExcludedFromBackup = true
-        var excluded = destination
-        try? excluded.setResourceValues(values)
-        return destination
+    /// Imports a model copied into Documents with Finder.
+    func importWaitingModel() {
+        guard progress == nil, let waiting = Self.waitingModel else { return }
+        importModel(from: waiting)
     }
 
-    /// One model at a time: a second one would only take space.
-    private static func removeModels(except keep: URL) {
-        let files = (try? FileManager.default.contentsOfDirectory(at: documents, includingPropertiesForKeys: nil)) ?? []
-        for file in files where file.pathExtension.lowercased() == "bin" && file.lastPathComponent != keep.lastPathComponent
-            && isModel(file) {
-            try? FileManager.default.removeItem(at: file)
+    nonisolated private static func install(_ source: URL) async throws {
+        let scoped = source.startAccessingSecurityScopedResource()
+        defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+        guard source.pathExtension.lowercased() == "mlmodel" else { throw ImportError.notModel }
+        let compiled = try await MLModel.compileModel(at: source)
+        defer { try? FileManager.default.removeItem(at: compiled) }
+        let fm = FileManager.default
+        try fm.createDirectory(at: modelsDir, withIntermediateDirectories: true)
+        let target = modelsDir.appendingPathComponent("Koochik.mlmodelc", isDirectory: true)
+        let staging = modelsDir.appendingPathComponent("Koochik.mlmodelc.new", isDirectory: true)
+        try? fm.removeItem(at: staging)
+        try fm.copyItem(at: compiled, to: staging)
+        try? fm.removeItem(at: target)
+        try fm.moveItem(at: staging, to: target)
+        // 200 MB that can be imported again does not belong in the iCloud backup.
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var excluded = target
+        try? excluded.setResourceValues(values)
+        // The .mlmodel itself, if it was in the app's folder, and the Whisper model of earlier
+        // versions (ggml-*.bin, 444 MB) are no longer needed.
+        let documentsFiles = (try? fm.contentsOfDirectory(at: documents, includingPropertiesForKeys: nil)) ?? []
+        for file in documentsFiles where ["bin", "part"].contains(file.pathExtension.lowercased())
+            || file.standardizedFileURL == source.standardizedFileURL {
+            try? fm.removeItem(at: file)
         }
     }
 }

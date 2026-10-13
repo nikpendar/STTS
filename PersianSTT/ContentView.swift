@@ -13,7 +13,8 @@ struct ContentView: View {
     @ObservedObject private var importer = ModelImporter.shared
     @State private var pickingModel = false
     @AppStorage(PersonalModel.uploadKey) private var trainingUpload = false
-    @AppStorage(PersonalModel.serverKey) private var trainingServer = PersonalModel.defaultServer
+    @AppStorage(PersonalModel.repoKey) private var trainingRepo = PersonalModel.defaultRepo
+    @State private var trainingToken = PersonalModel.shared.token
     @AppStorage(PersonalModel.autoUpdateKey) private var trainingAutoUpdate = false
     @AppStorage(KeyboardSession.idleMinutesKey) private var sessionMinutes = KeyboardSession.defaultIdleMinutes
     @AppStorage(KeyboardSession.noiseSuppressionKey) private var noiseSuppression = true
@@ -101,6 +102,7 @@ struct ContentView: View {
             if phase == .active {
                 model.appDidBecomeActive()
                 model.loadNewModelIfNeeded()
+                importer.importWaitingModel()
                 syncTraining()
             }
         }
@@ -134,7 +136,7 @@ struct ContentView: View {
             } header: {
                 Text("دیکته").font(.app(.footnote))
             } footer: {
-                Text("وقتی بعد از صحبت به این اندازه سکوت شود، ضبط تمام و متن نوشته می‌شود. اگر ۸ ثانیه هیچ صحبتی نشود، ضبط بدون پردازش بسته می‌شود. نمایش متن هنگام صحبت باتری بیشتری مصرف می‌کند.").font(.app(.footnote))
+                Text("وقتی بعد از صحبت به این اندازه سکوت شود، ضبط تمام و متن نوشته می‌شود. اگر ۸ ثانیه هیچ صحبتی نشود، ضبط بدون پردازش بسته می‌شود. مدل هنگام صحبت متن را می‌نویسد؛ این گزینه فقط تعیین می‌کند متن همان موقع در کیبورد دیده شود یا در پایان.").font(.app(.footnote))
             }
 
             Section {
@@ -147,7 +149,7 @@ struct ContentView: View {
             } header: {
                 Text("فرمان‌های صوتی").font(.app(.footnote))
             } footer: {
-                Text("بگویید: نقطه، ویرگول، علامت سؤال، علامت تعجب، دونقطه، نقطه‌ویرگول، خط بعد، پاراگراف جدید، پرانتز باز و بسته، گیومه باز و بسته. «این نقطه» یا «نقطه‌نظر» همان کلمه می‌ماند و «کلمه‌ی نقطه» همیشه خودِ کلمه را می‌نویسد.\n\n"
+                Text("بگویید: نقطه، ویرگول، علامت سؤال، علامت تعجب، دونقطه، نقطه‌ویرگول، خط بعد، پاراگراف جدید، پرانتز باز و بسته، گیومه باز و بسته. «این نقطه» یا «نقطه‌نظر» همان کلمه می‌ماند و «کلمه‌ی نقطه» همیشه خودِ کلمه را می‌نویسد. عددها با رقم نوشته می‌شوند: «بیست و سه» ← ۲۳؛ «یک» و «نه» و «ده» تنها، کلمه می‌مانند مگر «نه تا».\n\n"
                      + "فرمان‌های ویرایش وقتی جدا و با مکث گفته شوند اجرا می‌شوند: «پاک کن» آخرین جمله را پاک می‌کند، «همه رو پاک کن» همه‌ی متن پیش از مکان‌نما را، و «برگردون» آخرین دیکته یا پاک‌کردن را برمی‌گرداند.").font(.app(.footnote))
             }
 
@@ -398,35 +400,42 @@ struct ContentView: View {
         .padding(.vertical, 8)
     }
 
-    /// Learning from corrections: uploading them to the user's training server and installing
-    /// the models it publishes.
+    /// Learning from corrections: uploading them to the user's private GitHub repository and
+    /// installing the models the training workflow publishes there.
     private var trainingSection: some View {
         Section {
             Toggle(isOn: $trainingUpload) {
-                SettingLabel("ارسال اصلاح‌ها به سرور", symbol: "arrow.up.circle.fill", color: .blue)
+                SettingLabel("ارسال اصلاح‌ها برای آموزش", symbol: "arrow.up.circle.fill", color: .blue)
             }
             .onChange(of: trainingUpload) { _, on in
                 if on { Task { await personal.upload() } }
             }
-            if trainingUpload {
-                HStack {
-                    SettingLabel("سرور", symbol: "desktopcomputer", color: .gray)
-                    TextField(PersonalModel.defaultServer, text: $trainingServer)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .multilineTextAlignment(.trailing)
-                        .environment(\.layoutDirection, .leftToRight)
-                }
-                if personal.pending > 0 {
-                    Button {
-                        Task { await personal.upload() }
+            HStack {
+                SettingLabel("مخزن", symbol: "externaldrive.fill.badge.icloud", color: .gray)
+                TextField(PersonalModel.defaultRepo, text: $trainingRepo)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .multilineTextAlignment(.trailing)
+                    .environment(\.layoutDirection, .leftToRight)
+            }
+            HStack {
+                SettingLabel("توکن GitHub", symbol: "key.fill", color: .yellow)
+                SecureField("github_pat_…", text: $trainingToken)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .multilineTextAlignment(.trailing)
+                    .environment(\.layoutDirection, .leftToRight)
+                    .onChange(of: trainingToken) { _, new in personal.token = new }
+                    .onSubmit { syncTraining() }
+            }
+            if personal.pending > 0 {
+                Button {
+                    Task { await personal.upload() }
+                } label: {
+                    LabeledContent {
+                        Text("\(personal.pending)")
                     } label: {
-                        LabeledContent {
-                            Text("\(personal.pending)")
-                        } label: {
-                            SettingLabel("ارسال اصلاح‌های در صف", symbol: "tray.and.arrow.up.fill", color: .orange)
-                        }
+                        SettingLabel("ارسال اصلاح‌های در صف", symbol: "tray.and.arrow.up.fill", color: .orange)
                     }
                 }
             }
@@ -437,7 +446,7 @@ struct ContentView: View {
                            value: personal.version > 0 ? "شخصی، نسخه‌ی \(personal.version)" : "مدل اصلی")
             if let progress = personal.downloadProgress {
                 ProgressView(value: progress) {
-                    Text("در حال دانلود مدل جدید…")
+                    Text(progress >= 1 ? "در حال آماده کردن مدل…" : "در حال دانلود مدل جدید…")
                 }
             } else if let release = personal.available {
                 Button {
@@ -454,18 +463,18 @@ struct ContentView: View {
                 Button("بررسی نسخه‌ی جدید") {
                     Task { await personal.check() }
                 }
-            }
-            Button("شروع آموزش روی سرور") {
-                Task { await personal.train() }
+                .disabled(trainingToken.isEmpty)
             }
             if personal.version > 0 {
                 Button("بازگشت به مدل اصلی", role: .destructive) {
-                    personal.useBundledModel()
+                    personal.useBaseModel()
                 }
             }
         } footer: {
-            Text((personal.serverStatus.isEmpty ? "" : personal.serverStatus + "\n\n")
-                 + "وقتی متن دیکته‌شده را با تایپ یا دیکته‌ی دوباره اصلاح کنید، صدای آن دیکته و متن درست به سرور خودتان روی Mac فرستاده می‌شود و جای دیگری نمی‌رود. سرور با این نمونه‌ها مدل را آموزش می‌دهد و فقط وقتی نسخه‌ی جدید روی نمونه‌های کنارگذاشته دقیق‌تر باشد آن را منتشر می‌کند. راه‌اندازی سرور: پوشه‌ی server در مخزن.").font(.app(.footnote))
+            Text((personal.status.isEmpty ? "" : personal.status + "\n\n")
+                 + "وقتی متن دیکته‌شده را با تایپ یا دیکته‌ی دوباره اصلاح کنید، صدای آن دیکته و متن درست به مخزن خصوصی خودتان در GitHub فرستاده می‌شود و جای دیگری نمی‌رود. "
+                 + "سرور رایگان GitHub هر چند ساعت، اگر اصلاح تازه‌ای باشد، مدل را با همه‌ی نمونه‌ها آموزش می‌دهد و فقط وقتی نسخه‌ی جدید روی نمونه‌های کنارگذاشته دقیق‌تر باشد آن را منتشر می‌کند. "
+                 + "توکن فقط در Keychain همین آیفون نگه داشته می‌شود.").font(.app(.footnote))
         }
     }
 
@@ -512,9 +521,9 @@ struct ContentView: View {
                              symbol: "square.and.arrow.down.fill", color: .blue)
             }
             .disabled(importer.progress != nil || model.isRecording)
-            if let progress = importer.progress {
-                ProgressView(value: progress) {
-                    Text("در حال کپی مدل…").font(.app(.subheadline))
+            if importer.progress != nil {
+                ProgressView {
+                    Text("در حال آماده کردن مدل…").font(.app(.subheadline))
                 }
             }
             LabeledContent("مدل", value: model.modelName.isEmpty ? "—" : model.modelName)
@@ -523,8 +532,8 @@ struct ContentView: View {
             Text("مدل گفتار").font(.app(.footnote))
         } footer: {
             Text((importer.message.isEmpty ? "" : importer.message + "\n\n")
-                 + "فایل مدل (ggml…bin، حدود ۴۰۰ مگابایت) فقط یک بار لازم است و با نصب نسخه‌های بعدی روی همین برنامه می‌ماند؛ اگر برنامه را پاک کنید، مدل هم پاک می‌شود. "
-                 + "آن را از بخش Artifacts همان اجرا در GitHub با نام Model دانلود کنید، از zip خارج کنید و با AirDrop یا iCloud Drive به آیفون بفرستید و اینجا انتخاب کنید. "
+                 + "فایل مدل (Koochik.mlmodel، حدود ۲۰۰ مگابایت) فقط یک بار لازم است و با نصب نسخه‌های بعدی روی همین برنامه می‌ماند؛ اگر برنامه را پاک کنید، مدل هم پاک می‌شود. "
+                 + "آن را از بخش Artifacts همان اجرا در GitHub با نام ShenavaModel دانلود کنید، از zip خارج کنید و با AirDrop یا iCloud Drive به آیفون بفرستید و اینجا انتخاب کنید. "
                  + "راه دیگر: آیفون را به Mac وصل کنید، در Finder آیفون را انتخاب کنید و در بخش Files فایل را روی «کیلس» بکشید.").font(.app(.footnote))
         }
     }

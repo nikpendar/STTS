@@ -38,8 +38,8 @@ check("comma", text("اول ویرگول دوم"), "اول، دوم")
 check("new line", text("سلام خط بعد خوبی"), "سلام\nخوبی")
 check("text خط بعد", text("در خط بعد بنویس"), "در خط بعد بنویس")
 check("brackets", text("باز کردن پرانتز مثال بستن پرانتز"), "(مثال)")
-check("whisper's full stop", text("سلام نقطه."), "سلام.")
-check("question replaces whisper's stop", text("خوبی. علامت سوال"), "خوبی؟")
+check("the model's full stop", text("سلام نقطه."), "سلام.")
+check("question replaces the model's stop", text("خوبی. علامت سوال"), "خوبی؟")
 check("دو نقطه at a pause", text("موارد دو نقطه"), "موارد:")
 check("دو نقطه as text", text("بین دو نقطه خط بکشید"), "بین ۲ نقطه خط بکشید")
 check("off", text("سلام نقطه", punctuation: false), "سلام نقطه")
@@ -81,6 +81,13 @@ check("numbers with punctuation off", text("سی و دو", punctuation: false), 
 check("words back for training", SpokenNumbers.words(in: "۲۳ نفر در سال ۱۴۰۳ و ۲٬۵۰۰٬۰۰۰ تومن، ۳٫۵ درصد."),
       "بیست و سه نفر در سال هزار و چهارصد و سه و دو میلیون و پانصد هزار تومن، سه ممیز پنج درصد.")
 check("phone digits back", SpokenNumbers.words(in: "۰۹۱۲"), "صفر نه یک دو")
+
+// The speech model writes no ZWNJ; dictated text gets it where the word list has it.
+check("ZWNJ after می", text("من میخوام برم"), "من می‌خوام برم")
+check("ZWNJ joins two words", text("این کتاب ها نقطه"), "این کتاب‌ها.")
+check("ZWNJ before تر", text("خیلی بزرگ تر"), "خیلی بزرگ‌تر")
+check("ZWNJ off", VoiceCommands.process("من میخوام برم", punctuation: true, commands: true, zwnj: false).text, "من میخوام برم")
+check("ZWNJ leaves plain words", text("حالت خوبه"), "حالت خوبه")
 
 // Suggestions, with neighbouring keys of the Persian layout as the keyboard sets them.
 let rows = ["ضصقفغعهخحجچ", "شسیبلاتنمکگ", "ظطزرذدپوث"].map(Array.init)

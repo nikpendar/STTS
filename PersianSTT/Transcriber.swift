@@ -1,13 +1,101 @@
 import AVFoundation
+import CoreML
 import Foundation
 import UIKit
 import os
 
 private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model")
 
-/// Owns the speech model: loads the personal, imported or bundled model (in that order),
-/// transcribes the keyboard session's recordings, and records and transcribes the dictation
-/// shortcut, whose text goes to the clipboard.
+/// The speech model, Shenava Koochik: a streaming Core ML model that writes text while the user
+/// speaks (`ShenavaStream`). It runs on its own serial queue, off the main actor; every call is
+/// one block on that queue, so a recording fed in pieces and a whole file never interleave.
+final class SpeechEngine: @unchecked Sendable {
+    /// The Neural Engine, or the CPU alone where Core ML could not run the model there.
+    let computeUnits: MLComputeUnits
+    private let queue = DispatchQueue(label: "ir.nikpendar.PersianSTT.speech", qos: .userInitiated)
+    private let stream: ShenavaStream
+
+    private init(stream: ShenavaStream, units: MLComputeUnits) {
+        self.stream = stream
+        computeUnits = units
+    }
+
+    /// Loads a compiled model (.mlmodelc). The first prediction prepares it for the hardware,
+    /// so it runs here once on a second of silence rather than at the start of the first dictation.
+    static func load(model: URL, resources: URL) async throws -> SpeechEngine {
+        try await Task.detached(priority: .userInitiated) {
+            var lastError: Error?
+            for units in [MLComputeUnits.all, .cpuOnly] {
+                do {
+                    let stream = try ShenavaStream(model: model, resources: resources, computeUnits: units)
+                    try stream.accept([Float](repeating: 0, count: 16_000))
+                    try stream.finish()
+                    stream.reset()
+                    return SpeechEngine(stream: stream, units: units)
+                } catch {
+                    log.error("model failed with compute units \(units.rawValue): \(error.localizedDescription, privacy: .public)")
+                    lastError = error
+                }
+            }
+            throw lastError ?? ShenavaError.missing(model.lastPathComponent)
+        }.value
+    }
+
+    private func run<T>(_ work: @escaping (ShenavaStream) throws -> T) async throws -> T {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                continuation.resume(with: Result { try work(self.stream) })
+            }
+        }
+    }
+
+    /// Starts a new dictation.
+    func begin() async {
+        _ = try? await run { $0.reset() }
+    }
+
+    /// Feeds the next piece of the recording; returns the text so far when it changed.
+    func feed(_ samples: [Float]) async throws -> String? {
+        try await run { stream in
+            try stream.accept(samples) ? stream.text : nil
+        }
+    }
+
+    /// Ends the dictation with the last piece of the recording: the end is padded and decoded.
+    /// Returns the whole text.
+    func finish(_ samples: [Float] = []) async throws -> String {
+        try await run { stream in
+            try stream.accept(samples)
+            try stream.finish()
+            return stream.text
+        }
+    }
+
+    /// A whole recording at once (the dictation shortcut). It would replace a dictation in
+    /// progress, which does not happen: the shortcut records with the app in front, the
+    /// keyboard with the app in the background.
+    func transcribe(_ samples: [Float]) async throws -> String {
+        try await run { stream in
+            stream.reset()
+            try stream.accept(samples)
+            try stream.finish()
+            return stream.text
+        }
+    }
+
+    /// Seconds of model time per second of audio so far, for the keyboard's processing ring.
+    var secondsPerAudioSecond: Double {
+        get async {
+            (try? await run { stream in
+                stream.steps > 20 ? stream.computeSeconds / (Double(stream.steps) * 0.08) : 0.5
+            }) ?? 0.5
+        }
+    }
+}
+
+/// Owns the speech model: loads the personal, imported or bundled model (in that order), and
+/// records and transcribes the dictation shortcut, whose text goes to the clipboard. The
+/// keyboard session streams its recordings into `engine`.
 @MainActor
 final class Transcriber: ObservableObject {
     /// Shared by the keyboard session, the settings page and the dictation shortcut (DictateIntent).
@@ -22,94 +110,83 @@ final class Transcriber: ObservableObject {
     /// A model is loaded. Builds without a bundled model need one imported (`ModelImporter`).
     @Published private(set) var hasModel = false
 
-    private var whisper: WhisperContext?
-    private var usesCoreML = false
-    /// Smallest encoder window (frames, 50 per second) for short recordings; 0 means always 30 s.
-    /// Stock OpenAI models (ggml-base, ggml-large-v3-turbo, ...) tolerate 384. Fine-tuned models
-    /// (ggml-whisper-...) repeat and hallucinate below about 20 s: the Persian medium model went
-    /// from 11.3% to 20.6% WER on FLEURS at 384 and 12.7% at 750, but kept its accuracy at 1000
-    /// (FLEURS 11.0%, Common Voice 20.2%) while transcribing about 30% faster.
-    private var minimumAudioContext = 0
+    private(set) var engine: SpeechEngine?
     private var loadTask: Task<Void, Never>?
     private var recorder: AVAudioRecorder?
     private var meterTask: Task<Void, Never>?
     private var quickDictationPending = false
     private let recordingURL = FileManager.default.temporaryDirectory.appendingPathComponent("recording.wav")
 
+    /// The model's sidecars, in the app's Models folder: tokens.json, preprocessor.json,
+    /// mel_filters_slaney_80x257.json and manifest.json. A fine-tuned model keeps them.
+    static var resources: URL? {
+        Bundle.main.url(forResource: "Models", withExtension: nil)
+    }
+
+    /// A compiled model inside the app, only in builds that bundle it.
+    private static var bundledModel: URL? {
+        Bundle.main.urls(forResourcesWithExtension: "mlmodelc", subdirectory: "Models")?.first
+    }
+
     private init() {
         loadTask = Task { await loadModel() }
     }
 
-    /// The first ggml-*.bin found in the bundled Models folder is used.
-    private static func findModel() -> URL? {
-        Bundle.main.urls(forResourcesWithExtension: "bin", subdirectory: "Models")?
-            .filter { $0.lastPathComponent.hasPrefix("ggml-") }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .first
-    }
-
-    /// whisper.cpp loads ggml-<name>-encoder.mlmodelc (next to the .bin) to run the encoder on the Neural Engine.
-    private static func hasCoreMLEncoder(for model: URL) -> Bool {
-        var name = model.deletingPathExtension().lastPathComponent
-        if let range = name.range(of: #"-q\d_[\dk]$"#, options: .regularExpression) {
-            name.removeSubrange(range)
-        }
-        let encoder = model.deletingLastPathComponent().appendingPathComponent("\(name)-encoder.mlmodelc")
-        return FileManager.default.fileExists(atPath: encoder.path)
-    }
-
-    /// Switches to a newly downloaded personal model (or back to the bundled one). A
-    /// transcription already running keeps the old model until it finishes.
+    /// Switches to a newly downloaded personal model (or back to the imported one).
     func reloadModel() {
         guard !isRecording else { return }
-        whisper = nil
+        engine = nil
         hasModel = false
         isBusy = true
         status = "در حال بارگذاری مدل…"
         loadTask = Task { await loadModel() }
     }
 
-    /// Loads a model copied into the app's folder (with Finder or the Files app) while no
-    /// model was loaded.
+    /// Loads a model imported while no model was loaded.
     func loadNewModelIfNeeded() {
         guard !hasModel, !isBusy, ModelImporter.installedModel != nil else { return }
         reloadModel()
     }
 
+    /// The loaded model, after waiting for one still loading; nil if there is none.
+    func readyEngine() async -> SpeechEngine? {
+        if engine == nil { await loadTask?.value }
+        return engine
+    }
+
     private func loadModel() async {
-        // A personal model from the training server comes first, then the one imported from
-        // Files, then one inside the app (only in builds that bundle it).
-        guard let url = PersonalModel.shared.modelFile ?? ModelImporter.installedModel ?? Self.findModel() else {
+        // A personal model trained on the user's corrections comes first, then the one
+        // imported from Files, then one inside the app (only in builds that bundle it).
+        guard let url = PersonalModel.shared.modelFile ?? ModelImporter.installedModel ?? Self.bundledModel else {
             status = "مدل گفتار نصب نیست."
             modelName = ""
             isBusy = false
             return
         }
-        modelName = url.lastPathComponent
-        if Self.hasCoreMLEncoder(for: url) {
-            status = "در حال بارگذاری مدل… اجرای اول Neural Engine ممکن است چند دقیقه طول بکشد."
+        guard let resources = Self.resources else {
+            status = "فایل‌های همراه مدل در اپ نیست."
+            isBusy = false
+            return
         }
+        modelName = url.deletingPathExtension().lastPathComponent
         do {
-            let path = url.path
-            whisper = try await Task.detached { try WhisperContext(path: path) }.value
+            let engine = try await SpeechEngine.load(model: url, resources: resources)
+            self.engine = engine
             hasModel = true
-            usesCoreML = Self.hasCoreMLEncoder(for: url)
-            let stock = ["tiny", "base", "small", "medium", "large"].contains { url.lastPathComponent.hasPrefix("ggml-\($0)") }
-            minimumAudioContext = usesCoreML ? 0 : (stock ? 384 : 1000)
-            log.info("loaded \(url.lastPathComponent, privacy: .public)")
+            log.info("loaded \(url.lastPathComponent, privacy: .public), compute units \(engine.computeUnits.rawValue)")
             if !isRecording {
-                status = usesCoreML ? "آماده (Neural Engine)" : "آماده"
+                status = engine.computeUnits == .cpuOnly ? "آماده (CPU)" : "آماده"
             }
         } catch {
+            log.error("cannot load \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            // A personal model that does not load is dropped for the imported one.
+            if url == PersonalModel.shared.modelFile {
+                PersonalModel.shared.useBaseModel()
+                return
+            }
             status = url == ModelImporter.installedModel
                 ? "فایل مدل باز نشد؛ ممکن است ناقص کپی شده باشد. دوباره وارد کنید."
                 : error.localizedDescription
-            // A personal model that does not load is dropped for the one inside the app.
-            if url == PersonalModel.shared.modelFile {
-                log.error("cannot load \(url.lastPathComponent, privacy: .public); using the bundled model")
-                PersonalModel.shared.useBundledModel()
-                return
-            }
         }
         if !isRecording {
             isBusy = false
@@ -210,124 +287,13 @@ final class Transcriber: ObservableObject {
         transcribe(url: recordingURL)
     }
 
-    /// Used by the keyboard session, which records its own audio, and the dictation shortcut.
-    /// Setting `abort` stops it with `WhisperError.cancelled`.
-    /// `onEncoded` runs on the main actor once the encoder is done, with the seconds still expected.
-    /// A recording of 20 s or more is transcribed in pieces cut at pauses (`pieces(of:)`).
-    func transcribe(samples: [Float], abort: AbortFlag, preview: Bool = false,
-                    onEncoded: ((Double) -> Void)? = nil) async throws -> String {
-        if whisper == nil {
-            await loadTask?.value
-        }
-        guard let whisper else { throw WhisperError.cannotLoadModel }
-        let pieces = preview ? [0..<samples.count] : Self.pieces(of: samples)
-        var segments: [String] = []
-        for (i, piece) in pieces.enumerated() {
-            let audio = pieces.count == 1 ? samples : Array(samples[piece])
-            let later = pieces[(i + 1)...].reduce(0) { $0 + estimatedSeconds(sampleCount: $1.count) }
-            let remaining = decodeSeconds(sampleCount: audio.count, preview: preview) + later
-            var encoded: (@Sendable () -> Void)?
-            if let onEncoded {
-                encoded = { DispatchQueue.main.async { MainActor.assumeIsolated { onEncoded(remaining) } } }
-            }
-            let result = try await whisper.transcribe(samples: audio, minimumAudioContext: minimumAudioContext,
-                                                      abort: abort, preview: preview,
-                                                      onEncoded: encoded)
-            learnSpeed(sampleCount: audio.count, result: result, preview: preview)
-            segments += result.segments
-        }
-        // Segments are joined with pause marks, by which the keyboard reads spoken commands.
-        return segments.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-            .joined(separator: String(DictationBridge.pauseMark))
-    }
-
-    /// One Whisper pass over 20 s or more made up words or repeated itself: up to 28 s the shortened
-    /// window ends only 2.56 s after the speech, and from 28 s Whisper adds a second 30 s window,
-    /// mostly padding, where it wrote words never said («ممنون», «دوست دارید» after the last sentence).
-    /// Such a recording is cut into pieces under 14 s, each in the smallest window
-    /// (`minimumAudioContext`): every piece ends at the latest pause after 6 s
-    /// (`AudioLoader.pause(in:)`), else at the quietest point, and leaves at least 3 s for the next.
-    /// FLEURS sentences joined in twos: 26.4% WER in one pass, 13.3% in pieces; in threes 28.2% and
-    /// 17.0%, twice as fast; single sentences 10.4% and 10.2% (benchmark.yml, `scripts/split_long.py`).
-    nonisolated static func pieces(of samples: [Float]) -> [Range<Int>] {
-        let rate = Int(AudioLoader.sampleRate)
-        guard samples.count >= 20 * rate else { return [0..<samples.count] }
-        var pieces: [Range<Int>] = []
-        var start = 0
-        while samples.count - start >= 14 * rate {
-            let window = Array(samples[start..<(start + min(14 * rate, samples.count - start - 3 * rate))])
-            let cut = AudioLoader.pause(in: window) ?? AudioLoader.quietest(in: window)
-            pieces.append(start..<(start + cut))
-            start += cut
-        }
-        pieces.append(start..<samples.count)
-        return pieces
-    }
-
-    // MARK: - Time estimate
-
-    /// Seconds of processing on this phone, learned from past transcriptions, for the keyboard's
-    /// progress rings: the encoder per second of its window, and decoding per second of audio,
-    /// since the number of words grows with it. Live passes decode faster (`preview`).
-    private static let encodeSpeedKey = "encodeSecondsPerWindowSecond"
-    private static let decodeSpeedKey = "decodeSecondsPerAudioSecond"
-    private static let previewDecodeSpeedKey = "previewDecodeSecondsPerAudioSecond"
-    private var encodeSpeed = UserDefaults.standard.object(forKey: Transcriber.encodeSpeedKey) as? Double
-        // The one speed learned by earlier versions, mostly encoder time.
-        ?? (UserDefaults.standard.object(forKey: "secondsPerWindowSecond") as? Double).map { $0 * 0.8 } ?? 0.3
-    private var decodeSpeed = UserDefaults.standard.object(forKey: Transcriber.decodeSpeedKey) as? Double ?? 0.2
-    private var previewDecodeSpeed = UserDefaults.standard.object(forKey: Transcriber.previewDecodeSpeedKey) as? Double ?? 0.15
-
-    /// Estimated seconds to transcribe `sampleCount` samples.
-    func estimatedSeconds(sampleCount: Int, preview: Bool = false) -> Double {
-        estimatedEncodeSeconds(sampleCount: sampleCount) + decodeSeconds(sampleCount: sampleCount, preview: preview)
-    }
-
-    /// The part of `estimatedSeconds` up to the end of the encoder.
-    func estimatedEncodeSeconds(sampleCount: Int) -> Double {
-        encodeSpeed * windowSeconds(sampleCount)
-    }
-
-    /// The part of `estimatedSeconds` after the encoder.
-    private func decodeSeconds(sampleCount: Int, preview: Bool) -> Double {
-        (preview ? previewDecodeSpeed : decodeSpeed) * Double(sampleCount) / AudioLoader.sampleRate
-    }
-
-    /// The encoder runs on a window of at least `minimumAudioContext` frames (50 per second),
-    /// or on a full 30 s window when the window is not shortened. A recording of 20 s or more
-    /// is transcribed in pieces (`pieces(of:)`), here about 12 s each.
-    private func windowSeconds(_ sampleCount: Int) -> Double {
-        let seconds = Double(sampleCount) / AudioLoader.sampleRate
-        let pieces = seconds >= 20 ? (seconds / 12).rounded(.up) : 1
-        guard minimumAudioContext > 0 else { return 30 * pieces }
-        return pieces * min(30, max(seconds / pieces + 2.56, Double(minimumAudioContext) / 50))
-    }
-
-    private func learnSpeed(sampleCount: Int, result: WhisperContext.Result, preview: Bool) {
-        let audio = Double(sampleCount) / AudioLoader.sampleRate
-        guard result.encodeSeconds > 0, audio > 0.5 else { return }
-        encodeSpeed = 0.7 * encodeSpeed + 0.3 * result.encodeSeconds / windowSeconds(sampleCount)
-        let decode = max(0, result.totalSeconds - result.encodeSeconds) / audio
-        if preview {
-            previewDecodeSpeed = 0.7 * previewDecodeSpeed + 0.3 * decode
-        } else {
-            decodeSpeed = 0.7 * decodeSpeed + 0.3 * decode
-        }
-        UserDefaults.standard.set(encodeSpeed, forKey: Self.encodeSpeedKey)
-        UserDefaults.standard.set(decodeSpeed, forKey: Self.decodeSpeedKey)
-        UserDefaults.standard.set(previewDecodeSpeed, forKey: Self.previewDecodeSpeedKey)
-    }
-
-    /// Transcribes, then copies the text to the clipboard so it can be pasted into any app.
+    /// Transcribes, then copies the text to the clipboard so it can be pasted into any app. The
+    /// shortcut has no keyboard, so spoken punctuation and numbers are applied here.
     private func transcribe(url: URL) {
         isBusy = true
         Task {
-            if whisper == nil {
-                status = "در حال بارگذاری مدل…"
-                await loadTask?.value
-            }
-            guard whisper != nil else {
+            if engine == nil { status = "در حال بارگذاری مدل…" }
+            guard let engine = await readyEngine() else {
                 isBusy = false
                 return
             }
@@ -335,7 +301,8 @@ final class Transcriber: ObservableObject {
             do {
                 let start = Date()
                 let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
-                let text = DictationBridge.removingPauseMarks(try await transcribe(samples: samples, abort: AbortFlag()))
+                let raw = try await engine.transcribe(samples)
+                let text = VoiceCommands.process(raw, punctuation: true, commands: false).text
                 let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
                 let elapsed = Date().timeIntervalSince(start)
                 var summary = String(format: "%.1f ثانیه صدا در %.1f ثانیه تبدیل شد", audioSeconds, elapsed)

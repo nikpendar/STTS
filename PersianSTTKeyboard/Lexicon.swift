@@ -481,6 +481,43 @@ final class Lexicon {
         return candidates.max(by: { $0.zipf < $1.zipf })?.word
     }
 
+    /// Dictated text with ZWNJ where the list writes it: the speech model has no ZWNJ and writes
+    /// میخوام and کتاب ها, which become می‌خوام and کتاب‌ها (`zwnjSpelling`, `zwnjJoin`), as typed
+    /// words do with automatic ZWNJ. Anything between words stays as it is.
+    func restoringZWNJ(_ text: String) -> String {
+        guard language == .persian, isLoaded else { return text }
+        var words: [(text: String, gap: String)] = []
+        var lead = ""
+        var current = ""
+        var gap = ""
+        for scalar in text.unicodeScalars {
+            if Self.letters.contains(scalar) {
+                if !gap.isEmpty {
+                    if current.isEmpty { lead = gap } else { words.append((current, gap)) }
+                    current = ""
+                    gap = ""
+                }
+                current.unicodeScalars.append(scalar)
+            } else {
+                gap.unicodeScalars.append(scalar)
+            }
+        }
+        guard !current.isEmpty else { return text }
+        words.append((current, gap))
+        var out = lead
+        var i = 0
+        while i < words.count {
+            if i + 1 < words.count, words[i].gap == " ", let joined = zwnjJoin(words[i].text, words[i + 1].text) {
+                out += joined + words[i + 1].gap
+                i += 2
+            } else {
+                out += (zwnjSpelling(of: words[i].text) ?? words[i].text) + words[i].gap
+                i += 1
+            }
+        }
+        return out
+    }
+
     /// Whether some listed or learned word is spelled starting with `text`, ZWNJ included: «مم»
     /// starts ممنون, but «میی» starts no word, as می‌یابد has ZWNJ between the two ی.
     func startsWord(_ text: String) -> Bool {

@@ -42,13 +42,11 @@ enum DictationBridge {
     static let finalPrefix = "F"
     /// Seconds still expected for the final transcription, for the keyboard's processing ring.
     static let estimatePrefix = "E"
-    /// Seconds still expected for the live pass in progress, for the keyboard's live text ring.
-    static let livePrefix = "L"
     /// Separates the messages of one fetch; each starts with one of the prefixes above.
     static let separator: Character = "\u{1E}"
-    /// Marks a pause inside a served transcript: between whisper's segments and between the
-    /// pieces of a live transcription, which are cut where the speaker paused. The keyboard
-    /// reads spoken commands by it (`VoiceCommands`) and shows it as a space.
+    /// Marks a pause inside a served transcript: the speech model writes it where the speaker
+    /// paused (`ShenavaStream`). The keyboard reads spoken commands by it (`VoiceCommands`) and
+    /// shows it as a space.
     static let pauseMark: Character = "\u{E000}"
 
     static func removingPauseMarks(_ text: String) -> String {

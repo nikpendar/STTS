@@ -79,12 +79,15 @@ final class ShenavaStream {
         let vocabTokens = vocab["tokens"] as? [String] ?? []
         tokens = vocabTokens
         blank = vocab["blank_id"] as? Int ?? vocabTokens.count
-        let punctuation = CharacterSet(charactersIn: ".،,؛;:؟?!«»\"()").union(.punctuationCharacters)
+        // Punctuation, the tatweel and direction marks (U+202B is in the vocabulary).
+        let unwritten = CharacterSet(charactersIn: ".،,؛;:؟?!«»\"()*ـ")
+            .union(.punctuationCharacters).union(.symbols).union(CharacterSet(charactersIn: "\u{200E}\u{200F}"))
+            .union(CharacterSet(charactersIn: Unicode.Scalar(0x202A)!...Unicode.Scalar(0x202E)!))
         skipped = Set(vocabTokens.indices.filter { k in
             let token = vocabTokens[k]
             if token.hasPrefix("<"), token.hasSuffix(">") { return true }
             let visible = token.replacingOccurrences(of: "▁", with: "")
-            return !visible.isEmpty && visible.unicodeScalars.allSatisfy { punctuation.contains($0) }
+            return !visible.isEmpty && visible.unicodeScalars.allSatisfy { unwritten.contains($0) }
         })
         let filters = (try json("mel_filters_slaney_80x257.json") as? [[Double]] ?? []).map { $0.map(Float.init) }
         guard filters.count == 80, filters.allSatisfy({ $0.count == 257 }) else {

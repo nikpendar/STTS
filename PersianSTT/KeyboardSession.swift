@@ -23,8 +23,8 @@ final class KeyboardSession: ObservableObject {
         UserDefaults.standard.object(forKey: noiseSuppressionKey) as? Bool ?? true
     }
 
-    /// Transcribes while the user is still speaking, so the keyboard shows text as it comes.
-    /// Costs extra CPU: the recording so far is re-transcribed every time a pass finishes.
+    /// Shows the text in the keyboard while the user is still speaking. The model writes it as
+    /// the recording comes in either way; this only decides whether the keyboard gets it early.
     static let liveTranscriptionKey = "liveTranscription"
     static var liveTranscription: Bool {
         UserDefaults.standard.object(forKey: liveTranscriptionKey) as? Bool ?? true
@@ -53,7 +53,12 @@ final class KeyboardSession: ObservableObject {
     /// with its recording.
     private var recent: [(id: String, samples: [Float], text: String)] = []
     private var idleTimer: Timer?
-    private var liveTask: Task<Void, Never>?
+    /// Feeds the recording to the model while it comes in (`startStreaming`).
+    private var streamTask: Task<Void, Never>?
+    /// Samples of the current recording the model has been given.
+    private var fedCount = 0
+    /// The stream failed during the recording, so the final text comes from the whole recording.
+    private var streamFailed = false
     /// Watches the recording: the level for the keyboard's orb, and the end of speech.
     private var monitorTask: Task<Void, Never>?
     private var isCapturing = false
@@ -120,7 +125,7 @@ final class KeyboardSession: ObservableObject {
             resetIdleTimer()
             return
         }
-        // Loads the model now if nothing has yet, so the first live pass does not wait for it.
+        // Loads the model now if nothing has yet, so the first dictation does not wait for it.
         _ = Transcriber.shared
         Task {
             await PersonalModel.shared.upload()
@@ -186,9 +191,8 @@ final class KeyboardSession: ObservableObject {
     }
 
     func stop() {
-        liveAbort.set()
-        finalAbort.set()
-        liveTask = nil
+        dictationID += 1
+        streamTask = nil
         monitorTask?.cancel()
         monitorTask = nil
         idleTimer?.invalidate()
@@ -221,10 +225,11 @@ final class KeyboardSession: ObservableObject {
         Self.ambientNoise = collector.begin()
         server.clear()
         isCapturing = true
+        dictationID += 1
         resetIdleTimer()
         DictationBridge.post(DictationBridge.recording)
         log.info("recording started, live text \(Self.liveTranscription), auto stop \(Self.autoStopSeconds) s")
-        if Self.liveTranscription { startLiveTranscription() }
+        startStreaming(id: dictationID)
         startMonitor()
         if let testAudio { feedTestAudio(testAudio) }
     }
@@ -311,130 +316,44 @@ final class KeyboardSession: ObservableObject {
         }
     }
 
-    /// Live mode: text of the pieces already committed, and how many samples they cover.
-    private var committedText = ""
-    private var committedCount = 0
-    /// Text of a full pass over all of the uncommitted audio, run when the speaker paused. If
-    /// only silence follows it when the recording stops, it is the final text and the final
-    /// pass is skipped.
-    private var candidate: (start: Int, end: Int, text: String)?
-    /// The live pass in progress: stopping waits for a full pass and drops a preview.
-    private var livePass: LivePass?
-    /// Stops the live pass in progress, and the final pass.
-    private var liveAbort = AbortFlag()
-    private var finalAbort = AbortFlag()
-
-    private struct LivePass {
-        enum Kind {
-            /// Quick provisional text of the uncommitted audio.
-            case preview
-            /// The uncommitted audio up to a pause, transcribed in full and kept.
-            case commit
-            /// All of the uncommitted audio once the speaker paused, transcribed in full.
-            case candidate
-        }
-        let kind: Kind
-        let start: Int
-        let end: Int
-        let started: Date
-        let estimate: Double
-    }
-
-    /// While recording, transcribes the uncommitted part of the recording whenever enough new
-    /// audio has arrived. Once that part is 10 s long, everything up to a pause is committed,
-    /// so a pass never covers more than 20 s and the final pass only the last piece. Passes over
-    /// the whole recording got slower as it grew and fell behind on long dictations. When the
-    /// speaker pauses, the uncommitted part gets a full pass, which is usually the final text.
-    private func startLiveTranscription() {
-        let rate = Int(AudioLoader.sampleRate)
-        committedText = ""
-        committedCount = 0
-        candidate = nil
-        liveAbort.set()
-        liveAbort = AbortFlag()
-        let abort = liveAbort
-        liveTask = Task { [weak self] in
-            log.info("live loop started")
-            defer { log.info("live loop ended") }
-            var passedCount = 0
-            while let self, self.isCapturing, !abort.isSet {
-                let count = self.collector.count
-                let levels = self.collector.levels()
-                let speech = Self.speech(levels, from: self.committedCount)
-                let kind: LivePass.Kind
-                let piece: [Float]
-                if let speech, speech.paused, count - self.committedCount >= rate,
-                   !(self.candidate.map { $0.start == self.committedCount && $0.end >= speech.end } ?? false) {
-                    kind = .candidate
-                    piece = self.collector.snapshot(from: self.committedCount)
-                } else if speech?.paused == false, count - self.committedCount >= rate, count - passedCount >= rate * 3 / 2 {
-                    let tail = self.collector.snapshot(from: self.committedCount)
-                    let cut = tail.count >= rate * 10 ? AudioLoader.pause(in: tail) : nil
-                    kind = cut == nil ? .preview : .commit
-                    piece = cut.map { Array(tail[..<$0]) } ?? tail
-                } else {
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    continue
-                }
-                passedCount = count
-                let start = self.committedCount
-                // Only the speech in the piece is transcribed; the piece still counts as done.
-                let audio = Self.trimmed(levels, start, start + piece.count)
-                    .map { Array(piece[($0.lowerBound - start)..<($0.upperBound - start)]) } ?? []
-                let estimate = Transcriber.shared.estimatedSeconds(sampleCount: audio.count, preview: kind == .preview)
-                self.livePass = LivePass(kind: kind, start: start, end: start + piece.count, started: Date(), estimate: estimate)
-                if !audio.isEmpty { self.publishLive(estimate) }
-                log.info("live pass (\(String(describing: kind), privacy: .public)) starting at \(Double(count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s, \(Double(audio.count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s of speech, estimate \(estimate, format: .fixed(precision: 1)) s")
-                let started = Date()
-                var text = ""
-                do {
-                    if !audio.isEmpty {
-                        text = try await Transcriber.shared.transcribe(samples: audio, abort: abort, preview: kind == .preview) { [weak self] remaining in
-                            if self?.isCapturing == true { self?.publishLive(remaining) }
+    /// Gives the model each new 0.1 s of the recording as it comes in. The model writes text as
+    /// the user speaks, so when the recording stops only the last fraction of a second is left,
+    /// and with live text on, the keyboard shows the text so far.
+    private func startStreaming(id: Int) {
+        fedCount = 0
+        streamFailed = false
+        streamTask = Task { [weak self] in
+            guard let engine = await Transcriber.shared.readyEngine() else {
+                log.error("no model for the dictation")
+                return
+            }
+            await engine.begin()
+            var shown = ""
+            while let self, self.isCapturing, id == self.dictationID {
+                let piece = self.collector.snapshot(from: self.fedCount)
+                if !piece.isEmpty {
+                    self.fedCount += piece.count
+                    do {
+                        if let text = try await engine.feed(piece), id == self.dictationID, self.isCapturing,
+                           Self.liveTranscription, text != shown {
+                            shown = text
+                            self.publishPartial(text)
                         }
+                    } catch {
+                        log.error("stream failed: \(error.localizedDescription, privacy: .public)")
+                        self.streamFailed = true
+                        return
                     }
-                } catch {
-                    self.livePass = nil
-                    log.info("live pass failed after \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s: \(error.localizedDescription, privacy: .public)")
-                    // Empty text: nothing changes but the keyboard's live ring.
-                    if self.isCapturing { self.publishPartial("") }
-                    continue
                 }
-                self.livePass = nil
-                log.info("live pass: \(Double(piece.count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s audio in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s, \(String(describing: kind), privacy: .public), \(text.count) chars")
-                // A full pass is kept even if the recording stopped meanwhile; the final pass uses it.
-                guard !abort.isSet else { break }
-                switch kind {
-                case .commit:
-                    self.committedText = Self.join(self.committedText, text)
-                    self.committedCount = start + piece.count
-                    self.candidate = nil
-                case .candidate where piece.count >= rate * 10:
-                    self.committedText = Self.join(self.committedText, text)
-                    self.committedCount = start + piece.count
-                    self.candidate = nil
-                case .candidate:
-                    self.candidate = (start, start + piece.count, text)
-                case .preview:
-                    break
-                }
-                guard self.isCapturing else { break }
-                let shown = kind == .preview || kind == .candidate && self.candidate != nil
-                    ? Self.join(self.committedText, text) : self.committedText
-                self.publishPartial(shown)
+                try? await Task.sleep(nanoseconds: 100_000_000)
             }
         }
     }
 
-    /// Provisional text for the keyboard; empty text leaves the typed text as it is.
+    /// Provisional text for the keyboard.
     private func publishPartial(_ text: String) {
         server.publish(DictationBridge.partialPrefix + text)
         DictationBridge.post(DictationBridge.partial)
-    }
-
-    private func publishLive(_ seconds: Double) {
-        server.publish(DictationBridge.livePrefix + String(format: "%.1f", seconds))
-        DictationBridge.post(DictationBridge.progress)
     }
 
     private func publishEstimate(_ seconds: Double) {
@@ -442,8 +361,6 @@ final class KeyboardSession: ObservableObject {
         DictationBridge.post(DictationBridge.progress)
     }
 
-    /// Recording levels are kept per 0.1 s frame (`SampleCollector.levels`).
-    private static let frame = Int(AudioLoader.sampleRate) / 10
     /// Level of the room just before the current recording, if the microphone was on.
     private static var ambientNoise: Float?
 
@@ -499,68 +416,7 @@ final class KeyboardSession: ObservableObject {
         return start...end
     }
 
-    /// Where speech in the recording from sample `start` on ends (in samples), and whether at
-    /// least 0.6 s of silence follows it; nil without speech.
-    private static func speech(_ levels: [Float], from start: Int) -> (end: Int, paused: Bool)? {
-        guard let frames = speechFrames(levels, from: start / frame) else { return nil }
-        return ((frames.upperBound + 1) * frame, levels.count - 1 - frames.upperBound >= 6)
-    }
-
-    /// Whether the recording from sample `start` on has no speech.
-    private static func isSilent(_ levels: [Float], from start: Int) -> Bool {
-        speechFrames(levels, from: (start + frame - 1) / frame) == nil
-    }
-
-    /// The part of samples `start..<end` that holds speech, with 0.3 s before it and 0.5 s after
-    /// it, so the model is not fed silence; nil if there is no speech.
-    private static func trimmed(_ levels: [Float], _ start: Int, _ end: Int) -> Range<Int>? {
-        let endFrame = (end + frame - 1) / frame
-        guard end > start, let frames = speechFrames(levels, from: start / frame, to: endFrame) else { return nil }
-        let from = max(start, (frames.lowerBound - 3) * frame)
-        // Speech up to the last complete frame: the audio after it may be the start of a word.
-        let to = frames.upperBound + 1 >= levels.count ? end : min(end, (frames.upperBound + 1 + 5) * frame)
-        return from < to ? from..<to : nil
-    }
-
-    /// Pieces of a recording are cut at pauses, so they are joined with a pause mark.
-    private static func join(_ a: String, _ b: String) -> String {
-        a.isEmpty ? b : b.isEmpty ? a : a + String(DictationBridge.pauseMark) + b
-    }
-
-    /// Waits for the live loop to end. A preview in progress is stopped (its encoder still runs
-    /// to the end, as whisper.cpp only checks between steps); a full pass is left to finish,
-    /// since its text is kept.
-    private func stopLiveTranscription() async {
-        if livePass?.kind == .preview { liveAbort.set() }
-        guard let task = liveTask else { return }
-        liveTask = nil
-        await task.value
-    }
-
-    /// The first estimate for the processing ring, before the live loop has ended.
-    private func estimateAfterStop(samples: Int, levels: [Float]) -> Double {
-        var wait = 0.0
-        var restStart = committedCount
-        if let pass = livePass {
-            let elapsed = Date().timeIntervalSince(pass.started)
-            switch pass.kind {
-            case .preview:
-                wait = max(0, Transcriber.shared.estimatedEncodeSeconds(sampleCount: pass.end - pass.start) - elapsed)
-            case .commit:
-                wait = max(0, pass.estimate - elapsed)
-                restStart = pass.end
-            case .candidate:
-                wait = max(0, pass.estimate - elapsed)
-                if Self.isSilent(levels, from: pass.end) { return wait }
-                if pass.end - pass.start >= Int(AudioLoader.sampleRate) * 10 { restStart = pass.end }
-            }
-        } else if let candidate, candidate.start == committedCount, Self.isSilent(levels, from: candidate.end) {
-            return 0
-        }
-        guard let rest = Self.trimmed(levels, restStart, samples) else { return wait }
-        return wait + Transcriber.shared.estimatedSeconds(sampleCount: rest.count)
-    }
-
+    /// Ends the recording: the model gets the audio it has not had yet and finishes the text.
     private func finishCapture() {
         guard isActive, isCapturing else { return }
         isCapturing = false
@@ -568,52 +424,29 @@ final class KeyboardSession: ObservableObject {
         let levels = collector.levels()
         let samples = collector.end()
         resetIdleTimer()
-        dictationID += 1
         let id = dictationID
-        let live = liveTask != nil
-        finalAbort = AbortFlag()
-        let abort = finalAbort
-        let firstEstimate = live ? estimateAfterStop(samples: samples.count, levels: levels)
-            : Transcriber.shared.estimatedSeconds(sampleCount: samples.count)
-        if live { publishEstimate(firstEstimate) }
-        // A pass that runs far past its estimate is stopped, and the text so far delivered, so
-        // the keyboard is never left waiting.
-        let deadline = max(20, 3 * firstEstimate + 10)
-        let watchdog = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(deadline * 1_000_000_000))
-            guard !Task.isCancelled, let self, id == self.dictationID else { return }
-            log.info("final pass: no result after \(deadline, format: .fixed(precision: 0)) s; stopped")
-            self.liveAbort.set()
-            abort.set()
-        }
+        let feeding = streamTask
+        streamTask = nil
         Task {
-            defer { watchdog.cancel() }
-            await stopLiveTranscription()
+            // The feeder stops at its next turn; the samples it took are then counted in `fedCount`.
+            await feeding?.value
             guard id == dictationID else { return }
-            // With live text, only the piece after the last committed one is left to transcribe.
-            let restStart = live ? min(committedCount, samples.count) : 0
-            var text = live ? committedText : ""
+            guard let engine = await Transcriber.shared.readyEngine() else {
+                DictationBridge.post(DictationBridge.failed)
+                return
+            }
+            let rest = streamFailed ? samples : Array(samples[min(fedCount, samples.count)...])
+            let speed = await engine.secondsPerAudioSecond
+            publishEstimate(0.2 + speed * Double(rest.count) / AudioLoader.sampleRate)
+            let started = Date()
             do {
-                if live, let candidate, candidate.start == committedCount, Self.isSilent(levels, from: candidate.end) {
-                    text = Self.join(text, candidate.text)
-                    log.info("final pass: not needed, the pass from the pause is final")
-                } else if live, committedCount > 0, Self.isSilent(levels, from: restStart) {
-                    log.info("final pass: not needed, only silence after the committed text")
-                } else if let speech = Self.trimmed(levels, restStart, samples.count) {
-                    let rest = Array(samples[speech])
-                    let estimate = Transcriber.shared.estimatedSeconds(sampleCount: rest.count)
-                    publishEstimate(estimate)
-                    let started = Date()
-                    let piece = try await Transcriber.shared.transcribe(samples: rest, abort: abort) { [weak self] remaining in
-                        if id == self?.dictationID { self?.publishEstimate(remaining) }
-                    }
-                    text = Self.join(text, piece)
-                    log.info("final pass: \(Double(rest.count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s audio in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s, estimate \(estimate, format: .fixed(precision: 1)) s")
-                }
+                let raw = streamFailed ? try await engine.transcribe(samples) : try await engine.finish(rest)
                 guard id == dictationID else { return }
-                guard !text.isEmpty else {
+                log.info("final text: \(Double(rest.count) / AudioLoader.sampleRate, format: .fixed(precision: 2)) s of audio left, done in \(Date().timeIntervalSince(started), format: .fixed(precision: 2)) s")
+                let text = raw.trimmingCharacters(in: .whitespaces)
+                guard !DictationBridge.removingPauseMarks(text).isEmpty else {
                     if Self.speechFrames(levels, from: 0) == nil {
-                        log.info("final pass: no speech")
+                        log.info("final text: no speech")
                         DictationBridge.post(DictationBridge.idle)
                     } else {
                         DictationBridge.post(DictationBridge.failed)
@@ -630,13 +463,8 @@ final class KeyboardSession: ObservableObject {
                 DictationBridge.post(DictationBridge.done)
             } catch {
                 guard id == dictationID else { return }
-                // Stopped by the watchdog: the committed text, if any, is still worth having.
-                if abort.isSet, !text.isEmpty {
-                    server.publish(DictationBridge.finalPrefix + UUID().uuidString + "\n" + text)
-                    DictationBridge.post(DictationBridge.done)
-                } else {
-                    DictationBridge.post(DictationBridge.failed)
-                }
+                log.error("final text failed: \(error.localizedDescription, privacy: .public)")
+                DictationBridge.post(DictationBridge.failed)
             }
         }
     }
@@ -652,9 +480,7 @@ final class KeyboardSession: ObservableObject {
         monitorTask?.cancel()
         monitorTask = nil
         dictationID += 1
-        liveAbort.set()
-        finalAbort.set()
-        liveTask = nil
+        streamTask = nil
         if isCapturing {
             isCapturing = false
             _ = collector.end()
@@ -663,7 +489,7 @@ final class KeyboardSession: ObservableObject {
 }
 
 /// Collects converted samples from the audio thread while a recording is in progress, and the
-/// level (RMS) of each 0.1 s of it, by which pauses are found. Between recordings it keeps the
+/// level (RMS) of each 0.1 s of it, by which speech and silence are found. Between recordings it keeps the
 /// levels of the last 3 s, the room's noise.
 private final class SampleCollector: @unchecked Sendable {
     private let lock = NSLock()
@@ -714,7 +540,7 @@ private final class SampleCollector: @unchecked Sendable {
         return (sum / Float(n)).squareRoot()
     }
 
-    /// A copy of the recording from sample `start` on, for a live pass.
+    /// A copy of the recording from sample `start` on, for the model.
     func snapshot(from start: Int) -> [Float] {
         lock.lock()
         defer { lock.unlock() }

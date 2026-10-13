@@ -1,142 +1,41 @@
-# Builds an unsigned Keyless.ipa on a GitHub macOS runner (no local Mac/Xcode needed).
+# Builds an unsigned KeylessShenava.ipa on a GitHub macOS runner (no local Mac/Xcode needed).
 # Install the resulting .ipa with AltServer (Option-click > Sideload .ipa). With a free Apple ID,
 # Sideloadly signs the keyboard extension with the app's profile and iOS kills it at launch.
+# The speech model, Shenava Koochik (Core ML, 212 MB), is the separate ShenavaModel artifact,
+# imported once in the app; the Whisper version is archived on branch archive/whisper.
 name: Build unsigned IPA
 
 on:
   workflow_dispatch:
     inputs:
-      model:
-        description: "Whisper model (base-q5_1, small-q5_1, large-v3-turbo-q5_0)"
-        default: large-v3-turbo-q5_0
-      hf:
-        description: "Persian fine-tuned Hugging Face model to bundle (none = use the model above)"
-        default: farbodbij/whisper-medium-Persian
-      quant:
-        description: "Quantization for the Hugging Face model"
-        default: q4_0
-      coreml:
-        description: "Run the encoder on the Neural Engine (Core ML). Too heavy for 4 GB iPhones with turbo."
-        type: boolean
-        default: false
       bundle_model:
-        description: "Put the model inside the IPA (400+ MB) instead of the separate Model artifact"
+        description: "Put the model inside the IPA (200+ MB) instead of the separate ShenavaModel artifact"
         type: boolean
         default: false
   push:
     branches: [main]
-    # Benchmark tooling does not change the app.
+    # Test and benchmark tooling does not change the app.
     paths-ignore:
       - ".github/workflows/benchmark.yml"
       - ".github/workflows/hf-search.yml"
       - ".github/workflows/screenshots.yml"
       - ".github/workflows/keyboard-test.yml"
-      - "scripts/wer.py"
-      - "scripts/to_pcm16.py"
-      - "scripts/prepare_hf_model.py"
-      - "scripts/prepare_cv.py"
+      - ".github/workflows/live-test.yml"
+      - ".github/workflows/logic-test.yml"
+      - ".github/workflows/train.yml"
+      - ".github/workflows/training-test.yml"
+      - "training/**"
+      - "Tests/**"
+      - "scripts/**"
 
 env:
-  MODEL: ${{ github.event.inputs.model || 'large-v3-turbo-q5_0' }}
-  COREML: ${{ github.event.inputs.coreml == 'true' }}
-  # Default: Persian fine-tuned Whisper medium, q4_0 (444 MB). FLEURS WER 11.3%, Common Voice 20.2%,
-  # against 20.6% / 46.1% for stock turbo q5_0 (574 MB). Pass hf=none to bundle the model input instead.
-  HF: ${{ github.event.inputs.hf != 'none' && (github.event.inputs.hf || 'farbodbij/whisper-medium-Persian') || '' }}
-  QUANT: ${{ github.event.inputs.quant || 'q4_0' }}
-  # The IPA carries no model unless asked: the app imports it from Files once (ModelImporter),
-  # and the Model artifact holds it, so each new build is a few MB to install.
   BUNDLE: ${{ github.event.inputs.bundle_model == 'true' }}
 
 jobs:
-  # Converts a fine-tuned Hugging Face Whisper checkpoint to a quantized ggml model, once per
-  # model and quantization (cached), and publishes it as the Model artifact for 90 days.
-  convert:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        if: env.HF != ''
-      - uses: actions/cache@v4
-        if: env.HF != ''
-        id: model-cache
-        with:
-          path: out
-          key: ggml-${{ env.HF }}-${{ env.QUANT }}-whisper.cpp-1.7.5
-      - name: Convert and quantize
-        if: env.HF != '' && steps.model-cache.outputs.cache-hit != 'true'
-        run: |
-          git clone -q --depth 1 --branch v1.7.5 https://github.com/ggml-org/whisper.cpp
-          cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DWHISPER_BUILD_TESTS=OFF
-          cmake --build whisper.cpp/build -j 4
-          pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch transformers safetensors huggingface_hub numpy
-          git clone -q --depth 1 https://github.com/openai/whisper openai-whisper
-          python3 scripts/prepare_hf_model.py "$HF" hf-model
-          mkdir -p converted out
-          python3 whisper.cpp/models/convert-h5-to-ggml.py hf-model openai-whisper converted
-          NAME="$(basename "$HF" | tr '[:upper:]' '[:lower:]')"
-          "$(find whisper.cpp/build/bin -name '*quantize*' -type f | head -1)" converted/ggml-model.bin "out/ggml-$NAME-$QUANT.bin" "$QUANT"
-          ls -la out
-      - uses: actions/upload-artifact@v5
-        if: env.HF != ''
-        with:
-          name: Model
-          path: out/*.bin
-          retention-days: 90
-          compression-level: 0
-
   build:
-    needs: convert
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
-
-      - name: Download whisper.xcframework and model
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # With a Hugging Face model, only the framework is needed here.
-        run: bash ./setup.sh "$([ -n "$HF" ] && echo none || echo "$MODEL")"
-
-      - uses: actions/download-artifact@v5
-        if: env.HF != '' && env.BUNDLE == 'true'
-        with:
-          name: Model
-          path: hf-model
-
-      - name: Use the converted model
-        if: env.HF != '' && env.BUNDLE == 'true'
-        run: |
-          find PersianSTT/Models -name 'ggml-*.bin' -delete
-          mv hf-model/*.bin PersianSTT/Models/
-          ls -la PersianSTT/Models
-
-      - name: Keep the stock model out of the app
-        if: env.HF == '' && env.BUNDLE != 'true'
-        run: mkdir -p model-out && mv PersianSTT/Models/ggml-*.bin model-out/
-
-      - uses: actions/upload-artifact@v5
-        if: env.HF == '' && env.BUNDLE != 'true'
-        with:
-          name: Model
-          path: model-out/*.bin
-          retention-days: 90
-          compression-level: 0
-
-      - uses: actions/setup-python@v6
-        if: env.COREML == 'true'
-        with:
-          python-version: "3.11"
-
-      - name: Convert encoder to Core ML (int8)
-        if: env.COREML == 'true'
-        run: |
-          # whisper.cpp looks for ggml-<name>-encoder.mlmodelc next to ggml-<name>[-qX_Y].bin
-          NAME="$(echo "$MODEL" | sed -E 's/-q[0-9]_[0-9k]$//')"
-          pip install --quiet torch coremltools openai-whisper ane_transformers
-          git clone --depth 1 https://github.com/ggml-org/whisper.cpp "$RUNNER_TEMP/whisper.cpp"
-          python scripts/convert_encoder_coreml.py "$RUNNER_TEMP/whisper.cpp" "$NAME" "$RUNNER_TEMP/encoder.mlpackage" --int8
-          xcrun coremlc compile "$RUNNER_TEMP/encoder.mlpackage" "$RUNNER_TEMP"
-          rm -rf "PersianSTT/Models/ggml-$NAME-encoder.mlmodelc"
-          mv "$RUNNER_TEMP/encoder.mlmodelc" "PersianSTT/Models/ggml-$NAME-encoder.mlmodelc"
-          du -sh PersianSTT/Models/*
 
       # Xcode 26 (iOS 26 SDK) compiles the keyboard's Liquid Glass glide trail; with an older
       # Xcode the trail is the plain one.
@@ -146,6 +45,16 @@ jobs:
           XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
           if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
           xcodebuild -version
+
+      - name: Download the speech model
+        run: bash ./setup.sh "$([ "$BUNDLE" = true ] && echo bundle || echo model)"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ShenavaModel
+          path: build-model/Koochik.mlmodel
+          retention-days: 90
+          compression-level: 0
 
       - name: Build
         run: |
@@ -187,16 +96,16 @@ jobs:
           else
             echo "::warning::FONT_KEY secret is not set; the app uses the system font"
           fi
-          # Ad-hoc sign nested code (framework, keyboard, app) so the bundle has the usual
-          # signed layout; AltServer replaces these signatures with the Apple ID's.
-          for fw in Payload/PersianSTT.app/Frameworks/*.framework; do codesign --force --sign - "$fw"; done
+          # Ad-hoc sign nested code (keyboard, app) so the bundle has the usual signed layout;
+          # AltServer replaces these signatures with the Apple ID's.
           codesign --force --sign - Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex
           codesign --force --sign - Payload/PersianSTT.app
           codesign -dv Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex 2>&1 | head -5
-          zip -qry Keyless.ipa Payload
-          ls -lh Keyless.ipa
+          zip -qry KeylessShenava.ipa Payload
+          ls -lh KeylessShenava.ipa
 
       - uses: actions/upload-artifact@v5
         with:
-          name: Keyless
-          path: Keyless.ipa
+          name: KeylessShenava
+          path: KeylessShenava.ipa
+          compression-level: 0

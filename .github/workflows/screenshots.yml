@@ -14,10 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Download whisper.xcframework and model
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash ./setup.sh base-q5_1
+      - name: Download the speech model's sidecars
+        run: bash ./setup.sh sidecars
 
       - name: Build for the simulator
         run: |

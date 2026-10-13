@@ -1,5 +1,6 @@
-Frameworks/whisper.xcframework/
-PersianSTT/Models/*.bin
+PersianSTT/Models/*.json
+PersianSTT/Models/*.mlmodelc/
+build-model/
 build/
 xcuserdata/
 *.xcuserstate

@@ -1,8 +1,8 @@
-# Dictation end to end in the iOS Simulator: the app plays a spoken test file into a
-# keyboard session (launch argument -testAudio), the keyboard records and should show live
-# text before the final one. Then the dictated text is edited on the keys, and the correction
-# should reach the training server (server/server.py on the runner); on the next launch the
-# app should download and load the model that server publishes. Screenshots (portrait and
+# Dictation end to end in the iOS Simulator: the app plays Persian speech (three FLEURS
+# sentences) into a keyboard session (launch argument -testAudio), the keyboard records and
+# should show the text while the speech plays. Then the dictated text is edited on the keys, and
+# the correction should reach the training repository (Tests/github_stub.py stands in for
+# GitHub); on the next launch the app should download, compile and load the model published there. Screenshots (portrait and
 # landscape) and the app's log go to the `live-test` branch (`live-test-ios26` with ios 26).
 name: Live dictation test
 
@@ -29,10 +29,8 @@ jobs:
           if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
           xcodebuild -version
 
-      - name: Download whisper.xcframework and model
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash ./setup.sh base-q5_1
+      - name: Download the speech model into the app
+        run: bash ./setup.sh bundle
 
       - name: Build for the simulator
         run: |
@@ -49,10 +47,28 @@ jobs:
 
       - name: Make the test recording
         run: |
-          mkdir -p out
-          say -o speech.aiff "This is a test of live dictation. The keyboard should show these words while I am still talking. After a short pause I keep speaking so that the recording is long enough to be cut into pieces. One, two, three, four, five, six, seven, eight, nine, ten. That is the end of the test."
-          afconvert -f WAVE -d LEI16@16000 -c 1 speech.aiff "$PWD/speech.wav"
-          afinfo speech.wav | grep -i duration
+          mkdir -p out fleurs
+          base=https://huggingface.co/datasets/google/fleurs/resolve/main/data/fa_ir
+          curl -fsSL -o dev.tsv "$base/dev.tsv"
+          curl -fsSL -o dev.tar.gz "$base/audio/dev.tar.gz"
+          tar xzf dev.tar.gz
+          # Three sentences, 1.2 s of silence after each.
+          head -n 3 dev.tsv | while IFS=$'\t' read -r id file raw norm rest; do
+            python3 scripts/to_pcm16.py "$(find dev -name "$file" | head -1)" "fleurs/$file" > /dev/null
+            echo "$raw" >> out/reference.txt
+            echo "fleurs/$file" >> parts.txt
+          done
+          python3 - <<'PY'
+          import wave
+          frames = b""
+          for path in open("parts.txt").read().split():
+              with wave.open(path) as w:
+                  frames += w.readframes(w.getnframes()) + b"\0\0" * 19200
+          with wave.open("speech.wav", "wb") as out:
+              out.setnchannels(1); out.setsampwidth(2); out.setframerate(16000); out.writeframes(frames)
+          print("speech.wav", len(frames) / 32000, "s")
+          PY
+          cat out/reference.txt
 
       - name: Dictate in the simulator
         shell: bash
@@ -108,9 +124,9 @@ jobs:
           sys.exit(1)
           PY
 
-          # Training server; a corrected dictation should arrive in srv/samples.
-          python3 server/server.py --port 8765 --data "$PWD/srv" --min-new 0 > out/server.log 2>&1 &
-          TRAIN_ARGS=(-trainingUpload YES -trainingServer http://127.0.0.1:8765)
+          # GitHub stand-in; a corrected dictation should arrive in srv/samples.
+          python3 Tests/github_stub.py "$PWD/srv" --port 8765 > out/server.log 2>&1 &
+          TRAIN_ARGS=(-trainingUpload YES -trainingAPI http://127.0.0.1:8765 -trainingTestToken test-token -trainingRepository stub/repo)
 
           xcrun simctl spawn "$DEVICE" log stream --level info \
             --predicate 'subsystem == "ir.nikpendar.PersianSTT" OR process CONTAINS "PersianSTTKeyboard"' > out/log.txt 2>&1 &
@@ -125,9 +141,8 @@ jobs:
           # One screenshot only: each one costs the 3-core runner seconds of CPU and skews pass times.
           sleep 16
           xcrun simctl io "$DEVICE" screenshot out/2-recording-16s.png
-          # The app should end the recording by itself once the speech is followed by silence;
-          # the pass after the pause then makes the final pass unnecessary. Without an auto
-          # stop, the orb is tapped.
+          # The app should end the recording by itself once the speech is followed by silence.
+          # Without an auto stop, the orb is tapped.
           for i in $(seq 90); do grep -q "auto stop after" out/log.txt && break; sleep 1; done
           if ! grep -q "auto stop after" out/log.txt; then
             echo "::warning::no auto stop; stopping by hand"
@@ -137,8 +152,8 @@ jobs:
           fi
           sleep 1
           xcrun simctl io "$DEVICE" screenshot out/3-processing.png
-          # The final pass takes from seconds to over a minute on this runner.
-          for i in $(seq 60); do grep -q "final pass:" out/log.txt && break; sleep 2; done
+          # The model has had all but the last fraction of a second while the speech played.
+          for i in $(seq 60); do grep -q "final text" out/log.txt && break; sleep 2; done
           sleep 2
           xcrun simctl io "$DEVICE" screenshot out/4-done.png
           dump out/ui-4.json || true
@@ -166,7 +181,7 @@ jobs:
           # before the taps take about 20 s.
           sleep 47
           xcrun simctl io "$DEVICE" screenshot out/4b-corrected.png
-          echo "===== samples on the training server"
+          echo "===== samples in the training repository"
           ls srv/samples || true
           cat srv/samples/*.json || echo "NO CORRECTION RECEIVED"
 
@@ -353,22 +368,24 @@ jobs:
           axe tap -x "$MKX" -y "$MKY" --udid "$DEVICE"; sleep 0.8
           xcrun simctl io "$DEVICE" screenshot out/5j-english-more.png
           axe tap -x "$LKX" -y "$LKY" --udid "$DEVICE"; sleep 0.5
-          # The server publishes a model (here a copy of the bundled one) for the next launch.
-          MODEL="$(ls PersianSTT/Models/*.bin | head -n1)"
-          mkdir -p srv/models
-          cp "$MODEL" srv/models/ggml-personal-v1.bin
+          # The repository gets a model (here a copy of the bundled one) for the next launch.
+          mkdir -p srv/release
+          cp build-model/Koochik.mlmodel srv/release/model.mlmodel
           python3 - <<'PY'
           import hashlib, json, os
-          path = "srv/models/ggml-personal-v1.bin"
-          json.dump({"version": 1, "file": os.path.basename(path), "size": os.path.getsize(path),
+          path = "srv/release/model.mlmodel"
+          json.dump({"version": 1, "size": os.path.getsize(path),
                      "sha256": hashlib.sha256(open(path, "rb").read()).hexdigest(),
-                     "wer_before": 20.0, "wer_after": 15.0, "samples": 1}, open("srv/models/latest.json", "w"))
+                     "wer_before": 20.0, "wer_after": 15.0, "samples": 1}, open("srv/release/release.json", "w"))
+          json.dump({"samples": 1, "trained_on": 0, "result": "test"}, open("srv/status.json", "w"))
           PY
           # Landscape: the test build allows only landscape with -testLandscape.
           xcrun simctl terminate "$DEVICE" "$ID" || true
           xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav" -testLandscape 1 \
             "${TRAIN_ARGS[@]}" -trainingAutoUpdate YES -personalModelLastCheck 0
-          sleep 25
+          # Downloading and compiling 212 MB takes a while.
+          for i in $(seq 90); do grep -q "installed personal model\|loaded personal-v1" out/log.txt && break; sleep 2; done
+          sleep 5
           xcrun simctl io "$DEVICE" screenshot out/6-landscape.png
           # A preset picture behind clear keys, larger letters and the number row.
           xcrun simctl terminate "$DEVICE" "$ID" || true
@@ -439,8 +456,8 @@ jobs:
           xcrun simctl io "$DEVICE" screenshot out/8c-settings-no-suggestion-row.png
           kill $LOG || true
           echo "===== log"
-          grep -E "live |final pass|recording started|test audio|whisper_full|correction|personal|loaded|model v|edits|dictation |auto stop|no speech|glide|keyboard given" out/log.txt | cut -c1-300 || true
-          echo "===== training server"
+          grep -E "final text|stream|recording started|test audio|correction|personal|loaded|model|edits|dictation |auto stop|no speech|glide|keyboard given" out/log.txt | cut -c1-300 || true
+          echo "===== GitHub stand-in"
           cat out/server.log || true
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian && cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ || echo "no crash reports"
 

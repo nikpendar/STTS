@@ -368,7 +368,7 @@ final class KeyboardViewController: UIInputViewController {
             // Dictation id + newline + text.
             let parts = body.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
             let result = VoiceCommands.process(String(parts.last ?? ""), punctuation: options.voicePunctuation,
-                                               commands: options.voiceCommands)
+                                               commands: options.voiceCommands, zwnj: options.autoZWNJ)
             perform(result)
             cancelTimeout()
             state = .ready
@@ -382,13 +382,10 @@ final class KeyboardViewController: UIInputViewController {
         case DictationBridge.partialPrefix:
             // Empty after a live pass that found nothing new.
             if !body.isEmpty {
-                let draft = VoiceCommands.draft(body, punctuation: options.voicePunctuation, commands: options.voiceCommands)
+                let draft = VoiceCommands.draft(body, punctuation: options.voicePunctuation, commands: options.voiceCommands,
+                                                zwnj: options.autoZWNJ)
                 if !draft.isEmpty { replaceLiveText(with: draft) }
             }
-            if state == .recording { orb.liveTextArrived() }
-        case DictationBridge.livePrefix:
-            guard state == .recording, let seconds = Double(body) else { return }
-            orb.liveProgress(expected: seconds)
         case DictationBridge.estimatePrefix:
             guard state == .transcribing, let seconds = Double(body) else { return }
             orb.processingRing.retarget(expected: seconds)
@@ -2478,7 +2475,8 @@ private final class DictationOrbView: UIControl {
     private let gradientMask = CAShapeLayer()
     /// The arc that turns while the recording starts.
     private let loading = CAShapeLayer()
-    /// Live text while speaking.
+    /// The track around the orb while recording. (Whisper's live passes filled it; the
+    /// streaming model has no passes to wait for.)
     let liveRing = ProgressRing(color: .systemTeal, width: 3)
     /// The transcription after the recording.
     let processingRing = ProgressRing(color: .systemBlue, width: 3)
@@ -2605,34 +2603,6 @@ private final class DictationOrbView: UIControl {
             processingRing.isHidden = false
             caption.text = "در حال تبدیل به متن… برای لغو بزنید"
         }
-        CATransaction.commit()
-    }
-
-    /// A live pass started, or its estimate changed: `seconds` until its text.
-    func liveProgress(expected seconds: Double) {
-        if liveRing.isRunning {
-            liveRing.retarget(expected: seconds)
-        } else {
-            liveRing.begin(expected: seconds)
-        }
-        if mode == .recording { setLiveRingVisible(true) }
-    }
-
-    /// The live text arrived: the ring fills and fades until the next pass; the track stays.
-    func liveTextArrived() {
-        guard liveRing.isRunning else { return }
-        liveRing.finish()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-            guard let self, !self.liveRing.isRunning else { return }
-            self.setLiveRingVisible(false)
-            self.liveRing.reset()
-        }
-    }
-
-    private func setLiveRingVisible(_ visible: Bool) {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        liveRing.ring.isHidden = !visible
         CATransaction.commit()
     }
 

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Spoken punctuation and editing commands in dictated text; numbers said in words are
-/// written in digits (`SpokenNumbers`).
+/// written in digits (`SpokenNumbers`), and ZWNJ is put back (`Lexicon.restoringZWNJ`).
 ///
 /// Whether «نقطه» is a full stop or the word is decided from what is around it. It is a
 /// command before a pause (the app marks pauses with `DictationBridge.pauseMark`), at the end,
@@ -121,7 +121,9 @@ enum VoiceCommands {
     }
 
     /// Reads `raw`, a transcript from the app with pause marks.
-    static func process(_ raw: String, punctuation: Bool, commands: Bool, lexicon: Lexicon = .shared) -> Result {
+    /// `zwnj` puts ZWNJ where the word list writes it (`Lexicon.restoringZWNJ`).
+    static func process(_ raw: String, punctuation: Bool, commands: Bool, zwnj: Bool = true,
+                        lexicon: Lexicon = .shared) -> Result {
         var result = Result()
         var texts: [String] = []
         func flush() {
@@ -138,15 +140,16 @@ enum VoiceCommands {
             }
             let before = texts.joined(separator: " ")
             let text = punctuation ? convert(tokens, before: before, lexicon: lexicon, spoken: &result.spoken) : String(piece)
-            texts.append(SpokenNumbers.digits(in: text))
+            let written = SpokenNumbers.digits(in: text)
+            texts.append(zwnj ? lexicon.restoringZWNJ(written) : written)
         }
         flush()
         return result
     }
 
     /// Live text: punctuation applied, editing commands left out until the final text.
-    static func draft(_ raw: String, punctuation: Bool, commands: Bool, lexicon: Lexicon = .shared) -> String {
-        process(raw, punctuation: punctuation, commands: commands, lexicon: lexicon).text
+    static func draft(_ raw: String, punctuation: Bool, commands: Bool, zwnj: Bool = true, lexicon: Lexicon = .shared) -> String {
+        process(raw, punctuation: punctuation, commands: commands, zwnj: zwnj, lexicon: lexicon).text
     }
 
     private static func tokenize(_ text: Substring) -> [Token] {
