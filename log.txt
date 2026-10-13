@@ -1,0 +1,26 @@
+getpwuid_r did not find a match for uid 501
+Filtering the log data using "subsystem == "ir.nikpendar.PersianSTT" OR process CONTAINS "PersianSTTKeyboard""
+Timestamp                       Thread     Type        Activity             PID    TTL  
+2026-10-13 11:16:48.017081+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded Koochik.mlmodelc, compute units 2
+2026-10-13 11:17:12.287146+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, live text true, auto stop 2.000000 s
+2026-10-13 11:17:29.254810+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] auto stop after 2.2 s of silence
+2026-10-13 11:17:33.891875+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: 2.40 s of audio left, done in 3.73 s
+2026-10-13 11:17:33.917530+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] following dictation C8A87EC7-E524-4643-919B-EFD99DD12432 for edits
+2026-10-13 11:18:26.168314+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] edits finished
+2026-10-13 11:18:26.169416+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] sending correction for C8A87EC7-E524-4643-919B-EFD99DD12432
+2026-10-13 11:18:26.183962+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] correction for C8A87EC7-E524-4643-919B-EFD99DD12432
+2026-10-13 11:18:26.198051+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:personal] queued correction C8A87EC7-E524-4643-919B-EFD99DD12432
+2026-10-13 11:18:39.051474+0000 0xfd6e     Info        0x631e5              21408  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] glide: 3 readings
+2026-10-13 11:19:33.052287+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, live text true, auto stop 2.000000 s
+2026-10-13 11:19:41.465464+0000 0xfd6e     Info        0x0                  21408  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] no speech in 8.0 s; recording dropped
+2026-10-13 11:20:01.934472+0000 0x15f9f    Info        0x0                  31229  0    PersianSTT: [ir.nikpendar.PersianSTT:personal] repository has model v1, using v0
+2026-10-13 11:20:03.276330+0000 0x15f9f    Info        0x0                  31229  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded Koochik.mlmodelc, compute units 2
+2026-10-13 11:20:05.824815+0000 0x15f9f    Info        0x0                  31229  0    PersianSTT: [ir.nikpendar.PersianSTT:personal] installed personal model v1
+2026-10-13 11:20:07.255746+0000 0x15f9f    Info        0x0                  31229  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 2
+2026-10-13 11:20:15.322917+0000 0x16572    Info        0x0                  31813  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] keyboard given 262.000000 of 306.000000 points
+2026-10-13 11:20:16.919453+0000 0x16572    Info        0x0                  31813  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 2
+2026-10-13 11:20:35.699688+0000 0x16572    Info        0x780f2              31813  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] glide: 3 readings
+2026-10-13 11:20:40.052916+0000 0x1771e    Info        0x0                  33598  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 2
+2026-10-13 11:20:54.102963+0000 0x179a4    Info        0x0                  33779  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 2
+2026-10-13 11:21:08.665207+0000 0x17fdc    Info        0x0                  34392  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 2
+Child process terminated with signal 15: Terminated
