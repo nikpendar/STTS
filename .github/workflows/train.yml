@@ -1,0 +1,230 @@
+# Learning from corrections, on GitHub's free runners: the app uploads each corrected dictation
+# (samples/<id>.wav and .json) to the user's private repository (TRAINING_REPO, default
+# nikpendar/keyless-training); every 4 hours this workflow counts them and, when enough are new,
+# fine-tunes Shenava Koochik on all of them (training/finetune.py, CPU), exports the app's Core
+# ML model, checks it with the app's own code on macOS against the base model, and publishes it
+# as a release of that repository only if it transcribes the held-out samples better without
+# getting worse on general sentences (FLEURS). The app downloads it from there.
+#
+# Setup: the secret TRAINING_TOKEN, a fine-grained token with Contents read and write on the
+# private repository only (the same one the app uses). This repository is public, so its log
+# never shows the samples' text: only counts and error rates. Between jobs the model travels
+# encrypted with that token.
+#
+# source=fleurs runs everything on public FLEURS sentences instead, as a test, and publishes
+# nothing.
+name: Train personal model
+
+on:
+  schedule:
+    - cron: "17 */4 * * *"
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "repo (the user's samples) or fleurs (a test on public sentences, publishes nothing)"
+        default: repo
+      min_new:
+        description: New samples needed to train
+        default: "10"
+      max_steps:
+        description: Training steps at most
+        default: "600"
+      force:
+        description: Publish even if the check finds no improvement
+        type: boolean
+        default: false
+
+concurrency:
+  group: training
+  cancel-in-progress: false
+
+env:
+  REPO: ${{ vars.TRAINING_REPO || 'nikpendar/keyless-training' }}
+  SOURCE: ${{ github.event.inputs.source || 'repo' }}
+  NEMO_URL: https://huggingface.co/Reza2kn/Shenava-Koochik-v1.0/resolve/main/shenava-koochik-v1.0.nemo
+  NEMO_SHA256: f7b5124a9fd2d50c15bf070abdc0f80ec2449d64948c5657adb79a7e91dd1d16
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      train: ${{ steps.count.outputs.train }}
+      total: ${{ steps.count.outputs.total }}
+    steps:
+      - name: Count new samples
+        id: count
+        env:
+          GH_TOKEN: ${{ secrets.TRAINING_TOKEN }}
+          MIN_NEW: ${{ github.event.inputs.min_new || '10' }}
+        run: |
+          if [ "$SOURCE" = fleurs ]; then
+            echo "train=true" >> "$GITHUB_OUTPUT"; echo "total=0" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::The TRAINING_TOKEN secret is not set; nothing to train."
+            echo "train=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          total="$(gh api "repos/$REPO/git/trees/HEAD?recursive=1" --jq '[.tree[] | select(.path | test("^samples/.*\\.json$"))] | length' || echo 0)"
+          trained="$(gh api "repos/$REPO/contents/status.json" -H "Accept: application/vnd.github.raw+json" 2>/dev/null | jq -r '.trained_on // 0' || echo 0)"
+          echo "$total samples, $trained at the last training"
+          echo "total=$total" >> "$GITHUB_OUTPUT"
+          if [ "$total" -ge 10 ] && [ $((total - trained)) -ge "$MIN_NEW" ]; then
+            echo "train=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "train=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  train:
+    needs: check
+    if: needs.check.outputs.train == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/checkout@v5
+        if: env.SOURCE == 'repo'
+        with:
+          repository: ${{ env.REPO }}
+          token: ${{ secrets.TRAINING_TOKEN }}
+          path: data
+
+      - name: FLEURS sentences
+        run: bash training/fleurs.sh
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: training/requirements.txt
+
+      - name: Install NeMo
+        run: |
+          pip install -q --extra-index-url https://download.pytorch.org/whl/cpu -r training/requirements.txt
+          pip freeze | grep -iE "^(nemo|torch|coremltools|lightning|numpy)" || true
+
+      - uses: actions/cache@v4
+        with:
+          path: base.nemo
+          key: koochik-nemo-${{ env.NEMO_SHA256 }}
+
+      - name: Base model
+        run: |
+          [ -s base.nemo ] || curl -fsSL --retry 3 "$NEMO_URL" -o base.nemo
+          echo "$NEMO_SHA256  base.nemo" | sha256sum -c -
+
+      - name: Fine-tune and export
+        env:
+          MAX_STEPS: ${{ github.event.inputs.max_steps || '600' }}
+        run: |
+          samples=data/samples
+          [ "$SOURCE" = fleurs ] && samples=fleurs-samples
+          python training/finetune.py --base base.nemo --samples "$samples" --out out --fleurs fleurs-general \
+            --max-steps "$MAX_STEPS" --minutes 270
+
+      - name: Encrypt the model
+        env:
+          KEY: ${{ secrets.TRAINING_TOKEN || github.run_id }}
+        run: |
+          tar -cf - -C out . | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 -pass env:KEY -out model.enc
+          ls -l model.enc
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: trained-model
+          path: model.enc
+          retention-days: 1
+          compression-level: 0
+
+  verify:
+    needs: [check, train]
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/checkout@v5
+        if: env.SOURCE == 'repo'
+        with:
+          repository: ${{ env.REPO }}
+          token: ${{ secrets.TRAINING_TOKEN }}
+          path: data
+
+      - name: FLEURS sentences
+        run: bash training/fleurs.sh
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: trained-model
+
+      - name: Decrypt the model
+        env:
+          KEY: ${{ secrets.TRAINING_TOKEN || github.run_id }}
+        run: |
+          mkdir -p out
+          "$(brew --prefix openssl@3)/bin/openssl" enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 -pass env:KEY -in model.enc | tar -xf - -C out
+          python3 -c 'import json; s = json.load(open("out/summary.json")); print({k: s[k] for k in ("samples", "training", "held_out", "steps", "nemo_wer_before", "nemo_wer_after", "minutes")})'
+
+      - name: Check with the app's code
+        id: check
+        run: |
+          bash ./setup.sh model
+          xcrun coremlcompiler compile build-model/Koochik.mlmodel compiled-base --deployment-target 15.0 --platform ios
+          xcrun coremlcompiler compile out/Koochik-personal.mlmodel compiled-personal --deployment-target 15.0 --platform ios
+          xcrun swiftc -O -o shenava-check PersianSTT/ShenavaStream.swift Tests/ShenavaCheck/main.swift
+          samples=data/samples
+          [ "$SOURCE" = fleurs ] && samples=fleurs-samples
+          for model in base personal; do
+            mkdir -p "held-$model" "general-$model"
+            cut -f1 out/heldout.tsv | while read -r name; do cp "$samples/$name" "held-$model/"; done
+            cp fleurs-general/*.wav "general-$model/"
+            for set in held general; do
+              ./shenava-check compiled-$model/*.mlmodelc PersianSTT/Models "$set-$model" | tail -1
+            done
+          done
+          held_base=$(python3 training/score.py out/heldout.tsv held-base)
+          held_personal=$(python3 training/score.py out/heldout.tsv held-personal)
+          general_base=$(python3 training/score.py fleurs-general/refs.tsv general-base)
+          general_personal=$(python3 training/score.py fleurs-general/refs.tsv general-personal)
+          echo "::notice::Held-out WER $held_base -> $held_personal; FLEURS WER $general_base -> $general_personal"
+          better=$(python3 -c "print('true' if $held_personal < $held_base and $general_personal <= $general_base + 1.0 else 'false')")
+          { echo "held_base=$held_base"; echo "held_personal=$held_personal"; echo "general_base=$general_base"
+            echo "general_personal=$general_personal"; echo "better=$better"; } >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        if: env.SOURCE == 'repo'
+        env:
+          GH_TOKEN: ${{ secrets.TRAINING_TOKEN }}
+          BETTER: ${{ steps.check.outputs.better }}
+          FORCE: ${{ github.event.inputs.force == 'true' }}
+          TOTAL: ${{ needs.check.outputs.total }}
+          HELD_BASE: ${{ steps.check.outputs.held_base }}
+          HELD_PERSONAL: ${{ steps.check.outputs.held_personal }}
+          GENERAL_BASE: ${{ steps.check.outputs.general_base }}
+          GENERAL_PERSONAL: ${{ steps.check.outputs.general_personal }}
+        run: |
+          samples=$(python3 -c 'import json; print(json.load(open("out/summary.json"))["samples"])')
+          if [ "$BETTER" = true ] || [ "$FORCE" = true ]; then
+            last=$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null | tr -dc 0-9 || true)
+            version=$(( ${last:-0} + 1 ))
+            file="Koochik-personal-v$version.mlmodel"
+            mv out/Koochik-personal.mlmodel "$file"
+            body=$(python3 -c "import json, os, hashlib; print(json.dumps({'version': $version, 'size': os.path.getsize('$file'),
+              'sha256': hashlib.sha256(open('$file', 'rb').read()).hexdigest(), 'wer_before': $HELD_BASE,
+              'wer_after': $HELD_PERSONAL, 'samples': $samples}))")
+            gh api "repos/$REPO/releases" -f tag_name="v$version" -f name="Personal model v$version" -f body="$body" --jq .id > release-id
+            curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/octet-stream" \
+              --data-binary "@$file" "https://uploads.github.com/repos/$REPO/releases/$(cat release-id)/assets?name=$file" > /dev/null
+            result="نسخه‌ی $version منتشر شد: خطای کلمه روی نمونه‌های کنارگذاشته $HELD_BASE٪ ← $HELD_PERSONAL٪"
+            # Keeps the three newest releases.
+            for id in $(gh api "repos/$REPO/releases" --jq '.[3:][] | "\(.id) \(.tag_name)"' | tr ' ' ':'); do
+              gh api -X DELETE "repos/$REPO/releases/${id%%:*}" && gh api -X DELETE "repos/$REPO/git/refs/tags/${id#*:}" || true
+            done
+          else
+            result="آموزش با $samples نمونه دقیق‌تر نشد ($HELD_BASE٪ ← $HELD_PERSONAL٪؛ جمله‌های عمومی $GENERAL_BASE٪ ← $GENERAL_PERSONAL٪)؛ مدل قبلی می‌ماند."
+          fi
+          python3 -c "import json, sys, time; json.dump({'samples': $TOTAL, 'trained_on': $TOTAL, 'result': sys.argv[1],
+            'date': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}, open('status.json', 'w'), ensure_ascii=False)" "$result"
+          sha=$(gh api "repos/$REPO/contents/status.json" --jq .sha 2>/dev/null || true)
+          gh api -X PUT "repos/$REPO/contents/status.json" -f message="Training status" \
+            -f content="$(base64 < status.json | tr -d '\n')" ${sha:+-f sha="$sha"} > /dev/null
+          echo "::notice::$([ "$BETTER" = true ] || [ "$FORCE" = true ] && echo published || echo 'not published')"
