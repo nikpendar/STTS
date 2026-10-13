@@ -24,6 +24,12 @@ jobs:
       - uses: actions/checkout@v5
       - name: Build and run
         run: |
-          swiftc -O -module-name KeyboardLogic PersianSTTKeyboard/Lexicon.swift PersianSTTKeyboard/VoiceCommands.swift \
-            PersianSTTKeyboard/SpokenNumbers.swift PersianSTTKeyboard/TouchModel.swift Tests/KeyboardLogic/main.swift -o logic-test
-          ./logic-test PersianSTTKeyboard
+          # Errors and failed checks go to annotations, which are readable where the log is not.
+          if ! swiftc -O -module-name KeyboardLogic PersianSTTKeyboard/Lexicon.swift PersianSTTKeyboard/VoiceCommands.swift \
+            PersianSTTKeyboard/SpokenNumbers.swift PersianSTTKeyboard/TouchModel.swift Tests/KeyboardLogic/main.swift \
+            -o logic-test 2> build.txt; then
+            grep "error:" build.txt | head -20 | sed 's/^/::error::/'
+            exit 1
+          fi
+          set -o pipefail
+          ./logic-test PersianSTTKeyboard | tee result.txt || { grep "^FAIL" result.txt | sed 's/^/::error::/'; exit 1; }
