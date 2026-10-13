@@ -538,14 +538,18 @@ final class KeyboardViewController: UIInputViewController {
     /// Sends finished corrections to the app, and restarts the wait for the user to stop editing.
     private func report(_ corrections: [Correction]) {
         for var correction in corrections {
+            var corrected = correction.corrected
             if let forms = spokenForms.removeValue(forKey: correction.id) {
-                guard let restored = VoiceCommands.restoringSpoken(correction.corrected, original: forms.text,
+                guard let restored = VoiceCommands.restoringSpoken(corrected, original: forms.text,
                                                                    spoken: forms.spoken) else {
                     log.info("correction for \(correction.id, privacy: .public) not sent: its punctuation changed")
                     continue
                 }
-                correction = Correction(id: correction.id, original: correction.original, corrected: restored)
+                corrected = restored
             }
+            // The recording has numbers in words.
+            correction = Correction(id: correction.id, original: correction.original,
+                                    corrected: SpokenNumbers.words(in: corrected))
             log.info("sending correction for \(correction.id, privacy: .public)")
             correction.send()
         }

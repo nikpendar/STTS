@@ -1,6 +1,7 @@
 import Foundation
 
-/// Spoken punctuation and editing commands in dictated text.
+/// Spoken punctuation and editing commands in dictated text; numbers said in words are
+/// written in digits (`SpokenNumbers`).
 ///
 /// Whether «نقطه» is a full stop or the word is decided from what is around it. It is a
 /// command before a pause (the app marks pauses with `DictationBridge.pauseMark`), at the end,
@@ -136,7 +137,8 @@ enum VoiceCommands {
                 continue
             }
             let before = texts.joined(separator: " ")
-            texts.append(punctuation ? convert(tokens, before: before, lexicon: lexicon, spoken: &result.spoken) : String(piece))
+            let text = punctuation ? convert(tokens, before: before, lexicon: lexicon, spoken: &result.spoken) : String(piece)
+            texts.append(SpokenNumbers.digits(in: text))
         }
         flush()
         return result
@@ -181,7 +183,7 @@ enum VoiceCommands {
             switch token {
             case .word(let word): words.append(Lexicon.key(word))
             case .space: continue
-            // Whisper's own full stop or comma after the command does not matter.
+            // The model's own full stop or comma after the command does not matter.
             case .other(let text) where text.unicodeScalars.allSatisfy({ ".،,!؟?".unicodeScalars.contains($0) }): continue
             case .other: return nil
             }
@@ -314,7 +316,7 @@ enum VoiceCommands {
             }
             let symbol = found.symbol
             while out.last == " " { out.removeLast() }
-            // Whisper's own punctuation in the same place gives way to the spoken one.
+            // The model's own punctuation in the same place gives way to the spoken one.
             if closing.contains(symbol), symbol != ")", symbol != "»",
                let last = out.unicodeScalars.last, ending.contains(last) {
                 out.unicodeScalars.removeLast()
@@ -328,7 +330,7 @@ enum VoiceCommands {
                 out += symbol
             }
             i = found.end + 1
-            // Whisper's punctuation right after the spoken one is dropped, and so are spaces
+            // The model's punctuation right after the spoken one is dropped, and so are spaces
             // after an opening bracket or a line break.
             while i < tokens.count {
                 if tokens[i] == .space, !closing.contains(symbol) { i += 1; continue }

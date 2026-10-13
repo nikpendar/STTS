@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000041 /* SpokenNumbers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003B /* SpokenNumbers.swift */; };
+		A10000000000000000000040 /* SpokenNumbers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003B /* SpokenNumbers.swift */; };
 		A10000000000000000000001 /* PersianSTTApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* PersianSTTApp.swift */; };
 		A10000000000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* ContentView.swift */; };
 		A10000000000000000000003 /* Transcriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* Transcriber.swift */; };
@@ -105,6 +107,7 @@
 		A20000000000000000000032 /* fa_words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = fa_words.txt; sourceTree = "<group>"; };
 		A20000000000000000000033 /* ModelImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImporter.swift; sourceTree = "<group>"; };
 		A20000000000000000000034 /* VoiceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommands.swift; sourceTree = "<group>"; };
+		A2000000000000000000003B /* SpokenNumbers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpokenNumbers.swift; sourceTree = "<group>"; };
 		A20000000000000000000039 /* TouchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchModel.swift; sourceTree = "<group>"; };
 		A2000000000000000000003A /* KeyboardBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardBackground.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* fa_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = fa_bigrams.bin; sourceTree = "<group>"; };
@@ -190,6 +193,7 @@
 				A20000000000000000000031 /* GlideTyping.swift */,
 				A20000000000000000000032 /* fa_words.txt */,
 				A20000000000000000000034 /* VoiceCommands.swift */,
+				A2000000000000000000003B /* SpokenNumbers.swift */,
 				A20000000000000000000039 /* TouchModel.swift */,
 				A20000000000000000000035 /* fa_bigrams.bin */,
 				A20000000000000000000036 /* en_words.txt */,
@@ -314,6 +318,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000040 /* SpokenNumbers.swift in Sources */,
 				A10000000000000000000001 /* PersianSTTApp.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
 				A10000000000000000000003 /* Transcriber.swift in Sources */,
@@ -340,6 +345,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000041 /* SpokenNumbers.swift in Sources */,
 				A1000000000000000000000D /* KeyboardViewController.swift in Sources */,
 				A10000000000000000000023 /* EditTracker.swift in Sources */,
 				A1000000000000000000000C /* DictationBridge.swift in Sources */,

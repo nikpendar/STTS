@@ -60,6 +60,28 @@ check("restore", VoiceCommands.restoringSpoken("سلام. خوبید؟", origina
 check("restore skips changed punctuation",
       VoiceCommands.restoringSpoken("سلام خوبید؟", original: dictated.text, spoken: dictated.spoken) ?? "nil", "nil")
 
+// Numbers said in words are written in digits.
+check("number 23", text("بیست و سه نفر"), "۲۳ نفر")
+check("year", text("سال هزار و چهارصد و سه"), "سال ۱۴۰۳")
+check("hundreds", text("صد و بیست و پنج تومن"), "۱۲۵ تومن")
+check("millions", text("دو میلیون و پانصد هزار"), "۲٬۵۰۰٬۰۰۰")
+check("thousand alone", text("هزار بار"), "۱۰۰۰ بار")
+check("decimal", text("سه ممیز پنج درصد"), "۳٫۵ درصد")
+check("lone یک stays", text("یک روز خوب"), "یک روز خوب")
+check("یک in a number", text("صد و یک"), "۱۰۱")
+check("lone نه stays", text("نه نمی‌خوام"), "نه نمی‌خوام")
+check("نه with a counter", text("نه تا سیب"), "۹ تا سیب")
+check("lone ده stays", text("ده بزرگ"), "ده بزرگ")
+check("ordinal stays", text("بیست و سوم مهر"), "بیست و سوم مهر")
+check("two numbers", text("دو سه روز"), "۲ ۳ روز")
+check("number then و", text("دو و سه"), "۲ و ۳")
+check("number before full stop", text("بیست و یک نقطه"), "۲۱.")
+check("دو نقطه still a colon", text("موارد دو نقطه"), "موارد:")
+check("numbers with punctuation off", text("سی و دو", punctuation: false), "۳۲")
+check("words back for training", SpokenNumbers.words(in: "۲۳ نفر در سال ۱۴۰۳ و ۲٬۵۰۰٬۰۰۰ تومن، ۳٫۵ درصد."),
+      "بیست و سه نفر در سال هزار و چهارصد و سه و دو میلیون و پانصد هزار تومن، سه ممیز پنج درصد.")
+check("phone digits back", SpokenNumbers.words(in: "۰۹۱۲"), "صفر نه یک دو")
+
 // Suggestions, with neighbouring keys of the Persian layout as the keyboard sets them.
 let rows = ["ضصقفغعهخحجچ", "شسیبلاتنمکگ", "ظطزرذدپوث"].map(Array.init)
 var neighbours: [(Character, Character)] = []

@@ -1,4 +1,4 @@
-# Compiles the keyboard's word logic (suggestions, typo correction, spoken punctuation) with
+# Compiles the keyboard's word logic (suggestions, typo correction, spoken punctuation, numbers) with
 # Tests/KeyboardLogic on a Mac and runs the checks; no simulator or app build needed.
 name: Keyboard logic test
 
@@ -8,6 +8,7 @@ on:
     paths:
       - PersianSTTKeyboard/Lexicon.swift
       - PersianSTTKeyboard/VoiceCommands.swift
+      - PersianSTTKeyboard/SpokenNumbers.swift
       - PersianSTTKeyboard/TouchModel.swift
       - PersianSTTKeyboard/fa_words.txt
       - PersianSTTKeyboard/fa_bigrams.bin
@@ -24,5 +25,5 @@ jobs:
       - name: Build and run
         run: |
           swiftc -O -module-name KeyboardLogic PersianSTTKeyboard/Lexicon.swift PersianSTTKeyboard/VoiceCommands.swift \
-            PersianSTTKeyboard/TouchModel.swift Tests/KeyboardLogic/main.swift -o logic-test
+            PersianSTTKeyboard/SpokenNumbers.swift PersianSTTKeyboard/TouchModel.swift Tests/KeyboardLogic/main.swift -o logic-test
           ./logic-test PersianSTTKeyboard
