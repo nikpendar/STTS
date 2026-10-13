@@ -328,22 +328,27 @@ final class KeyboardSession: ObservableObject {
                 return
             }
             await engine.begin()
+            var latest = ""
             var shown = ""
+            var shownAt = Date.distantPast
             while let self, self.isCapturing, id == self.dictationID {
                 let piece = self.collector.snapshot(from: self.fedCount)
                 if !piece.isEmpty {
                     self.fedCount += piece.count
                     do {
-                        if let text = try await engine.feed(piece), id == self.dictationID, self.isCapturing,
-                           Self.liveTranscription, text != shown {
-                            shown = text
-                            self.publishPartial(text)
-                        }
+                        if let text = try await engine.feed(piece) { latest = text }
                     } catch {
                         log.error("stream failed: \(error.localizedDescription, privacy: .public)")
                         self.streamFailed = true
                         return
                     }
+                }
+                // A new word can come every 80 ms; the keyboard gets the text at most 4 times a second.
+                if latest != shown, Date().timeIntervalSince(shownAt) >= 0.25, id == self.dictationID, self.isCapturing,
+                   Self.liveTranscription {
+                    shown = latest
+                    shownAt = Date()
+                    self.publishPartial(latest)
                 }
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
