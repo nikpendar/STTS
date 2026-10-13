@@ -118,6 +118,7 @@ jobs:
       - name: Fine-tune and export
         env:
           MAX_STEPS: ${{ github.event.inputs.max_steps || (github.event_name == 'push' && '60') || '600' }}
+          TQDM_DISABLE: "1"
         run: |
           samples=data/samples
           [ "$SOURCE" = fleurs ] && samples=fleurs-samples
@@ -127,7 +128,7 @@ jobs:
           python training/finetune.py --base base.nemo --samples "$samples" --out out --fleurs fleurs-general \
             --max-steps "$MAX_STEPS" --minutes 270 2>&1 | tee train.log && ok=1 || ok=0
           { grep -E "usable|training [0-9]|WER|exported" train.log || true; } | annotate "::notice::"
-          [ $ok = 1 ] || { tail -n 40 train.log | annotate "::error::"; exit 1; }
+          [ $ok = 1 ] || { tr '\r' '\n' < train.log | grep -vE "ops/s|passes/s|it/s" | tail -n 40 | annotate "::error::"; exit 1; }
 
       - name: Encrypt the model
         env:
