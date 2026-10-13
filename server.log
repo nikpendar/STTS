@@ -1,0 +1,6 @@
+PersianSTT training server on http://sat12-dp147-a4ae7dab-c34a-4219-a85d-4eefde446db9-5601658960B9.local:8765  (data: /Users/runner/work/STTS/STTS/srv)
+127.0.0.1 "GET /status HTTP/1.1" 200 -
+127.0.0.1 "GET /model/latest HTTP/1.1" 404 -
+127.0.0.1 "GET /status HTTP/1.1" 200 -
+127.0.0.1 "GET /model/latest HTTP/1.1" 200 -
+127.0.0.1 "GET /model/1 HTTP/1.1" 200 -

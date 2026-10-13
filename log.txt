@@ -1,0 +1,47 @@
+getpwuid_r did not find a match for uid 501
+Filtering the log data using "subsystem == "ir.nikpendar.PersianSTT" OR process CONTAINS "PersianSTTKeyboard""
+Timestamp                       Thread     Type        Activity             PID    TTL  
+2026-10-13 00:47:14.507057+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded ggml-base-q5_1.bin
+2026-10-13 00:47:55.556726+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, live text true, auto stop 2.000000 s
+2026-10-13 00:47:55.836470+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live loop started
+2026-10-13 00:47:58.061504+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass (preview) starting at 2.1 s, 2.1 s of speech, estimate 2.6 s
+2026-10-13 00:48:00.238001+0000 0x1129e    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:whisper] whisper_full: 2 s, ctx 384, preview true, threads 1, qos 25, 2.17 s (encode 1.24 s), code 0
+2026-10-13 00:48:00.246691+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass: 2.1 s audio in 2.2 s, preview, 75 chars
+2026-10-13 00:48:00.246889+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass (preview) starting at 3.9 s, 3.9 s of speech, estimate 2.9 s
+2026-10-13 00:48:01.815328+0000 0x11279    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:whisper] whisper_full: 3 s, ctx 384, preview true, threads 1, qos 25, 1.57 s (encode 0.63 s), code 0
+2026-10-13 00:48:01.817212+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass: 3.9 s audio in 1.6 s, preview, 71 chars
+2026-10-13 00:48:01.817364+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass (preview) starting at 5.4 s, 5.4 s of speech, estimate 2.9 s
+2026-10-13 00:48:03.745990+0000 0x123d7    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:whisper] whisper_full: 5 s, ctx 398, preview true, threads 1, qos 25, 1.93 s (encode 0.57 s), code 0
+2026-10-13 00:48:03.747768+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass: 5.4 s audio in 1.9 s, preview, 90 chars
+2026-10-13 00:48:03.747905+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass (preview) starting at 7.2 s, 7.2 s of speech, estimate 3.4 s
+2026-10-13 00:48:05.966548+0000 0x123d7    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:whisper] whisper_full: 7 s, ctx 488, preview true, threads 1, qos 25, 2.22 s (encode 0.68 s), code 0
+2026-10-13 00:48:05.967962+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass: 7.2 s audio in 2.2 s, preview, 163 chars
+2026-10-13 00:48:05.968185+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass (preview) starting at 9.3 s, 9.3 s of speech, estimate 3.8 s
+2026-10-13 00:48:08.971288+0000 0x11279    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:whisper] whisper_full: 9 s, ctx 593, preview true, threads 1, qos 25, 3.00 s (encode 0.98 s), code 0
+2026-10-13 00:48:08.973801+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass: 9.3 s audio in 3.0 s, preview, 164 chars
+2026-10-13 00:48:08.975777+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass (commit) starting at 12.2 s, 11.6 s of speech, estimate 4.0 s
+2026-10-13 00:48:17.265264+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] auto stop after 2.0 s of silence
+2026-10-13 00:48:28.140862+0000 0x1125b    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:whisper] whisper_full: 11 s, ctx 705, preview false, threads 1, qos 25, 19.16 s (encode 1.10 s), code 0
+2026-10-13 00:48:28.141983+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live pass: 11.6 s audio in 19.2 s, commit, 15 chars
+2026-10-13 00:48:28.142034+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live loop ended
+2026-10-13 00:48:38.602349+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final pass: no result after 20 s; stopped
+2026-10-13 00:48:38.611986+0000 0x1125b    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:whisper] whisper_full: 6 s, ctx 475, preview false, threads 1, qos 25, 10.47 s (encode 0.61 s), code -9
+2026-10-13 00:48:38.625718+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] following dictation 9898E00A-ADF2-41CF-BFEA-1C0BFA4A63C9 for edits
+2026-10-13 00:49:32.574043+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] edits finished
+2026-10-13 00:49:32.577011+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] sending correction for 9898E00A-ADF2-41CF-BFEA-1C0BFA4A63C9
+2026-10-13 00:49:50.064585+0000 0x111da    Info        0x79f45              22323  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] glide: 3 readings
+2026-10-13 00:51:17.959638+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, live text true, auto stop 2.000000 s
+2026-10-13 00:51:17.970619+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live loop started
+2026-10-13 00:51:26.205120+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] no speech in 8.0 s; recording dropped
+2026-10-13 00:51:26.371411+0000 0x111da    Info        0x0                  22323  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live loop ended
+2026-10-13 00:52:07.512988+0000 0x18ea6    Info        0x0                  35392  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded ggml-base-q5_1.bin
+2026-10-13 00:52:07.945471+0000 0x18ea6    Info        0x0                  35392  0    PersianSTT: [ir.nikpendar.PersianSTT:personal] server has model v1, using v0
+2026-10-13 00:52:08.521563+0000 0x18ea6    Info        0x0                  35392  0    PersianSTT: [ir.nikpendar.PersianSTT:personal] installed personal model v1
+2026-10-13 00:52:08.625293+0000 0x18ea6    Info        0x0                  35392  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded ggml-personal-v1.bin
+2026-10-13 00:52:38.929385+0000 0x19c16    Info        0x0                  36834  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] keyboard given 262.000000 of 306.000000 points
+2026-10-13 00:52:39.397912+0000 0x19c16    Info        0x0                  36834  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded ggml-personal-v1.bin
+2026-10-13 00:53:05.426213+0000 0x19c16    Info        0x969d4              36834  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] glide: 3 readings
+2026-10-13 00:53:12.640135+0000 0x1b006    Info        0x0                  39018  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded ggml-personal-v1.bin
+2026-10-13 00:53:32.206669+0000 0x1b62b    Info        0x0                  39663  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded ggml-personal-v1.bin
+2026-10-13 00:53:51.525447+0000 0x1bc49    Info        0x0                  40287  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded ggml-personal-v1.bin
+Child process terminated with signal 15: Terminated
