@@ -12,10 +12,12 @@
 # encrypted with that token.
 #
 # source=fleurs runs everything on public FLEURS sentences instead, as a test, and publishes
-# nothing.
+# nothing; a push to the branch training-test does the same with 60 steps.
 name: Train personal model
 
 on:
+  push:
+    branches: [training-test]
   schedule:
     - cron: "17 */4 * * *"
   workflow_dispatch:
@@ -40,7 +42,7 @@ concurrency:
 
 env:
   REPO: ${{ vars.TRAINING_REPO || 'nikpendar/keyless-training' }}
-  SOURCE: ${{ github.event.inputs.source || 'repo' }}
+  SOURCE: ${{ github.event.inputs.source || (github.event_name == 'push' && 'fleurs') || 'repo' }}
   NEMO_URL: https://huggingface.co/Reza2kn/Shenava-Koochik-v1.0/resolve/main/shenava-koochik-v1.0.nemo
   NEMO_SHA256: f7b5124a9fd2d50c15bf070abdc0f80ec2449d64948c5657adb79a7e91dd1d16
 
@@ -115,7 +117,7 @@ jobs:
 
       - name: Fine-tune and export
         env:
-          MAX_STEPS: ${{ github.event.inputs.max_steps || '600' }}
+          MAX_STEPS: ${{ github.event.inputs.max_steps || (github.event_name == 'push' && '60') || '600' }}
         run: |
           samples=data/samples
           [ "$SOURCE" = fleurs ] && samples=fleurs-samples
