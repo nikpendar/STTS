@@ -121,8 +121,12 @@ jobs:
         run: |
           samples=data/samples
           [ "$SOURCE" = fleurs ] && samples=fleurs-samples
+          # The log's end goes into an annotation, as the run's log itself is not always at hand.
+          annotate() { python3 -c 'import sys; print(sys.argv[1] + sys.stdin.read().replace("%", "%25").replace("\r", "").replace("\n", "%0A"))' "$1"; }
+          set -o pipefail
           python training/finetune.py --base base.nemo --samples "$samples" --out out --fleurs fleurs-general \
-            --max-steps "$MAX_STEPS" --minutes 270
+            --max-steps "$MAX_STEPS" --minutes 270 2>&1 | tee train.log || { tail -n 40 train.log | annotate "::error::"; exit 1; }
+          grep -E "usable|training [0-9]|WER|exported" train.log | annotate "::notice::"
 
       - name: Encrypt the model
         env:
