@@ -18,7 +18,7 @@ on:
         description: >-
           JSON list of {label, file (whisper.cpp ggml name) or hf (Hugging Face repo), quant, beam, bo (decoders on temperature fallback), prompt,
           fa (flash attention), appctx (the app's shortened encoder window), ctxmin (its floor in frames),
-          split (seconds: recordings this long cut at pauses into shorter pieces, or "<from>/<longest>")}
+          split ("<from>/<longest>": recordings of <from> s or more cut at pauses into pieces under <longest> s, "20/14" as the app)}
         default: >-
           [{"label":"base-q5_1","file":"base-q5_1"},{"label":"small-q5_1","file":"small-q5_1"},
           {"label":"medium-q5_0","file":"medium-q5_0"},{"label":"large-v3-turbo-q5_0","file":"large-v3-turbo-q5_0"},

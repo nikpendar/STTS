@@ -213,7 +213,7 @@ final class Transcriber: ObservableObject {
     /// Used by the keyboard session, which records its own audio, and the dictation shortcut.
     /// Setting `abort` stops it with `WhisperError.cancelled`.
     /// `onEncoded` runs on the main actor once the encoder is done, with the seconds still expected.
-    /// A recording of 28 s or more is transcribed in pieces cut at pauses (`pieces(of:)`).
+    /// A recording of 20 s or more is transcribed in pieces cut at pauses (`pieces(of:)`).
     func transcribe(samples: [Float], abort: AbortFlag, preview: Bool = false,
                     onEncoded: ((Double) -> Void)? = nil) async throws -> String {
         if whisper == nil {
@@ -242,18 +242,22 @@ final class Transcriber: ObservableObject {
             .joined(separator: String(DictationBridge.pauseMark))
     }
 
-    /// Whisper runs a recording of 28 s or more in 30 s windows, the last one mostly padding,
-    /// where it added words that were never said («ممنون», «دوست دارید» after a sentence) and
-    /// encoded a full window for a few seconds of speech. Such a recording is cut into pieces
-    /// under 28 s instead, each fitting one shortened window: every piece ends at the latest
-    /// pause (`AudioLoader.pause(in:)`) that leaves at least 3 s for the next.
+    /// One Whisper pass over 20 s or more made up words or repeated itself: up to 28 s the shortened
+    /// window ends only 2.56 s after the speech, and from 28 s Whisper adds a second 30 s window,
+    /// mostly padding, where it wrote words never said («ممنون», «دوست دارید» after the last sentence).
+    /// Such a recording is cut into pieces under 14 s, each in the smallest window
+    /// (`minimumAudioContext`): every piece ends at the latest pause after 6 s
+    /// (`AudioLoader.pause(in:)`), else at the quietest point, and leaves at least 3 s for the next.
+    /// FLEURS sentences joined in twos: 26.4% WER in one pass, 13.3% in pieces; in threes 28.2% and
+    /// 17.0%, twice as fast; single sentences 10.4% and 10.2% (benchmark.yml, `scripts/split_long.py`).
     nonisolated static func pieces(of samples: [Float]) -> [Range<Int>] {
         let rate = Int(AudioLoader.sampleRate)
+        guard samples.count >= 20 * rate else { return [0..<samples.count] }
         var pieces: [Range<Int>] = []
         var start = 0
-        while samples.count - start >= 28 * rate {
-            let window = min(28 * rate, samples.count - start - 3 * rate)
-            let cut = AudioLoader.pause(in: Array(samples[start..<(start + window)])) ?? 20 * rate
+        while samples.count - start >= 14 * rate {
+            let window = Array(samples[start..<(start + min(14 * rate, samples.count - start - 3 * rate))])
+            let cut = AudioLoader.pause(in: window) ?? AudioLoader.quietest(in: window)
             pieces.append(start..<(start + cut))
             start += cut
         }
@@ -291,15 +295,13 @@ final class Transcriber: ObservableObject {
     }
 
     /// The encoder runs on a window of at least `minimumAudioContext` frames (50 per second),
-    /// or on a full 30 s window when the window is not shortened. A recording of 28 s or more
-    /// is transcribed in pieces (`pieces(of:)`), here about 26 s each.
+    /// or on a full 30 s window when the window is not shortened. A recording of 20 s or more
+    /// is transcribed in pieces (`pieces(of:)`), here about 12 s each.
     private func windowSeconds(_ sampleCount: Int) -> Double {
         let seconds = Double(sampleCount) / AudioLoader.sampleRate
-        let pieces = seconds >= 28 ? (seconds / 26).rounded(.up) : 1
-        if minimumAudioContext == 0 {
-            return 30 * pieces
-        }
-        return min(30 * pieces, max(seconds + 2.56 * pieces, pieces * Double(minimumAudioContext) / 50))
+        let pieces = seconds >= 20 ? (seconds / 12).rounded(.up) : 1
+        guard minimumAudioContext > 0 else { return 30 * pieces }
+        return pieces * min(30, max(seconds / pieces + 2.56, Double(minimumAudioContext) / 50))
     }
 
     private func learnSpeed(sampleCount: Int, result: WhisperContext.Result, preview: Bool) {

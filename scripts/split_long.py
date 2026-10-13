@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Cuts a recording of 28 s or more into pieces at pauses, as the app does
-(Transcriber.pieces): each piece ends at the latest pause in the next 28 s, leaving at least
-3 s for the next piece, so Whisper never runs a second 30 s window over the tail.
+"""Cuts a long recording into pieces at pauses, as the app does (Transcriber.pieces): each
+piece ends at the latest pause after 6 s, else at the quietest point, and leaves at least 3 s
+for the next.
 
 Usage: split_long.py <in.wav> <out_prefix> [seconds]. Writes <out_prefix>.<i>.wav and prints
-their paths. <seconds> is the longest piece (28 by default), or "<from>/<longest>": recordings of
-<from> seconds or more are cut into pieces shorter than <longest>.
+their paths. <seconds> is "<from>/<longest>": recordings of <from> seconds or more are cut into
+pieces shorter than <longest> ("20/14" by default, as the app), or one number for both.
 """
 import array
 import sys
@@ -13,7 +13,7 @@ import wave
 
 RATE = 16000
 FRAME = RATE // 10
-LIMITS = (sys.argv[3] if len(sys.argv) > 3 else "28").split("/")
+LIMITS = (sys.argv[3] if len(sys.argv) > 3 else "20/14").split("/")
 FROM, LONGEST = (int(float(x) * RATE) for x in (LIMITS if len(LIMITS) == 2 else LIMITS * 2))
 SHORTEST = 3 * RATE
 
@@ -38,7 +38,7 @@ def pause(samples):
 
 
 def quietest(samples):
-    """The quietest 0.1 s after 6 s, for a window with no pause."""
+    """AudioLoader.quietest(in:): the quietest 0.1 s after 6 s, for a window with no pause."""
     levels = [(sum(x * x for x in samples[s:s + FRAME]) / FRAME) ** 0.5
               for s in range(60 * FRAME, len(samples) - FRAME + 1, FRAME)]
     return (60 + min(range(len(levels)), key=lambda i: levels[i])) * FRAME + FRAME // 2

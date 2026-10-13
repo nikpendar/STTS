@@ -92,7 +92,8 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 برنامه (`PersianSTT/`):
 - `ContentView.swift`: صفحه‌ی تنظیمات (جلسه، گفتار، تایپ، ظاهر، مدل، یادگیری، راه‌اندازی)
 - `KeyboardSession.swift`: جلسه‌ی میکروفون پس‌زمینه برای کیبورد، تشخیص گفتار و سکوت، متن زنده و تبدیل نهایی
-- `Transcriber.swift`: بارگذاری مدل (شخصی، وارد‌شده یا داخلی) و تبدیل؛ ضبط میان‌بر دیکته (`DictateIntent.swift`)
+- `Transcriber.swift`: بارگذاری مدل (شخصی، وارد‌شده یا داخلی) و تبدیل؛ صدای ۲۰ ثانیه و بیشتر در مکث‌ها به تکه‌های زیر
+  ۱۴ ثانیه بریده می‌شود، چون Whisper در یک گذر طولانی کلمه از خودش می‌سازد؛ ضبط میان‌بر دیکته (`DictateIntent.swift`)
 - `WhisperContext.swift`: فراخوانی whisper.cpp، لغو تبدیل، کوتاه کردن پنجره‌ی صدا (حداقل ۲۰ ثانیه برای مدل‌های fine-tune)
 - `ModelImporter.swift`: وارد کردن فایل مدل از Files به Documents برنامه
 - `PersonalModel.swift`: صف و ارسال اصلاح‌ها، دانلود و نصب مدل شخصی
@@ -122,7 +123,7 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 - `Tests/KeyboardLogic`: آزمون پیشنهاد کلمه، اصلاح غلط تایپی، نیم‌فاصله و فرمان‌های صوتی بدون شبیه‌ساز
 - `setup.sh`: دانلود whisper.xcframework (و در صورت نیاز یک مدل) برای ساخت
 - `scripts/`: ساخت فهرست‌های کلمات، آیکون برنامه (`make_icon.py`)، تبدیل مدل‌های Hugging Face (`prepare_hf_model.py`)،
-  encoder برای Core ML (`convert_encoder_coreml.py`) و ابزار سنجش (`wer.py`، `prepare_cv.py`، `to_pcm16.py`)
+  encoder برای Core ML (`convert_encoder_coreml.py`) و ابزار سنجش (`wer.py`، `prepare_cv.py`، `to_pcm16.py`، `join_clips.py`، `split_long.py`)
 
 ## Workflowها
 - `build.yml`: ساخت IPA با هر push به `main`، و تبدیل و کوانتیزه‌ی مدل (artifact `Model`)
@@ -132,6 +133,7 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 - `screenshots.yml`: عکس صفحه‌های برنامه و حالت‌های کیبورد در شاخه‌ی `screenshots`
 - `logic-test.yml`: اجرای `Tests/KeyboardLogic` با هر تغییر در منطق کیبورد
 - `training-test.yml`: آزمون سرور آموزش
-- `benchmark.yml`: سنجش WER و سرعت مدل‌ها روی FLEURS یا Common Voice؛ گزارش در شاخه‌ی `benchmark-<dataset>`
+- `benchmark.yml`: سنجش WER و سرعت مدل‌ها روی FLEURS یا Common Voice، با گزینه‌ی چسباندن جمله‌ها به هم (`join`) و بریدن
+  در مکث‌ها مثل برنامه (`split`)؛ گزارش در شاخه‌ی `benchmark-<dataset>`
 - `hf-search.yml`: جست‌وجوی مدل‌ها در Hugging Face
 - `wordlists.yml` و `wordlists-en.yml`: ساخت دوباره‌ی فهرست‌های کلمات کیبورد
