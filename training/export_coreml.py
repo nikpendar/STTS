@@ -20,6 +20,29 @@ import numpy as np
 import torch
 
 
+def patch_coremltools_cast() -> None:
+    """coremltools turns a traced one-element tensor constant into a number with int(array),
+    which NumPy 2.3 and later refuse for arrays that are not 0-dimensional; .item() gives the
+    same number for any one-element array."""
+    from coremltools.converters.mil import Builder as mb
+    from coremltools.converters.mil.frontend.torch import ops
+
+    original = ops._cast
+    if getattr(original, "patched_for_item", False):
+        return
+
+    def _cast(context, node, dtype, dtype_name):
+        x = ops._get_inputs(context, node, expected=1)[0]
+        if (x.can_be_folded_to_const() and not isinstance(x.val, dtype)
+                and np.ndim(x.val) > 0 and np.size(x.val) == 1):
+            context.add(mb.const(val=dtype(np.asarray(x.val).item()), name=node.name), node.name)
+        else:
+            original(context, node, dtype, dtype_name)
+
+    _cast.patched_for_item = True
+    ops._cast = _cast
+
+
 def install_static_full_cache_masks(encoder, att_context: list[int]) -> None:
     """Constant attention masks for the steady-state streaming step (a full feature chunk and a
     full left cache): NeMo's mask builder uses dynamic shape operations that the Core ML
@@ -78,6 +101,7 @@ def export(model, out_path: Path, att_context=(70, 0)) -> dict:
     model's attention setup, so export last."""
     import coremltools as ct
 
+    patch_coremltools_cast()
     att_context = [int(x) for x in att_context]
     model = model.cpu().eval()
     model.encoder.change_attention_model(self_attention_model=None, att_context_size=att_context,
