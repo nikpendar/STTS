@@ -1,0 +1,772 @@
+Process:         PersianSTTKeyboard [26709]
+Path:            /Users/runner/Library/Developer/CoreSimulator/Devices/5C03C4B6-D40D-4BE5-AA0D-F717D00042B8/data/Containers/Bundle/Application/0419FA99-B65B-4A5D-8C78-4F5443225CA5/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard
+Load Address:    0x104bb4000
+Identifier:      ir.nikpendar.PersianSTT.Keyboard
+Version:         0.1 (1)
+Code Type:       ARM64
+Platform:        iOS Simulator
+Parent Process:  launchd_sim [7334]
+Target Type:     corpse
+
+Date/Time:       2026-10-18 15:53:22.386 +0000
+Launch Time:     2026-10-18 15:49:43.294 +0000
+OS Version:      macOS 15.7.9 (24G830)
+Report Version:  7
+Analysis Tool:   /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/bin/heap
+Analysis Tool Version:  iOS Simulator 26.2 (23C54)
+
+Physical footprint:         37.6M
+Physical footprint (peak):  40.8M
+Idle exit:                  untracked
+----
+
+Process 26709: 5 zones
+
+All zones: 53913 nodes malloced - Sizes: 128KB[2] 48KB[1] 32KB[2] 27KB[1] 18KB[2] 17KB[3] 16KB[9] 13.5KB[2] 12.5KB[2] 12KB[1] 10.5KB[1] 10KB[8] 9KB[1] 8.5KB[3] 8KB[13] 7.5KB[2] 6.5KB[1] 6KB[1] 5.5KB[2] 5KB[3] 4.5KB[5] 4KB[40] 3.5KB[13] 3KB[19] 2.5KB[73] 2KB[66] 1.5KB[47] 1KB[64] 1008[11] 992[2] 976[5] 944[2] 896[5] 880[4] 832[4] 816[6] 800[9] 784[7] 768[12] 752[4] 736[4] 704[3] 688[4] 672[3] 656[86] 640[5] 624[6] 608[10] 592[7] 576[14] 560[14] 544[22] 528[34] 512[239] 496[141] 480[156] 464[201] 448[308] 432[217] 416[81] 400[19] 384[20] 368[48] 352[21] 336[26] 320[24] 304[70] 288[40] 272[90] 256[370] 240[915] 224[867] 208[3763] 192[1697] 176[101] 160[161] 144[151] 128[847] 112[1494] 96[569] 80[2001] 64[3020] 48[9964] 32[24443] 16[1179] 
+
+Found:  4575 ObjC classes  310 Swift classes  60 C++ classes  155 CFTypes
+Type names for non-objects could be derived from allocation backtraces if the process used MallocStackLogging
+
+-----------------------------------------------------------------------
+All zones: 53913 nodes (6322944 bytes)
+
+   COUNT      BYTES       AVG   CLASS_NAME                                        TYPE    BINARY
+   =====      =====       ===   ==========                                        ====    ======
+   10615     470048      44.3   CFString                                          ObjC    CoreFoundation
+    9696     310272      32.0   Class.data (class_rw_t)                           C       libobjc.A.dylib
+    6329    1243808     196.5   CFString (Storage)                                C       CoreFoundation
+    5787    1298832     224.4   non-object                                                
+    4247     203856      48.0   Class.data.extended (class_rw_ext_t)              C       libobjc.A.dylib
+    4129     335056      81.1   Class.data.methods.lists (method_list_t)          C       libobjc.A.dylib
+    1388      55632      40.1   Class.data.methods (method_array_t)               C       libobjc.A.dylib
+    1320     408480     309.5   Class.methodCache._buckets (bucket_t)             C       libobjc.A.dylib
+    1271     514064     404.5   NSPathStore2                                      ObjC    Foundation
+     961      30752      32.0   NSMutableDictionary                               ObjC    CoreFoundation
+     895     457392     511.1   NSMutableDictionary (Storage)                     C       CoreFoundation
+     661      74032     112.0   AXCodeItem                                        ObjC    AXCoreUtilities
+     480      38400      80.0   NSBundle                                          ObjC    Foundation
+     362      19088      52.7   __NSMallocBlock__                                 ObjC    libsystem_blocks.dylib
+     331      15888      48.0   NSMutableArray                                    ObjC    CoreFoundation
+     293      18784      64.1   NSMutableArray (Storage)                          C       CoreFoundation
+     185      14800      80.0   _TIPreference                                     ObjC    TextInput
+     150      13312      88.7   NSURL                                             ObjC    CoreFoundation
+     143      16016     112.0   BSObjCValue                                       ObjC    BaseBoard
+     141       4512      32.0   NSNumber                                          ObjC    CoreFoundation
+     138      11040      80.0   Class.data.readonly (class_ro_t)                  C       libobjc.A.dylib
+     107       6848      64.0   OS_os_log                                         ObjC    libsystem_trace.dylib
+     103       6720      65.2   xpc_dictionary_t (Storage)                        C       libxpc.dylib
+      99       3168      32.0   Swift.ManagedBuffer<(), __C.os_unfair_lock_s>     Swift   libswiftCore.dylib
+      96       4016      41.8   NSArray                                           ObjC    CoreFoundation
+      85      10880     128.0   dispatch_queue_t (serial)                         ObjC    libdispatch.dylib
+      84       5632      67.0   CUINamedRenditionInfo._bitmap (malloc)            C       CoreUI
+      84       2688      32.0   CUINamedRenditionInfo                             ObjC    CoreUI
+      83       7504      90.4   CFArray                                           ObjC    CoreFoundation
+      82       4320      52.7   Class (objc_class)                                C       libobjc.A.dylib
+      74       8288     112.0   FBSSetting                                        ObjC    FrontBoardServices
+      69      15456     224.0   CFBundle                                          CFType  CoreFoundation
+      69       3296      47.8   NSConcreteValue                                   ObjC    Foundation
+      69       1104      16.0   NSSet                                             ObjC    CoreFoundation
+      60        960      16.0   NSArray                                           ObjC    CoreFoundation
+      50      31264     625.3   CFData                                            ObjC    CoreFoundation
+      50       3200      64.0   CFDictionary                                      ObjC    CoreFoundation
+      48       3616      75.3   Swift.StringStorage                               Swift   libswiftCore.dylib
+      47       3824      81.4   NSSet                                             ObjC    CoreFoundation
+      46       1472      32.0   NSMutableSet                                      ObjC    CoreFoundation
+      46        736      16.0   Class.data.protocols.lists (protocol_list_t)      C       libobjc.A.dylib
+      43      57760    1343.3   NSDictionary                                      ObjC    CoreFoundation
+      40      24848     621.2   CFDictionary (Value Storage)                      C       CoreFoundation
+      39       4992     128.0   NSMapTable                                        ObjC    Foundation
+      39       3120      80.0   NSKeyValueMethodGetter                            ObjC    Foundation
+      39       1872      48.0   CFSet                                             ObjC    CoreFoundation
+      38      22496     592.0   NSMapTable (Key Storage)                          C       Foundation
+      36       6320     175.6   CFSet (Value Storage)                             C       CoreFoundation
+      35       3360      96.0   xpc_dictionary_t                                  ObjC    libxpc.dylib
+      30      13152     438.4   NSMapTable (Value Storage)                        C       Foundation
+      30       3840     128.0   dispatch_source_t                                 ObjC    libdispatch.dylib
+      30       1920      64.0   NSISRestrictedToZeroMarkerVariable                ObjC    CoreAutoLayout
+      29      13792     475.6   NSMutableSet (Storage)                            C       CoreFoundation
+      29       1392      48.0   NSKeyValueUnnestedProperty                        ObjC    Foundation
+      28        896      32.0   NSTaggedPointerStringCStringContainer             ObjC    CoreFoundation
+      27       1728      64.0   BSObjCMethod                                      ObjC    BaseBoard
+      26      23760     913.8   CFDictionary (Key Storage)                        C       CoreFoundation
+      25       2000      80.0   NSLayoutConstraint                                ObjC    CoreAutoLayout
+      25        800      32.0   RBSDomainAttribute                                ObjC    RunningBoardServices
+      24       2688     112.0   NSKeyValueSlowMutableCollectionGetter             ObjC    Foundation
+      24       1920      80.0   NSKeyValueSlowSetter                              ObjC    Foundation
+      24       1152      48.0   NSKeyValueObservance                              ObjC    Foundation
+      23       2352     102.3   CGColor                                           CFType  CoreGraphics
+      23        736      32.0   NSMethodSignature                                 ObjC    CoreFoundation
+      23        736      32.0   NSMethodSignature._frameDescriptor (struct NSMethodFrameDescriptor)  C       CoreFoundation
+      23        368      16.0   NSMutableDictionary.cow (struct __cow_state_t)    C       CoreFoundation
+      23        368      16.0   _UITypedStorage                                   ObjC    UIKitCore
+      22       5984     272.0   NSCache._cache (struct cache_s)                   C       CoreFoundation
+      22       1056      48.0   NSCache                                           ObjC    CoreFoundation
+      20       6080     304.0   UITraitCollection                                 ObjC    UIKitCore
+      20       1600      80.0   NSHashTable                                       ObjC    Foundation
+      20       1600      80.0   NSISInlineStorageVariable                         ObjC    CoreAutoLayout
+      20       1280      64.0   NSISRestrictedToNonNegativeVariable               ObjC    CoreAutoLayout
+      20       1280      64.0   NSISUnrestrictedVariable                          ObjC    CoreAutoLayout
+      20       1280      64.0   NSLayoutDimension                                 ObjC    CoreAutoLayout
+      20       1104      55.2   NSArray._list (id[])                              C       CoreFoundation
+      20       1008      50.4   xpc_string_t (Storage)                            C       libxpc.dylib
+      20        960      48.0   NSISVariableObservation                           ObjC    CoreAutoLayout
+      20        960      48.0   xpc_string_t                                      ObjC    libxpc.dylib
+      20        640      32.0   NSArray                                           ObjC    CoreFoundation
+      19       2432     128.0   CFPrefsPlistSource                                ObjC    CoreFoundation
+      18       1440      80.0   NSKeyValueSlowGetter                              ObjC    Foundation
+      17      10992     646.6   NSHashTable (Weak Object Storage)                 C       Foundation
+      16       1024      64.0   CFBag                                             CFType  CoreFoundation
+      16        512      32.0   NSDictionary                                      ObjC    CoreFoundation
+      16        512      32.0   __NSObserver                                      ObjC    Foundation
+      15        960      64.0   NSISRestrictedToNonNegativeMarkerVariableToBeMinimized  ObjC    CoreAutoLayout
+      15        960      64.0   NSISRestrictedToNonNegativeVariableToBeMinimized  ObjC    CoreAutoLayout
+      15        720      48.0   CALayer                                           ObjC    QuartzCore
+      15        720      48.0   NSMutableCharacterSet                             ObjC    CoreFoundation
+      14       2016     144.0   dispatch_mach_t                                   ObjC    libdispatch.dylib
+      14       1088      77.7   CFDictionary (Weak Key Storage)                   C       CoreFoundation
+      13       4080     313.8   xpc_connection_t                                  ObjC    libxpc.dylib
+      13        832      64.0   BSAuditToken                                      ObjC    BaseBoard
+      13        624      48.0   AXMigratingDecoder                                Swift   AXCoreUtilities
+      13        624      48.0   AXMigratingEncoder                                Swift   AXCoreUtilities
+      13        416      32.0   BSZeroingWeakReference                            ObjC    BaseBoard
+      12      11568     964.0   NSDictionary (Storage)                            C       CoreFoundation
+      12       2304     192.0   CFRunLoopSource                                   CFType  CoreFoundation
+      12       1728     144.0   CGPath                                            CFType  CoreGraphics
+      12       1536     128.0   CFPrefsManagedSource                              ObjC    CoreFoundation
+      12       1536     128.0   CFPrefsSuiteSearchListSource                      ObjC    CoreFoundation
+      12       1152      96.0   UIImageSymbolConfiguration                        ObjC    UIKitCore
+      12        576      48.0   Observation._ManagedCriticalState<Observation.ObservationRegistrar.(State in $2573f9b8c)>.(LockedBuffer in $2573f98ac)<>  Swift   libswiftObservation.dylib
+      12        576      48.0   _UIImageCacheKey                                  ObjC    UIKitCore
+      12        384      32.0   ObservationRegistrar.Extent                       Swift   libswiftObservation.dylib
+      12        384      32.0   __CFPrefsWeakObservers                            ObjC    CoreFoundation
+      11       1968     178.9   Swift._DictionaryStorage<Swift.AnyKeyPath, Swift.Set<Swift.Int>>  Swift   libswiftCore.dylib
+      11       1840     167.3   Swift._DictionaryStorage<Swift.Int, Observation.ObservationRegistrar.(State in $2573f9b8c).Observation>  Swift   libswiftCore.dylib
+      11       1056      96.0   NSLock                                            ObjC    Foundation
+      11        352      32.0   NSUUID                                            Swift   Foundation
+      11        352      32.0   Swift weak reference storage                      C       libswiftCore.dylib
+      10       4480     448.0   _UIInputViewContent                               ObjC    UIKitCore
+      10       2560     256.0   NSISObjectiveLinearExpression._priorityMap (struct)  C       CoreAutoLayout
+      10       1280     128.0   NSISObjectiveLinearExpression._constant (struct)  C       CoreAutoLayout
+      10        960      96.0   NSContentSizeLayoutConstraint                     ObjC    CoreAutoLayout
+      10        800      80.0   NSAutoresizingMaskLayoutConstraint                ObjC    CoreAutoLayout
+      10        800      80.0   NSISObjectiveLinearExpression                     ObjC    CoreAutoLayout
+      10        800      80.0   NSMutableRLEArray.theList (struct _NSRefCountedRunArray)  C       Foundation
+      10        720      72.0   _UITraitChangeRegistry._traitUsageRecordsByMethodIMP (struct)  C       UIKitCore
+      10        640      64.0   NSLayoutXAxisAnchor                               ObjC    CoreAutoLayout
+      10        640      64.0   NSLayoutYAxisAnchor                               ObjC    CoreAutoLayout
+      10        640      64.0   _UITraitChangeRegistry                            ObjC    UIKitCore
+      10        480      48.0   _UIAsyncInvocation                                ObjC    UIKitCore
+      10        480      48.0   _UIViewLayoutEngineRelativeAlignmentRectOriginCache  ObjC    UIKitCore
+      10        320      32.0   _UIAsyncInvocationObserver                        ObjC    UIKitCore
+      10        320      32.0   __NSExactBlockVariable__                          ObjC    libsystem_blocks.dylib
+      10        160      16.0   NSMutableRLEArray                                 ObjC    Foundation
+      10        160      16.0   _UIWeakReference                                  ObjC    UIKitCore
+       9       9856    1095.1   NSMapTable (Weak Value Storage)                   C       Foundation
+       9        864      96.0   CGColorSpace                                      CFType  CoreGraphics
+       9        544      60.4   Class.data.protocols (protocol_array_t)           C       libobjc.A.dylib
+       9        432      48.0   BSObjCIvar                                        ObjC    BaseBoard
+       9        432      48.0   UICachedDeviceWhiteColor                          ObjC    UIKitCore
+       9        288      32.0   BSServiceDispatchQueue                            ObjC    BoardServices
+       9        144      16.0   NSDictionary.cow (struct __cow_state_t)           C       CoreFoundation
+       8       1280     160.0   HIDServiceClient                                  ObjC    IOKit
+       8       1024     128.0   CFPrefsSearchListSource                           ObjC    CoreFoundation
+       8       1024     128.0   NSMachPort                                        ObjC    CoreFoundation
+       8        896     112.0   CUIRenditionKey                                   ObjC    CoreUI
+       8        640      80.0   NSKeyValueUndefinedSetter                         ObjC    Foundation
+       8        512      64.0   UIDynamicCatalogSystemColor                       ObjC    UIKitCore
+       8        384      48.0   _TIPreferenceDomain                               ObjC    TextInput
+       8        256      32.0   NSConcreteData                                    ObjC    Foundation
+       8        256      32.0   NSDictionary                                      ObjC    CoreFoundation
+       8        256      32.0   _UIImageAssetMapEnvelope                          ObjC    UIKitCore
+       7     114688   16384.0   Swift Metadata                                    C       libswiftCore.dylib
+       7      28672    4096.0   @autoreleasepool content                          C       libobjc.A.dylib
+       7       1904     272.0   CGImage                                           CFType  CoreGraphics
+       7       1568     224.0   TTrueTypeDataForkFont                             C++     libFontParser.dylib
+       7       1120     160.0   _NSThreadData                                     ObjC    Foundation
+       7        448      64.0   NSXPCInterface                                    ObjC    Foundation
+       7        336      48.0   CFBasicHash                                       CFType  CoreFoundation
+       7        224      32.0   CUIDesignColor                                    ObjC    CoreUI
+       7        224      32.0   UIImageConfiguration                              ObjC    UIKitCore
+       6       3264     544.0   CUICommonAssetStorage                             ObjC    CoreUI
+       6       2688     448.0   CUICommonAssetStorage._header (struct _carheader)  C       CoreUI
+       6       2208     368.0   CUICommonAssetStorage._facetKeysdb (malloc)       C       CoreUI
+       6       2208     368.0   CUICommonAssetStorage._imagedb (malloc)           C       CoreUI
+       6       1344     224.0   _UICornerProvider                                 Swift   UIKitCore
+       6       1248     208.0   BSXPCServiceConnection                            ObjC    BoardServices
+       6       1056     176.0   BSXPCServiceConnectionEventHandler                ObjC    BoardServices
+       6       1056     176.0   CGImageProvider                                   CFType  CoreGraphics
+       6        864     144.0   UIImage                                           ObjC    UIKitCore
+       6        672     112.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, (extension in UIKit):__C._UITypedStorage.(BaseValue in $186d3fbe8)>  Swift   libswiftCore.dylib
+       6        576      96.0   CUIStructuredThemeStore                           ObjC    CoreUI
+       6        576      96.0   Protocol                                          ObjC    libobjc.A.dylib
+       6        480      80.0   NSKeyValueUndefinedGetter                         ObjC    Foundation
+       6        400      66.7   CUICommonAssetStorage._keyfmt (struct _renditionkeyfmt)  C       CoreUI
+       6        384      64.0   BSObjCProtocol                                    ObjC    BaseBoard
+       6        384      64.0   NSThread                                          ObjC    Foundation
+       6        384      64.0   UICachedDeviceRGBColor                            ObjC    UIKitCore
+       6        288      48.0   _UICache                                          ObjC    UIFoundation
+       6        192      32.0   Closure context                                   Swift   <unknown>
+       6        192      32.0   UICGColor                                         ObjC    UIKitCore
+       6        192      32.0   _NSXPCConnectionClassCache                        ObjC    Foundation
+       5       4080     816.0   UILabel                                           ObjC    UIKitCore
+       5       3120     624.0   UIInputView                                       ObjC    UIKitCore
+       5       2480     496.0   CABackingStore                                    CFType  QuartzCore
+       5       2320     464.0   _CTNativeGlyphStorage                             ObjC    CoreText
+       5       2240     448.0   NSISEngine                                        ObjC    CoreAutoLayout
+       5       2000     400.0   CTRun                                             CFType  CoreText
+       5       1840     368.0   CUICommonAssetStorage._bitmapKeydb (malloc)       C       CoreUI
+       5       1360     272.0   CTLine                                            CFType  CoreText
+       5       1280     256.0   CUINamedVectorGlyph                               ObjC    CoreUI
+       5       1040     208.0   CFRunLoopMode                                     CFType  CoreFoundation
+       5       1040     208.0   dispatch_workloop_t                               ObjC    libdispatch.dylib
+       5        800     160.0   (extension in UIKit):__C._UITypedStorage.(TypedValue in $186d3fc2c)<Swift.Optional<UIKit._GlassBackgroundStyle>>  Swift   UIKitCore
+       5        800     160.0   CFRunLoopObserver                                 CFType  CoreFoundation
+       5        640     128.0   OS_dispatch_queue_runloop                         ObjC    libdispatch.dylib
+       5        640     128.0   _UIImageCUIVectorGlyphContent                     ObjC    UIKitCore
+       5        640     128.0   _UILabelLayer                                     ObjC    UIKitCore
+       5        640     128.0   _UITextSizeCache._cache (struct)                  C       UIKitCore
+       5        640     128.0   dispatch_queue_t (concurrent)                     ObjC    libdispatch.dylib
+       5        480      96.0   NSISEngine._rowTables (malloc)                    C       CoreAutoLayout
+       5        480      96.0   UIImageAsset                                      ObjC    UIKitCore
+       5        400      80.0   CUIStyleEffectConfiguration                       ObjC    CoreUI
+       5        400      80.0   NSISEngine._colTables (malloc)                    C       CoreAutoLayout
+       5        400      80.0   ScrollPocketCollectorModel                        Swift   UIKitCore
+       5        400      80.0   TIDocumentState                                   ObjC    TextInput
+       5        400      80.0   _NSCoreTypesetterLayoutCache                      ObjC    UIFoundation
+       5        400      80.0   dispatch_semaphore_t                              ObjC    libdispatch.dylib
+       5        400      80.0   std::__shared_ptr_emplace<TCharStreamCFAttrString>  C++     CoreText
+       5        320      64.0   BSMachPortTaskNameRight                           ObjC    BaseBoard
+       5        320      64.0   CA::Render::Shmem                                 C++     QuartzCore
+       5        320      64.0   CALayerArray._ivars (struct)                      C       QuartzCore
+       5        320      64.0   TITextInputTraits                                 ObjC    TextInput
+       5        320      64.0   _NSAutoresizingMaskXAxisAnchor                    ObjC    CoreAutoLayout
+       5        320      64.0   _NSAutoresizingMaskYAxisAnchor                    ObjC    CoreAutoLayout
+       5        320      64.0   _UITextDocumentInterface                          ObjC    UIKitCore
+       5        320      64.0   _UIViewServiceDeputyManager                       ObjC    UIKitCore
+       5        320      64.0   _UIViewServiceLegacyClientSession                 ObjC    UIKitCore
+       5        320      64.0   pthread_mutex_t                                   C       libpthread.dylib
+       5        240      48.0   BSProcessHandle                                   ObjC    BaseBoard
+       5        240      48.0   CALayerArray                                      ObjC    QuartzCore
+       5        240      48.0   NSKeyValueContainerClass                          ObjC    Foundation
+       5        240      48.0   RBSTarget                                         ObjC    RunningBoardServices
+       5        240      48.0   _UIInputViewControllerState                       ObjC    UIKitCore
+       5        240      48.0   _UIViewFittingSizeTargetInfo                      ObjC    UIKitCore
+       5        160      32.0   NSConcreteAttributedString                        ObjC    Foundation
+       5        160      32.0   NSConcreteMutableAttributedString                 ObjC    Foundation
+       5        160      32.0   NSISEngine._engineVarTable (struct)               C       CoreAutoLayout
+       5        160      32.0   NSISEngine._variablesObservations (struct NSISObjectTable)  C       CoreAutoLayout
+       5        160      32.0   NSMutableOrderedSet                               ObjC    CoreFoundation
+       5        160      32.0   _UILabelStringContent                             ObjC    UIKitCore
+       5        160      32.0   _UITextAttributeDictionaryImplI                   ObjC    UIKitCore
+       5        160      32.0   _UITextSizeCache                                  ObjC    UIKitCore
+       5         80      16.0   _UILabelLegacyImpl                                ObjC    UIKitCore
+       4      16768    4192.0   CFData (Bytes Storage)                            C       CoreFoundation
+       4       3680     920.0   NSOrderedSet                                      ObjC    CoreFoundation
+       4        576     144.0   _UIAssetManager                                   ObjC    UIKitCore
+       4        448     112.0   BSDescriptionStyle                                ObjC    BaseBoard
+       4        384      96.0   BSXPCServiceConnectionMessage                     ObjC    BoardServices
+       4        384      96.0   CUICatalog                                        ObjC    CoreUI
+       4        384      96.0   ColorSyncTRC                                      CFType  ColorSync
+       4        320      80.0   Swift.ReferenceWritableKeyPath<UIKit._UICornerProvider, Swift.Optional<Swift.Double>>  Swift   libswiftCore.dylib
+       4        320      80.0   Swift.ReferenceWritableKeyPath<UIKit._UIGlobalState, Swift.Optional<Swift.Bool>>  Swift   libswiftCore.dylib
+       4        320      80.0   dispatch_group_t                                  ObjC    libdispatch.dylib
+       4        208      52.0   Swift._ContiguousArrayStorage<Swift.UInt8>        Swift   libswiftCore.dylib
+       4        192      48.0   BSSimpleAssertion                                 ObjC    BaseBoard
+       4        192      48.0   BSXPCServiceConnectionEndpoint                    ObjC    BoardServices
+       4        192      48.0   BSXPCServiceConnectionPeer                        ObjC    BoardServices
+       4        128      32.0   _UITextAttributeDictionaryImplM                   ObjC    UIKitCore
+       4        128      32.0   xpc_endpoint_t                                    ObjC    libxpc.dylib
+       4         64      16.0   NSCountedSet                                      ObjC    Foundation
+       4         64      16.0   _UITextAttributeDefaults                          ObjC    UIKitCore
+       3       2256     752.0   vImageConverterRef                                CFType  libCGInterfaces.dylib
+       3       2208     736.0   NSHashTable (Object Storage)                      C       Foundation
+       3       1344     448.0   TFPFont                                           C++     libFontParser.dylib
+       3       1104     368.0   CUICommonAssetStorage._appearancedb (malloc)      C       CoreUI
+       3        816     272.0   ColorSyncProfile                                  CFType  ColorSync
+       3        528     176.0   CFXNotificationRegistrar                          CFType  CoreFoundation
+       3        480     160.0   ColorSyncTransformIterator                        CFType  ColorSync
+       3        480     160.0   NSXPCConnection                                   ObjC    Foundation
+       3        432     144.0   ColorSyncTransform                                CFType  ColorSync
+       3        384     128.0   CGFont                                            CFType  CoreGraphics
+       3        384     128.0   CSIHelper                                         ObjC    CoreUI
+       3        336     112.0   CGColorTransform                                  CFType  CoreGraphics
+       3        288      96.0   ColorSyncMatrix                                   CFType  ColorSync
+       3        288      96.0   NSKeyValueIvarMutableCollectionGetter             ObjC    Foundation
+       3        288      96.0   UICTFontDescriptor                                ObjC    UIFoundation
+       3        240      80.0   NSPointerArray                                    ObjC    Foundation
+       3        240      80.0   Swift.ReferenceWritableKeyPath<UIKit._UICornerProvider, Swift.Optional<__C.UICoordinateSpace & Swift.AnyObject>>  Swift   libswiftCore.dylib
+       3        240      80.0   _NSXPCConnectionExportedObjectTable               ObjC    Foundation
+       3        192      64.0   UIDynamicSystemColor                              ObjC    UIKitCore
+       3        144      48.0   BSServiceInterface                                ObjC    BoardServices
+       3        144      48.0   NSUserDefaults                                    ObjC    CoreFoundation
+       3        144      48.0   Swift._ContiguousArrayStorage<Swift.String>       Swift   libswiftCore.dylib
+       3        144      48.0   _NSXPCConnectionImportInfo                        ObjC    Foundation
+       3        144      48.0   _NSXPCConnectionRequestedReplies                  ObjC    Foundation
+       3         96      32.0   AXAccessQueue                                     ObjC    AXCoreUtilities
+       3         96      32.0   BSLogStateCaptureEntry                            ObjC    BaseBoard
+       3         96      32.0   BSStateCaptureInvalidator                         ObjC    BaseBoard
+       3         96      32.0   CFNotificationCenter                              CFType  CoreFoundation
+       3         96      32.0   NSKeyValueObservationInfo                         ObjC    Foundation
+       3         96      32.0   RBSProcessIdentifier                              ObjC    RunningBoardServices
+       3         96      32.0   _NSXPCConnectionExpectedReplies                   ObjC    Foundation
+       3         48      16.0   CADisplay                                         ObjC    QuartzCore
+       3         48      16.0   NSMutableArray.cow (struct __cow_state_t)         C       CoreFoundation
+       3         48      16.0   _NSKVODeallocSentinel                             ObjC    Foundation
+       2       9216    4608.0   CUIDesignLibraryCatalog                           ObjC    CoreUI
+       2       6144    3072.0   CFRunLoop                                         CFType  CoreFoundation
+       2       4128    2064.0   NSPointerArray (Object Storage)                   C       Foundation
+       2       1376     688.0   CA::Display::EmulatorDisplay                      C++     QuartzCore
+       2       1216     608.0   UICTFont                                          ObjC    UIFoundation
+       2       1088     544.0   Foundation.LockedState<Foundation._LocaleICU.State>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       2        736     368.0   CUICommonAssetStorage._colordb (malloc)           C       CoreUI
+       2        736     368.0   CUICommonAssetStorage._localizationdb (malloc)    C       CoreUI
+       2        624     312.0   NSData                                            ObjC    Foundation
+       2        480     240.0   CGCMSConverter                                    CFType  CoreGraphics
+       2        480     240.0   FBSDisplayConfiguration                           ObjC    FrontBoardServices
+       2        480     240.0   MTTintingFilteringMaterialSettings                ObjC    CoreMaterial
+       2        448     224.0   CFAllocator                                       CFType  CoreFoundation
+       2        416     208.0   NSRecursiveLock                                   ObjC    Foundation
+       2        416     208.0   _LocaleICU                                        Swift   Foundation
+       2        400     200.0   NSSet (Storage)                                   C       CoreFoundation
+       2        384     192.0   NSTimer                                           ObjC    CoreFoundation
+       2        256     128.0   CGColorTransformCache                             CFType  CoreGraphics
+       2        256     128.0   FBSDisplaySource                                  ObjC    FrontBoardServices
+       2        256     128.0   TFileDataReference                                C++     libFontParser.dylib
+       2        224     112.0   MTCoreMaterialVisualStyling                       ObjC    CoreMaterial
+       2        224     112.0   _UIUCBGroupBarButtonVisualProviderIOS             ObjC    UIKitCore
+       2        192      96.0   NSClassicMapTable                                 ObjC    Foundation
+       2        192      96.0   RBSProcessHandle                                  ObjC    RunningBoardServices
+       2        192      96.0   UIKBRenderConfig                                  ObjC    UIKitCore
+       2        160      80.0   BSServiceConnectionEndpointMonitor                ObjC    BoardServices
+       2        160      80.0   BSServiceConnectionListener                       ObjC    BoardServices
+       2        160      80.0   BSServiceInitiatingConnection                     ObjC    BoardServices
+       2        160      80.0   FBSDisplayMode                                    ObjC    FrontBoardServices
+       2        160      80.0   NSAttributeDictionary                             ObjC    UIFoundation
+       2        160      80.0   UISApplicationSupportDisplayEdgeInfo              ObjC    UIKitServices
+       2        160      80.0   _NSCachedAttributedString                         ObjC    UIFoundation
+       2        144      72.0   xpc_pipe_t                                        ObjC    libxpc.dylib
+       2        128      64.0   BSService                                         ObjC    BoardServices
+       2        128      64.0   CFBasicHash                                       CFType  Foundation
+       2        128      64.0   CFPrefsSource                                     ObjC    CoreFoundation
+       2        128      64.0   FBSDisplayIdentity                                ObjC    FrontBoardServices
+       2        128      64.0   NSHashTable.slice.internalProps (struct NSSliceInternalProperties)  C       Foundation
+       2        128      64.0   NSRunLoop                                         ObjC    CoreFoundation
+       2        128      64.0   NSXPCListener                                     ObjC    Foundation
+       2        128      64.0   RBSProcessBundle                                  ObjC    RunningBoardServices
+       2        128      64.0   RBSXPCServiceIdentity                             ObjC    RunningBoardServices
+       2        128      64.0   RBSXPCServiceProcessIdentity                      ObjC    RunningBoardServices
+       2        128      64.0   __NSFontExtraData                                 ObjC    UIFoundation
+       2         96      48.0   BSXPCCoder                                        ObjC    BaseBoard
+       2         96      48.0   BSXPCServiceConnectionChildContext                ObjC    BoardServices
+       2         96      48.0   BSXPCServiceConnectionRootClientContext           ObjC    BoardServices
+       2         96      48.0   BSXPCServiceConnectionRootServerContext           ObjC    BoardServices
+       2         96      48.0   CGColorTransformBase                              CFType  CoreGraphics
+       2         96      48.0   MTRecipeMaterialSettings                          ObjC    CoreMaterial
+       2         96      48.0   NSHashTable.slice.personalityProps (struct NSSliceExternalPersonalityProperties)  C       Foundation
+       2         96      48.0   RBSMachEndpoint                                   ObjC    RunningBoardServices
+       2         96      48.0   UISApplicationSupportDisplayEdgeInsetsWrapper     ObjC    UIKitServices
+       2         96      48.0   UISDisplayContext                                 ObjC    UIKitServices
+       2         64      32.0   BSMutableIntegerMap                               ObjC    BaseBoard
+       2         64      32.0   BSServiceCompoundQueue                            ObjC    BoardServices
+       2         64      32.0   BSServiceInitiatingConnectionMultiplexer          ObjC    BoardServices
+       2         64      32.0   BSServiceSpecification                            ObjC    BoardServices
+       2         64      32.0   BSServicesConfiguration                           ObjC    BoardServices
+       2         64      32.0   FBSSceneHostHandle                                ObjC    FrontBoardServices
+       2         64      32.0   NSBlockPredicate                                  ObjC    Foundation
+       2         64      32.0   NSConcreteValue.typeInfo (malloc)                 C       Foundation
+       2         64      32.0   NSHashTable.slice.acquisitionProps (struct NSSliceExternalAcquisitionProperties)  C       Foundation
+       2         64      32.0   NSMutableIndexSet                                 ObjC    Foundation
+       2         64      32.0   NSNotificationCenter                              ObjC    Foundation
+       2         64      32.0   NSOrderedSet                                      ObjC    CoreFoundation
+       2         64      32.0   NSSet                                             ObjC    CoreFoundation
+       2         64      32.0   NSWeakObjectValue                                 ObjC    Foundation
+       2         64      32.0   OS_xpc_mach_send                                  ObjC    libxpc.dylib
+       2         64      32.0   RBSProcessInstance                                ObjC    RunningBoardServices
+       2         64      32.0   RBSXPCServiceDefinition                           ObjC    RunningBoardServices
+       2         64      32.0   _NSSwiftLocale                                    Swift   Foundation
+       2         32      16.0   BKSHIDEventDeferringEnvironment                   ObjC    BackBoardServices
+       2         32      16.0   CUIDesignLibraryCompositeCatalog                  ObjC    CoreUI
+       2         32      16.0   NSMutableSet.cow (struct __cow_state_t)           C       CoreFoundation
+       2         32      16.0   NSOrderedSet.cow (struct __cow_state_t)           C       CoreFoundation
+       2         32      16.0   NSSet.cow (struct __cow_state_t)                  C       CoreFoundation
+       2         32      16.0   __NSOrderedSetArrayProxy                          ObjC    CoreFoundation
+       1       6656    6656.0   Swift._DictionaryStorage<ObjectiveC.Selector, AXCoreUtilities.AXSelectorRoutable & Swift.AnyObject>  Swift   libswiftCore.dylib
+       1       2048    2048.0   NSArray (Storage)                                 C       CoreFoundation
+       1       2048    2048.0   Swift._DictionaryStorage<UIKit.(_UISwiftTraits in $186d33a08).HashableTraitToken, UIKit.UITraitDefinition.Protocol>  Swift   libswiftCore.dylib
+       1       2048    2048.0   _LSDatabase                                       ObjC    CoreServices
+       1       1536    1536.0   Swift._DictionaryStorage<UIKit.(_UISwiftTraits in $186d33a08).HashableMetatype, __C._UITraitTokenProtocol & Swift.AnyObject>  Swift   libswiftCore.dylib
+       1       1008    1008.0   AXSettings.VoiceOver                              Swift   AccessibilityUtilities
+       1        816     816.0   TTenuousComponentFont                             C++     CoreText
+       1        688     688.0   CA::Display::Display                              C++     QuartzCore
+       1        608     608.0   TBaseFont                                         C++     CoreText
+       1        528     528.0   IOHIDEventSystemClient                            CFType  IOKit
+       1        512     512.0   NSMapTable (Weak Key Storage)                     C       Foundation
+       1        512     512.0   NSOperationQueue                                  ObjC    Foundation
+       1        512     512.0   SecTask                                           CFType  Security
+       1        496     496.0   UIApplication                                     ObjC    UIKitCore
+       1        384     384.0   FBApplicationProcess                              ObjC    FrontBoard
+       1        352     352.0   _CSStore                                          ObjC    CoreServicesStore
+       1        336     336.0   NSCoreTypesetter._reserved (malloc)               C       UIFoundation
+       1        320     320.0   UIPeripheralHost                                  ObjC    UIKitCore
+       1        320     320.0   UIScreen                                          ObjC    UIKitCore
+       1        320     320.0   _FileCache                                        CFType  CoreServicesInternal
+       1        304     304.0   CGContextDelegate                                 CFType  CoreGraphics
+       1        288     288.0   BKSHIDEventDeliveryManager                        ObjC    BackBoardServices
+       1        288     288.0   CGDataProvider                                    CFType  CoreGraphics
+       1        288     288.0   Swift._ContiguousArrayStorage<Swift.Bool>         Swift   libswiftCore.dylib
+       1        288     288.0   UIMotionEvent                                     ObjC    UIKitCore
+       1        288     288.0   UIPhysicalKeyboardEvent                           ObjC    UIKitCore
+       1        272     272.0   PKServicePersonality                              ObjC    PlugInKit
+       1        272     272.0   UIEventFetcher                                    ObjC    UIKitCore
+       1        256     256.0   GestureNodeCoordinator                            Swift   Gestures
+       1        240     240.0   AXSettings                                        ObjC    AccessibilityUtilities
+       1        224     224.0   TTSSettings                                       Swift   TextToSpeech
+       1        224     224.0   _UIKeyWindowEvaluator                             ObjC    UIKitCore
+       1        224     224.0   awd::profile::DeviceConfiguration                 C++     WirelessDiagnostics
+       1        224     224.0   icu::Locale                                       C++     libicucore.A.dylib
+       1        208     208.0   FBWorkspaceAssertionAttributes                    ObjC    FrontBoard
+       1        208     208.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, SwiftUI.WeakBox<Swift.AnyObject>>  Swift   libswiftCore.dylib
+       1        208     208.0   UIEventEnvironment                                ObjC    UIKitCore
+       1        208     208.0   wireless_diagnostics::google::protobuf::FileDescriptorProto  C++     libprotobuf.dylib
+       1        192     192.0   CGContext                                         CFType  CoreGraphics
+       1        192     192.0   CGPattern                                         CFType  CoreGraphics
+       1        192     192.0   NSCoreTypesetter                                  ObjC    UIFoundation
+       1        192     192.0   TGlyphOutlineDictionaryCache<unsigned short, 64ul, 512ul>  C++     libFontParser.dylib
+       1        192     192.0   TTrueTypeScaler                                   C++     libFontParser.dylib
+       1        192     192.0   UIInputViewSet                                    ObjC    UIKitCore
+       1        192     192.0   _UIApplicationInfoParser                          ObjC    UIKitCore
+       1        176     176.0   AXSettings.LiveSpeech                             Swift   AccessibilityUtilities
+       1        176     176.0   AXSettings.SwitchControl                          Swift   AccessibilityUtilities
+       1        176     176.0   FBProcessManager                                  ObjC    FrontBoard
+       1        176     176.0   IOHIDEventQueue                                   CFType  IOKit
+       1        160     160.0   AXCodeLoader                                      ObjC    AXCoreUtilities
+       1        160     160.0   AXSettings.AssistiveTouch                         Swift   AccessibilityUtilities
+       1        160     160.0   NSParagraphStyleExtraData                         ObjC    UIFoundation
+       1        160     160.0   RBSConnection                                     ObjC    RunningBoardServices
+       1        160     160.0   UIKit._UIObjCEquatableBox<UIKit._GlassBackgroundStyle>  Swift   UIKit
+       1        160     160.0   UIPressesEvent                                    ObjC    UIKitCore
+       1        160     160.0   UIWheelEvent                                      ObjC    UIKitCore
+       1        160     160.0   _NUIViewContainerViewInfo                         ObjC    AppSupportUI
+       1        160     160.0   wireless_diagnostics::google::protobuf::DescriptorProto  C++     libprotobuf.dylib
+       1        144     144.0   FBSWorkspaceScenesClient                          ObjC    FrontBoardServices
+       1        144     144.0   FBWorkspace                                       ObjC    FrontBoard
+       1        144     144.0   Swift._DictionaryStorage<Swift.String, Foundation._LocaleProtocol & Swift.AnyObject>  Swift   libswiftCore.dylib
+       1        144     144.0   UIRemoteControlEvent                              ObjC    UIKitCore
+       1        144     144.0   awd::profile::Metric                              C++     WirelessDiagnostics
+       1        144     144.0   awd::profile::Profile                             C++     WirelessDiagnostics
+       1        128     128.0   AXBackBoardServer                                 ObjC    AccessibilityUtilities
+       1        128     128.0   AXCoreSettings                                    ObjC    AXCoreUtilities
+       1        128     128.0   AXSpringBoardServer                               ObjC    AccessibilityUtilities
+       1        128     128.0   FBWorkspaceDomain                                 ObjC    FrontBoard
+       1        128     128.0   Swift._DictionaryStorage<Swift.String, Foundation._NSSwiftLocale>  Swift   libswiftCore.dylib
+       1        128     128.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(AssetCatalogConfigurationKey in $1dbb8c248)>>  Swift   SwiftUI
+       1        128     128.0   THVARTable                                        C++     libFontParser.dylib
+       1        128     128.0   UIEvent                                           ObjC    UIKitCore
+       1        112     112.0   AXSettings.TripleClick                            Swift   AccessibilityUtilities
+       1        112     112.0   BSXPCServiceConnectionListener                    ObjC    BoardServices
+       1        112     112.0   FBProcessExecutionContext                         ObjC    FrontBoard
+       1        112     112.0   IIOXPCClient                                      C++     ImageIO
+       1        112     112.0   IOMIGMachPort                                     CFType  IOKit
+       1        112     112.0   NSISLinearExpression                              ObjC    CoreAutoLayout
+       1        112     112.0   RBSProcessState                                   ObjC    RunningBoardServices
+       1        112     112.0   Swift._DictionaryStorage<SwiftUI.Solarium.EnablementIdiom, (SwiftUI.Solarium.EnablementLevel, SwiftUI.Solarium.EnablementCriteria)>  Swift   libswiftCore.dylib
+       1        112     112.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(DefaultOpenURLActionKey in $1dbb747ec)>>  Swift   SwiftUI
+       1        112     112.0   UIGestureEnvironment                              ObjC    UIKitCore
+       1        112     112.0   _UIHIDTransformer                                 ObjC    UIKitCore
+       1        112     112.0   _UIUpdateHIDInput                                 ObjC    UIKitCore
+       1        112     112.0   wireless_diagnostics::google::protobuf::EncodedDescriptorDatabase  C++     libprotobuf.dylib
+       1        112     112.0   wireless_diagnostics::google::protobuf::FileOptions  C++     libprotobuf.dylib
+       1         96      96.0   AGGraphStorage                                    CFType  AttributeGraph
+       1         96      96.0   AXSettings.SpokenContent                          Swift   AccessibilityUtilities
+       1         96      96.0   AXValidationManager                               ObjC    AXCoreUtilities
+       1         96      96.0   BKSAccelerometer                                  ObjC    BackBoardServices
+       1         96      96.0   BSServiceDomainSpecification                      ObjC    BoardServices
+       1         96      96.0   CGNotificationCenter                              CFType  CoreGraphics
+       1         96      96.0   IOHIDNotification                                 CFType  IOKit
+       1         96      96.0   NSKeyValueMethodSetter                            ObjC    Foundation
+       1         96      96.0   NSKeyValueShareableObservationInfoKey             ObjC    Foundation
+       1         96      96.0   NSParagraphStyle                                  ObjC    UIFoundation
+       1         96      96.0   PKService                                         ObjC    PlugInKit
+       1         96      96.0   RBSProcessMonitorConfiguration                    ObjC    RunningBoardServices
+       1         96      96.0   _CFXPreferences                                   ObjC    CoreFoundation
+       1         96      96.0   _LSDefaults                                       ObjC    CoreServices
+       1         96      96.0   _UIUpdateTarget                                   ObjC    UIKitCore
+       1         96      96.0   awd::profile::ComponentConfiguration              C++     WirelessDiagnostics
+       1         96      96.0   awd::profile::TriggerProcessingRule               C++     WirelessDiagnostics
+       1         96      96.0   wireless_diagnostics::google::protobuf::(anonymous namespace)::GeneratedMessageFactory  C++     libprotobuf.dylib
+       1         96      96.0   wireless_diagnostics::google::protobuf::FieldOptions  C++     libprotobuf.dylib
+       1         96      96.0   wireless_diagnostics::google::protobuf::SourceCodeInfo_Location  C++     libprotobuf.dylib
+       1         96      96.0   wireless_diagnostics::google::protobuf::UninterpretedOption  C++     libprotobuf.dylib
+       1         80      80.0   AXCoreUtilities.AXThreadLocal<AXCoreUtilities.AXSettingsStore>  Swift   AXCoreUtilities
+       1         80      80.0   AXSettings.Magnifier                              Swift   AccessibilityUtilities
+       1         80      80.0   AXSettings.Touch                                  Swift   AccessibilityUtilities
+       1         80      80.0   AXSettings.VisualAlerts                           Swift   AccessibilityUtilities
+       1         80      80.0   AXSettings.Zoom                                   Swift   AccessibilityUtilities
+       1         80      80.0   AXSimpleRuntimeManager                            ObjC    AXRuntime
+       1         80      80.0   AccessibilitySupportOverrides                     ObjC    libAccessibility.dylib
+       1         80      80.0   BSRBSService                                      ObjC    BoardServices
+       1         80      80.0   BSServiceManager                                  ObjC    BoardServices
+       1         80      80.0   CADynamicFrameRateSource._impl (struct DynamicFrameRateSource)  C       QuartzCore
+       1         80      80.0   CUIRuntimeStatistics                              ObjC    CoreUI
+       1         80      80.0   ColorSyncCMM                                      CFType  ColorSync
+       1         80      80.0   FBSDisplayMonitor                                 ObjC    FrontBoardServices
+       1         80      80.0   FBSWorkspace                                      ObjC    FrontBoardServices
+       1         80      80.0   FBWorkspaceEventDispatcher                        ObjC    FrontBoard
+       1         80      80.0   Foundation.LockedState<Foundation._NSSwiftProcessInfo.State>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         80      80.0   NSKeyValueIvarGetter                              ObjC    Foundation
+       1         80      80.0   NSKeyValueIvarSetter                              ObjC    Foundation
+       1         80      80.0   Swift.ReferenceWritableKeyPath<UIKit.ScrollPocketCollectorModel, Swift.Optional<UIKit.CompactableSet<UIKit.ScrollPocketReceiverBox>>>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<UIKit.ScrollPocketCollectorModel, UIKit.CompactableSet<UIKit.ScrollPocketReceiverBox>>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<UIKit.ScrollPocketCollectorModel, UIKit.WeakSet<UIKit.ScrollPocketCollectorModel>>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<UIKit._UIGlobalState, Swift.Optional<__C.UIViewGlassLegibilitySetting>>  Swift   libswiftCore.dylib
+       1         80      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(__Key__interfaceIdiom in $1dbba1fe0)>>  Swift   SwiftUI
+       1         80      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(HasSystemOpenURLActionKey in $1dbb74810)>>  Swift   SwiftUI
+       1         80      80.0   TIPreferencesControllerClient                     ObjC    TextInput
+       1         80      80.0   UIApplicationSceneClientSettings                  ObjC    UIKitCore
+       1         80      80.0   UIApplicationSceneSettings                        ObjC    UIKitCore
+       1         80      80.0   UIApplicationSceneTransitionContext               ObjC    UIKitCore
+       1         80      80.0   UIMutableApplicationSceneSettings                 ObjC    UIKitCore
+       1         80      80.0   _UITextAttributeDefaultCategories                 ObjC    UIKitCore
+       1         80      80.0   __DataStorage                                     Swift   Foundation
+       1         80      80.0   awd::profile::Condition                           C++     WirelessDiagnostics
+       1         80      80.0   awd::profile::TypeVariant                         C++     WirelessDiagnostics
+       1         80      80.0   wireless_diagnostics::google::protobuf::EnumOptions  C++     libprotobuf.dylib
+       1         80      80.0   wireless_diagnostics::google::protobuf::EnumValueOptions  C++     libprotobuf.dylib
+       1         80      80.0   wireless_diagnostics::google::protobuf::FieldDescriptorProto  C++     libprotobuf.dylib
+       1         80      80.0   wireless_diagnostics::google::protobuf::MessageOptions  C++     libprotobuf.dylib
+       1         80      80.0   wireless_diagnostics::google::protobuf::MethodOptions  C++     libprotobuf.dylib
+       1         80      80.0   wireless_diagnostics::google::protobuf::ServiceOptions  C++     libprotobuf.dylib
+       1         64      64.0   AXBinaryMonitor                                   ObjC    AXCoreUtilities
+       1         64      64.0   BSCompoundAssertion                               ObjC    BaseBoard
+       1         64      64.0   BSServiceDomain                                   ObjC    BoardServices
+       1         64      64.0   BSServiceMainRunLoopQueue                         ObjC    BoardServices
+       1         64      64.0   ExclusionPool                                     Swift   Gestures
+       1         64      64.0   FBApplicationProcessWatchdogPolicy                ObjC    FrontBoard
+       1         64      64.0   FBProcessCPUStatistics                            ObjC    FrontBoard
+       1         64      64.0   FBSceneSynchronizer                               ObjC    FrontBoard
+       1         64      64.0   FBWorkspaceConnectionsStateStore                  ObjC    FrontBoard
+       1         64      64.0   Foundation.LockedState<Foundation.LocaleCache.State>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         64      64.0   GestureNodeCoordinatorShim                        Swift   Gestures
+       1         64      64.0   NSMapTable.keys.internalProps (struct NSSliceInternalProperties)  C       Foundation
+       1         64      64.0   NSMapTable.values.internalProps (struct NSSliceInternalProperties)  C       Foundation
+       1         64      64.0   PKExternalProviders                               ObjC    PlugInKit
+       1         64      64.0   RBSProcessMonitor                                 ObjC    RunningBoardServices
+       1         64      64.0   Swift._ContiguousArrayStorage<Swift.Array<Swift.UInt8>>  Swift   libswiftCore.dylib
+       1         64      64.0   TUIKeyboardInputManagerMux                        ObjC    TextInputUI
+       1         64      64.0   UISMutableApplicationInitializationContext        ObjC    UIKitServices
+       1         64      64.0   UISheetPresentationControllerDetent               ObjC    UIKitCore
+       1         64      64.0   _CFXPreferencesHandle                             ObjC    CoreFoundation
+       1         64      64.0   _NSMainThread                                     ObjC    Foundation
+       1         64      64.0   _NSSwiftProcessInfo                               Swift   Foundation
+       1         64      64.0   _UIBoundingPathBitmap                             ObjC    UIKitCore
+       1         64      64.0   _UITraitTokenSet                                  ObjC    UIKitCore
+       1         64      64.0   _UIViewServiceSessionManager                      ObjC    UIKitCore
+       1         64      64.0   __NSBundleTables                                  ObjC    Foundation
+       1         64      64.0   awd::metrics::SimpleMetric                        C++     WirelessDiagnostics
+       1         64      64.0   awd::profile::BedfTreeNode                        C++     WirelessDiagnostics
+       1         64      64.0   awd::profile::ProcessingRule                      C++     WirelessDiagnostics
+       1         64      64.0   awd::profile::TriggerSource                       C++     WirelessDiagnostics
+       1         64      64.0   wireless_diagnostics::google::protobuf::EnumDescriptorProto  C++     libprotobuf.dylib
+       1         64      64.0   wireless_diagnostics::google::protobuf::MethodDescriptorProto  C++     libprotobuf.dylib
+       1         64      64.0   wireless_diagnostics::google::protobuf::ServiceDescriptorProto  C++     libprotobuf.dylib
+       1         48      48.0   AXCoreSettingsStore                               Swift   AXCoreUtilities
+       1         48      48.0   FBSWorkspaceScenesClientIdentifier                ObjC    FrontBoardServices
+       1         48      48.0   FBWorkspaceEndpointPromise                        ObjC    FrontBoard
+       1         48      48.0   FBWorkspaceEventDispatcherSource                  ObjC    FrontBoard
+       1         48      48.0   FBWorkspaceIncomingConnection                     ObjC    FrontBoard
+       1         48      48.0   FailureDependencyGraph                            Swift   Gestures
+       1         48      48.0   Foundation.LockedState<Foundation._NSSwiftProcessInfo.GlobalState>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         48      48.0   Foundation.LockedState<Foundation._ProcessInfo.State>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         48      48.0   Foundation.LockedState<Swift.Optional<Foundation._LocaleProtocol & Swift.AnyObject>>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         48      48.0   Foundation.LockedState<Swift.Optional<Swift.String>>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         48      48.0   LSExtensionPointRecord._resolvedProperties (malloc)  C       CoreServices
+       1         48      48.0   MTVisualStyleSet                                  ObjC    CoreMaterial
+       1         48      48.0   NSArray                                           ObjC    CoreFoundation
+       1         48      48.0   NSAutoreleasePool                                 ObjC    Foundation
+       1         48      48.0   NSKeyValueShareableObservanceKey                  ObjC    Foundation
+       1         48      48.0   NSMapTable.keys.personalityProps (struct NSSliceExternalPersonalityProperties)  C       Foundation
+       1         48      48.0   NSMapTable.values.personalityProps (struct NSSliceExternalPersonalityProperties)  C       Foundation
+       1         48      48.0   NSMethodSignature._typeString (char[])            C       CoreFoundation
+       1         48      48.0   NSShadow                                          ObjC    UIFoundation
+       1         48      48.0   PKServiceDefaults                                 ObjC    PlugInKit
+       1         48      48.0   RBSAuditToken                                     ObjC    RunningBoardServices
+       1         48      48.0   RBSProcessAssertionInfo                           ObjC    RunningBoardServices
+       1         48      48.0   RBSService                                        ObjC    RunningBoardServices
+       1         48      48.0   TFileFragmentCache                                C++     libFontParser.dylib
+       1         48      48.0   UIActivityContinuationManager                     ObjC    UIKitCore
+       1         48      48.0   UIDevice                                          ObjC    UIKitCore
+       1         48      48.0   UIEventDispatcher                                 ObjC    UIKitCore
+       1         48      48.0   UIGestureDelayedEventComponentDispatcher          ObjC    UIKitCore
+       1         48      48.0   UIKitPlatformAccessibilitySettingsDefinition      Swift   UIKitCore
+       1         48      48.0   UISApplicationStateClient                         ObjC    UIKitServices
+       1         48      48.0   UISDisplaySingleRectShape                         ObjC    UIKitServices
+       1         48      48.0   UMUserManager                                     ObjC    UserManagement
+       1         48      48.0   _EXRunningExtensionInfo                           ObjC    ExtensionFoundation
+       1         48      48.0   _UIContentSizeCategoryPreferenceSystem            ObjC    UIKitCore
+       1         48      48.0   _UIEvaluatedObjectCache                           ObjC    UIKitCore
+       1         48      48.0   _UIEventBus                                       ObjC    UIKitCore
+       1         48      48.0   _UIGlobalState                                    Swift   UIKitCore
+       1         48      48.0   _UIImageCGImageContent                            ObjC    UIKitCore
+       1         48      48.0   _UIKeyWindowSceneStack                            ObjC    UIKitCore
+       1         48      48.0   _UITintColorVisitor                               ObjC    UIKitCore
+       1         48      48.0   __CFPrefsWeakObservers.values (struct)            C       CoreFoundation
+       1         48      48.0   __DataStorage._bytes (malloc)                             Foundation
+       1         48      48.0   __NSSwiftData                                     Swift   Foundation
+       1         48      48.0   awd::profile::BedfConfig                          C++     WirelessDiagnostics
+       1         48      48.0   awd::profile::ConditionClause                     C++     WirelessDiagnostics
+       1         48      48.0   awd::profile::Log                                 C++     WirelessDiagnostics
+       1         48      48.0   awd::profile::MetricFileSpec                      C++     WirelessDiagnostics
+       1         48      48.0   cacheStrike                                       C++     libFontParser.dylib
+       1         48      48.0   wireless_diagnostics::google::protobuf::EnumValueDescriptorProto  C++     libprotobuf.dylib
+       1         48      48.0   wireless_diagnostics::google::protobuf::FileDescriptorSet  C++     libprotobuf.dylib
+       1         48      48.0   wireless_diagnostics::google::protobuf::SourceCodeInfo  C++     libprotobuf.dylib
+       1         48      48.0   wireless_diagnostics::google::protobuf::UninterpretedOption_NamePart  C++     libprotobuf.dylib
+       1         48      48.0   xpc_array_t                                       ObjC    libxpc.dylib
+       1         32      32.0   (extension in UIKit):__C._UITypedStorage.(TypedValue in $186d3fc2c)<Swift.Optional<UIKit._UICornerProvider>>  Swift   UIKitCore
+       1         32      32.0   AXSettingsObjectDestructionHelper                 ObjC    AXCoreUtilities
+       1         32      32.0   BKSHIDEventDisplay                                ObjC    BackBoardServices
+       1         32      32.0   BSMachServiceAliases                              ObjC    BaseBoard
+       1         32      32.0   BSServiceConnectionEndpoint                       ObjC    BoardServices
+       1         32      32.0   BSServiceQuality                                  ObjC    BoardServices
+       1         32      32.0   EXConcreteExtensionContextVendor                  ObjC    ExtensionFoundation
+       1         32      32.0   ExclusionRelationCache                            Swift   Gestures
+       1         32      32.0   FBProcessState                                    ObjC    FrontBoard
+       1         32      32.0   FBSWorkspaceCoupler                               ObjC    FrontBoardServices
+       1         32      32.0   FSNode                                            ObjC    CoreServices
+       1         32      32.0   Foundation.LockedState<Swift.Optional<Foundation._NSSwiftLocale>>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         32      32.0   HostingViewRegistry                               Swift   SwiftUI
+       1         32      32.0   LSExtensionPointRecord                            ObjC    CoreServices
+       1         32      32.0   NSFileManager                                     ObjC    Foundation
+       1         32      32.0   NSIndexPath                                       ObjC    Foundation
+       1         32      32.0   NSMapTable.keys.acquisitionProps (struct NSSliceExternalAcquisitionProperties)  C       Foundation
+       1         32      32.0   NSMapTable.values.acquisitionProps (struct NSSliceExternalAcquisitionProperties)  C       Foundation
+       1         32      32.0   NSPointerArray (Weak Object Storage)              C       Foundation
+       1         32      32.0   RBSMachPortTaskNameRight                          ObjC    RunningBoardServices
+       1         32      32.0   RBSProcessStateDescriptor                         ObjC    RunningBoardServices
+       1         32      32.0   RBSWorkloop                                       ObjC    RunningBoardServices
+       1         32      32.0   RunLoopUpdateDriver                               Swift   Gestures
+       1         32      32.0   UIKit_PKSubsystem                                 ObjC    Foundation
+       1         32      32.0   UIPlaceholderColor                                ObjC    UIKitCore
+       1         32      32.0   UISApplicationState                               ObjC    UIKitServices
+       1         32      32.0   UIScreenMode                                      ObjC    UIKitCore
+       1         32      32.0   UITintColor                                       ObjC    UIKitCore
+       1         32      32.0   _AXDyldImageMonitor                               ObjC    AXCoreUtilities
+       1         32      32.0   _AXObjectCacheHelper                              ObjC    AXRuntime
+       1         32      32.0   _CSStore2DataContainer                            ObjC    CoreServicesStore
+       1         32      32.0   _LSDServiceDomain                                 ObjC    CoreServices
+       1         32      32.0   _ProcessInfo                                      Swift   Foundation
+       1         32      32.0   _RBSExpirationWarningClient                       ObjC    RunningBoardServices
+       1         32      32.0   _UIActiveViewServiceSessionTracker                ObjC    UIKitCore
+       1         32      32.0   _UIAfterCACommitQueue                             ObjC    UIKitCore
+       1         32      32.0   _UIApplicationConfigurationLoader                 ObjC    UIKitCore
+       1         32      32.0   _UIDeviceInitialDeviceConfigurationLoader         ObjC    UIKitCore
+       1         32      32.0   _UIHDRUsageCoordinator                            ObjC    UIKitCore
+       1         32      32.0   _UIKeyboardHIDEventOrderedDescriptorSet           ObjC    UIKitCore
+       1         32      32.0   _UIPresentationControllerDefaultVisualStyleProvider  ObjC    UIKitCore
+       1         32      32.0   _UISceneEventResponder                            ObjC    UIKitCore
+       1         32      32.0   _UISceneLifecycleMultiplexer                      ObjC    UIKitCore
+       1         32      32.0   _UIScreenComplexBoundingPathUtilities             ObjC    UIKitCore
+       1         32      32.0   _UIScreenInitialDisplayConfigurationLoader        ObjC    UIKitCore
+       1         32      32.0   _UISwiftTraits.UnfairLock                         Swift   UIKitCore
+       1         32      32.0   _UIViewBackingObserver                            ObjC    UIKitCore
+       1         32      32.0   _UIViewServiceViewControllerDeputyXPCInterface    ObjC    UIKitCore
+       1         32      32.0   awd::profile::AggregationSpec                     C++     WirelessDiagnostics
+       1         32      32.0   awd::profile::ConfigurationParameter              C++     WirelessDiagnostics
+       1         32      32.0   awd::profile::LogParameter                        C++     WirelessDiagnostics
+       1         32      32.0   awd::profile::TaskingCriteria                     C++     WirelessDiagnostics
+       1         32      32.0   awd::profile::TimerSpec                           C++     WirelessDiagnostics
+       1         32      32.0   std::__shared_ptr_pointer<CEM::ReadOnlyFile<unsigned char>*, std::shared_ptr<CEM::ReadOnlyFile<unsigned char>>::__shared_ptr_default_delete<CEM::ReadOnlyFile<unsigned char>, CEM::ReadOnlyFile<unsigned char>>>  C++     CoreEmoji
+       1         32      32.0   std::__shared_ptr_pointer<MCacheData*, std::shared_ptr<MCacheData>::__shared_ptr_default_delete<MCacheData, MCacheData>>  C++     libFontParser.dylib
+       1         32      32.0   wireless_diagnostics::google::protobuf::DescriptorProto_ExtensionRange  C++     libprotobuf.dylib
+       1         16      16.0   AXAVFoundationGlue                                ObjC    AVFoundation
+       1         16      16.0   AXAVKitGlue                                       ObjC    AVKit
+       1         16      16.0   AXAnnotationKitGlue                               ObjC    AnnotationKit
+       1         16      16.0   AXAssistantServicesGlue                           ObjC    AssistantServices
+       1         16      16.0   AXAuthKitGlue                                     ObjC    AuthKitUI
+       1         16      16.0   AXAuthenticationServicesGlue                      ObjC    AuthenticationServices
+       1         16      16.0   AXBannerKitGlue                                   ObjC    BannerKit
+       1         16      16.0   AXBaseBoardUIGlue                                 ObjC    BaseBoardUI
+       1         16      16.0   AXContactsAutocompleteUIGlue                      ObjC    ContactsAutocompleteUI
+       1         16      16.0   AXCoverSheetKitGlue                               ObjC    CoverSheetKit
+       1         16      16.0   AXEventKitUIGlue                                  ObjC    EventKitUIFramework
+       1         16      16.0   AXFrontBoardGlue                                  ObjC    FrontBoard
+       1         16      16.0   AXHelpKitGlue                                     ObjC    HelpKit
+       1         16      16.0   AXIntentsUIGlue                                   ObjC    IntentsUI
+       1         16      16.0   AXLinkPresentationGlue                            ObjC    LinkPresentation
+       1         16      16.0   AXLocalAuthenticationPrivateUIGlue                ObjC    LocalAuthenticationPrivateUI
+       1         16      16.0   AXMapKitSwiftUIGlue                               ObjC    MapKitSwiftUI
+       1         16      16.0   AXMediaPlayerFrameworkGlue                        ObjC    MediaPlayerFramework
+       1         16      16.0   AXMessageUIFrameworkGlue                          ObjC    MessageUIFramework
+       1         16      16.0   AXMobilePiPGlue                                   ObjC    Pegasus
+       1         16      16.0   AXOnBoardingKitGlue                               ObjC    OnBoardingKit
+       1         16      16.0   AXPreferencesFrameworkGlue                        ObjC    PreferencesFramework
+       1         16      16.0   AXPrintKitUIGlue                                  ObjC    PrintKitUI
+       1         16      16.0   AXProxCardKitGlue                                 ObjC    ProxCardKit
+       1         16      16.0   AXRealityFoundationGlue                           ObjC    RealityFoundation
+       1         16      16.0   AXRemoteUIGlue                                    ObjC    RemoteUIFramework
+       1         16      16.0   AXSearchFoundationGlue                            ObjC    SearchFoundation
+       1         16      16.0   AXShareSheetGlue                                  ObjC    ShareSheet
+       1         16      16.0   AXSpringBoardFoundationGlue                       ObjC    SpringBoardFoundation
+       1         16      16.0   AXSpringBoardUIServicesGlue                       ObjC    SpringBoardUIServices
+       1         16      16.0   AXStoreKitGlue                                    ObjC    StoreKitFramework
+       1         16      16.0   AXSubsystemAXNotifications                        ObjC    AXCoreUtilities
+       1         16      16.0   AXSwiftUIGlue                                     ObjC    SwiftUI
+       1         16      16.0   AXTelephonyUIGlue                                 ObjC    TelephonyUIFramework
+       1         16      16.0   AXTextInputUIGlue                                 ObjC    TextInputUI
+       1         16      16.0   AXUIKitGlue                                       ObjC    UIKit
+       1         16      16.0   AXVisionKitCoreGlue                               ObjC    VisionKitCore
+       1         16      16.0   AXiTunesStoreGlue                                 ObjC    iTunesStoreFramework
+       1         16      16.0   AccessibilitySettingsLoader                       ObjC    AccessibilitySettingsLoader
+       1         16      16.0   AssistiveTouchHelper                              ObjC    AccessibilitySettingsLoader
+       1         16      16.0   BKSHIDServiceConnectionFactory                    ObjC    BackBoardServices
+       1         16      16.0   CADynamicFrameRateSource                          ObjC    QuartzCore
+       1         16      16.0   CASuspendNotification                             ObjC    QuartzCore
+       1         16      16.0   CLFSystemShellSwitcher                            ObjC    ClarityFoundation
+       1         16      16.0   FBMutableWorkspaceConnectionsState                ObjC    FrontBoard
+       1         16      16.0   FBSPseudoSceneUpdater                             ObjC    FrontBoardServices
+       1         16      16.0   FBWorkspaceConnectionsState                       ObjC    FrontBoard
+       1         16      16.0   FontServicesDaemonManager                         ObjC    FontServices
+       1         16      16.0   HearingManager                                    ObjC    AccessibilitySettingsLoader
+       1         16      16.0   MTCoreMaterialDefaultPlatformConfiguration        ObjC    CoreMaterial
+       1         16      16.0   NSArray.cow (struct __cow_state_t)                C       CoreFoundation
+       1         16      16.0   NSCFTimer                                         ObjC    Foundation
+       1         16      16.0   NSIndexPath._indexes (uint64_t[])                 C       Foundation
+       1         16      16.0   NSMutableOrderedSet.cow (struct __cow_state_t)    C       CoreFoundation
+       1         16      16.0   NSObject                                          ObjC    libobjc.A.dylib
+       1         16      16.0   PKFilesystemProvider                              ObjC    PlugInKit
+       1         16      16.0   PKLaunchProvider                                  ObjC    PlugInKit
+       1         16      16.0   PKLaunchServicesProvider                          ObjC    PlugInKit
+       1         16      16.0   PKRunningBoardProvider                            ObjC    PlugInKit
+       1         16      16.0   PKSandboxProvider                                 ObjC    PlugInKit
+       1         16      16.0   PKSystemProvider                                  ObjC    PlugInKit
+       1         16      16.0   RBSMachPort                                       ObjC    RunningBoardServices
+       1         16      16.0   SpeakThisServicesUI                               ObjC    AccessibilitySettingsLoader
+       1         16      16.0   SpeakTypingManager                                ObjC    AccessibilitySettingsLoader
+       1         16      16.0   SwiftUI.(LayoutEngineBox in $1dbb95c04)<SwiftUI.LayoutComputer.DefaultEngine>  Swift   SwiftUI
+       1         16      16.0   TIActionWhenIdle                                  ObjC    TextInput
+       1         16      16.0   UIAccessibilityInformationLoader                  ObjC    UIAccessibility
+       1         16      16.0   UIKeyboardPreferencesController                   ObjC    UIKitCore
+       1         16      16.0   UISDeviceContext                                  ObjC    UIKitServices
+       1         16      16.0   UIScrollEdgeEffectStyle                           ObjC    UIKitCore
+       1         16      16.0   Update.TraceHost                                  Swift   SwiftUICore
+       1         16      16.0   ZoomServicesUI                                    ObjC    AccessibilitySettingsLoader
+       1         16      16.0   _EXDefaults                                       ObjC    ExtensionFoundation
+       1         16      16.0   _NSFileManagerBridge                              Swift   Foundation
+       1         16      16.0   _NSUIKitTextGraphicsContext                       ObjC    UIFoundation
+       1         16      16.0   _NSZeroData                                       ObjC    Foundation
+       1         16      16.0   _UIEmptyEffect                                    ObjC    UIKitCore
+       1         16      16.0   _UIFocusBehavior_IOS                              ObjC    UIKitCore
+       1         16      16.0   _UILabelVisualStyle_iOS                           ObjC    UIKitCore
+       1         16      16.0   _UIObjectReferenceCounter                         ObjC    UIKitCore
+       1         16      16.0   _UIOpenURLApplicationBSActionHandler              ObjC    UIKitCore
+       1         16      16.0   _UIPresentationControllerNullVisualStyleProvider  ObjC    UIKitCore
+       1         16      16.0   _UIScreenFixedCoordinateSpace                     ObjC    UIKitCore
+       1         16      16.0   _UISheetPresentationMetrics                       ObjC    UIKitCore
+       1         16      16.0   _UISimpleFenceProvider                            ObjC    UIKitCore
+       1         16      16.0   _UISwiftTraits.UnfairLock._lock (malloc)                  UIKitCore
+       1         16      16.0   _UISystemReferenceAngleMultiplexer                ObjC    UIKitCore
+       1         16      16.0   _UIViewControllerControlMessageDeputyXPCInterface  ObjC    UIKitCore
+       1         16      16.0   _UIViewServiceTextEffectsOperator_XPCInterface    ObjC    UIKitCore
+       1         16      16.0   _UIViewServiceViewControllerOperator_XPCInterface  ObjC    UIKitCore
+       1         16      16.0   xpc_array_t (Storage)                             C       libxpc.dylib
+
