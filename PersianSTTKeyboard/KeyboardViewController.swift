@@ -941,6 +941,16 @@ final class KeyboardViewController: UIInputViewController {
         let height = view.heightAnchor.constraint(equalToConstant: fullHeight)
         height.priority = UILayoutPriority(999)
         heightConstraint = height
+        // iOS 26 sizes a keyboard by Auto Layout only when something inside it is laid out with
+        // constraints. The keys are placed by frames, so without this empty view iOS ignored the
+        // height above and gave each app's own (444 points in Spotlight and Safari, 461 in this
+        // app, 672 in Reminders, in the simulator, for 260 asked); with it, every app gives 260.
+        let sizer = UIView()
+        sizer.isHidden = true
+        sizer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(sizer)
+        sizer.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
+        sizer.centerYAnchor.constraint(equalTo: view.centerYAnchor).isActive = true
         render()
     }
 
