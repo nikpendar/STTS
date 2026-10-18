@@ -1219,7 +1219,6 @@ final class KeyboardViewController: UIInputViewController {
 
     override func updateViewConstraints() {
         super.updateViewConstraints()
-        if Self.minimal { return }
         guard willAppear, let heightConstraint else { return }
         let height = isCompact ? compactHeight : fullHeight
         if heightConstraint.constant != height { heightConstraint.constant = height }
