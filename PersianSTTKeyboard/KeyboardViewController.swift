@@ -25,29 +25,18 @@ final class KeyboardViewController: UIInputViewController {
     /// The preset drawn last and the size it was drawn at.
     private var drawnBackground: (id: String, size: CGSize)?
     private var heightConstraint: NSLayoutConstraint?
-    /// Row height of the system keyboard, measured in the iOS simulator (ios-keyboard.yml on the
-    /// ios-ref branch): 54 on iPhones up to 393 points wide (SE, 11 Pro, 16), 56 on the wider ones
-    /// (11, Plus, Pro Max). The simulator's keyboard stays upright, so landscape takes the usual 40.
-    private var rowHeight: CGFloat {
-        if isLandscape { return 40 }
-        return min(UIScreen.main.bounds.width, UIScreen.main.bounds.height) >= 414 ? 56 : 54
-    }
+    /// The heights of the suggestion bar and the rows, fixed per orientation (`KeyboardMetrics`).
+    private lazy var portraitMetrics = KeyboardMetrics.saved(landscape: false)
+    private lazy var landscapeMetrics = KeyboardMetrics.saved(landscape: true)
+    private var metrics: KeyboardMetrics { isLandscape ? landscapeMetrics : portraitMetrics }
+    private var rowHeight: CGFloat { metrics.row }
     /// The suggestion bar above the keys, or a thin margin in its place when it is switched off.
     private var barHeight: CGFloat {
         guard options.suggestionBar else { return isLandscape ? 2 : 3 }
-        return isLandscape ? 38 : 46
+        return metrics.bar
     }
-    /// The optional digits over the letters, the one row lower than the system's: down to keys
-    /// as tall as they are wide, never flatter. In landscape the keys are wider than the letter
-    /// rows are tall, so the row keeps their height.
-    private var numberRowHeight: CGFloat {
-        let insets = view.safeAreaInsets
-        let width = view.bounds.width > 0 ? view.bounds.width - insets.left - insets.right : UIScreen.main.bounds.width
-        // KeyView draws 2.5 points in from each side, and a tenth of the height (at least 3)
-        // from the top and the bottom.
-        let face = width / 10 - 5
-        return min(rowHeight, max(face / 0.8, face + 6).rounded(.up))
-    }
+    /// The optional digits over the letters.
+    private var numberRowHeight: CGFloat { metrics.numberRow }
     /// No margin under the bottom row: the keys sit as low as the extension can draw.
     private var fullHeight: CGFloat { barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) }
     private var compactHeight: CGFloat { isLandscape ? 120 : 150 }
@@ -57,6 +46,8 @@ final class KeyboardViewController: UIInputViewController {
     private var isCompact = false
     /// While the keyboard grows or shrinks for dictation, the keys keep the full-height layout.
     private var isResizing = false
+    /// Set once the view is about to show: the height constraint waits for it.
+    private var willAppear = false
     /// The size last written to the log, which records each size iOS gives the keyboard.
     private var loggedSize = CGSize.zero
     private var timeout: DispatchWorkItem?
@@ -110,6 +101,8 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // Both orientations' sizes are worked out (and kept) on the first run after install.
+        _ = (portraitMetrics, landscapeMetrics)
         buildUI()
         observer.observe(DictationBridge.alive) { [weak self] in
             MainActor.assumeIsolated { self?.sessionIsAlive() }
@@ -161,9 +154,6 @@ final class KeyboardViewController: UIInputViewController {
     /// let through at once.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        // iOS takes a keyboard's own height once its view is on screen.
-        heightConstraint?.isActive = false
-        heightConstraint?.isActive = true
         var view: UIView? = self.view.window
         while let current = view {
             current.gestureRecognizers?.forEach { $0.delaysTouchesBegan = false }
@@ -173,6 +163,8 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        willAppear = true
+        view.setNeedsUpdateConstraints()
         if let previewState {
             showPreview(previewState)
             return
@@ -931,10 +923,11 @@ final class KeyboardViewController: UIInputViewController {
         keysView.addSubview(keyPopup)
 
         // Just under required, as Apple's guide for keyboard heights has it: a lower priority lost
-        // to the height iOS gives the keyboard by default.
+        // to the height iOS gives the keyboard by default. It is switched on only once the view
+        // is about to show (updateViewConstraints): switched on earlier, iOS often kept another
+        // height, so the keys were smaller in one app and the suggestion bar taller in another.
         let height = view.heightAnchor.constraint(equalToConstant: fullHeight)
         height.priority = UILayoutPriority(999)
-        height.isActive = true
         heightConstraint = height
         render()
     }
@@ -1197,6 +1190,14 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    override func updateViewConstraints() {
+        super.updateViewConstraints()
+        guard willAppear, let heightConstraint else { return }
+        let height = isCompact ? compactHeight : fullHeight
+        if heightConstraint.constant != height { heightConstraint.constant = height }
+        if !heightConstraint.isActive { heightConstraint.isActive = true }
+    }
+
     /// Keys sit on a grid of `columns` equal cells across the whole width (inside the safe area,
     /// which is only non-zero beside the notch in landscape), under the suggestion bar. Each
     /// key's frame covers its whole cell so there are no dead zones between keys.
@@ -1206,16 +1207,18 @@ final class KeyboardViewController: UIInputViewController {
             loggedSize = view.bounds.size
             log.info("layout \(Int(self.view.bounds.width))x\(Int(self.view.bounds.height)), asked \(Int(self.fullHeight)), window \(Int(self.view.window?.bounds.height ?? 0))")
         }
-        if !isCompact, let height = heightConstraint, height.constant != fullHeight {
-            height.constant = fullHeight
+        // The number row, the suggestion bar or the orientation changed the height.
+        if !isCompact, let height = heightConstraint, height.isActive, height.constant != fullHeight {
+            view.setNeedsUpdateConstraints()
         }
         orb.frame = view.bounds
         backgroundImageView.frame = view.bounds
         updateBackgroundImage()
-        // Keys keep the full-height layout while hidden or resizing, so they do not squeeze during
-        // the animation. Otherwise they fill the height iOS gave the keyboard, which may be less
-        // than asked: the suggestion bar must stay on screen.
-        let height = isCompact || isResizing ? max(view.bounds.height, fullHeight) : view.bounds.height
+        // The keys always take the keyboard's own height at the bottom of the view: more height
+        // from iOS stays empty above the suggestion bar. They keep it while hidden or resizing,
+        // so they do not squeeze during the animation. Only when iOS gives less than asked do
+        // they fill what there is, as the suggestion bar must stay on screen.
+        let height = isCompact || isResizing ? fullHeight : min(view.bounds.height, fullHeight)
         if !isCompact, !isResizing, height < fullHeight - 0.5 {
             log.info("keyboard given \(Double(height), privacy: .public) of \(Double(self.fullHeight), privacy: .public) points")
         }
@@ -1229,10 +1232,9 @@ final class KeyboardViewController: UIInputViewController {
         let insets = view.safeAreaInsets
         let left = insets.left
         let width = view.bounds.width - insets.left - insets.right
-        // The rows keep the system keyboard's height whatever iOS gives. Less than asked comes
-        // out of the suggestion bar, down to a thin strip, and only then out of the rows; more
-        // goes to the bar. With the number row on, the other layers spread their four rows over
-        // the letters' and the digits' height.
+        // The rows keep the system keyboard's height. Less than asked comes out of the suggestion
+        // bar, down to a thin strip, and only then out of the rows. With the number row on, the
+        // other layers spread their four rows over the letters' and the digits' height.
         let keysNeeded = 4 * rowHeight + (options.numberRow ? numberRowHeight : 0)
         let leastBar: CGFloat = options.suggestionBar ? (isLandscape ? 26 : 30) : barHeight
         let bar = max(leastBar, height - keysNeeded)

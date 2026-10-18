@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000044 /* KeyboardMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003D /* KeyboardMetrics.swift */; };
+		A10000000000000000000043 /* KeyboardMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003D /* KeyboardMetrics.swift */; };
 		A10000000000000000000042 /* ShenavaStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003C /* ShenavaStream.swift */; };
 		A10000000000000000000041 /* SpokenNumbers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003B /* SpokenNumbers.swift */; };
 		A10000000000000000000040 /* SpokenNumbers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003B /* SpokenNumbers.swift */; };
@@ -95,6 +97,7 @@
 		A20000000000000000000034 /* VoiceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommands.swift; sourceTree = "<group>"; };
 		A2000000000000000000003B /* SpokenNumbers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpokenNumbers.swift; sourceTree = "<group>"; };
 		A20000000000000000000039 /* TouchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchModel.swift; sourceTree = "<group>"; };
+		A2000000000000000000003D /* KeyboardMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardMetrics.swift; sourceTree = "<group>"; };
 		A2000000000000000000003A /* KeyboardBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardBackground.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* fa_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = fa_bigrams.bin; sourceTree = "<group>"; };
 		A20000000000000000000036 /* en_words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = en_words.txt; sourceTree = "<group>"; };
@@ -171,6 +174,7 @@
 				A20000000000000000000034 /* VoiceCommands.swift */,
 				A2000000000000000000003B /* SpokenNumbers.swift */,
 				A20000000000000000000039 /* TouchModel.swift */,
+				A2000000000000000000003D /* KeyboardMetrics.swift */,
 				A20000000000000000000035 /* fa_bigrams.bin */,
 				A20000000000000000000036 /* en_words.txt */,
 				A20000000000000000000037 /* en_bigrams.bin */,
@@ -293,6 +297,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000043 /* KeyboardMetrics.swift in Sources */,
 				A10000000000000000000042 /* ShenavaStream.swift in Sources */,
 				A10000000000000000000040 /* SpokenNumbers.swift in Sources */,
 				A10000000000000000000001 /* PersianSTTApp.swift in Sources */,
@@ -320,6 +325,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000044 /* KeyboardMetrics.swift in Sources */,
 				A10000000000000000000041 /* SpokenNumbers.swift in Sources */,
 				A1000000000000000000000D /* KeyboardViewController.swift in Sources */,
 				A10000000000000000000023 /* EditTracker.swift in Sources */,
