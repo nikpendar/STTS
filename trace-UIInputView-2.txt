@@ -1,0 +1,16 @@
+Tracing: <UIInputView 0x1038ccc90> [624]
+
+Found 2 roots referencing: <UIInputView 0x1038ccc90> [624]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    2 <UIInputView 0x1038ccc90> [624]
+      1 0x103b38b70 [304]   +128:  0x103b38bf0
+      + 1 0x103010600 [8192]  +5600:  0x103011be0
+      +   1 Region __DATA_DIRTY /usr/lib/dyld __DATA_DIRTY __common: '_main_thread' + 800 0x102c38520
+      1 <NSLayoutDimension 0x6000017d3c40> [64]     +8: _referenceItem 0x6000017d3c48
+        1 0x11e6a9af0 [384]   +304:  0x11e6a9c20
+          1 0x111a10000 [131072] +29416:  0x111a172e8
+            1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f26c94c8
