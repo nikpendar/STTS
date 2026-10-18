@@ -75,7 +75,7 @@ final class GlideTrailView: UIView {
         lensView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         lensView.layer.addSublayer(lens)
         #if compiler(>=6.2)
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), false {
             glass = TrailGlass(in: self)
             discScale = 0.84
             for decoration in [shadow, rim, shine] { decoration.isHidden = true }
@@ -344,7 +344,7 @@ final class ShapeGlass {
     /// Nil before iOS 26, or when built with an SDK without Liquid Glass.
     static func make() -> ShapeGlass? {
         #if compiler(>=6.2)
-        if #available(iOS 26.0, *) { return ShapeGlass(glass: ()) }
+        if #available(iOS 26.0, *), false { return ShapeGlass(glass: ()) }
         #endif
         return nil
     }
