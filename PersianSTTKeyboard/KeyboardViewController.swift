@@ -99,8 +99,14 @@ final class KeyboardViewController: UIInputViewController {
     var testProxy: UITextDocumentProxy?
     private var proxy: UITextDocumentProxy { testProxy ?? textDocumentProxy }
 
+    /// Each text field gets its own keyboard; the log shows whether the earlier ones are freed.
+    deinit {
+        log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) freed")
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
+        log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) loaded")
         // Both orientations' sizes are worked out (and kept) on the first run after install.
         _ = (portraitMetrics, landscapeMetrics)
         buildUI()

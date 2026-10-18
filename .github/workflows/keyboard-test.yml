@@ -130,12 +130,22 @@ jobs:
             sudo heap "$PID" > out/heap.txt 2>&1 || true
             sudo leaks "$PID" > out/leaks.txt 2>&1 || true
             grep -E "KeyboardViewController|KeyView\b|GlideTrailView|DictationOrbView|KeysView" out/heap.txt | head -20 || true
+            # What holds the keyboards of earlier text fields: the references from the roots to the
+            # first instances of the keyboard's views and controller.
+            for class in KeysView UIInputView KeyboardViewController _UIInputViewControllerState; do
+              sudo heap -addresses "^$class\$" "$PID" > "out/addresses-$class.txt" 2>&1 || true
+              n=0
+              for address in $(grep -oE "0x[0-9a-f]{6,}" "out/addresses-$class.txt" | sort -u | head -n 3); do
+                n=$((n + 1))
+                sudo leaks --traceTree="$address" "$PID" > "out/trace-$class-$n.txt" 2>&1 || true
+              done
+            done
           fi
           kill $LOG || true
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian || echo "no crash reports"
           cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ 2>/dev/null || true
           echo "===== keyboard sizes"
-          grep -E "keyboard\] (layout|keyboard given)" out/log.txt | sed -E 's/^[0-9-]+ ([0-9:.]+).*\] /\1 /' | tee out/sizes.txt
+          grep -E "keyboard\] (layout|keyboard given|controller)" out/log.txt | sed -E 's/^[0-9-]+ ([0-9:.]+).*\] /\1 /' | tee out/sizes.txt
           cat out/hosts.txt
           echo "===== log (filtered)"
           grep -v "constructing bundle record" out/log.txt | grep -iE "inputmode|extension|PersianSTTKeyboard|xpcservice|PersianSTT.Keyboard|fail|error" | grep -v "Memorystatus\|Carplay\|cfprefsd" | cut -c1-400 | head -200
