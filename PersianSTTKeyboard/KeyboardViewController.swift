@@ -927,7 +927,7 @@ final class KeyboardViewController: UIInputViewController {
         // is about to show (updateViewConstraints): switched on earlier, iOS often kept another
         // height, so the keys were smaller in one app and the suggestion bar taller in another.
         let height = view.heightAnchor.constraint(equalToConstant: fullHeight)
-        height.priority = UILayoutPriority(999)
+        height.priority = .required
         heightConstraint = height
         render()
     }
