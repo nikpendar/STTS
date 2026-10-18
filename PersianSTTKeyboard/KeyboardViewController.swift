@@ -117,7 +117,7 @@ final class KeyboardViewController: UIInputViewController {
             view.addSubview(label)
             label.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
             label.centerYAnchor.constraint(equalTo: view.centerYAnchor).isActive = true
-            let minimal = view.heightAnchor.constraint(equalToConstant: 268)
+            let minimal = view.heightAnchor.constraint(equalToConstant: 260)
             minimal.priority = .defaultHigh
             minimal.isActive = true
             buildUI()
