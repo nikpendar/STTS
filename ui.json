@@ -1,0 +1,822 @@
+[
+  {
+    "title" : null,
+    "enabled" : true,
+    "AXLabel" : "گفتار به متن",
+    "frame" : {
+      "width" : 375,
+      "x" : 0,
+      "y" : 0,
+      "height" : 812
+    },
+    "type" : "Application",
+    "content_required" : false,
+    "role_description" : "application",
+    "AXFrame" : "{{0, 0}, {375, 812}}",
+    "custom_actions" : [
+
+    ],
+    "children" : [
+      {
+        "role_description" : "group",
+        "title" : null,
+        "AXValue" : null,
+        "children" : [
+          {
+            "AXValue" : null,
+            "frame" : {
+              "width" : 375,
+              "x" : 0,
+              "y" : 0,
+              "height" : 812
+            },
+            "children" : [
+              {
+                "help" : null,
+                "title" : null,
+                "frame" : {
+                  "width" : 375,
+                  "x" : 0,
+                  "y" : 0,
+                  "height" : 812
+                },
+                "AXUniqueId" : null,
+                "traits" : [
+
+                ],
+                "content_required" : false,
+                "enabled" : true,
+                "children" : [
+                  {
+                    "AXUniqueId" : null,
+                    "AXLabel" : null,
+                    "AXFrame" : "{{0, 0}, {375, 812}}",
+                    "AXValue" : null,
+                    "enabled" : true,
+                    "role_description" : "group",
+                    "subrole" : null,
+                    "content_required" : false,
+                    "pid" : 26807,
+                    "traits" : [
+
+                    ],
+                    "title" : null,
+                    "role" : "AXGroup",
+                    "custom_actions" : [
+
+                    ],
+                    "children" : [
+                      {
+                        "custom_actions" : [
+
+                        ],
+                        "traits" : [
+
+                        ],
+                        "frame" : {
+                          "width" : 375,
+                          "x" : 0,
+                          "y" : 0,
+                          "height" : 812
+                        },
+                        "content_required" : false,
+                        "AXFrame" : "{{0, 0}, {375, 812}}",
+                        "pid" : 26807,
+                        "enabled" : true,
+                        "AXValue" : null,
+                        "role_description" : "group",
+                        "AXLabel" : null,
+                        "title" : null,
+                        "help" : null,
+                        "children" : [
+                          {
+                            "frame" : {
+                              "width" : 343,
+                              "x" : 16,
+                              "y" : 60,
+                              "height" : 34
+                            },
+                            "content_required" : false,
+                            "AXUniqueId" : null,
+                            "role_description" : "text field",
+                            "AXFrame" : "{{16, 60}, {343, 34}}",
+                            "enabled" : true,
+                            "children" : [
+
+                            ],
+                            "title" : null,
+                            "AXLabel" : null,
+                            "traits" : [
+
+                            ],
+                            "help" : null,
+                            "subrole" : null,
+                            "type" : "TextField",
+                            "pid" : 26807,
+                            "AXValue" : "آزمون کیبورد",
+                            "custom_actions" : [
+
+                            ],
+                            "role" : "AXTextField"
+                          }
+                        ],
+                        "role" : "AXGroup",
+                        "type" : "Group",
+                        "AXUniqueId" : null,
+                        "subrole" : null
+                      }
+                    ],
+                    "type" : "Group",
+                    "frame" : {
+                      "width" : 375,
+                      "x" : 0,
+                      "y" : 0,
+                      "height" : 812
+                    },
+                    "help" : null
+                  }
+                ],
+                "type" : "Group",
+                "role_description" : "group",
+                "AXLabel" : null,
+                "role" : "AXGroup",
+                "AXFrame" : "{{0, 0}, {375, 812}}",
+                "subrole" : null,
+                "pid" : 26807,
+                "AXValue" : null,
+                "custom_actions" : [
+
+                ]
+              }
+            ],
+            "traits" : [
+
+            ],
+            "custom_actions" : [
+
+            ],
+            "role" : "AXGroup",
+            "help" : null,
+            "type" : "Group",
+            "title" : null,
+            "AXFrame" : "{{0, 0}, {375, 812}}",
+            "enabled" : true,
+            "subrole" : null,
+            "AXLabel" : null,
+            "content_required" : false,
+            "role_description" : "group",
+            "pid" : 26807,
+            "AXUniqueId" : null
+          }
+        ],
+        "pid" : 26807,
+        "content_required" : false,
+        "help" : null,
+        "AXLabel" : null,
+        "role" : "AXGroup",
+        "traits" : [
+
+        ],
+        "AXFrame" : "{{0, 0}, {375, 812}}",
+        "subrole" : null,
+        "enabled" : true,
+        "frame" : {
+          "width" : 375,
+          "x" : 0,
+          "y" : 0,
+          "height" : 812
+        },
+        "type" : "Group",
+        "AXUniqueId" : null,
+        "custom_actions" : [
+
+        ]
+      },
+      {
+        "children" : [
+          {
+            "type" : "Group",
+            "help" : null,
+            "AXFrame" : "{{0, 0}, {375, 812}}",
+            "AXUniqueId" : null,
+            "AXValue" : null,
+            "pid" : 26807,
+            "children" : [
+              {
+                "AXUniqueId" : null,
+                "help" : null,
+                "pid" : 26807,
+                "role_description" : "group",
+                "AXFrame" : "{{0, 0}, {375, 812}}",
+                "traits" : [
+
+                ],
+                "AXValue" : null,
+                "enabled" : true,
+                "type" : "Group",
+                "subrole" : null,
+                "AXLabel" : null,
+                "role" : "AXGroup",
+                "frame" : {
+                  "width" : 375,
+                  "x" : 0,
+                  "y" : 0,
+                  "height" : 812
+                },
+                "custom_actions" : [
+
+                ],
+                "content_required" : false,
+                "children" : [
+
+                ],
+                "title" : null
+              },
+              {
+                "help" : null,
+                "children" : [
+                  {
+                    "title" : null,
+                    "type" : "Group",
+                    "AXUniqueId" : "inputView",
+                    "subrole" : null,
+                    "enabled" : true,
+                    "content_required" : false,
+                    "traits" : [
+
+                    ],
+                    "role_description" : "group",
+                    "AXLabel" : null,
+                    "pid" : 26807,
+                    "help" : null,
+                    "role" : "AXGroup",
+                    "AXValue" : null,
+                    "frame" : {
+                      "width" : 375,
+                      "x" : 0,
+                      "y" : 477,
+                      "height" : 335
+                    },
+                    "children" : [
+
+                    ],
+                    "AXFrame" : "{{0, 477}, {375, 335}}",
+                    "custom_actions" : [
+
+                    ]
+                  }
+                ],
+                "traits" : [
+
+                ],
+                "frame" : {
+                  "width" : 375,
+                  "x" : 0,
+                  "y" : 477,
+                  "height" : 335
+                },
+                "type" : "Group",
+                "AXUniqueId" : null,
+                "enabled" : true,
+                "title" : null,
+                "subrole" : null,
+                "content_required" : false,
+                "AXValue" : null,
+                "custom_actions" : [
+
+                ],
+                "role" : "AXGroup",
+                "pid" : 26807,
+                "AXLabel" : null,
+                "AXFrame" : "{{0, 477}, {375, 335}}",
+                "role_description" : "group"
+              }
+            ],
+            "title" : null,
+            "enabled" : true,
+            "role_description" : "group",
+            "role" : "AXGroup",
+            "subrole" : null,
+            "traits" : [
+
+            ],
+            "custom_actions" : [
+
+            ],
+            "content_required" : false,
+            "frame" : {
+              "width" : 375,
+              "x" : 0,
+              "y" : 0,
+              "height" : 812
+            },
+            "AXLabel" : null
+          }
+        ],
+        "role_description" : "group",
+        "AXLabel" : null,
+        "pid" : 26807,
+        "AXUniqueId" : null,
+        "AXFrame" : "{{0, 0}, {375, 812}}",
+        "title" : null,
+        "custom_actions" : [
+
+        ],
+        "enabled" : true,
+        "traits" : [
+
+        ],
+        "subrole" : null,
+        "content_required" : false,
+        "role" : "AXGroup",
+        "help" : null,
+        "frame" : {
+          "width" : 375,
+          "x" : 0,
+          "y" : 0,
+          "height" : 812
+        },
+        "type" : "Group",
+        "AXValue" : null
+      },
+      {
+        "pid" : 26807,
+        "custom_actions" : [
+
+        ],
+        "help" : null,
+        "AXLabel" : null,
+        "title" : null,
+        "type" : "Group",
+        "frame" : {
+          "width" : 375,
+          "x" : 0,
+          "y" : 0,
+          "height" : 812
+        },
+        "enabled" : true,
+        "role" : "AXGroup",
+        "traits" : [
+
+        ],
+        "AXFrame" : "{{0, 0}, {375, 812}}",
+        "content_required" : false,
+        "AXUniqueId" : null,
+        "role_description" : "group",
+        "AXValue" : null,
+        "children" : [
+          {
+            "AXLabel" : null,
+            "pid" : 26807,
+            "type" : "Group",
+            "children" : [
+              {
+                "frame" : {
+                  "width" : 375,
+                  "x" : 0,
+                  "y" : 460,
+                  "height" : 352
+                },
+                "pid" : 26807,
+                "help" : null,
+                "enabled" : true,
+                "content_required" : false,
+                "AXValue" : null,
+                "role" : "AXGroup",
+                "AXUniqueId" : null,
+                "custom_actions" : [
+
+                ],
+                "traits" : [
+
+                ],
+                "AXLabel" : null,
+                "title" : null,
+                "subrole" : null,
+                "role_description" : "group",
+                "type" : "Group",
+                "AXFrame" : "{{0, 460}, {375, 352}}",
+                "children" : [
+                  {
+                    "enabled" : true,
+                    "help" : null,
+                    "children" : [
+                      {
+                        "role_description" : "group",
+                        "role" : "AXGroup",
+                        "content_required" : false,
+                        "AXFrame" : "{{0, 460}, {375, 352}}",
+                        "type" : "Group",
+                        "children" : [
+                          {
+                            "traits" : [
+
+                            ],
+                            "type" : "Group",
+                            "AXUniqueId" : null,
+                            "children" : [
+
+                            ],
+                            "role_description" : "group",
+                            "content_required" : false,
+                            "role" : "AXGroup",
+                            "enabled" : true,
+                            "help" : null,
+                            "subrole" : null,
+                            "custom_actions" : [
+
+                            ],
+                            "AXFrame" : "{{0, 460}, {375, 352}}",
+                            "frame" : {
+                              "width" : 375,
+                              "x" : 0,
+                              "y" : 460,
+                              "height" : 352
+                            },
+                            "AXLabel" : null,
+                            "pid" : 26807,
+                            "AXValue" : null,
+                            "title" : null
+                          }
+                        ],
+                        "AXUniqueId" : null,
+                        "title" : null,
+                        "traits" : [
+
+                        ],
+                        "help" : null,
+                        "subrole" : null,
+                        "custom_actions" : [
+
+                        ],
+                        "frame" : {
+                          "width" : 375,
+                          "x" : 0,
+                          "y" : 460,
+                          "height" : 352
+                        },
+                        "AXLabel" : null,
+                        "AXValue" : null,
+                        "enabled" : true,
+                        "pid" : 26807
+                      }
+                    ],
+                    "AXValue" : null,
+                    "type" : "Group",
+                    "custom_actions" : [
+
+                    ],
+                    "frame" : {
+                      "width" : 375,
+                      "x" : 0,
+                      "y" : 460,
+                      "height" : 352
+                    },
+                    "AXFrame" : "{{0, 460}, {375, 352}}",
+                    "content_required" : false,
+                    "title" : null,
+                    "AXLabel" : null,
+                    "traits" : [
+
+                    ],
+                    "role" : "AXGroup",
+                    "role_description" : "group",
+                    "subrole" : null,
+                    "AXUniqueId" : null,
+                    "pid" : 26807
+                  },
+                  {
+                    "AXLabel" : null,
+                    "role_description" : "group",
+                    "custom_actions" : [
+
+                    ],
+                    "help" : null,
+                    "title" : null,
+                    "AXFrame" : "{{0, 477}, {375, 260}}",
+                    "subrole" : null,
+                    "children" : [
+                      {
+                        "enabled" : true,
+                        "AXFrame" : "{{0, 477}, {375, 260}}",
+                        "AXUniqueId" : null,
+                        "help" : null,
+                        "frame" : {
+                          "width" : 375,
+                          "x" : 0,
+                          "y" : 477,
+                          "height" : 260
+                        },
+                        "title" : null,
+                        "role_description" : "group",
+                        "children" : [
+                          {
+                            "AXLabel" : null,
+                            "pid" : 26807,
+                            "role" : "AXGroup",
+                            "help" : null,
+                            "subrole" : null,
+                            "children" : [
+
+                            ],
+                            "type" : "Group",
+                            "AXUniqueId" : "RemoteViewBridge",
+                            "enabled" : true,
+                            "frame" : {
+                              "width" : 375,
+                              "x" : 0,
+                              "y" : 477,
+                              "height" : 812
+                            },
+                            "custom_actions" : [
+
+                            ],
+                            "AXValue" : null,
+                            "AXFrame" : "{{0, 477}, {375, 812}}",
+                            "content_required" : false,
+                            "traits" : [
+
+                            ],
+                            "role_description" : "group",
+                            "title" : null
+                          }
+                        ],
+                        "role" : "AXGroup",
+                        "traits" : [
+
+                        ],
+                        "type" : "Group",
+                        "content_required" : false,
+                        "AXLabel" : null,
+                        "AXValue" : null,
+                        "custom_actions" : [
+
+                        ],
+                        "pid" : 26807,
+                        "subrole" : null
+                      }
+                    ],
+                    "traits" : [
+
+                    ],
+                    "content_required" : false,
+                    "role" : "AXGroup",
+                    "AXUniqueId" : null,
+                    "type" : "Group",
+                    "frame" : {
+                      "width" : 375,
+                      "x" : 0,
+                      "y" : 477,
+                      "height" : 260
+                    },
+                    "AXValue" : null,
+                    "enabled" : true,
+                    "pid" : 26807
+                  },
+                  {
+                    "custom_actions" : [
+
+                    ],
+                    "title" : null,
+                    "frame" : {
+                      "width" : 375,
+                      "x" : 0,
+                      "y" : 477,
+                      "height" : 335
+                    },
+                    "role_description" : "",
+                    "children" : [
+                      {
+                        "traits" : [
+
+                        ],
+                        "content_required" : false,
+                        "type" : "Button",
+                        "AXLabel" : "Next keyboard",
+                        "frame" : {
+                          "width" : 67.789272822084655,
+                          "x" : 8.4404080042846559,
+                          "y" : 743.88867148043744,
+                          "height" : 68.436315396202986
+                        },
+                        "custom_actions" : [
+
+                        ],
+                        "role" : "AXButton",
+                        "AXUniqueId" : null,
+                        "AXValue" : "English (Australia)",
+                        "enabled" : true,
+                        "role_description" : "button",
+                        "pid" : 26807,
+                        "help" : "Double-tap and hold, then drag up to select another keyboard",
+                        "subrole" : null,
+                        "AXFrame" : "{{8.4404080042846559, 743.88867148043744}, {67.789272822084655, 68.436315396202986}}",
+                        "children" : [
+                          {
+                            "role" : "AXStaticText",
+                            "type" : "StaticText",
+                            "content_required" : false,
+                            "frame" : {
+                              "width" : 0,
+                              "x" : 8.4404080042846559,
+                              "y" : 743.88867148043744,
+                              "height" : 0
+                            },
+                            "subrole" : null,
+                            "title" : null,
+                            "role_description" : "text",
+                            "AXValue" : null,
+                            "children" : [
+
+                            ],
+                            "AXUniqueId" : null,
+                            "custom_actions" : [
+
+                            ],
+                            "AXLabel" : null,
+                            "help" : null,
+                            "pid" : 26807,
+                            "AXFrame" : "{{8.4404080042846559, 743.88867148043744}, {0, 0}}",
+                            "traits" : [
+
+                            ],
+                            "enabled" : true
+                          }
+                        ],
+                        "title" : null
+                      },
+                      {
+                        "help" : "Double-tap to start dictation. Double-tap with two fingers when finished.",
+                        "custom_actions" : [
+
+                        ],
+                        "enabled" : true,
+                        "AXFrame" : "{{298.7703191736307, 743.55533814710407}, {67.789272822084627, 68.436315396202986}}",
+                        "subrole" : null,
+                        "AXUniqueId" : "dictation",
+                        "pid" : 26807,
+                        "type" : "Button",
+                        "AXLabel" : "Dictate",
+                        "AXValue" : null,
+                        "frame" : {
+                          "y" : 743.55533814710407,
+                          "x" : 298.7703191736307,
+                          "height" : 68.436315396202986,
+                          "width" : 67.789272822084627
+                        },
+                        "role" : "AXButton",
+                        "title" : null,
+                        "children" : [
+                          {
+                            "help" : null,
+                            "traits" : [
+
+                            ],
+                            "frame" : {
+                              "y" : 743.55533814710407,
+                              "x" : 298.7703191736307,
+                              "height" : 0,
+                              "width" : 0
+                            },
+                            "content_required" : false,
+                            "enabled" : true,
+                            "subrole" : null,
+                            "AXLabel" : null,
+                            "children" : [
+
+                            ],
+                            "title" : null,
+                            "AXFrame" : "{{298.7703191736307, 743.55533814710407}, {0, 0}}",
+                            "type" : "StaticText",
+                            "role" : "AXStaticText",
+                            "role_description" : "text",
+                            "AXValue" : null,
+                            "pid" : 26807,
+                            "AXUniqueId" : null,
+                            "custom_actions" : [
+
+                            ]
+                          }
+                        ],
+                        "content_required" : false,
+                        "traits" : [
+
+                        ],
+                        "role_description" : "button"
+                      },
+                      {
+                        "AXFrame" : "{{298.7703191736307, 743.55533814710407}, {67.789272822084627, 68.436315396202986}}",
+                        "traits" : [
+
+                        ],
+                        "role" : "AXButton",
+                        "AXUniqueId" : "dictation",
+                        "subrole" : null,
+                        "type" : "Button",
+                        "title" : null,
+                        "custom_actions" : [
+
+                        ],
+                        "frame" : {
+                          "y" : 743.55533814710407,
+                          "x" : 298.7703191736307,
+                          "height" : 68.436315396202986,
+                          "width" : 67.789272822084627
+                        },
+                        "role_description" : "button",
+                        "pid" : 26807,
+                        "content_required" : false,
+                        "enabled" : true,
+                        "children" : [
+                          {
+                            "children" : [
+
+                            ],
+                            "role" : "AXStaticText",
+                            "custom_actions" : [
+
+                            ],
+                            "AXFrame" : "{{298.7703191736307, 743.55533814710407}, {0, 0}}",
+                            "content_required" : false,
+                            "traits" : [
+
+                            ],
+                            "role_description" : "text",
+                            "type" : "StaticText",
+                            "AXUniqueId" : null,
+                            "enabled" : true,
+                            "frame" : {
+                              "y" : 743.55533814710407,
+                              "x" : 298.7703191736307,
+                              "height" : 0,
+                              "width" : 0
+                            },
+                            "title" : null,
+                            "pid" : 26807,
+                            "AXLabel" : null,
+                            "AXValue" : null,
+                            "help" : null,
+                            "subrole" : null
+                          }
+                        ],
+                        "help" : "Double-tap to start dictation. Double-tap with two fingers when finished.",
+                        "AXValue" : null,
+                        "AXLabel" : "Dictate"
+                      }
+                    ],
+                    "AXLabel" : null,
+                    "help" : null,
+                    "AXUniqueId" : null,
+                    "AXValue" : null,
+                    "AXFrame" : "{{0, 477}, {375, 335}}",
+                    "pid" : 26807,
+                    "role" : "AXGenericElement",
+                    "type" : "GenericElement",
+                    "content_required" : false,
+                    "enabled" : true,
+                    "subrole" : null,
+                    "traits" : [
+
+                    ]
+                  }
+                ]
+              }
+            ],
+            "role_description" : "group",
+            "role" : "AXGroup",
+            "enabled" : true,
+            "subrole" : null,
+            "AXValue" : null,
+            "AXUniqueId" : null,
+            "AXFrame" : "{{0, 0}, {375, 812}}",
+            "custom_actions" : [
+
+            ],
+            "frame" : {
+              "y" : 0,
+              "x" : 0,
+              "height" : 812,
+              "width" : 375
+            },
+            "traits" : [
+
+            ],
+            "content_required" : false,
+            "help" : null,
+            "title" : null
+          }
+        ],
+        "subrole" : null
+      }
+    ],
+    "traits" : [
+
+    ],
+    "AXUniqueId" : null,
+    "help" : null,
+    "subrole" : null,
+    "pid" : 26807,
+    "AXValue" : null,
+    "role" : "AXApplication"
+  }
+]
