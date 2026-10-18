@@ -99,9 +99,15 @@ final class KeyboardViewController: UIInputViewController {
     var testProxy: UITextDocumentProxy?
     private var proxy: UITextDocumentProxy { testProxy ?? textDocumentProxy }
 
-    /// Each text field gets its own keyboard; the log shows whether the earlier ones are freed.
+    /// Each text field gets its own keyboard. UIKit keeps the view of one it has let go of, with
+    /// everything in it (about 2 MB a text field), until the extension runs out of memory and iOS
+    /// puts its own keyboard back; emptying the view frees the keys, the orb and the glass.
     deinit {
         log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) freed")
+        guard Thread.isMainThread else { return }
+        MainActor.assumeIsolated {
+            viewIfLoaded?.subviews.forEach { $0.removeFromSuperview() }
+        }
     }
 
     override func viewDidLoad() {
