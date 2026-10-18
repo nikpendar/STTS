@@ -1,0 +1,36 @@
+Process:         PersianSTTKeyboard [37345]
+Path:            /Users/runner/Library/Developer/CoreSimulator/Devices/EDED4A56-5F2C-49D0-9117-91FF18C34943/data/Containers/Bundle/Application/25CD981C-9D65-4282-A10C-BAD01B3B7069/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard
+Load Address:    0x102eec000
+Identifier:      ir.nikpendar.PersianSTT.Keyboard
+Version:         0.1 (1)
+Code Type:       ARM64
+Platform:        iOS Simulator
+Parent Process:  launchd_sim [30814]
+Target Type:     corpse
+
+Date/Time:       2026-10-18 16:06:35.885 +0000
+Launch Time:     2026-10-18 16:02:13.257 +0000
+OS Version:      macOS 15.7.9 (24G830)
+Report Version:  7
+Analysis Tool:   /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/bin/heap
+Analysis Tool Version:  iOS Simulator 26.2 (23C54)
+
+Physical footprint:         58.1M
+Physical footprint (peak):  59.6M
+Idle exit:                  untracked
+----
+
+Process 37345: 5 zones
+
+All zones: 161264 nodes malloced - Sizes: 1648KB[1] 1552KB[1] 640KB[1] 320KB[1] 256KB[1] 224KB[1] 128KB[2] 112KB[1] 80KB[1] 48KB[5] 32KB[1] 27KB[4] 24KB[2] 18KB[1] 17KB[4] 16KB[29] 15KB[5] 13.5KB[8] 12.5KB[2] 12KB[10] 11.5KB[5] 10.5KB[1] 10KB[8] 9.5KB[6] 9KB[1] 8.5KB[3] 8KB[145] 7.5KB[3] 6.5KB[4] 6KB[31] 5.5KB[1] 5KB[5] 4.5KB[27] 4KB[46] 3.5KB[100] 3KB[66] 2.5KB[134] 2KB[517] 1.5KB[143] 1KB[88] 1008[11] 992[2] 976[7] 960[7] 944[1] 912[6] 896[15] 880[9] 864[5] 848[5] 832[33] 816[431] 800[60] 784[7] 768[10] 752[28] 736[4] 720[1] 704[13] 688[7] 672[16] 656[128] 640[44] 624[6] 608[431] 592[23] 576[20] 560[40] 544[54] 528[34] 512[561] 496[360] 480[168] 464[440] 448[565] 432[229] 416[6293] 400[235] 384[427] 368[75] 352[93] 336[60] 320[196] 304[2794] 288[193] 272[335] 256[632] 240[959] 224[1001] 208[3886] 204[10] 192[3503] 176[1041] 160[1299] 144[630] 128[1919] 120[10] 112[5095] 104[20] 96[5463] 88[10] 85[30] 80[9626] 79[10] 76[10] 72[20] 68[10] 67[10] 65[10] 64[14660] 60[20] 56[10] 52[20] 48[47285] 44[20] 40[50] 39[10] 36[30] 35[20] 33[10] 32[39546] 31[10] 30[10] 29[10] 28[190] 26[10] 24[120] 20[20] 16[7772] 12[50] 8[160] 4[90] 1[40] 
+
+Found:  4644 ObjC classes  593 Swift classes  69 C++ classes  157 CFTypes
+Type names for non-objects could be derived from allocation backtraces if the process used MallocStackLogging
+
+Active blocks in all zones that match pattern 'UIInputView':
+0x10358a540: UIInputView (624 bytes)
+0x1035d39e0: UIInputView (624 bytes)
+0x1036a9c00: UIInputView (624 bytes)
+0x1036ce3c0: UIInputView (624 bytes)
+0x11eb19ff0: UIInputView (624 bytes)
+
