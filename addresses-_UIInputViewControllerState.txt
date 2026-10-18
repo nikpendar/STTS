@@ -1,0 +1,36 @@
+Process:         PersianSTTKeyboard [26960]
+Path:            /Users/runner/Library/Developer/CoreSimulator/Devices/AC0B98CE-DDC8-4711-B8B3-066762241B00/data/Containers/Bundle/Application/326D914D-5C06-49A4-957C-6318D57B5577/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard
+Load Address:    0x104140000
+Identifier:      ir.nikpendar.PersianSTT.Keyboard
+Version:         0.1 (1)
+Code Type:       ARM64
+Platform:        iOS Simulator
+Parent Process:  launchd_sim [7136]
+Target Type:     corpse
+
+Date/Time:       2026-10-18 16:11:05.426 +0000
+Launch Time:     2026-10-18 16:06:36.420 +0000
+OS Version:      macOS 15.7.9 (24G830)
+Report Version:  7
+Analysis Tool:   /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/bin/heap
+Analysis Tool Version:  iOS Simulator 26.2 (23C54)
+
+Physical footprint:         51.0M
+Physical footprint (peak):  54.9M
+Idle exit:                  untracked
+----
+
+Process 26960: 5 zones
+
+All zones: 93208 nodes malloced - Sizes: 1648KB[1] 1552KB[1] 640KB[1] 320KB[1] 224KB[1] 128KB[2] 112KB[1] 80KB[1] 48KB[4] 32KB[1] 27KB[4] 24KB[3] 18KB[1] 17KB[4] 16KB[23] 13.5KB[3] 12.5KB[2] 12KB[10] 10.5KB[1] 10KB[9] 9KB[1] 8.5KB[3] 8KB[38] 7.5KB[3] 6.5KB[2] 6KB[12] 5.5KB[1] 5KB[5] 4.5KB[7] 4KB[36] 3.5KB[31] 3KB[22] 2.5KB[79] 2KB[82] 1.5KB[60] 1KB[76] 1008[9] 992[2] 976[2] 960[1] 944[1] 912[1] 896[5] 880[9] 864[1] 832[8] 816[7] 800[8] 784[7] 768[9] 752[8] 736[4] 704[3] 688[6] 672[4] 656[93] 640[13] 624[6] 608[13] 592[13] 576[16] 560[20] 544[33] 528[34] 512[245] 496[135] 480[159] 464[200] 448[314] 432[220] 416[112] 400[18] 384[16] 368[55] 352[19] 336[30] 320[30] 304[82] 288[61] 272[99] 256[368] 240[935] 224[899] 208[3805] 192[1720] 176[111] 160[155] 144[167] 128[923] 112[1648] 96[669] 80[2277] 64[9668] 48[39479] 32[26281] 16[1440] 
+
+Found:  4645 ObjC classes  453 Swift classes  62 C++ classes  152 CFTypes
+Type names for non-objects could be derived from allocation backtraces if the process used MallocStackLogging
+
+Active blocks in all zones that match pattern '_UIInputViewControllerState':
+0x600000ca1ef0: _UIInputViewControllerState (48 bytes)
+0x600000dc0d80: _UIInputViewControllerState (48 bytes)
+0x600000dc2310: _UIInputViewControllerState (48 bytes)
+0x600000e086f0: _UIInputViewControllerState (48 bytes)
+0x600000e09770: _UIInputViewControllerState (48 bytes)
+
