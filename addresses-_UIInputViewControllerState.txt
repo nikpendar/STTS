@@ -1,0 +1,20 @@
+[invalid usage]: error in --addresses <classes> pattern '^_UIInputViewControllerState$' - cannot match the start of a class name
+
+Usage: heap [-sz] [--showSizes] [--noContent] [--addresses=all|<classes-pattern>] <process | memory-graph-file>
+
+<classes-pattern> can be followed by a malloc size specification of the form
+[size] or [lowerBound-upperBound], such as 'malloc[1024]' or 'CFData[16k-]'
+
+        -h/--help                          show usage message
+        -s/--sortBySize                    sort output by total size of class instances, rather than by count, or (for -addresses) by allocation size
+        -H/--humanReadable                 show memory sizes more readably, as 'K' or 'M'
+        -z/--zones                         show output per-zone instead of an aggregated summary of all zones
+        --addresses=<all|classes-pattern>  prints the addresses of matching objects found on the heap in ascending address order, or in descending order of sizes if --sortBySize is passed
+        --forkCorpse                       generate a corpse fork from process and run heap on it
+        --guessNonObjects                  try to identify non-object malloc nodes which are referenced by fields of other objects
+        --diffFrom=<memgraph>              show only the new objects since the specified memgraph
+        --layouts=<all|classes-pattern>    show the object layout for types matching the specified pattern
+        --noContent                        do not show object content in --addresses mode
+        --showSizes                        show distribution of each malloc size for each object, instead of summing and averaging
+        --sumObjectFields                  accumulate those fields into the entry for that object
+        -q/--quiet                         suppress the process description header
