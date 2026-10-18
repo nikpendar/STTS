@@ -97,7 +97,8 @@ jobs:
           [ "$HEIGHT" -gt 400 ] || HEIGHT=874
           GLOBE_Y=$((HEIGHT - 41))
           for i in 2 3 4 5; do
-            grep -q 'UIKeyboardLayoutStar' "out/ui.json" || break
+            # Ours logs each size it is given.
+            grep -q "keyboard\] layout" out/log.txt && break
             axe tap --label "Next keyboard" --udid "$DEVICE" || axe tap -x 42 -y "$GLOBE_Y" --udid "$DEVICE" || true
             sleep 10
             xcrun simctl io "$DEVICE" screenshot "out/keyboard-test-$i.png"
