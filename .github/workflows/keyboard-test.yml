@@ -123,6 +123,14 @@ jobs:
           xcrun simctl launch "$DEVICE" com.apple.reminders; sleep 6
           axe tap --label "New Reminder" --udid "$DEVICE" || true
           mark 6-reminders
+          # What the keyboard's memory is made of, and whether earlier keyboards were freed.
+          PID="$(pgrep -x PersianSTTKeyboard | head -n1)"
+          if [ -n "$PID" ]; then
+            footprint "$PID" > out/footprint.txt 2>&1 || true
+            sudo heap "$PID" > out/heap.txt 2>&1 || true
+            sudo leaks "$PID" > out/leaks.txt 2>&1 || true
+            grep -E "KeyboardViewController|KeyView\b|GlideTrailView|DictationOrbView|KeysView" out/heap.txt | head -20 || true
+          fi
           kill $LOG || true
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian || echo "no crash reports"
           cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ 2>/dev/null || true
