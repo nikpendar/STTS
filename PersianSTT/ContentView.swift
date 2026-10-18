@@ -18,7 +18,6 @@ struct ContentView: View {
     @AppStorage(PersonalModel.autoUpdateKey) private var trainingAutoUpdate = false
     @AppStorage(KeyboardSession.idleMinutesKey) private var sessionMinutes = KeyboardSession.defaultIdleMinutes
     @AppStorage(KeyboardSession.noiseSuppressionKey) private var noiseSuppression = true
-    @AppStorage(KeyboardSession.liveTranscriptionKey) private var liveTranscription = true
     @AppStorage(KeyboardSession.autoStopKey) private var autoStop = KeyboardSession.defaultAutoStop
     @State private var style = KeyStyle.saved
     @State private var options = KeyboardOptions.saved
@@ -121,9 +120,6 @@ struct ContentView: View {
     private var speechPage: some View {
         page("گفتار") {
             Section {
-                Toggle(isOn: $liveTranscription) {
-                    SettingLabel("نمایش متن هنگام صحبت", symbol: "text.bubble.fill", color: .blue)
-                }
                 Picker(selection: $autoStop) {
                     Text("۱ ثانیه").tag(1.0)
                     Text("۲ ثانیه").tag(2.0)
@@ -136,7 +132,7 @@ struct ContentView: View {
             } header: {
                 Text("دیکته").font(.app(.footnote))
             } footer: {
-                Text("وقتی بعد از صحبت به این اندازه سکوت شود، ضبط تمام و متن نوشته می‌شود. اگر ۸ ثانیه هیچ صحبتی نشود، ضبط بدون پردازش بسته می‌شود. مدل هنگام صحبت متن را می‌نویسد؛ این گزینه فقط تعیین می‌کند متن همان موقع در کیبورد دیده شود یا در پایان.").font(.app(.footnote))
+                Text("وقتی بعد از صحبت به این اندازه سکوت شود، ضبط تمام و متن نوشته می‌شود. اگر ۸ ثانیه هیچ صحبتی نشود، ضبط بدون پردازش بسته می‌شود. متن همان وقت که صحبت می‌کنید در کیبورد نوشته می‌شود.").font(.app(.footnote))
             }
 
             Section {

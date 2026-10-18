@@ -57,6 +57,8 @@ final class KeyboardViewController: UIInputViewController {
     private var isCompact = false
     /// While the keyboard grows or shrinks for dictation, the keys keep the full-height layout.
     private var isResizing = false
+    /// The size last written to the log, which records each size iOS gives the keyboard.
+    private var loggedSize = CGSize.zero
     private var timeout: DispatchWorkItem?
     private var previewTimer: Timer?
     private var previewIndex = 0
@@ -1200,6 +1202,10 @@ final class KeyboardViewController: UIInputViewController {
     /// key's frame covers its whole cell so there are no dead zones between keys.
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        if view.bounds.size != loggedSize {
+            loggedSize = view.bounds.size
+            log.info("layout \(Int(self.view.bounds.width))x\(Int(self.view.bounds.height)), asked \(Int(self.fullHeight)), window \(Int(self.view.window?.bounds.height ?? 0))")
+        }
         if !isCompact, let height = heightConstraint, height.constant != fullHeight {
             height.constant = fullHeight
         }

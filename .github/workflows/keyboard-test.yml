@@ -97,15 +97,37 @@ jobs:
           [ "$HEIGHT" -gt 400 ] || HEIGHT=874
           GLOBE_Y=$((HEIGHT - 41))
           for i in 2 3 4 5; do
+            grep -q 'UIKeyboardLayoutStar' "out/ui.json" || break
             axe tap --label "Next keyboard" --udid "$DEVICE" || axe tap -x 42 -y "$GLOBE_Y" --udid "$DEVICE" || true
             sleep 10
             xcrun simctl io "$DEVICE" screenshot "out/keyboard-test-$i.png"
-            axe describe-ui --udid "$DEVICE" > "out/ui-$i.json" 2>&1 || true
-            if ! grep -q 'UIKeyboardLayoutStar' "out/ui-$i.json"; then echo "the system keyboard is gone"; break; fi
+            axe describe-ui --udid "$DEVICE" > out/ui.json 2>&1 || true
           done
+          # The keyboard in other text fields: the height iOS gives it should be the same everywhere.
+          mark() { echo "===== $1 $(date +%T)" | tee -a out/hosts.txt; sleep 9; xcrun simctl io "$DEVICE" screenshot "out/host-$1.png"
+            PID="$(pgrep -f PersianSTTKeyboard | head -n1)"
+            [ -n "$PID" ] && footprint "$PID" 2>/dev/null | grep -iE "footprint|phys" | head -n 3 | tee -a out/hosts.txt || echo "no keyboard process" | tee -a out/hosts.txt; }
+          spotlight() { axe button home --udid "$DEVICE" || xcrun simctl launch "$DEVICE" com.apple.springboard || true; sleep 3
+            axe swipe --start-x 187 --start-y 330 --end-x 187 --end-y 640 --duration 0.4 --udid "$DEVICE" || true; }
+          mark 1-app
+          spotlight; mark 2-spotlight
+          xcrun simctl launch "$DEVICE" com.apple.mobilesafari; sleep 6
+          axe describe-ui --udid "$DEVICE" > out/ui-safari.json 2>&1 || true
+          axe tap --label "Address" --udid "$DEVICE" || axe tap --label "Search or enter website name" --udid "$DEVICE" \
+            || axe tap -x 187 -y 770 --udid "$DEVICE" || true
+          mark 3-safari
+          xcrun simctl terminate "$DEVICE" "$ID" || true
+          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1; mark 4-app-again
+          spotlight; mark 5-spotlight-again
+          xcrun simctl launch "$DEVICE" com.apple.reminders; sleep 6
+          axe tap --label "New Reminder" --udid "$DEVICE" || true
+          mark 6-reminders
           kill $LOG || true
           ls ~/Library/Logs/DiagnosticReports/ | grep -i persian || echo "no crash reports"
           cp ~/Library/Logs/DiagnosticReports/*PersianSTT* out/ 2>/dev/null || true
+          echo "===== keyboard sizes"
+          grep -E "keyboard\] (layout|keyboard given)" out/log.txt | sed -E 's/^[0-9-]+ ([0-9:.]+).*\] /\1 /' | tee out/sizes.txt
+          cat out/hosts.txt
           echo "===== log (filtered)"
           grep -v "constructing bundle record" out/log.txt | grep -iE "inputmode|extension|PersianSTTKeyboard|xpcservice|PersianSTT.Keyboard|fail|error" | grep -v "Memorystatus\|Carplay\|cfprefsd" | cut -c1-400 | head -200
 

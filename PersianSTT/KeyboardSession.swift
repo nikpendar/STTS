@@ -23,13 +23,6 @@ final class KeyboardSession: ObservableObject {
         UserDefaults.standard.object(forKey: noiseSuppressionKey) as? Bool ?? true
     }
 
-    /// Shows the text in the keyboard while the user is still speaking. The model writes it as
-    /// the recording comes in either way; this only decides whether the keyboard gets it early.
-    static let liveTranscriptionKey = "liveTranscription"
-    static var liveTranscription: Bool {
-        UserDefaults.standard.object(forKey: liveTranscriptionKey) as? Bool ?? true
-    }
-
     /// Seconds of silence after speech that end the recording by themselves; 0 never does.
     static let autoStopKey = "autoStopSeconds"
     static let defaultAutoStop = 2.0
@@ -228,7 +221,7 @@ final class KeyboardSession: ObservableObject {
         dictationID += 1
         resetIdleTimer()
         DictationBridge.post(DictationBridge.recording)
-        log.info("recording started, live text \(Self.liveTranscription), auto stop \(Self.autoStopSeconds) s")
+        log.info("recording started, auto stop \(Self.autoStopSeconds) s")
         startStreaming(id: dictationID)
         startMonitor()
         if let testAudio { feedTestAudio(testAudio) }
@@ -318,7 +311,7 @@ final class KeyboardSession: ObservableObject {
 
     /// Gives the model each new 0.1 s of the recording as it comes in. The model writes text as
     /// the user speaks, so when the recording stops only the last fraction of a second is left,
-    /// and with live text on, the keyboard shows the text so far.
+    /// and the keyboard shows the text so far.
     private func startStreaming(id: Int) {
         fedCount = 0
         streamFailed = false
@@ -344,8 +337,7 @@ final class KeyboardSession: ObservableObject {
                     }
                 }
                 // A new word can come every 80 ms; the keyboard gets the text at most 4 times a second.
-                if latest != shown, Date().timeIntervalSince(shownAt) >= 0.25, id == self.dictationID, self.isCapturing,
-                   Self.liveTranscription {
+                if latest != shown, Date().timeIntervalSince(shownAt) >= 0.25, id == self.dictationID, self.isCapturing {
                     shown = latest
                     shownAt = Date()
                     self.publishPartial(latest)
