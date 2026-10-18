@@ -1,0 +1,1222 @@
+Process:         PersianSTTKeyboard [22657]
+Path:            /Users/runner/Library/Developer/CoreSimulator/Devices/4FDC7EF4-4EEF-4BC8-B263-A93D79AAF23B/data/Containers/Bundle/Application/006BACFB-9229-4B3C-B3EC-E64EA79C9FFB/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard
+Load Address:    0x1023c0000
+Identifier:      ir.nikpendar.PersianSTT.Keyboard
+Version:         0.1 (1)
+Code Type:       ARM64
+Platform:        iOS Simulator
+Parent Process:  launchd_sim [7645]
+Target Type:     corpse
+
+Date/Time:       2026-10-18 16:11:20.880 +0000
+Launch Time:     2026-10-18 16:09:00.326 +0000
+OS Version:      macOS 15.7.9 (24G830)
+Report Version:  7
+Analysis Tool:   /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/bin/heap
+Analysis Tool Version:  iOS Simulator 26.2 (23C54)
+
+Physical footprint:         48.6M
+Physical footprint (peak):  50.8M
+Idle exit:                  untracked
+----
+
+Process 22657: 5 zones
+
+All zones: 114210 nodes malloced - Sizes: 256KB[1] 128KB[2] 80KB[1] 48KB[3] 32KB[1] 27KB[4] 18KB[1] 17KB[4] 16KB[27] 15KB[5] 13.5KB[6] 12KB[1] 11.5KB[5] 10.5KB[1] 10KB[9] 9.5KB[6] 9KB[1] 8.5KB[3] 8KB[70] 7.5KB[3] 6.5KB[4] 6KB[7] 5.5KB[1] 5KB[4] 4.5KB[15] 4KB[44] 3.5KB[40] 3KB[26] 2.5KB[103] 2KB[202] 1.5KB[122] 1KB[79] 1008[11] 992[2] 976[7] 960[7] 944[3] 912[3] 896[15] 880[11] 864[5] 848[4] 832[31] 816[267] 800[27] 784[7] 768[20] 752[31] 736[4] 720[1] 704[8] 688[7] 672[15] 656[129] 640[44] 624[6] 608[413] 592[19] 576[22] 560[40] 544[49] 528[34] 512[568] 496[161] 480[169] 464[421] 448[381] 432[230] 416[996] 400[201] 384[263] 368[79] 352[93] 336[53] 320[196] 304[2824] 288[341] 272[460] 256[477] 240[957] 224[994] 208[3876] 204[10] 192[3103] 176[337] 160[1268] 144[443] 128[1598] 120[10] 112[3597] 104[20] 96[5347] 88[10] 85[30] 80[8823] 79[10] 76[10] 72[20] 68[10] 67[10] 65[10] 64[7587] 60[20] 56[10] 52[20] 48[19907] 44[20] 40[50] 39[10] 36[30] 35[20] 33[10] 32[37975] 31[10] 30[10] 29[10] 28[190] 26[10] 24[120] 20[20] 16[7392] 12[50] 8[160] 4[90] 1[40] 
+
+Found:  4636 ObjC classes  586 Swift classes  69 C++ classes  157 CFTypes
+Type names for non-objects could be derived from allocation backtraces if the process used MallocStackLogging
+
+-----------------------------------------------------------------------
+All zones: 114210 nodes (14495224 bytes)
+
+   COUNT      BYTES       AVG   CLASS_NAME                                        TYPE    BINARY
+   =====      =====       ===   ==========                                        ====    ======
+   26403    4589262     173.8   non-object                                                
+   14276     655792      45.9   CFString                                          ObjC    CoreFoundation
+   10008     320256      32.0   Class.data (class_rw_t)                           C       libobjc.A.dylib
+    6707    1275680     190.2   CFString (Storage)                                C       CoreFoundation
+    4261     204528      48.0   Class.data.extended (class_rw_ext_t)              C       libobjc.A.dylib
+    4134     335216      81.1   Class.data.methods.lists (method_list_t)          C       libobjc.A.dylib
+    3233     103456      32.0   NSMutableDictionary                               ObjC    CoreFoundation
+    1932     671312     347.5   NSMutableDictionary (Storage)                     C       CoreFoundation
+    1595      76560      48.0   CALayer                                           ObjC    QuartzCore
+    1435     524864     365.8   Class.methodCache._buckets (bucket_t)             C       libobjc.A.dylib
+    1408      22528      16.0   _UITypedStorage                                   ObjC    UIKitCore
+    1389      55664      40.1   Class.data.methods (method_array_t)               C       libobjc.A.dylib
+    1290      61920      48.0   NSMutableArray                                    ObjC    CoreFoundation
+    1284     518752     404.0   NSPathStore2                                      ObjC    Foundation
+    1120      51520      46.0   NSMutableArray (Storage)                          C       CoreFoundation
+    1085      69440      64.0   _UITraitChangeRegistry                            ObjC    UIKitCore
+    1070      51520      48.1   _UITraitChangeRegistry._traitUsageRecordsByMethodIMP (struct)  C       UIKitCore
+     836      94752     113.3   Swift._DictionaryStorage<Swift.ObjectIdentifier, (extension in UIKit):__C._UITypedStorage.(BaseValue in $186d3fbe8)>  Swift   libswiftCore.dylib
+     835     133600     160.0   (extension in UIKit):__C._UITypedStorage.(TypedValue in $186d3fc2c)<Swift.Optional<UIKit._GlassBackgroundStyle>>  Swift   UIKitCore
+     821      56768      69.1   Swift.StringStorage                               Swift   libswiftCore.dylib
+     816      83808     102.7   CGColor                                           CFType  CoreGraphics
+     782      40832      52.2   __NSMallocBlock__                                 ObjC    libsystem_blocks.dylib
+     748      27776      37.1   Closure context                                   Swift   <unknown>
+     690      33120      48.0   CALayerArray                                      ObjC    QuartzCore
+     683     207632     304.0   UITraitCollection                                 ObjC    UIKitCore
+     661      74032     112.0   AXCodeItem                                        ObjC    AXCoreUtilities
+     615     255840     416.0   UIView                                            ObjC    UIKitCore
+     608      96608     158.9   NSDictionary                                      ObjC    CoreFoundation
+     575      27600      48.0   UIControlTargetAction                             ObjC    UIKitCore
+     521      50016      96.0   UICTFontDescriptor                                ObjC    UIFoundation
+     483       7728      16.0   NSArray                                           ObjC    CoreFoundation
+     481      38480      80.0   NSBundle                                          ObjC    Foundation
+     362      11584      32.0   NSConcreteAttributedString                        ObjC    Foundation
+     351      28080      80.0   _TIPreference                                     ObjC    TextInput
+     334      24240      72.6   NSMutableRLEArray.theList (struct _NSRefCountedRunArray)  C       Foundation
+     334       5344      16.0   NSMutableRLEArray                                 ObjC    Foundation
+     322      10304      32.0   NSConcreteMutableAttributedString                 ObjC    Foundation
+     320      10240      32.0   NSMutableSet                                      ObjC    CoreFoundation
+     300      22528      75.1   NSMutableSet (Storage)                            C       CoreFoundation
+     275       4400      16.0   Swift unowned reference storage                   C       libswiftCore.dylib
+     265      21760      82.1   CALayerArray._ivars (struct)                      C       QuartzCore
+     261       8352      32.0   NSDictionary                                      ObjC    CoreFoundation
+     245      11760      48.0   _UITraitRegistration                              ObjC    UIKitCore
+     244      37232     152.6   NSDictionary (Storage)                            C       CoreFoundation
+     243       3888      16.0   NSDictionary.cow (struct __cow_state_t)           C       CoreFoundation
+     225      28800     128.0   _UILabelLayer                                     ObjC    UIKitCore
+     225      18000      80.0   CUIStyleEffectConfiguration                       ObjC    CoreUI
+     225       7200      32.0   _UITextAttributeDictionaryImplI                   ObjC    UIKitCore
+     225       3600      16.0   _UILabelLegacyImpl                                ObjC    UIKitCore
+     221      35360     160.0   NSParagraphStyleExtraData                         ObjC    UIFoundation
+     220     112640     512.0   UIImageView                                       ObjC    UIKitCore
+     220      21120      96.0   NSMutableParagraphStyle                           ObjC    UIFoundation
+     220       7040      32.0   _UIImageViewStorage                               ObjC    UIKitCore
+     217      20800      95.9   NSURL                                             ObjC    CoreFoundation
+     211       6752      32.0   NSNumber                                          ObjC    CoreFoundation
+     210     171360     816.0   UILabel                                           ObjC    UIKitCore
+     210      40320     192.0   UIAction                                          ObjC    UIKitCore
+     200      12800      64.0   UIDynamicModifiedColor                            ObjC    UIKitCore
+     195     118560     608.0   UICTFont                                          ObjC    UIFoundation
+     195      53040     272.0   CGImage                                           CFType  CoreGraphics
+     192      18432      96.0   UIImageSymbolConfiguration                        ObjC    UIKitCore
+     190     115520     608.0   KeyView                                           Swift   PersianSTTKeyboard
+     188      54144     288.0   CGDataProvider                                    CFType  CoreGraphics
+     185      35520     192.0   CA::Render::Image                                 C++     QuartzCore
+     185       5920      32.0   _UILabelStringContent                             ObjC    UIKitCore
+     167      77488     464.0   _CTNativeGlyphStorage                             ObjC    CoreText
+     167      66800     400.0   CTRun                                             CFType  CoreText
+     167      45424     272.0   CTLine                                            CFType  CoreText
+     167      13360      80.0   _NSCoreTypesetterLayoutCache                      ObjC    UIFoundation
+     167      13360      80.0   std::__shared_ptr_emplace<TCharStreamCFAttrString>  C++     CoreText
+     165      10560      64.0   _UILabelContentLayer                              ObjC    UIKitCore
+     155     249984    1612.8   CFData                                            ObjC    CoreFoundation
+     155      14880      96.0   _UILabelLegacyScaledMetrics                       ObjC    UIKitCore
+     155       4960      32.0   CATintedImage                                     ObjC    QuartzCore
+     155       2480      16.0   NSRLEArray                                        ObjC    Foundation
+     151       7248      48.0   NSMutableCharacterSet                             ObjC    CoreFoundation
+     150       9600      64.0   OS_os_log                                         ObjC    libsystem_trace.dylib
+     148      21312     144.0   CGPath                                            CFType  CoreGraphics
+     145      11600      80.0   Class.data.readonly (class_ro_t)                  C       libobjc.A.dylib
+     143      16016     112.0   BSObjCValue                                       ObjC    BaseBoard
+     141       7808      55.4   NSArray                                           ObjC    CoreFoundation
+     130      41600     320.0   Gestures.GestureNode<()>                          Swift   Gestures
+     130      14560     112.0   Swift._ContiguousArrayStorage<Gestures.GesturePhase<()>>  Swift   libswiftCore.dylib
+     130      12480      96.0   Swift._SetStorage<Gestures.RelationDefinition>    Swift   libswiftCore.dylib
+     130       8320      64.0   Gestures.GestureNodeShim<()>                      Swift   Gestures
+     130       8320      64.0   Swift._ContiguousArrayStorage<Gestures.GestureNodeMatcher>  Swift   libswiftCore.dylib
+     130       6240      48.0   Swift._ContiguousArrayStorage<Swift.Set<Gestures.RelationDefinition>>  Swift   libswiftCore.dylib
+     120       3840      32.0   UIGestureRecognizerTarget                         ObjC    UIKitCore
+     111       7264      65.4   xpc_dictionary_t (Storage)                        C       libxpc.dylib
+     101       3232      32.0   Swift weak reference storage                      C       libswiftCore.dylib
+      99       6096      61.6   NSConcreteValue                                   ObjC    Foundation
+      99       3168      32.0   Swift.ManagedBuffer<(), __C.os_unfair_lock_s>     Swift   libswiftCore.dylib
+      97      12416     128.0   NSMapTable                                        ObjC    Foundation
+      96      12288     128.0   dispatch_queue_t (serial)                         ObjC    libdispatch.dylib
+      90      10080     112.0   _UITraitOverrides                                 ObjC    UIKitCore
+      87       2784      32.0   NSDictionary                                      ObjC    CoreFoundation
+      86      20448     237.8   NSMapTable (Value Storage)                        C       Foundation
+      85       4080      48.0   CAFilter                                          ObjC    QuartzCore
+      84       5632      67.0   CUINamedRenditionInfo._bitmap (malloc)            C       CoreUI
+      84       4512      53.7   Class (objc_class)                                C       libobjc.A.dylib
+      84       2688      32.0   CUINamedRenditionInfo                             ObjC    CoreUI
+      83       7568      91.2   CFArray                                           ObjC    CoreFoundation
+      80       5760      72.0   CA::Render::Vector                                C++     QuartzCore
+      80       2560      32.0   CA::Render::KeyValue                              C++     QuartzCore
+      75       1200      16.0   CAFilter._attr (malloc)                           C       QuartzCore
+      74       8288     112.0   FBSSetting                                        ObjC    FrontBoardServices
+      73       1168      16.0   NSMutableDictionary.cow (struct __cow_state_t)    C       CoreFoundation
+      71      15904     224.0   CFBundle                                          CFType  CoreFoundation
+      69       9936     144.0   UIImage                                           ObjC    UIKitCore
+      69       1104      16.0   NSSet                                             ObjC    CoreFoundation
+      67       7504     112.0   CUIRenditionKey                                   ObjC    CoreUI
+      65      12480     192.0   UITapRecognizer                                   ObjC    UIKitCore
+      65       5200      80.0   NSKeyValueMethodGetter                            ObjC    Foundation
+      64       4096      64.0   CFDictionary                                      ObjC    CoreFoundation
+      58       7808     134.6   NSMapTable (Weak Key Storage)                     C       Foundation
+      56      27248     486.6   CFDictionary (Value Storage)                      C       CoreFoundation
+      55      44880     816.0   TTenuousComponentFont                             C++     CoreText
+      52       2496      48.0   Observation._ManagedCriticalState<Observation.ObservationRegistrar.(State in $2573f9b8c)>.(LockedBuffer in $2573f98ac)<>  Swift   libswiftObservation.dylib
+      52       1664      32.0   ObservationRegistrar.Extent                       Swift   libswiftObservation.dylib
+      50       2400      48.0   CAShapeLayer                                      ObjC    QuartzCore
+      50       1600      32.0   _UIImageViewImageProperties                       ObjC    UIKitCore
+      48       3872      80.7   NSSet                                             ObjC    CoreFoundation
+      46       2208      48.0   CFSet                                             ObjC    CoreFoundation
+      46        736      16.0   Class.data.protocols.lists (protocol_list_t)      C       libobjc.A.dylib
+      45       4352      96.7   Swift._SetStorage<Swift.Int>                      Swift   libswiftCore.dylib
+      45       1440      32.0   _UIImageViewSimpleStorage                         ObjC    UIKitCore
+      45       1440      32.0   __NSExactBlockVariable__                          ObjC    libsystem_blocks.dylib
+      44       1408      32.0   NSConcreteData                                    ObjC    Foundation
+      43       8144     189.4   CFSet (Value Storage)                             C       CoreFoundation
+      42       4704     112.0   NSKeyValueSlowMutableCollectionGetter             ObjC    Foundation
+      42       3360      80.0   NSKeyValueSlowSetter                              ObjC    Foundation
+      40      11520     288.0   _UIImageContentLayout                             ObjC    UIKitCore
+      40      10240     256.0   CUINamedVectorGlyph                               ObjC    CoreUI
+      40       5120     128.0   _UIImageCUIVectorGlyphContent                     ObjC    UIKitCore
+      40       4160     104.0   Swift._ContiguousArrayStorage<SwiftUI.VersionSeedSetTracker.(Value in $1dadbb8b0)>  Swift   libswiftCore.dylib
+      40       3200      80.0   _UIVisualEffectFilterEntry                        ObjC    UIKitCore
+      40       2560      64.0   _UIImageContentRendition                          ObjC    UIKitCore
+      40       1280      32.0   _UIImageContentProvider                           ObjC    UIKitCore
+      40        640      16.0   SwiftUI.LayoutComputer                            Swift   SwiftUI
+      40        640      16.0   _UILabelContent                                   ObjC    UIKitCore
+      40        640      16.0   _UITraitOverrides._childTraitCollectionTransforms (vector<_UIIdentifiedChildTraitCollectionTransform>)  C++     UIKitCore
+      39      22880     586.7   NSMapTable (Key Storage)                          C       Foundation
+      38       2432      64.0   __NSFontExtraData                                 ObjC    UIFoundation
+      37      16576     448.0   TFPFont                                           C++     libFontParser.dylib
+      37       4736     128.0   CGFont                                            CFType  CoreGraphics
+      37       3552      96.0   xpc_dictionary_t                                  ObjC    libxpc.dylib
+      36       2880      80.0   NSKeyValueSlowGetter                              ObjC    Foundation
+      36       1728      48.0   NSKeyValueUnnestedProperty                        ObjC    Foundation
+      36       1152      32.0   UIImageConfiguration                              ObjC    UIKitCore
+      35      17920     512.0   UILongPressGestureRecognizer                      ObjC    UIKitCore
+      34       1616      47.5   Closure context (unknown layout)                  Swift   <unknown>
+      33       4752     144.0   CUIVectorGlyphLayer                               ObjC    CoreUI
+      31      24992     806.2   CFDictionary (Key Storage)                        C       CoreFoundation
+      30      19680     656.0   UINavigationItem                                  ObjC    UIKitCore
+      30      11648     388.3   Swift._ContiguousArrayStorage<SwiftUI.PreferenceKey.Protocol>  Swift   libswiftCore.dylib
+      30       3840     128.0   dispatch_source_t                                 ObjC    libdispatch.dylib
+      30       2880      96.0   SwiftUI.MutableBox<SwiftUI.CachedEnvironment>     Swift   SwiftUI
+      30       2550      85.0   SwiftUI.AnimatableFrameAttribute                  Swift   SwiftUI
+      30       1920      64.0   NSISRestrictedToZeroMarkerVariable                ObjC    CoreAutoLayout
+      30       1920      64.0   _UIVisualEffectHost                               ObjC    UIKitCore
+      30       1600      53.3   Swift._ContiguousArrayStorage<SwiftUI.CachedEnvironment.(MapItem in $1dbb91700)>  Swift   libswiftCore.dylib
+      30       1440      48.0   NSKeyValueObservance                              ObjC    Foundation
+      30       1440      48.0   SwiftUI.ViewFrame                                 Swift   SwiftUI
+      30        960      32.0   AGSubgraph                                        CFType  AttributeGraph
+      30        960      32.0   NSTaggedPointerStringCStringContainer             ObjC    CoreFoundation
+      30        480      16.0   SwiftUI.EnvironmentValues                         Swift   SwiftUI
+      29       1856      64.0   CA::Render::Shmem                                 C++     QuartzCore
+      28       2240      80.0   NSPointerArray                                    ObjC    Foundation
+      28        896      32.0   _UITintColorViewEntry                             ObjC    UIKitCore
+      27       1728      64.0   BSObjCMethod                                      ObjC    BaseBoard
+      26       2912     112.0   _UIVibrantColorMatrixConfiguration                ObjC    UIKitCore
+      26        928      35.7   NSPointerArray (Weak Object Storage)              C       Foundation
+      25       8800     352.0   Swift._ContiguousArrayStorage<Swift.AnyObject>    Swift   libswiftCore.dylib
+      25       2480      99.2   Swift._SetStorage<Swift.AnyKeyPath>               Swift   libswiftCore.dylib
+      25       2256      90.2   CFDictionary (Weak Key Storage)                   C       CoreFoundation
+      25       2000      80.0   NSLayoutConstraint                                ObjC    CoreAutoLayout
+      25       2000      80.0   _UIVisualEffectDescriptor                         ObjC    UIKitCore
+      25       1600      64.0   _UIVisualEffectViewBackdropCaptureGroup           ObjC    UIKitCore
+      25       1200      48.0   _UIVisualEffectEnvironment                        ObjC    UIKitCore
+      25        800      32.0   RBSDomainAttribute                                ObjC    RunningBoardServices
+      24       1536      64.0   CUINamedLookup                                    ObjC    CoreUI
+      23       5152     224.0   TTrueTypeDataForkFont                             C++     libFontParser.dylib
+      23        736      32.0   NSMethodSignature                                 ObjC    CoreFoundation
+      23        736      32.0   NSMethodSignature._frameDescriptor (struct NSMethodFrameDescriptor)  C       CoreFoundation
+      22       5984     272.0   NSCache._cache (struct cache_s)                   C       CoreFoundation
+      22       2112      96.0   CGColorSpace                                      CFType  CoreGraphics
+      22       1760      80.0   NSHashTable                                       ObjC    Foundation
+      22       1168      53.1   NSArray._list (id[])                              C       CoreFoundation
+      22       1056      48.0   NSCache                                           ObjC    CoreFoundation
+      22        704      32.0   NSArray                                           ObjC    CoreFoundation
+      22        704      32.0   _UIMaterial                                       ObjC    UIKitCore
+      21       5120     243.8   Swift._DictionaryStorage<Swift.Int, Observation.ObservationRegistrar.(State in $2573f9b8c).Observation>  Swift   libswiftCore.dylib
+      21       3568     169.9   Swift._DictionaryStorage<Swift.AnyKeyPath, Swift.Set<Swift.Int>>  Swift   libswiftCore.dylib
+      21        672      32.0   __CFPrefsWeakObservers                            ObjC    CoreFoundation
+      21        336      16.0   UIVibrancyEffect                                  ObjC    UIKitCore
+      20     327680   16384.0   Swift Metadata                                    C       libswiftCore.dylib
+      20      15040     752.0   UIButton                                          ObjC    UIKitCore
+      20       9920     496.0   CABackingStore                                    CFType  QuartzCore
+      20       8960     448.0   _UIVisualEffectBackingFakeView                    ObjC    UIKitCore
+      20       6400     320.0   UITapGestureRecognizer                            ObjC    UIKitCore
+      20       5760     288.0   _UIFocusSelectObserverGestureRecognizer           ObjC    UIKitCore
+      20       3200     160.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, Observation.ObservationTracking.Id>  Swift   libswiftCore.dylib
+      20       2800     140.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, Observation.ObservationTracking.Entry>  Swift   libswiftCore.dylib
+      20       2560     128.0   Swift._ContiguousArrayStorage<Any>                Swift   libswiftCore.dylib
+      20       2240     112.0   UIButtonLegacyVisualProvider                      ObjC    UIKitCore
+      20       2240     112.0   UIVisualEffectBackingHost                         ObjC    UIKitCore
+      20       1920      96.0   UIButtonContent                                   ObjC    UIKitCore
+      20       1600      80.0   NSISInlineStorageVariable                         ObjC    CoreAutoLayout
+      20       1280      64.0   CA::Render::Array                                 C++     QuartzCore
+      20       1280      64.0   CA::Render::Filter                                C++     QuartzCore
+      20       1280      64.0   CA::Render::String                                C++     QuartzCore
+      20       1280      64.0   NSISRestrictedToNonNegativeVariable               ObjC    CoreAutoLayout
+      20       1280      64.0   NSISUnrestrictedVariable                          ObjC    CoreAutoLayout
+      20       1280      64.0   NSLayoutDimension                                 ObjC    CoreAutoLayout
+      20       1280      64.0   UIScrollEdgeEffect.State                          Swift   UIKitCore
+      20       1280      64.0   _UIViewBackingAux                                 ObjC    UIKitCore
+      20        960      48.0   NSISVariableObservation                           ObjC    CoreAutoLayout
+      20        960      48.0   Observation._ManagedCriticalState<Observation.ObservationTracking.State>.(LockedBuffer in $2573f98ac)<>  Swift   libswiftObservation.dylib
+      20        960      48.0   _UIMultiLayer                                     ObjC    UIKitCore
+      20        960      48.0   _UISelectionInteraction                           ObjC    UIKitCore
+      20        800      40.0   SwiftUI.ViewList                                  Swift   SwiftUI
+      20        640      32.0   Swift.SwiftDeferredNSArray                        Swift   libswiftCore.dylib
+      20        640      32.0   SwiftUI.(AtomicBuffer in $1dbba4a64)<SwiftUI.LocationProjectionCache>  Swift   SwiftUI
+      20        640      32.0   SwiftUI.ViewSize                                  Swift   SwiftUI
+      20        640      32.0   UIScrollEdgeEffect                                ObjC    UIKitCore
+      20        640      32.0   _UIImageContentRenditionContext                   ObjC    UIKitCore
+      20        480      24.0   AttributeGraph.Map<SwiftUI.EnvironmentValues, CoreGraphics.CGFloat>  Swift   AttributeGraph
+      20        480      24.0   AttributeGraph.Map<SwiftUI.EnvironmentValues, SwiftUI.LayoutDirection>  Swift   AttributeGraph
+      20        320      16.0   SwiftUI.DisplayList                               Swift   SwiftUI
+      20        160       8.0   CoreGraphics.CGFloat                              Swift   CoreGraphics
+      20        160       8.0   SwiftUI.PreferenceKeys                            Swift   SwiftUI
+      20        160       8.0   SwiftUI.PreferenceValues                          Swift   SwiftUI
+      20        160       8.0   SwiftUI.Time                                      Swift   SwiftUI
+      19      11760     618.9   NSHashTable (Weak Object Storage)                 C       Foundation
+      19       2432     128.0   CFPrefsPlistSource                                ObjC    CoreFoundation
+      19       1520      80.0   CUIVectorGlyphPath                                ObjC    CoreUI
+      19        992      52.2   xpc_string_t (Storage)                            C       libxpc.dylib
+      19        912      48.0   _UIImageCacheKey                                  ObjC    UIKitCore
+      19        912      48.0   xpc_string_t                                      ObjC    libxpc.dylib
+      16       9728     608.0   TBaseFont                                         C++     CoreText
+      16       3072     192.0   CGPattern                                         CFType  CoreGraphics
+      16       2496     156.0   Swift HeapGenericLocalVariable                    C       libswiftCore.dylib
+      16       1024      64.0   CFBag                                             CFType  CoreFoundation
+      16        768      48.0   NSShadow                                          ObjC    UIFoundation
+      16        768      48.0   _TIPreferenceDomain                               ObjC    TextInput
+      16        512      32.0   NSUUID                                            Swift   Foundation
+      16        512      32.0   __NSObserver                                      ObjC    Foundation
+      15     115712    7714.1   CFData (Bytes Storage)                            C       CoreFoundation
+      15      12480     832.0   UIButtonLabel                                     ObjC    UIKitCore
+      15       9600     640.0   TSplicedFont                                      C++     CoreText
+      15       2160     144.0   Swift._DictionaryStorage<UIKit.(UpdateKey in $186d4569c), UIKit.(TrackingDictionary in $186d455cc).SmallCollection<Observation.ObservationTracking>>  Swift   libswiftCore.dylib
+      15        960      64.0   CABackdropLayer                                   ObjC    QuartzCore
+      15        960      64.0   NSISRestrictedToNonNegativeMarkerVariableToBeMinimized  ObjC    CoreAutoLayout
+      15        960      64.0   NSISRestrictedToNonNegativeVariableToBeMinimized  ObjC    CoreAutoLayout
+      15        880      58.7   Swift.BridgingBufferStorage                       Swift   libswiftCore.dylib
+      15        720      48.0   CAGradientLayer                                   ObjC    QuartzCore
+      15        480      32.0   (extension in UIKit):__C._UITypedStorage.(TypedValue in $186d3fc2c)<Swift.Optional<UIKit.(TrackingDictionary in $186d455cc)>>  Swift   UIKitCore
+      15        480      32.0   TrackingDictionary                                Swift   UIKitCore
+      14       2016     144.0   dispatch_mach_t                                   ObjC    libdispatch.dylib
+      14       1120      80.0   NSKeyValueUndefinedSetter                         ObjC    Foundation
+      13       4000     307.7   xpc_connection_t                                  ObjC    libxpc.dylib
+      13        832      64.0   _UIVibrancyEffectVibrantColorMatrixImpl           ObjC    UIKitCore
+      13        624      48.0   AXMigratingDecoder                                Swift   AXCoreUtilities
+      13        624      48.0   AXMigratingEncoder                                Swift   AXCoreUtilities
+      13        416      32.0   __NSLocalizedString                               ObjC    Foundation
+      12       2688     224.0   Swift._SetStorage<SwiftUI.ToolbarPlacement.Role>  Swift   libswiftCore.dylib
+      12       2304     192.0   CFRunLoopSource                                   CFType  CoreFoundation
+      12       1536     128.0   CFPrefsManagedSource                              ObjC    CoreFoundation
+      12       1536     128.0   CFPrefsSuiteSearchListSource                      ObjC    CoreFoundation
+      12        960      80.0   NSKeyValueUndefinedGetter                         ObjC    Foundation
+      12        384      32.0   BSZeroingWeakReference                            ObjC    BaseBoard
+      11      10240     930.9   NSMapTable (Weak Value Storage)                   C       Foundation
+      11       2464     224.0   CFAllocator                                       CFType  CoreFoundation
+      11       2464     224.0   _UICornerProvider                                 Swift   UIKitCore
+      11       2112     192.0   TTrueTypeScaler                                   C++     libFontParser.dylib
+      11       1760     160.0   UIKit._UIObjCEquatableBox<UIKit._GlassBackgroundStyle>  Swift   UIKit
+      11       1408     128.0   THVARTable                                        C++     libFontParser.dylib
+      11       1056      96.0   AGGraphStorage                                    CFType  AttributeGraph
+      11       1056      96.0   NSLock                                            ObjC    Foundation
+      11       1056      96.0   UIImageAsset                                      ObjC    UIKitCore
+      11        880      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in DesignLibrary):SwiftUI.EnvironmentValues.(__Key_designIdiom in $22c87eefc)>>  Swift   SwiftUI
+      11        880      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(CorePlatfromProvidersDefinitionKey in $1dbb7ce4c)>>  Swift   SwiftUI
+      11        704      64.0   BSAuditToken                                      ObjC    BaseBoard
+      11        528      48.0   cacheStrike                                       C++     libFontParser.dylib
+      11        352      32.0   _UIImageAssetMapEnvelope                          ObjC    UIKitCore
+      11        352      32.0   std::__shared_ptr_pointer<MCacheData*, std::shared_ptr<MCacheData>::__shared_ptr_default_delete<MCacheData, MCacheData>>  C++     libFontParser.dylib
+      10      46080    4608.0   SwiftUI.ToolbarBridge<SwiftUI.UIKitToolbarStrategy>  Swift   SwiftUI
+      10      25600    2560.0   Swift._DictionaryStorage<SwiftUI.Toolbar.BarLocation, SwiftUI.Toolbar.LocationStorage>  Swift   libswiftCore.dylib
+      10      20480    2048.0   BarAppearanceBridge                               Swift   SwiftUI
+      10      15360    1536.0   Swift._SetStorage<SwiftUI.Toolbar.BarLocation>    Swift   libswiftCore.dylib
+      10      15360    1536.0   UIKitDialogBridge                                 Swift   SwiftUI
+      10       6400     640.0   SwiftUI.(LayoutEngineBox in $1dbb95c04)<SwiftUI.(UnaryLayoutEngine in $1dbb835f0)<SwiftUI._FlexFrameLayout>>  Swift   SwiftUI
+      10       5600     560.0   Swift._DictionaryStorage<SwiftUI.ToolbarPlacement.Role, SwiftUI.ToolbarAppearanceConfiguration>  Swift   libswiftCore.dylib
+      10       5120     512.0   SwiftUI.ViewGraphFeatureBuffer.(_VTable in $1dbba8eac)<SwiftUI.FocusViewGraph>  Swift   SwiftUI
+      10       5120     512.0   UIScrollViewKnobLongPressGestureRecognizer        ObjC    UIKitCore
+      10       4640     464.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, SwiftUI.ForwardedEventDispatcher>  Swift   libswiftCore.dylib
+      10       4640     464.0   UIPanGestureRecognizer                            ObjC    UIKitCore
+      10       4640     464.0   ViewGraph                                         Swift   SwiftUICore
+      10       4480     448.0   ScrollEdgeEffectView.BackdropView                 Swift   UIKitCore
+      10       4480     448.0   _UIInputViewContent                               ObjC    UIKitCore
+      10       4160     416.0   _UITouchPassthroughView                           ObjC    UIKitCore
+      10       3840     384.0   FileImportExportBridge                            Swift   SwiftUI
+      10       3520     352.0   SwiftUI.(LayoutEngineBox in $1dbb95c04)<SwiftUI.ViewLayoutEngine<SwiftUI._ZStackLayout>>  Swift   SwiftUI
+      10       3520     352.0   SwiftUI.DeprecatedAlertBridge<SwiftUI.Alert.Presentation>  Swift   SwiftUI
+      10       3520     352.0   SwiftUI.SheetBridge<SwiftUI.SheetPreference.Key>  Swift   SwiftUI
+      10       3520     352.0   UIKitPopoverBridge                                Swift   SwiftUI
+      10       3520     352.0   UILargeContentViewerInteractionBridge             Swift   SwiftUI
+      10       3360     336.0   UIKitHoverGestureRecognizer                       Swift   SwiftUI
+      10       3040     304.0   UIHostingViewBase                                 Swift   UIKitCore
+      10       2560     256.0   NSISObjectiveLinearExpression._priorityMap (struct)  C       CoreAutoLayout
+      10       2560     256.0   SharingActivityPickerBridge                       Swift   SwiftUI
+      10       2560     256.0   SwiftUI.(PropertiesTransform in $1dadcd2e4)       Swift   SwiftUI
+      10       2400     240.0   SwiftUI.DeprecatedAlertBridge<SwiftUI.ActionSheet.Presentation>  Swift   SwiftUI
+      10       2240     224.0   AllowsHitTestingResponder                         Swift   SwiftUICore
+      10       2240     224.0   HitTestBindingResponder                           Swift   SwiftUICore
+      10       2240     224.0   Swift._DictionaryStorage<SwiftUI.DisplayList.ViewUpdater.ViewCache.Key, SwiftUI.DisplayList.ViewUpdater.ViewInfo>  Swift   libswiftCore.dylib
+      10       2240     224.0   SwiftUI.(LayoutEngineBox in $1dbb95c04)<SwiftUI.(UnaryPositionAwareLayoutEngine in $1dbb8357c)<SwiftUI._SafeAreaRegionsIgnoringLayout>>  Swift   SwiftUI
+      10       2240     224.0   SwiftUI.ModifiedContent<SwiftUI.ModifiedContent<SwiftUI.ModifiedContent<SwiftUI.ZStack<Swift.Optional<SwiftUI.StaticIf<SwiftUI.GlassEnabledPredicate, SwiftUI.ModifiedContent<SwiftUI.Color, SwiftUI.(GlassEffectModifier in $1dbb722a4)>, SwiftUI.Color>>>, SwiftUI._FlexFrameLayout>, SwiftUI._SafeAreaRegionsIgnoringLayout>, SwiftUI._AllowsHitTestingModifier>  Swift   SwiftUI
+      10       2080     208.0   DisplayList.ViewUpdater                           Swift   SwiftUICore
+      10       2080     208.0   SwiftUI.(DynamicViewList in $1dbb95f9c)<Swift.Optional<SwiftUI.StaticIf<SwiftUI.GlassEnabledPredicate, SwiftUI.ModifiedContent<SwiftUI.Color, SwiftUI.(GlassEffectModifier in $1dbb722a4)>, SwiftUI.Color>>>  Swift   SwiftUI
+      10       2080     208.0   SwiftUI.DynamicContainerInfo<SwiftUI.DynamicLayoutViewAdaptor>  Swift   SwiftUI
+      10       1920     192.0   DragAndDropBridge                                 Swift   SwiftUI
+      10       1920     192.0   FocusBridge                                       Swift   SwiftUI
+      10       1760     176.0   Swift._DictionaryStorage<SwiftUI.ToolbarPlacement.Role, SwiftUI.BarEnvironmentViewModel>  Swift   libswiftCore.dylib
+      10       1760     176.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(ToolbarUpdateContextKey in $1dae00a78)>>  Swift   SwiftUI
+      10       1760     176.0   ViewGraphHost                                     Swift   SwiftUICore
+      10       1600     160.0   ContainerBackgroundBridge                         Swift   SwiftUI
+      10       1600     160.0   EditMenuBridge                                    Swift   SwiftUI
+      10       1440     144.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(ContainerShapeKey in $1dbb98528)>>  Swift   SwiftUI
+      10       1280     128.0   MatchedGeometryScope                              Swift   SwiftUICore
+      10       1280     128.0   NSISObjectiveLinearExpression._constant (struct)  C       CoreAutoLayout
+      10       1280     128.0   Swift._ContiguousArrayStorage<SwiftUI.PreferencesOutputs.(KeyValue in $1dbb8fe10)>  Swift   libswiftCore.dylib
+      10       1280     128.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(DismissWindowActionKey in $1dae0c8e4)>>  Swift   SwiftUI
+      10       1280     128.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(__Key_activeEditMenu in $1dadda14c)>>  Swift   SwiftUI
+      10       1120     112.0   (extension in UIKit):__C._UITypedStorage.(TypedValue in $186d3fc2c)<Swift.Optional<UIKit.(_BackgroundData in $186d3ef48)>>  Swift   UIKitCore
+      10       1120     112.0   DisplayList.ViewRenderer                          Swift   SwiftUICore
+      10       1040     104.0   SwiftUI.(BaseViewList in $1dbb872f8).Init         Swift   SwiftUI
+      10        960      96.0   ColorSyncTRC                                      CFType  ColorSync
+      10        960      96.0   NSContentSizeLayoutConstraint                     ObjC    CoreAutoLayout
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(AllowsHitTestingAccessibilityProviderKey in $1dbba043c)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(ContentShapeAccessibilityProviderKey in $1dbb99e34)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(CoreInteractionResponderProviderKey in $1dbb7a610)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(GestureAccessibilityProviderKey in $1dbb911c0)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(HiddenAccessibilityProviderKey in $1dbb88f34)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(ImageAccessibilityProviderKey in $1dbb9a558)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(LayoutAccessibilityProviderKey in $1dbb75744)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(OpacityAccessibilityProviderKey in $1dbb7805c)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(PrivacyReductionAccessibilityProviderKey in $1dbb73b2c)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(TextAccessibilityProviderKey in $1dbba264c)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(TextAlwaysOnProviderKey in $1dbb79cf0)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._ViewInputs.(PlatformAccessibilityPreferenceKey in $1dbb6ea94)>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(ContainerBackgroundLuminanceKey in $1dbb6d2a0)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(AccessibilityRequestFocusKey in $1dadae66c)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(AccessibilitySettingsDefinitionKey in $1dbb83050)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(BackgroundInfoKey in $1dbb87b08)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(CalendarKey in $1dbba0b20)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(DisplayCornerRadiusKey in $1dbba0da8)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(EditModeKey in $1dadefbf8)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(LocaleKey in $1dbba0b44)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(PresentationModeKey in $1dadc5eb0)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(TimeZoneKey in $1dbba0afc)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(WindowSceneKey in $1dadb6450)>>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EventBindingBridgeFactoryInput>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.GestureContainerFactoryInput>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.InterfaceIdiomInput>  Swift   SwiftUI
+      10        960      96.0   SwiftUI.SubscriptionLifetime<Combine.ObservableObjectPublisher>  Swift   SwiftUI
+      10        800      80.0   AnyCancellable                                    Swift   Combine
+      10        800      80.0   Combine.ObservableObjectPublisher.(Inner in $1c2f6aeb4)<SwiftUI.SubscriptionLifetime<Combine.ObservableObjectPublisher>.(Connection in $1dbb8b008)<SwiftUI.AttributeInvalidatingSubscriber<Combine.ObservableObjectPublisher>>>  Swift   Combine
+      10        800      80.0   Combine.PublishedSubject<Swift.Optional<__C.CGPathRef>>  Swift   Combine
+      10        800      80.0   EventBindingManager                               Swift   SwiftUICore
+      10        800      80.0   NSAutoresizingMaskLayoutConstraint                ObjC    CoreAutoLayout
+      10        800      80.0   NSISObjectiveLinearExpression                     ObjC    CoreAutoLayout
+      10        800      80.0   Swift._ContiguousArrayStorage<SwiftUI.(AnyViewTrait in $1dbb76e48)>  Swift   libswiftCore.dylib
+      10        800      80.0   Swift._SetStorage<Combine.ObservableObjectPublisher.(Conduit in $1c2f6ae58)>  Swift   libswiftCore.dylib
+      10        800      80.0   SwiftUI.(DynamicViewList in $1dbb95f9c)<Swift.Optional<SwiftUI.StaticIf<SwiftUI.GlassEnabledPredicate, SwiftUI.ModifiedContent<SwiftUI.Color, SwiftUI.(GlassEffectModifier in $1dbb722a4)>, SwiftUI.Color>>>.Item<>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(CorePlatfromProvidersDefinitionKey in $1dbb7ce70)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(PlatformSystemKey in $1dbb7ce28)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<(extension in SwiftUI):SwiftUI._GraphInputs.(UpdateCycleUseSetNeedsLayoutKey in $1dbb6ec78)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.(AccessibilityCapturesViewResponders in $1dadab364)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.(AccessibilityFocusInputKey in $1dadf8db4)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.(AccessibilityFocusStoreInputKey in $1dadbbd9c)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.(FocusedItemInputKey in $1dadf5450)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.(InteractiveResizeInput in $1dadb4690)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.(MatchedGeometryScope in $1dbb73f50)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.AccessibilityRelationshipScope>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.DynamicStackOrientation>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in DesignLibrary):SwiftUI.EnvironmentValues.(__Key_glassMaterialForeground in $22c87e89c)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in DesignLibrary):SwiftUI.EnvironmentValues.(__Key_glassMaterialPocketContainer in $22c87e6d0)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(MaterialBackdropProxyKey in $1dbba8824)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(PlatformColorSchemeKey in $1dbba67a4)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(RenderingRootViewKey in $1dbb8c26c)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(__Key_glassDiffusion in $1dbb92a9c)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(__Key_glassFrost in $1dbb92ac0)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(__Key_materialColorRenderingMode in $1dbba33a0)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(AlwaysOnInvalidationKey in $1dadd4fe8)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(BadgesEnabledKey in $1dadfd76c)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(ColorSchemeContrastKey in $1dbba675c)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(DefaultAccentColorKey in $1dbb6f490)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(DisplayGamutKey in $1dbba0bb0)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(DisplayScaleKey in $1dbba0ad8)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(DynamicTypeSizeKey in $1dbb8edb8)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(FocusBridgeKey in $1dadc7bbc)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(HorizontalUserInterfaceSizeClassKey in $1dbba0df0)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(IsLowPowerModeEnabledKey in $1dbba0e78)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(LegibilityWeightKey in $1dbba0dcc)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(MultimodalListLayoutKey in $1dadfd790)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(NavigationBarHostKey in $1dadfd7b4)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(ReducedLuminanceKey in $1dbb78378)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(UndoManagerKey in $1dadeecf0)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(UpdateFidelityKey in $1dadf7f90)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(VerticalUserInterfaceSizeClassKey in $1dbba0e14)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.ActiveContextMenuKey>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.AppearsActiveKey>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.ContainerBackgroundKeys.(HasContainerBackgroundPlacementKey in $1dae0e370)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentObjectKey<SwiftUI.PrimaryBarViewModel>>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(InputAccessoryKey in $1dadceb94)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(IsFocusedKey in $1dae0a078)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(WithCurrentHostingControllerKey in $1dae113e8)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(__Key_preferredPencilDoubleTapAction in $1dadf5968)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(__Key_preferredPencilSqueezeAction in $1dadf5944)>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.LayoutDirectionKey>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.InheritedColorSeedKey>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.InheritedTraitCollectionKey>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.WindowEnvironmentKeys.AppearsActive>>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.FocusStoreInputKey>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.FocusedValuesInputKey>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.UIKitHostContainerFocusItemInput>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.ViewListOptionsInput>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI._GraphInputs.(IsFocusSystemEnabledKey in $1dadbab70)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI._GraphInputs.(ViewGraphBridgePropertiesKey in $1dadafe18)>  Swift   SwiftUI
+      10        800      80.0   SwiftUI.AttributeInvalidatingSubscriber<Combine.ObservableObjectPublisher>  Swift   SwiftUI
+      10        650      65.0   SwiftUI.(ContainerShapeEnvironment in $1dbb984e0)  Swift   SwiftUI
+      10        640      64.0   AVKitCaptureButtonBridge                          Swift   SwiftUI
+      10        640      64.0   ContextMenuBridge                                 Swift   SwiftUI
+      10        640      64.0   NSLayoutXAxisAnchor                               ObjC    CoreAutoLayout
+      10        640      64.0   NSLayoutYAxisAnchor                               ObjC    CoreAutoLayout
+      10        640      64.0   PencilEventsBridge                                Swift   SwiftUI
+      10        640      64.0   ProgressRing                                      Swift   PersianSTTKeyboard
+      10        640      64.0   Swift.Optional<SwiftUI.FocusItem>                 Swift   libswiftCore.dylib
+      10        640      64.0   SwiftUI.ViewGeometry                              Swift   SwiftUI
+      10        640      64.0   UIKitContentScrollViewBridge                      Swift   SwiftUI
+      10        640      64.0   UIKitEventBindingBridge                           Swift   SwiftUI
+      10        480      48.0   AccessibilityRelationshipScope                    Swift   SwiftUI
+      10        480      48.0   InputAccessoryGenerator                           Swift   SwiftUI
+      10        480      48.0   ObservableObjectPublisher                         Swift   Combine
+      10        480      48.0   PrimaryBarViewModel                               Swift   SwiftUI
+      10        480      48.0   ShareConfigurationBridge                          Swift   SwiftUI
+      10        480      48.0   Swift._ContiguousArrayStorage<Swift.Unmanaged<SwiftUI.(DynamicViewList in $1dbb95f9c)<Swift.Optional<SwiftUI.StaticIf<SwiftUI.GlassEnabledPredicate, SwiftUI.ModifiedContent<SwiftUI.Color, SwiftUI.(GlassEffectModifier in $1dbb722a4)>, SwiftUI.Color>>>.Item<>>>  Swift   libswiftCore.dylib
+      10        480      48.0   Swift._ContiguousArrayStorage<SwiftUI.UniqueID>   Swift   libswiftCore.dylib
+      10        480      48.0   SwiftUI.(AtomicBuffer in $1dbba4a64)<SwiftUI.StoredLocationBase<SwiftUI.EditMode>.(Data in $1dbb94578)<>>  Swift   SwiftUI
+      10        480      48.0   SwiftUI.DynamicContainer.Info                     Swift   SwiftUI
+      10        480      48.0   SwiftUI.StoredLocation<SwiftUI.EditMode>          Swift   SwiftUI
+      10        480      48.0   TooltipBridge                                     Swift   SwiftUI
+      10        480      48.0   UIKitStatusBarBridge                              Swift   SwiftUI
+      10        480      48.0   _UIAsyncInvocation                                ObjC    UIKitCore
+      10        480      48.0   _UIImageCGImageContent                            ObjC    UIKitCore
+      10        480      48.0   _UIViewLayoutEngineRelativeAlignmentRectOriginCache  ObjC    UIKitCore
+      10        400      40.0   SwiftUI.ViewGraphBridgePropertiesFeature.(MakeBridgeProperties in $1dadce748)  Swift   SwiftUI
+      10        360      36.0   SwiftUI.(DynamicLayoutComputer in $1dbb8454c)<SwiftUI._ZStackLayout>  Swift   SwiftUI
+      10        330      33.0   SwiftUI.RootContainerShape                        Swift   SwiftUI
+      10        320      32.0   (extension in UIKit):__C._UITypedStorage.(TypedValue in $186d3fc2c)<Swift.Bool>  Swift   UIKitCore
+      10        320      32.0   CFRunArray                                        CFType  CoreFoundation
+      10        320      32.0   InteractiveResizeBridge                           Swift   SwiftUI
+      10        320      32.0   ModernNavigationBridge                            Swift   SwiftUI
+      10        320      32.0   NSMutableAttributedString                         ObjC    CoreFoundation
+      10        320      32.0   SwiftUI.FocusedValues                             Swift   SwiftUI
+      10        320      32.0   SwiftUI.MutableBox<Swift.Array<Swift.Unmanaged<SwiftUI.(DynamicViewList in $1dbb95f9c)<Swift.Optional<SwiftUI.StaticIf<SwiftUI.GlassEnabledPredicate, SwiftUI.ModifiedContent<SwiftUI.Color, SwiftUI.(GlassEffectModifier in $1dbb722a4)>, SwiftUI.Color>>>.Item<>>>>  Swift   SwiftUI
+      10        320      32.0   UICGColor                                         ObjC    UIKitCore
+      10        320      32.0   UIKitSensoryFeedbackCache                         Swift   SwiftUI
+      10        320      32.0   _UIAsyncInvocationObserver                        ObjC    UIKitCore
+      10        240      24.0   (SwiftUI.DisplayList, SwiftUI.DisplayList.Version)  Swift   <unknown>
+      10        240      24.0   SwiftUI.AccessibilityFocusStore                   Swift   SwiftUI
+      10        240      24.0   SwiftUI.ContainerShapeTransform                   Swift   SwiftUI
+      10        240      24.0   SwiftUI.FocusStore                                Swift   SwiftUI
+      10        200      20.0   SwiftUI._SafeAreaInsetsModifier.(Transform in $1dbba641c)  Swift   SwiftUI
+      10        160      16.0   AnyCancellable.lock (malloc)                              Combine
+      10        160      16.0   Combine.ObservableObjectPublisher.(Inner in $1c2f6aeb4)<SwiftUI.SubscriptionLifetime<Combine.ObservableObjectPublisher>.(Connection in $1dbb8b008)<SwiftUI.AttributeInvalidatingSubscriber<Combine.ObservableObjectPublisher>>>.downstreamLock (malloc)          Combine
+      10        160      16.0   Combine.ObservableObjectPublisher.(Inner in $1c2f6aeb4)<SwiftUI.SubscriptionLifetime<Combine.ObservableObjectPublisher>.(Connection in $1dbb8b008)<SwiftUI.AttributeInvalidatingSubscriber<Combine.ObservableObjectPublisher>>>.lock (malloc)          Combine
+      10        160      16.0   Combine.PublishedSubject<Swift.Optional<__C.CGPathRef>>.lock (malloc)          Combine
+      10        160      16.0   ObservableObjectPublisher.lock (malloc)                   Combine
+      10        160      16.0   SwiftUI.(AllowsHitTestingFilter in $1dbba03f4)    Swift   SwiftUI
+      10        160      16.0   SwiftUI.(EditModeEnvironment in $1dadefc38)       Swift   SwiftUI
+      10        160      16.0   SwiftUI.(EnvironmentFetch in $1dbb94d88)<SwiftUI.LayoutDirection>  Swift   SwiftUI
+      10        160      16.0   SwiftUI.(HitTestBindingFilter in $1dbb7f0bc)      Swift   SwiftUI
+      10        160      16.0   SwiftUI.WeakBox<__C.UIView>                       Swift   SwiftUI
+      10        160      16.0   SwiftUI._SafeAreaInsetsModifier                   Swift   SwiftUI
+      10        160      16.0   SwiftUI._SafeAreaInsetsModifier.(Insets in $1dbba63f8)  Swift   SwiftUI
+      10        160      16.0   _UIWeakReference                                  ObjC    UIKitCore
+      10        160      16.0   __C.CGPoint                                       Swift   SwiftUICore
+      10        120      12.0   SwiftUI.LayoutChildGeometries                     Swift   SwiftUI
+      10         80       8.0   Swift.Dictionary<SwiftUI.EventID, SwiftUI.EventType>  Swift   libswiftCore.dylib
+      10         80       8.0   SwiftUI.AccessibilityFocus                        Swift   SwiftUI
+      10         80       8.0   SwiftUI.LayoutPositionQuery                       Swift   SwiftUI
+      10         80       8.0   SwiftUI.Transaction                               Swift   SwiftUI
+      10         80       8.0   SwiftUI._GestureInputs.InheritedPhase             Swift   SwiftUI
+       9        576      64.0   NSXPCInterface                                    ObjC    Foundation
+       9        544      60.4   Class.data.protocols (protocol_array_t)           C       libobjc.A.dylib
+       9        432      48.0   BSObjCIvar                                        ObjC    BaseBoard
+       9        432      48.0   UICachedDeviceWhiteColor                          ObjC    UIKitCore
+       9        432      48.0   UIDeviceWhiteColor                                ObjC    UIKitCore
+       9        288      32.0   CUIDesignColor                                    ObjC    CoreUI
+       8       2176     272.0   ColorSyncProfile                                  CFType  ColorSync
+       8       1664     208.0   icu::UnicodeSet                                   C++     libicucore.A.dylib
+       8       1280     160.0   HIDServiceClient                                  ObjC    IOKit
+       8       1152     144.0   ColorSyncTransform                                CFType  ColorSync
+       8       1024     128.0   CFPrefsSearchListSource                           ObjC    CoreFoundation
+       8       1024     128.0   NSMachPort                                        ObjC    CoreFoundation
+       8        512      64.0   UIDynamicCatalogSystemColor                       ObjC    UIKitCore
+       8        384      48.0   _UIVibrancyEffectCoreMaterialImpl                 ObjC    UIKitCore
+       8        256      32.0   BSServiceDispatchQueue                            ObjC    BoardServices
+       7       5264     752.0   vImageConverterRef                                CFType  libCGInterfaces.dylib
+       7       1216     173.7   CGImageProvider                                   CFType  CoreGraphics
+       7       1120     160.0   ColorSyncTransformIterator                        CFType  ColorSync
+       7        672      96.0   ColorSyncMatrix                                   CFType  ColorSync
+       7        448      64.0   Swift._ContiguousArrayStorage<DesignLibrary.GlassMaterialProvider.Tint>  Swift   libswiftCore.dylib
+       7        448      64.0   UICachedDeviceRGBColor                            ObjC    UIKitCore
+       7        336      48.0   CFBasicHash                                       CFType  CoreFoundation
+       6       3264     544.0   CUICommonAssetStorage                             ObjC    CoreUI
+       6       2688     448.0   CUICommonAssetStorage._header (struct _carheader)  C       CoreUI
+       6       2448     408.0   NSArray (Storage)                                 C       CoreFoundation
+       6       2208     368.0   CUICommonAssetStorage._facetKeysdb (malloc)       C       CoreUI
+       6       2208     368.0   CUICommonAssetStorage._imagedb (malloc)           C       CoreUI
+       6       1152     192.0   TGlyphOutlineDictionaryCache<unsigned short, 64ul, 512ul>  C++     libFontParser.dylib
+       6        960     160.0   CFRunLoopObserver                                 CFType  CoreFoundation
+       6        768     128.0   TFileDataReference                                C++     libFontParser.dylib
+       6        608     101.3   NSAttributeDictionary                             ObjC    UIFoundation
+       6        576      96.0   CUIStructuredThemeStore                           ObjC    CoreUI
+       6        576      96.0   NSKeyValueIvarMutableCollectionGetter             ObjC    Foundation
+       6        576      96.0   Protocol                                          ObjC    libobjc.A.dylib
+       6        400      66.7   CUICommonAssetStorage._keyfmt (struct _renditionkeyfmt)  C       CoreUI
+       6        384      64.0   BSObjCProtocol                                    ObjC    BaseBoard
+       6        288      48.0   NSArray                                           ObjC    CoreFoundation
+       6        288      48.0   NSKeyValueContainerClass                          ObjC    Foundation
+       6        288      48.0   _UICache                                          ObjC    UIFoundation
+       6        192      32.0   _NSXPCConnectionClassCache                        ObjC    Foundation
+       6         96      16.0   NSArray.cow (struct __cow_state_t)                C       CoreFoundation
+       5      82128   16425.6   Swift._ContiguousArrayStorage<Swift.UInt8>        Swift   libswiftCore.dylib
+       5      12800    2560.0   UIScrollView                                      ObjC    UIKitCore
+       5       7680    1536.0   UIHostingController<ShapeGlassView>               Swift   SwiftUI
+       5       7680    1536.0   UIHostingController<TrailGlassView>               Swift   SwiftUI
+       5       4480     896.0   _UIHostingView<ShapeGlassView>                    Swift   SwiftUI
+       5       4480     896.0   _UIHostingView<TrailGlassView>                    Swift   SwiftUI
+       5       3280     656.0   ScrollEdgeEffectView.PocketMask                   Swift   UIKitCore
+       5       3200     640.0   ScrollEdgeEffectView.LuminanceAdjustment          Swift   UIKitCore
+       5       3120     624.0   UIInputView                                       ObjC    UIKitCore
+       5       3040     608.0   DictationOrbView                                  Swift   PersianSTTKeyboard
+       5       2800     560.0   KeyPopupView                                      Swift   PersianSTTKeyboard
+       5       2800     560.0   ScrollEdgeEffectView                              Swift   UIKitCore
+       5       2720     544.0   GlideTrailView                                    Swift   PersianSTTKeyboard
+       5       2720     544.0   UIScrollViewPanGestureRecognizer                  ObjC    UIKitCore
+       5       2720     544.0   UIVisualEffectView                                ObjC    UIKitCore
+       5       2480     496.0   KeyMenuView                                       Swift   PersianSTTKeyboard
+       5       2400     480.0   ScrollEdgeEffectView.PocketBlur                   Swift   UIKitCore
+       5       2320     464.0   SuggestionBar                                     Swift   PersianSTTKeyboard
+       5       2320     464.0   UIControl                                         ObjC    UIKitCore
+       5       2320     464.0   _UIScrollViewScrollIndicator                      ObjC    UIKitCore
+       5       2320     464.0   _UIVisualEffectBackdropView                       ObjC    UIKitCore
+       5       2320     464.0   _UIVisualEffectContentView                        ObjC    UIKitCore
+       5       2240     448.0   NSISEngine                                        ObjC    CoreAutoLayout
+       5       2160     432.0   KeysView                                          Swift   PersianSTTKeyboard
+       5       2080     416.0   ScrollEdgeEffectView.TouchBlocker                 Swift   UIKitCore
+       5       1840     368.0   CUICommonAssetStorage._bitmapKeydb (malloc)       C       CoreUI
+       5       1760     352.0   SwiftUI.UIKitInspectorBridgeV5<PersianSTTKeyboard.(ShapeGlassView in $102418738)>  Swift   SwiftUI
+       5       1760     352.0   SwiftUI.UIKitInspectorBridgeV5<PersianSTTKeyboard.(TrailGlassView in $10241875c)>  Swift   SwiftUI
+       5       1600     320.0   UIHoverGestureRecognizer                          ObjC    UIKitCore
+       5       1600     320.0   UIScrollViewDelayedTouchesBeganGestureRecognizer  ObjC    UIKitCore
+       5       1520     304.0   _UIZoomEdgeFeedbackGenerator                      ObjC    UIKitCore
+       5       1440     288.0   _UIDragAutoScrollGestureRecognizer                ObjC    UIKitCore
+       5       1440     288.0   _UIPressGestureRecognizer                         ObjC    UIKitCore
+       5       1120     224.0   _UIEdgeFeedbackGeneratorConfiguration             ObjC    UIKitCore
+       5       1040     208.0   BSXPCServiceConnection                            ObjC    BoardServices
+       5       1040     208.0   CFRunLoopMode                                     CFType  CoreFoundation
+       5       1040     208.0   dispatch_workloop_t                               ObjC    libdispatch.dylib
+       5        880     176.0   BSXPCServiceConnectionEventHandler                ObjC    BoardServices
+       5        800     160.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, UIKit.ScrollEdgeEffectView.PocketElementModel.ElementDescriptor>  Swift   libswiftCore.dylib
+       5        720     144.0   CA::Render::Pattern                               C++     QuartzCore
+       5        640     128.0   OS_dispatch_queue_runloop                         ObjC    libdispatch.dylib
+       5        640     128.0   Swift._ContiguousArrayStorage<PersianSTTKeyboard.(KeyMenuView in $1024181d4).Item>  Swift   libswiftCore.dylib
+       5        640     128.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, UIKit.ScrollPocketReceiverBox>  Swift   libswiftCore.dylib
+       5        640     128.0   _UITextSizeCache._cache (struct)                  C       UIKitCore
+       5        640     128.0   dispatch_queue_t (concurrent)                     ObjC    libdispatch.dylib
+       5        560     112.0   Swift._ContiguousArrayStorage<Swift.Optional<PersianSTTKeyboard.(SuggestionBar in $1024181a0).Item>>  Swift   libswiftCore.dylib
+       5        560     112.0   _UIScrollEdgeEffectViewInteraction                ObjC    UIKitCore
+       5        480      96.0   NSISEngine._rowTables (malloc)                    C       CoreAutoLayout
+       5        480      96.0   Swift._DictionaryStorage<(extension in UIKit):__C.UIView.(CornerProviderIdentifier in $186d34410), UIKit._UICornerProvider>  Swift   libswiftCore.dylib
+       5        480      96.0   UIPointerInteraction                              ObjC    UIKitCore
+       5        400      80.0   Combine.PublishedSubject<Swift.Optional<__C.UIColor>>  Swift   Combine
+       5        400      80.0   NSISEngine._colTables (malloc)                    C       CoreAutoLayout
+       5        400      80.0   ScrollEdgeEffectView.ObservableState              Swift   UIKitCore
+       5        400      80.0   ScrollEdgeEffectView.PocketElementModel           Swift   UIKitCore
+       5        400      80.0   ScrollPocketCollectorModel                        Swift   UIKitCore
+       5        400      80.0   TIDocumentState                                   ObjC    TextInput
+       5        400      80.0   UIView.CornerCenterLayoutGuides                   Swift   UIKitCore
+       5        400      80.0   _UIImageViewExtendedStorage                       ObjC    UIKitCore
+       5        400      80.0   dispatch_semaphore_t                              ObjC    libdispatch.dylib
+       5        320      64.0   (extension in UIKit):__C._UITypedStorage.(TypedValue in $186d3fc2c)<(extension in UIKit):__C.UIView.(CornerBacking in $186d34458)>  Swift   UIKitCore
+       5        320      64.0   SwiftUI.(BoxVTable in $1dbb7d3f8)<SwiftUI.(ObservedObjectPropertyBox in $1dbb83b98)<PersianSTTKeyboard.(ShapeGlassModel in $1024186c4)>>  Swift   SwiftUI
+       5        320      64.0   SwiftUI.(BoxVTable in $1dbb7d3f8)<SwiftUI.(ObservedObjectPropertyBox in $1dbb83b98)<PersianSTTKeyboard.(TrailGlassModel in $102418638)>>  Swift   SwiftUI
+       5        320      64.0   TITextInputTraits                                 ObjC    TextInput
+       5        320      64.0   UICABackdropLayer                                 ObjC    UIKitCore
+       5        320      64.0   _NSAutoresizingMaskXAxisAnchor                    ObjC    CoreAutoLayout
+       5        320      64.0   _NSAutoresizingMaskYAxisAnchor                    ObjC    CoreAutoLayout
+       5        320      64.0   _UIImageViewUncommonProperties                    ObjC    UIKitCore
+       5        320      64.0   _UITextDocumentInterface                          ObjC    UIKitCore
+       5        320      64.0   _UIViewServiceDeputyManager                       ObjC    UIKitCore
+       5        320      64.0   _UIViewServiceLegacyClientSession                 ObjC    UIKitCore
+       5        320      64.0   pthread_mutex_t                                   C       libpthread.dylib
+       5        240      48.0   ShapeGlassModel                                   Swift   PersianSTTKeyboard
+       5        240      48.0   UIPatternCGColor                                  ObjC    UIKitCore
+       5        240      48.0   _UIInputViewControllerState                       ObjC    UIKitCore
+       5        240      48.0   _UIPointerInteractionHoverDriver                  ObjC    UIKitCore
+       5        240      48.0   _UIPointerInteractionPencilHoverDriver            ObjC    UIKitCore
+       5        240      48.0   _UIScrollPocketRegistrationInteraction            ObjC    UIKitCore
+       5        240      48.0   _UIViewFittingSizeTargetInfo                      ObjC    UIKitCore
+       5        160      32.0   (extension in UIKit):__C._UITypedStorage.(TypedValue in $186d3fc2c)<Swift.Optional<(extension in UIKit):__C.UIView.(CornerCenterLayoutGuides in $186d3ae04)>>  Swift   UIKitCore
+       5        160      32.0   <UNNAMED_Swift_class_0x103064500>                 Swift   UIKitCore
+       5        160      32.0   NSISEngine._engineVarTable (struct)               C       CoreAutoLayout
+       5        160      32.0   NSISEngine._variablesObservations (struct NSISObjectTable)  C       CoreAutoLayout
+       5        160      32.0   NSMutableOrderedSet                               ObjC    CoreFoundation
+       5        160      32.0   ShapeGlass                                        Swift   PersianSTTKeyboard
+       5        160      32.0   SwiftUI.LocationBox<SwiftUI.UIKitPresentationModeLocation<PersianSTTKeyboard.(ShapeGlassView in $102418738)>>  Swift   SwiftUI
+       5        160      32.0   SwiftUI.LocationBox<SwiftUI.UIKitPresentationModeLocation<PersianSTTKeyboard.(TrailGlassView in $10241875c)>>  Swift   SwiftUI
+       5        160      32.0   SwiftUI.LocationBox<SwiftUI.UIKitScenePresentationModeLocation<PersianSTTKeyboard.(ShapeGlassView in $102418738)>>  Swift   SwiftUI
+       5        160      32.0   SwiftUI.LocationBox<SwiftUI.UIKitScenePresentationModeLocation<PersianSTTKeyboard.(TrailGlassView in $10241875c)>>  Swift   SwiftUI
+       5        160      32.0   TrailGlass                                        Swift   PersianSTTKeyboard
+       5        160      32.0   TrailGlassModel                                   Swift   PersianSTTKeyboard
+       5        160      32.0   UIDynamicPatternColor                             ObjC    UIKitCore
+       5        160      32.0   _UIAssertionController                            ObjC    UIKitCore
+       5        160      32.0   _UITextSizeCache                                  ObjC    UIKitCore
+       5        140      28.0   SwiftUI.(DynamicBody in $1dbb808f8)<SwiftUI.ViewBodyAccessor<PersianSTTKeyboard.(ShapeGlassView in $102418738)>, SwiftUI.(MainThreadFlags in $1dbb808d4)>  Swift   SwiftUI
+       5        140      28.0   SwiftUI.(DynamicBody in $1dbb808f8)<SwiftUI.ViewBodyAccessor<PersianSTTKeyboard.(TrailGlassView in $10241875c)>, SwiftUI.(MainThreadFlags in $1dbb808d4)>  Swift   SwiftUI
+       5         80      16.0   Combine.PublishedSubject<Swift.Optional<__C.UIColor>>.lock (malloc)          Combine
+       5         80      16.0   NonRetainedObjectContainer                        ObjC    AXCoreUtilities
+       5         80      16.0   PersianSTTKeyboard.(ShapeGlassView in $102418738)  Swift   PersianSTTKeyboard
+       5         80      16.0   PersianSTTKeyboard.(TrailGlassView in $10241875c)  Swift   PersianSTTKeyboard
+       5         80      16.0   _UINoAnimationDelegate                            ObjC    UIKitCore
+       4      16384    4096.0   @autoreleasepool content                          C       libobjc.A.dylib
+       4       3680     920.0   NSOrderedSet                                      ObjC    CoreFoundation
+       4        960     240.0   CGCMSConverter                                    CFType  CoreGraphics
+       4        640     160.0   _NSThreadData                                     ObjC    Foundation
+       4        576     144.0   _UIAssetManager                                   ObjC    UIKitCore
+       4        512     128.0   CSIHelper                                         ObjC    CoreUI
+       4        448     112.0   BSDescriptionStyle                                ObjC    BaseBoard
+       4        384      96.0   CUICatalog                                        ObjC    CoreUI
+       4        368      92.0   Swift._ContiguousArrayStorage<Swift.String>       Swift   libswiftCore.dylib
+       4        320      80.0   Swift.ReferenceWritableKeyPath<UIKit._UICornerProvider, Swift.Optional<Swift.Double>>  Swift   libswiftCore.dylib
+       4        320      80.0   Swift.ReferenceWritableKeyPath<UIKit._UIGlobalState, Swift.Optional<Swift.Bool>>  Swift   libswiftCore.dylib
+       4        320      80.0   dispatch_group_t                                  ObjC    libdispatch.dylib
+       4        256      64.0   BSMachPortTaskNameRight                           ObjC    BaseBoard
+       4        192      48.0   BSProcessHandle                                   ObjC    BaseBoard
+       4        192      48.0   BSSimpleAssertion                                 ObjC    BaseBoard
+       4        192      48.0   BSXPCServiceConnectionEndpoint                    ObjC    BoardServices
+       4        192      48.0   RBSTarget                                         ObjC    RunningBoardServices
+       4        128      32.0   NSKeyValueObservationInfo                         ObjC    Foundation
+       4        128      32.0   _UITextAttributeDictionaryImplM                   ObjC    UIKitCore
+       4        128      32.0   xpc_endpoint_t                                    ObjC    libxpc.dylib
+       4         64      16.0   NSCountedSet                                      ObjC    Foundation
+       4         64      16.0   _NSKVODeallocSentinel                             ObjC    Foundation
+       4         64      16.0   _UITextAttributeDefaults                          ObjC    UIKitCore
+       3       2208     736.0   NSHashTable (Object Storage)                      C       Foundation
+       3       1104     368.0   CUICommonAssetStorage._appearancedb (malloc)      C       CoreUI
+       3        528     176.0   CFXNotificationRegistrar                          CFType  CoreFoundation
+       3        480     160.0   NSXPCConnection                                   ObjC    Foundation
+       3        336     112.0   CGColorTransform                                  CFType  CoreGraphics
+       3        288      96.0   BSXPCServiceConnectionMessage                     ObjC    BoardServices
+       3        288      96.0   NSKeyValueMethodSetter                            ObjC    Foundation
+       3        240      80.0   Swift.ReferenceWritableKeyPath<UIKit._UICornerProvider, Swift.Optional<__C.UICoordinateSpace & Swift.AnyObject>>  Swift   libswiftCore.dylib
+       3        240      80.0   _NSCachedAttributedString                         ObjC    UIFoundation
+       3        240      80.0   _NSXPCConnectionExportedObjectTable               ObjC    Foundation
+       3        192      64.0   NSThread                                          ObjC    Foundation
+       3        192      64.0   UIDynamicSystemColor                              ObjC    UIKitCore
+       3        144      48.0   BSServiceInterface                                ObjC    BoardServices
+       3        144      48.0   BSXPCServiceConnectionPeer                        ObjC    BoardServices
+       3        144      48.0   _NSXPCConnectionImportInfo                        ObjC    Foundation
+       3        144      48.0   _NSXPCConnectionRequestedReplies                  ObjC    Foundation
+       3        128      42.7   NSConcreteValue.typeInfo (malloc)                 C       Foundation
+       3         96      32.0   AXAccessQueue                                     ObjC    AXCoreUtilities
+       3         96      32.0   BSLogStateCaptureEntry                            ObjC    BaseBoard
+       3         96      32.0   BSStateCaptureInvalidator                         ObjC    BaseBoard
+       3         96      32.0   CFNotificationCenter                              CFType  CoreFoundation
+       3         96      32.0   _NSXPCConnectionExpectedReplies                   ObjC    Foundation
+       3         48      16.0   CADisplay                                         ObjC    QuartzCore
+       3         48      16.0   NSMutableArray.cow (struct __cow_state_t)         C       CoreFoundation
+       2       9216    4608.0   CUIDesignLibraryCatalog                           ObjC    CoreUI
+       2       8224    4112.0   NSPointerArray (Object Storage)                   C       Foundation
+       2       6144    3072.0   CFRunLoop                                         CFType  CoreFoundation
+       2       1376     688.0   CA::Display::EmulatorDisplay                      C++     QuartzCore
+       2       1088     544.0   Foundation.LockedState<Foundation._LocaleICU.State>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       2        736     368.0   CUICommonAssetStorage._colordb (malloc)           C       CoreUI
+       2        736     368.0   CUICommonAssetStorage._localizationdb (malloc)    C       CoreUI
+       2        624     312.0   NSData                                            ObjC    Foundation
+       2        480     240.0   FBSDisplayConfiguration                           ObjC    FrontBoardServices
+       2        480     240.0   MTTintingFilteringMaterialSettings                ObjC    CoreMaterial
+       2        416     208.0   NSRecursiveLock                                   ObjC    Foundation
+       2        416     208.0   _LocaleICU                                        Swift   Foundation
+       2        400     200.0   NSSet (Storage)                                   C       CoreFoundation
+       2        384     192.0   NSTimer                                           ObjC    CoreFoundation
+       2        256     128.0   CGColorTransformCache                             CFType  CoreGraphics
+       2        256     128.0   FBSDisplaySource                                  ObjC    FrontBoardServices
+       2        224     112.0   MTCoreMaterialVisualStyling                       ObjC    CoreMaterial
+       2        224     112.0   _UIUCBGroupBarButtonVisualProviderIOS             ObjC    UIKitCore
+       2        192      96.0   CGNotificationCenter                              CFType  CoreGraphics
+       2        192      96.0   NSClassicMapTable                                 ObjC    Foundation
+       2        192      96.0   NSKeyValueShareableObservationInfoKey             ObjC    Foundation
+       2        192      96.0   RBSProcessHandle                                  ObjC    RunningBoardServices
+       2        192      96.0   UIKBRenderConfig                                  ObjC    UIKitCore
+       2        160      80.0   BSServiceConnectionEndpointMonitor                ObjC    BoardServices
+       2        160      80.0   BSServiceConnectionListener                       ObjC    BoardServices
+       2        160      80.0   BSServiceInitiatingConnection                     ObjC    BoardServices
+       2        160      80.0   FBSDisplayMode                                    ObjC    FrontBoardServices
+       2        160      80.0   NSKeyValueIvarSetter                              ObjC    Foundation
+       2        160      80.0   Swift.ReferenceWritableKeyPath<(extension in UIKit):__C.UIScrollEdgeEffect.(State in $186d38fe0), __C.UIUserInterfaceStyle>  Swift   libswiftCore.dylib
+       2        160      80.0   Swift.ReferenceWritableKeyPath<PersianSTTKeyboard.(ShapeGlassModel in $1024186c4), Swift.Optional<__C.CGPathRef>>  Swift   libswiftCore.dylib
+       2        160      80.0   Swift.ReferenceWritableKeyPath<UIKit.ScrollPocketCollectorModel, UIKit.CompactableSet<UIKit.ScrollPocketReceiverBox>>  Swift   libswiftCore.dylib
+       2        160      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(AccentColorKey in $1dbb6f46c)>>  Swift   SwiftUI
+       2        160      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(SystemColorSchemeKey in $1dbba6714)>>  Swift   SwiftUI
+       2        160      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(IsPlatformFocusSystemEnabled in $1dae0a054)>>  Swift   SwiftUI
+       2        160      80.0   UISApplicationSupportDisplayEdgeInfo              ObjC    UIKitServices
+       2        144      72.0   xpc_pipe_t                                        ObjC    libxpc.dylib
+       2        128      64.0   BSService                                         ObjC    BoardServices
+       2        128      64.0   CFBasicHash                                       CFType  Foundation
+       2        128      64.0   CFPrefsSource                                     ObjC    CoreFoundation
+       2        128      64.0   FBSDisplayIdentity                                ObjC    FrontBoardServices
+       2        128      64.0   KeyboardShortcutBridge                            Swift   SwiftUI
+       2        128      64.0   NSHashTable.slice.internalProps (struct NSSliceInternalProperties)  C       Foundation
+       2        128      64.0   NSRunLoop                                         ObjC    CoreFoundation
+       2        128      64.0   NSXPCListener                                     ObjC    Foundation
+       2        128      64.0   PKExternalProviders                               ObjC    PlugInKit
+       2        128      64.0   RBSProcessBundle                                  ObjC    RunningBoardServices
+       2        128      64.0   RBSXPCServiceIdentity                             ObjC    RunningBoardServices
+       2        128      64.0   RBSXPCServiceProcessIdentity                      ObjC    RunningBoardServices
+       2        128      64.0   Swift._ContiguousArrayStorage<SwiftUI.DynamicPropertyCache.Field>  Swift   libswiftCore.dylib
+       2        112      56.0   Swift._ContiguousArrayStorage<Swift.Array<Swift.String>>  Swift   libswiftCore.dylib
+       2         96      48.0   BSXPCCoder                                        ObjC    BaseBoard
+       2         96      48.0   BSXPCServiceConnectionChildContext                ObjC    BoardServices
+       2         96      48.0   BSXPCServiceConnectionRootClientContext           ObjC    BoardServices
+       2         96      48.0   CGColorTransformBase                              CFType  CoreGraphics
+       2         96      48.0   MTRecipeMaterialSettings                          ObjC    CoreMaterial
+       2         96      48.0   NSHashTable.slice.personalityProps (struct NSSliceExternalPersonalityProperties)  C       Foundation
+       2         96      48.0   NSUserDefaults                                    ObjC    CoreFoundation
+       2         96      48.0   RBSMachEndpoint                                   ObjC    RunningBoardServices
+       2         96      48.0   Swift.ReferenceWritableKeyPath<PersianSTTKeyboard.(ShapeGlassModel in $1024186c4), Combine.Published<Swift.Optional<__C.CGPathRef>>>  Swift   libswiftCore.dylib
+       2         96      48.0   UIKitKeyPressResponder                            Swift   SwiftUI
+       2         96      48.0   UISApplicationSupportDisplayEdgeInsetsWrapper     ObjC    UIKitServices
+       2         96      48.0   UISDisplayContext                                 ObjC    UIKitServices
+       2         96      48.0   _NSUndoStack                                      ObjC    Foundation
+       2         96      48.0   __CFPrefsWeakObservers.values (struct)            C       CoreFoundation
+       2         64      32.0   BSMutableIntegerMap                               ObjC    BaseBoard
+       2         64      32.0   BSServiceCompoundQueue                            ObjC    BoardServices
+       2         64      32.0   BSServiceInitiatingConnectionMultiplexer          ObjC    BoardServices
+       2         64      32.0   BSServiceSpecification                            ObjC    BoardServices
+       2         64      32.0   BSServicesConfiguration                           ObjC    BoardServices
+       2         64      32.0   FBSSceneHostHandle                                ObjC    FrontBoardServices
+       2         64      32.0   NSBlockPredicate                                  ObjC    Foundation
+       2         64      32.0   NSHashTable.slice.acquisitionProps (struct NSSliceExternalAcquisitionProperties)  C       Foundation
+       2         64      32.0   NSMutableIndexSet                                 ObjC    Foundation
+       2         64      32.0   NSNotificationCenter                              ObjC    Foundation
+       2         64      32.0   NSOrderedSet                                      ObjC    CoreFoundation
+       2         64      32.0   NSSet                                             ObjC    CoreFoundation
+       2         64      32.0   NSWeakObjectValue                                 ObjC    Foundation
+       2         64      32.0   OS_xpc_mach_send                                  ObjC    libxpc.dylib
+       2         64      32.0   RBSProcessIdentifier                              ObjC    RunningBoardServices
+       2         64      32.0   RBSProcessInstance                                ObjC    RunningBoardServices
+       2         64      32.0   RBSXPCServiceDefinition                           ObjC    RunningBoardServices
+       2         64      32.0   SwiftUI.ColorBox<SwiftUI.UIKitPlatformColorProvider>  Swift   SwiftUI
+       2         64      32.0   _NSSwiftLocale                                    Swift   Foundation
+       2         32      16.0   BKSHIDEventDeferringEnvironment                   ObjC    BackBoardServices
+       2         32      16.0   CUIDesignLibraryCompositeCatalog                  ObjC    CoreUI
+       2         32      16.0   NSMutableSet.cow (struct __cow_state_t)           C       CoreFoundation
+       2         32      16.0   NSOrderedSet.cow (struct __cow_state_t)           C       CoreFoundation
+       2         32      16.0   NSSet.cow (struct __cow_state_t)                  C       CoreFoundation
+       2         32      16.0   PKFilesystemProvider                              ObjC    PlugInKit
+       2         32      16.0   PKLaunchProvider                                  ObjC    PlugInKit
+       2         32      16.0   PKLaunchServicesProvider                          ObjC    PlugInKit
+       2         32      16.0   PKRunningBoardProvider                            ObjC    PlugInKit
+       2         32      16.0   PKSandboxProvider                                 ObjC    PlugInKit
+       2         32      16.0   PKSystemProvider                                  ObjC    PlugInKit
+       2         32      16.0   TIActionWhenIdle                                  ObjC    TextInput
+       2         32      16.0   UIScrollEdgeEffectStyle                           ObjC    UIKitCore
+       2         32      16.0   __NSOrderedSetArrayProxy                          ObjC    CoreFoundation
+       1       6656    6656.0   Swift._DictionaryStorage<ObjectiveC.Selector, AXCoreUtilities.AXSelectorRoutable & Swift.AnyObject>  Swift   libswiftCore.dylib
+       1       4608    4608.0   Swift._DictionaryStorage<Swift.String, Swift.String>  Swift   libswiftCore.dylib
+       1       2048    2048.0   Swift._DictionaryStorage<UIKit.(_UISwiftTraits in $186d33a08).HashableTraitToken, UIKit.UITraitDefinition.Protocol>  Swift   libswiftCore.dylib
+       1       2048    2048.0   _LSDatabase                                       ObjC    CoreServices
+       1       1536    1536.0   Swift._ContiguousArrayStorage<(() -> Swift.Bool, SwiftUI.Toolbar.BarLocation)>  Swift   libswiftCore.dylib
+       1       1536    1536.0   Swift._DictionaryStorage<UIKit.(_UISwiftTraits in $186d33a08).HashableMetatype, __C._UITraitTokenProtocol & Swift.AnyObject>  Swift   libswiftCore.dylib
+       1       1008    1008.0   AXSettings.VoiceOver                              Swift   AccessibilityUtilities
+       1        688     688.0   CA::Display::Display                              C++     QuartzCore
+       1        528     528.0   IOHIDEventSystemClient                            CFType  IOKit
+       1        512     512.0   NSOperationQueue                                  ObjC    Foundation
+       1        512     512.0   SecTask                                           CFType  Security
+       1        496     496.0   UIApplication                                     ObjC    UIKitCore
+       1        464     464.0   Swift._DictionaryStorage<Swift.String, Swift.Array<Swift.String>>  Swift   libswiftCore.dylib
+       1        448     448.0   PKHostPlugIn                                      ObjC    PlugInKit
+       1        384     384.0   FBApplicationProcess                              ObjC    FrontBoard
+       1        352     352.0   _CSStore                                          ObjC    CoreServicesStore
+       1        336     336.0   NSCoreTypesetter._reserved (malloc)               C       UIFoundation
+       1        336     336.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, SwiftUI.WeakBox<Swift.AnyObject>>  Swift   libswiftCore.dylib
+       1        320     320.0   UIPeripheralHost                                  ObjC    UIKitCore
+       1        320     320.0   UIScreen                                          ObjC    UIKitCore
+       1        320     320.0   _FileCache                                        CFType  CoreServicesInternal
+       1        304     304.0   CGContextDelegate                                 CFType  CoreGraphics
+       1        288     288.0   BKSHIDEventDeliveryManager                        ObjC    BackBoardServices
+       1        288     288.0   Swift._ContiguousArrayStorage<Swift.Bool>         Swift   libswiftCore.dylib
+       1        288     288.0   UIMotionEvent                                     ObjC    UIKitCore
+       1        288     288.0   UIPhysicalKeyboardEvent                           ObjC    UIKitCore
+       1        272     272.0   PKServicePersonality                              ObjC    PlugInKit
+       1        272     272.0   UIEventFetcher                                    ObjC    UIKitCore
+       1        272     272.0   UIKeyboardInputModeController                     ObjC    UIKitCore
+       1        256     256.0   GestureNodeCoordinator                            Swift   Gestures
+       1        256     256.0   _CTNativeGlyphStorage._origins (struct CGPoint)   C       CoreText
+       1        240     240.0   AXSettings                                        ObjC    AccessibilityUtilities
+       1        224     224.0   TTSSettings                                       Swift   TextToSpeech
+       1        224     224.0   _UIKeyWindowEvaluator                             ObjC    UIKitCore
+       1        224     224.0   _UIResizableImage                                 ObjC    UIKitCore
+       1        224     224.0   awd::profile::DeviceConfiguration                 C++     WirelessDiagnostics
+       1        224     224.0   icu::Locale                                       C++     libicucore.A.dylib
+       1        208     208.0   EXConcreteExtension                               ObjC    ExtensionFoundation
+       1        208     208.0   FBWorkspaceAssertionAttributes                    ObjC    FrontBoard
+       1        208     208.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, SwiftUI.ConditionalTypeDescriptor<SwiftUI.ViewDescriptor>>  Swift   libswiftCore.dylib
+       1        208     208.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, SwiftUI.DynamicPropertyCache.Fields>  Swift   libswiftCore.dylib
+       1        208     208.0   UIEventEnvironment                                ObjC    UIKitCore
+       1        208     208.0   wireless_diagnostics::google::protobuf::FileDescriptorProto  C++     libprotobuf.dylib
+       1        192     192.0   CGContext                                         CFType  CoreGraphics
+       1        192     192.0   NSCoreTypesetter                                  ObjC    UIFoundation
+       1        192     192.0   UIInputViewSet                                    ObjC    UIKitCore
+       1        192     192.0   _UIApplicationInfoParser                          ObjC    UIKitCore
+       1        176     176.0   AXSettings.LiveSpeech                             Swift   AccessibilityUtilities
+       1        176     176.0   AXSettings.SwitchControl                          Swift   AccessibilityUtilities
+       1        176     176.0   FBProcessManager                                  ObjC    FrontBoard
+       1        176     176.0   IOHIDEventQueue                                   CFType  IOKit
+       1        160     160.0   AXCodeLoader                                      ObjC    AXCoreUtilities
+       1        160     160.0   AXSettings.AssistiveTouch                         Swift   AccessibilityUtilities
+       1        160     160.0   MCProfileConnection                               ObjC    ManagedConfiguration
+       1        160     160.0   RBSConnection                                     ObjC    RunningBoardServices
+       1        160     160.0   UIPressesEvent                                    ObjC    UIKitCore
+       1        160     160.0   UIWheelEvent                                      ObjC    UIKitCore
+       1        160     160.0   _CalendarGregorian                                Swift   Foundation
+       1        160     160.0   _NUIViewContainerViewInfo                         ObjC    AppSupportUI
+       1        160     160.0   wireless_diagnostics::google::protobuf::DescriptorProto  C++     libprotobuf.dylib
+       1        144     144.0   FBSWorkspaceScenesClient                          ObjC    FrontBoardServices
+       1        144     144.0   FBWorkspace                                       ObjC    FrontBoard
+       1        144     144.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, Swift.UInt>  Swift   libswiftCore.dylib
+       1        144     144.0   Swift._DictionaryStorage<Swift.String, Foundation._LocaleProtocol & Swift.AnyObject>  Swift   libswiftCore.dylib
+       1        144     144.0   Swift._DictionaryStorage<Swift.String, Foundation._TimeZoneProtocol & Swift.AnyObject>  Swift   libswiftCore.dylib
+       1        144     144.0   UIRemoteControlEvent                              ObjC    UIKitCore
+       1        144     144.0   awd::profile::Metric                              C++     WirelessDiagnostics
+       1        144     144.0   awd::profile::Profile                             C++     WirelessDiagnostics
+       1        128     128.0   AXBackBoardServer                                 ObjC    AccessibilityUtilities
+       1        128     128.0   AXCoreSettings                                    ObjC    AXCoreUtilities
+       1        128     128.0   AXSpringBoardServer                               ObjC    AccessibilityUtilities
+       1        128     128.0   FBWorkspaceDomain                                 ObjC    FrontBoard
+       1        128     128.0   Foundation.LockedState<Foundation.TimeZoneCache.State>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1        128     128.0   Lexicon                                           Swift   PersianSTTKeyboard
+       1        128     128.0   MCRestrictionManager                              ObjC    ManagedConfiguration
+       1        128     128.0   Swift._DictionaryStorage<Swift.ObjectIdentifier, SwiftUI.TypeConformance<SwiftUI.(RemovableAttributeDescriptor in $1dbb934e4)>>  Swift   libswiftCore.dylib
+       1        128     128.0   Swift._DictionaryStorage<Swift.String, Foundation._NSSwiftLocale>  Swift   libswiftCore.dylib
+       1        128     128.0   Swift._DictionaryStorage<UIKit.(ObservationTrackingContext in $186d456c0).ObjectUpdate, Swift.Int>  Swift   libswiftCore.dylib
+       1        128     128.0   Swift._SetStorage<UIKit.(ObservationTrackingContext in $186d456c0).ObjectUpdate>  Swift   libswiftCore.dylib
+       1        128     128.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(AssetCatalogConfigurationKey in $1dbb8c248)>>  Swift   SwiftUI
+       1        128     128.0   UIEvent                                           ObjC    UIKitCore
+       1        128     128.0   UIKeyboardExtensionInputMode                      ObjC    UIKitCore
+       1        112     112.0   AXSettings.TripleClick                            Swift   AccessibilityUtilities
+       1        112     112.0   BSXPCServiceConnectionListener                    ObjC    BoardServices
+       1        112     112.0   FBProcessExecutionContext                         ObjC    FrontBoard
+       1        112     112.0   IIOXPCClient                                      C++     ImageIO
+       1        112     112.0   IOMIGMachPort                                     CFType  IOKit
+       1        112     112.0   NSISLinearExpression                              ObjC    CoreAutoLayout
+       1        112     112.0   NSTempAttributeDictionary                         ObjC    UIFoundation
+       1        112     112.0   NSUndoManager                                     ObjC    Foundation
+       1        112     112.0   RBSProcessState                                   ObjC    RunningBoardServices
+       1        112     112.0   Swift._DictionaryStorage<SwiftUI.Solarium.EnablementIdiom, (SwiftUI.Solarium.EnablementLevel, SwiftUI.Solarium.EnablementCriteria)>  Swift   libswiftCore.dylib
+       1        112     112.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.EnvironmentValues.(DefaultOpenURLActionKey in $1dbb747ec)>>  Swift   SwiftUI
+       1        112     112.0   UIGestureEnvironment                              ObjC    UIKitCore
+       1        112     112.0   UIKeyboardInputMode                               ObjC    UIKitCore
+       1        112     112.0   _UIHIDTransformer                                 ObjC    UIKitCore
+       1        112     112.0   _UIUpdateHIDInput                                 ObjC    UIKitCore
+       1        112     112.0   wireless_diagnostics::google::protobuf::EncodedDescriptorDatabase  C++     libprotobuf.dylib
+       1        112     112.0   wireless_diagnostics::google::protobuf::FileOptions  C++     libprotobuf.dylib
+       1         96      96.0   AXSettings.SpokenContent                          Swift   AccessibilityUtilities
+       1         96      96.0   AXValidationManager                               ObjC    AXCoreUtilities
+       1         96      96.0   BKSAccelerometer                                  ObjC    BackBoardServices
+       1         96      96.0   BSServiceDomainSpecification                      ObjC    BoardServices
+       1         96      96.0   IOHIDNotification                                 CFType  IOKit
+       1         96      96.0   NSParagraphStyle                                  ObjC    UIFoundation
+       1         96      96.0   PKService                                         ObjC    PlugInKit
+       1         96      96.0   RBSProcessMonitorConfiguration                    ObjC    RunningBoardServices
+       1         96      96.0   _CFXPreferences                                   ObjC    CoreFoundation
+       1         96      96.0   _LSDefaults                                       ObjC    CoreServices
+       1         96      96.0   _UIUpdateTarget                                   ObjC    UIKitCore
+       1         96      96.0   awd::profile::ComponentConfiguration              C++     WirelessDiagnostics
+       1         96      96.0   awd::profile::TriggerProcessingRule               C++     WirelessDiagnostics
+       1         96      96.0   wireless_diagnostics::google::protobuf::(anonymous namespace)::GeneratedMessageFactory  C++     libprotobuf.dylib
+       1         96      96.0   wireless_diagnostics::google::protobuf::FieldOptions  C++     libprotobuf.dylib
+       1         96      96.0   wireless_diagnostics::google::protobuf::SourceCodeInfo_Location  C++     libprotobuf.dylib
+       1         96      96.0   wireless_diagnostics::google::protobuf::UninterpretedOption  C++     libprotobuf.dylib
+       1         80      80.0   AXCoreUtilities.AXThreadLocal<AXCoreUtilities.AXSettingsStore>  Swift   AXCoreUtilities
+       1         80      80.0   AXSettings.Magnifier                              Swift   AccessibilityUtilities
+       1         80      80.0   AXSettings.Touch                                  Swift   AccessibilityUtilities
+       1         80      80.0   AXSettings.VisualAlerts                           Swift   AccessibilityUtilities
+       1         80      80.0   AXSettings.Zoom                                   Swift   AccessibilityUtilities
+       1         80      80.0   AXSimpleRuntimeManager                            ObjC    AXRuntime
+       1         80      80.0   AccessibilitySupportOverrides                     ObjC    libAccessibility.dylib
+       1         80      80.0   BSRBSService                                      ObjC    BoardServices
+       1         80      80.0   BSServiceManager                                  ObjC    BoardServices
+       1         80      80.0   CADynamicFrameRateSource._impl (struct DynamicFrameRateSource)  C       QuartzCore
+       1         80      80.0   CUIRuntimeStatistics                              ObjC    CoreUI
+       1         80      80.0   ColorSyncCMM                                      CFType  ColorSync
+       1         80      80.0   FBSDisplayMonitor                                 ObjC    FrontBoardServices
+       1         80      80.0   FBSWorkspace                                      ObjC    FrontBoardServices
+       1         80      80.0   FBWorkspaceEventDispatcher                        ObjC    FrontBoard
+       1         80      80.0   Foundation.LockedState<Foundation._NSSwiftProcessInfo.State>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         80      80.0   NSKeyValueIvarGetter                              ObjC    Foundation
+       1         80      80.0   PTSettingsClassStructure                          ObjC    PrototypeTools
+       1         80      80.0   Swift.ReferenceWritableKeyPath<(extension in UIKit):__C.UIScrollEdgeEffect.(State in $186d38fe0), Swift.Optional<__C.UIView>>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<(extension in UIKit):__C.UIScrollEdgeEffect.(State in $186d38fe0), __C.UIScrollEdgeEffectStyle>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<PersianSTTKeyboard.(ShapeGlassModel in $1024186c4), Swift.Optional<__C.UIColor>>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<PersianSTTKeyboard.(TrailGlassModel in $102418638), Swift.Optional<__C.CGPathRef>>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<UIKit.ScrollEdgeEffectView.(ObservableState in $186d3f364), Swift.Optional<UIKit.ScrollPocketLumaStyle>>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<UIKit.ScrollPocketCollectorModel, Swift.Optional<UIKit.CompactableSet<UIKit.ScrollPocketReceiverBox>>>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<UIKit.ScrollPocketCollectorModel, UIKit.WeakSet<UIKit.ScrollPocketCollectorModel>>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<UIKit._UICornerProvider, __C.UIEdgeInsets>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.ReferenceWritableKeyPath<UIKit._UIGlobalState, Swift.Optional<__C.UIViewGlassLegibilitySetting>>  Swift   libswiftCore.dylib
+       1         80      80.0   Swift.WritableKeyPath<SwiftUI.EnvironmentValues, SwiftUI.LayoutDirection>  Swift   libswiftCore.dylib
+       1         80      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(__Key__interfaceIdiom in $1dbba1fe0)>>  Swift   SwiftUI
+       1         80      80.0   SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<SwiftUI.(HasSystemOpenURLActionKey in $1dbb74810)>>  Swift   SwiftUI
+       1         80      80.0   TIPreferencesControllerClient                     ObjC    TextInput
+       1         80      80.0   UIApplicationSceneClientSettings                  ObjC    UIKitCore
+       1         80      80.0   UIApplicationSceneSettings                        ObjC    UIKitCore
+       1         80      80.0   UIApplicationSceneTransitionContext               ObjC    UIKitCore
+       1         80      80.0   UIMutableApplicationSceneSettings                 ObjC    UIKitCore
+       1         80      80.0   _UIButtonSettingsDomain                           ObjC    UIKitCore
+       1         80      80.0   _UITextAttributeDefaultCategories                 ObjC    UIKitCore
+       1         80      80.0   __DataStorage                                     Swift   Foundation
+       1         80      80.0   awd::profile::Condition                           C++     WirelessDiagnostics
+       1         80      80.0   awd::profile::TypeVariant                         C++     WirelessDiagnostics
+       1         80      80.0   wireless_diagnostics::google::protobuf::EnumOptions  C++     libprotobuf.dylib
+       1         80      80.0   wireless_diagnostics::google::protobuf::EnumValueOptions  C++     libprotobuf.dylib
+       1         80      80.0   wireless_diagnostics::google::protobuf::FieldDescriptorProto  C++     libprotobuf.dylib
+       1         80      80.0   wireless_diagnostics::google::protobuf::MessageOptions  C++     libprotobuf.dylib
+       1         80      80.0   wireless_diagnostics::google::protobuf::MethodOptions  C++     libprotobuf.dylib
+       1         80      80.0   wireless_diagnostics::google::protobuf::ServiceOptions  C++     libprotobuf.dylib
+       1         64      64.0   AXBinaryMonitor                                   ObjC    AXCoreUtilities
+       1         64      64.0   BSCompoundAssertion                               ObjC    BaseBoard
+       1         64      64.0   BSServiceDomain                                   ObjC    BoardServices
+       1         64      64.0   BSServiceMainRunLoopQueue                         ObjC    BoardServices
+       1         64      64.0   ExclusionPool                                     Swift   Gestures
+       1         64      64.0   FBApplicationProcessWatchdogPolicy                ObjC    FrontBoard
+       1         64      64.0   FBProcessCPUStatistics                            ObjC    FrontBoard
+       1         64      64.0   FBSceneSynchronizer                               ObjC    FrontBoard
+       1         64      64.0   FBWorkspaceConnectionsStateStore                  ObjC    FrontBoard
+       1         64      64.0   Foundation.LockedState<Foundation.LocaleCache.State>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         64      64.0   GestureNodeCoordinatorShim                        Swift   Gestures
+       1         64      64.0   NSMapTable.keys.internalProps (struct NSSliceInternalProperties)  C       Foundation
+       1         64      64.0   NSMapTable.values.internalProps (struct NSSliceInternalProperties)  C       Foundation
+       1         64      64.0   PKHost                                            ObjC    PlugInKit
+       1         64      64.0   RBSProcessMonitor                                 ObjC    RunningBoardServices
+       1         64      64.0   Swift._ContiguousArrayStorage<Swift.Array<Swift.UInt8>>  Swift   libswiftCore.dylib
+       1         64      64.0   Swift._ContiguousArrayStorage<SwiftUI.AlignmentID.Protocol>  Swift   libswiftCore.dylib
+       1         64      64.0   Swift._ContiguousArrayStorage<SwiftUI.PlatformAccessibilitySettingsDefinition.(Entry in $1dbb83074)>  Swift   libswiftCore.dylib
+       1         64      64.0   SwiftUI.AlwaysOnBridge<PersianSTTKeyboard.(ShapeGlassView in $102418738)>  Swift   SwiftUI
+       1         64      64.0   SwiftUI.AlwaysOnBridge<PersianSTTKeyboard.(TrailGlassView in $10241875c)>  Swift   SwiftUI
+       1         64      64.0   TIInputModeController                             ObjC    TextInput
+       1         64      64.0   TIPreferencesController                           ObjC    TextInput
+       1         64      64.0   TUIKeyboardInputManagerMux                        ObjC    TextInputUI
+       1         64      64.0   UISMutableApplicationInitializationContext        ObjC    UIKitServices
+       1         64      64.0   UISheetPresentationControllerDetent               ObjC    UIKitCore
+       1         64      64.0   _CFXPreferencesHandle                             ObjC    CoreFoundation
+       1         64      64.0   _NSMainThread                                     ObjC    Foundation
+       1         64      64.0   _NSSwiftProcessInfo                               Swift   Foundation
+       1         64      64.0   _UIBoundingPathBitmap                             ObjC    UIKitCore
+       1         64      64.0   _UITraitTokenSet                                  ObjC    UIKitCore
+       1         64      64.0   _UIViewServiceSessionManager                      ObjC    UIKitCore
+       1         64      64.0   __NSBundleTables                                  ObjC    Foundation
+       1         64      64.0   awd::metrics::SimpleMetric                        C++     WirelessDiagnostics
+       1         64      64.0   awd::profile::BedfTreeNode                        C++     WirelessDiagnostics
+       1         64      64.0   awd::profile::ProcessingRule                      C++     WirelessDiagnostics
+       1         64      64.0   awd::profile::TriggerSource                       C++     WirelessDiagnostics
+       1         64      64.0   wireless_diagnostics::google::protobuf::EnumDescriptorProto  C++     libprotobuf.dylib
+       1         64      64.0   wireless_diagnostics::google::protobuf::MethodDescriptorProto  C++     libprotobuf.dylib
+       1         64      64.0   wireless_diagnostics::google::protobuf::ServiceDescriptorProto  C++     libprotobuf.dylib
+       1         48      48.0   AXCoreSettingsStore                               Swift   AXCoreUtilities
+       1         48      48.0   BSXPCServiceConnectionRootServerContext           ObjC    BoardServices
+       1         48      48.0   FBSWorkspaceScenesClientIdentifier                ObjC    FrontBoardServices
+       1         48      48.0   FBWorkspaceEndpointPromise                        ObjC    FrontBoard
+       1         48      48.0   FBWorkspaceEventDispatcherSource                  ObjC    FrontBoard
+       1         48      48.0   FBWorkspaceIncomingConnection                     ObjC    FrontBoard
+       1         48      48.0   FailureDependencyGraph                            Swift   Gestures
+       1         48      48.0   Foundation.LockedState<Foundation._NSSwiftProcessInfo.GlobalState>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         48      48.0   Foundation.LockedState<Foundation._ProcessInfo.State>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         48      48.0   Foundation.LockedState<Swift.Optional<Foundation._CalendarProtocol & Swift.AnyObject>>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         48      48.0   Foundation.LockedState<Swift.Optional<Foundation._LocaleProtocol & Swift.AnyObject>>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         48      48.0   Foundation.LockedState<Swift.Optional<Swift.String>>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         48      48.0   LSExtensionPointRecord._resolvedProperties (malloc)  C       CoreServices
+       1         48      48.0   MTVisualStyleSet                                  ObjC    CoreMaterial
+       1         48      48.0   NSAutoreleasePool                                 ObjC    Foundation
+       1         48      48.0   NSKeyValueShareableObservanceKey                  ObjC    Foundation
+       1         48      48.0   NSMapTable.keys.personalityProps (struct NSSliceExternalPersonalityProperties)  C       Foundation
+       1         48      48.0   NSMapTable.values.personalityProps (struct NSSliceExternalPersonalityProperties)  C       Foundation
+       1         48      48.0   NSMethodSignature._typeString (char[])            C       CoreFoundation
+       1         48      48.0   ObservationCenter                                 Swift   SwiftUICore
+       1         48      48.0   PKServiceDefaults                                 ObjC    PlugInKit
+       1         48      48.0   RBSAuditToken                                     ObjC    RunningBoardServices
+       1         48      48.0   RBSProcessAssertionInfo                           ObjC    RunningBoardServices
+       1         48      48.0   RBSService                                        ObjC    RunningBoardServices
+       1         48      48.0   Swift.ReferenceWritableKeyPath<PersianSTTKeyboard.(ShapeGlassModel in $1024186c4), Combine.Published<Swift.Optional<__C.UIColor>>>  Swift   libswiftCore.dylib
+       1         48      48.0   Swift.ReferenceWritableKeyPath<PersianSTTKeyboard.(TrailGlassModel in $102418638), Combine.Published<Swift.Optional<__C.CGPathRef>>>  Swift   libswiftCore.dylib
+       1         48      48.0   TFileFragmentCache                                C++     libFontParser.dylib
+       1         48      48.0   UIActivityContinuationManager                     ObjC    UIKitCore
+       1         48      48.0   UIDevice                                          ObjC    UIKitCore
+       1         48      48.0   UIEventDispatcher                                 ObjC    UIKitCore
+       1         48      48.0   UIGestureDelayedEventComponentDispatcher          ObjC    UIKitCore
+       1         48      48.0   UIKitPlatformAccessibilitySettingsDefinition      Swift   UIKitCore
+       1         48      48.0   UISApplicationStateClient                         ObjC    UIKitServices
+       1         48      48.0   UISDisplaySingleRectShape                         ObjC    UIKitServices
+       1         48      48.0   UMUserManager                                     ObjC    UserManagement
+       1         48      48.0   _EXRunningExtensionInfo                           ObjC    ExtensionFoundation
+       1         48      48.0   _TimeZoneGMTICU                                   Swift   Foundation
+       1         48      48.0   _TimeZoneICU                                      Swift   Foundation
+       1         48      48.0   _UIBlurEffectCoreMaterialImpl                     ObjC    UIKitCore
+       1         48      48.0   _UIButtonSettings                                 ObjC    UIKitCore
+       1         48      48.0   _UIContentSizeCategoryPreferenceSystem            ObjC    UIKitCore
+       1         48      48.0   _UIEvaluatedObjectCache                           ObjC    UIKitCore
+       1         48      48.0   _UIEventBus                                       ObjC    UIKitCore
+       1         48      48.0   _UIGlobalState                                    Swift   UIKitCore
+       1         48      48.0   _UIKeyWindowSceneStack                            ObjC    UIKitCore
+       1         48      48.0   _UITintColorVisitor                               ObjC    UIKitCore
+       1         48      48.0   __DataStorage._bytes (malloc)                             Foundation
+       1         48      48.0   __NSSwiftData                                     Swift   Foundation
+       1         48      48.0   awd::profile::BedfConfig                          C++     WirelessDiagnostics
+       1         48      48.0   awd::profile::ConditionClause                     C++     WirelessDiagnostics
+       1         48      48.0   awd::profile::Log                                 C++     WirelessDiagnostics
+       1         48      48.0   awd::profile::MetricFileSpec                      C++     WirelessDiagnostics
+       1         48      48.0   wireless_diagnostics::google::protobuf::EnumValueDescriptorProto  C++     libprotobuf.dylib
+       1         48      48.0   wireless_diagnostics::google::protobuf::FileDescriptorSet  C++     libprotobuf.dylib
+       1         48      48.0   wireless_diagnostics::google::protobuf::SourceCodeInfo  C++     libprotobuf.dylib
+       1         48      48.0   wireless_diagnostics::google::protobuf::UninterpretedOption_NamePart  C++     libprotobuf.dylib
+       1         48      48.0   xpc_array_t                                       ObjC    libxpc.dylib
+       1         32      32.0   (extension in UIKit):__C._UITypedStorage.(TypedValue in $186d3fc2c)<Swift.Optional<UIKit._UICornerProvider>>  Swift   UIKitCore
+       1         32      32.0   AXSettingsObjectDestructionHelper                 ObjC    AXCoreUtilities
+       1         32      32.0   BKSHIDEventDisplay                                ObjC    BackBoardServices
+       1         32      32.0   BSMachServiceAliases                              ObjC    BaseBoard
+       1         32      32.0   BSServiceConnectionEndpoint                       ObjC    BoardServices
+       1         32      32.0   BSServiceQuality                                  ObjC    BoardServices
+       1         32      32.0   EXConcreteExtensionContextVendor                  ObjC    ExtensionFoundation
+       1         32      32.0   ExclusionRelationCache                            Swift   Gestures
+       1         32      32.0   FBProcessState                                    ObjC    FrontBoard
+       1         32      32.0   FBSWorkspaceCoupler                               ObjC    FrontBoardServices
+       1         32      32.0   FSNode                                            ObjC    CoreServices
+       1         32      32.0   Foundation.LockedState<Foundation._TimeZoneICU.State>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         32      32.0   Foundation.LockedState<Swift.Dictionary<Foundation.Calendar.Identifier, Foundation._CalendarProtocol & Swift.AnyObject>>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         32      32.0   Foundation.LockedState<Swift.Optional<Foundation._NSSwiftLocale>>.(_Buffer in $181513ee0)<>  Swift   Foundation
+       1         32      32.0   HostingViewRegistry                               Swift   SwiftUI
+       1         32      32.0   LSExtensionPointRecord                            ObjC    CoreServices
+       1         32      32.0   MaterialBackdropContext                           Swift   UIKitCore
+       1         32      32.0   NSFileManager                                     ObjC    Foundation
+       1         32      32.0   NSIndexPath                                       ObjC    Foundation
+       1         32      32.0   NSMapTable.keys.acquisitionProps (struct NSSliceExternalAcquisitionProperties)  C       Foundation
+       1         32      32.0   NSMapTable.values.acquisitionProps (struct NSSliceExternalAcquisitionProperties)  C       Foundation
+       1         32      32.0   PKDaemonClient                                    ObjC    PlugInKit
+       1         32      32.0   RBSMachPortTaskNameRight                          ObjC    RunningBoardServices
+       1         32      32.0   RBSProcessStateDescriptor                         ObjC    RunningBoardServices
+       1         32      32.0   RBSWorkloop                                       ObjC    RunningBoardServices
+       1         32      32.0   RunLoopUpdateDriver                               Swift   Gestures
+       1         32      32.0   SwiftUI.ColorBox<SwiftUI.SystemColorType>         Swift   SwiftUI
+       1         32      32.0   SwiftUI.MutableBox<Swift.Dictionary<Swift.ObjectIdentifier, SwiftUI.DynamicPropertyCache.Fields>>  Swift   SwiftUI
+       1         32      32.0   SwiftUI.ThreadSpecific<SwiftUI.ObservationCenter>  Swift   SwiftUI
+       1         32      32.0   UIKit_PKSubsystem                                 ObjC    Foundation
+       1         32      32.0   UIPlaceholderColor                                ObjC    UIKitCore
+       1         32      32.0   UISApplicationState                               ObjC    UIKitServices
+       1         32      32.0   UIScreenMode                                      ObjC    UIKitCore
+       1         32      32.0   UITintColor                                       ObjC    UIKitCore
+       1         32      32.0   _AXDyldImageMonitor                               ObjC    AXCoreUtilities
+       1         32      32.0   _AXObjectCacheHelper                              ObjC    AXRuntime
+       1         32      32.0   _CSStore2DataContainer                            ObjC    CoreServicesStore
+       1         32      32.0   _LSDServiceDomain                                 ObjC    CoreServices
+       1         32      32.0   _ProcessInfo                                      Swift   Foundation
+       1         32      32.0   _RBSExpirationWarningClient                       ObjC    RunningBoardServices
+       1         32      32.0   _UIActiveViewServiceSessionTracker                ObjC    UIKitCore
+       1         32      32.0   _UIAfterCACommitQueue                             ObjC    UIKitCore
+       1         32      32.0   _UIApplicationConfigurationLoader                 ObjC    UIKitCore
+       1         32      32.0   _UIDeviceInitialDeviceConfigurationLoader         ObjC    UIKitCore
+       1         32      32.0   _UIHDRUsageCoordinator                            ObjC    UIKitCore
+       1         32      32.0   _UIKeyboardHIDEventOrderedDescriptorSet           ObjC    UIKitCore
+       1         32      32.0   _UIPencilPreferences                              ObjC    UIKitCore
+       1         32      32.0   _UIPresentationControllerDefaultVisualStyleProvider  ObjC    UIKitCore
+       1         32      32.0   _UISceneEventResponder                            ObjC    UIKitCore
+       1         32      32.0   _UISceneLifecycleMultiplexer                      ObjC    UIKitCore
+       1         32      32.0   _UIScreenComplexBoundingPathUtilities             ObjC    UIKitCore
+       1         32      32.0   _UIScreenInitialDisplayConfigurationLoader        ObjC    UIKitCore
+       1         32      32.0   _UISwiftTraits.UnfairLock                         Swift   UIKitCore
+       1         32      32.0   _UIViewBackingObserver                            ObjC    UIKitCore
+       1         32      32.0   _UIViewServiceViewControllerDeputyXPCInterface    ObjC    UIKitCore
+       1         32      32.0   awd::profile::AggregationSpec                     C++     WirelessDiagnostics
+       1         32      32.0   awd::profile::ConfigurationParameter              C++     WirelessDiagnostics
+       1         32      32.0   awd::profile::LogParameter                        C++     WirelessDiagnostics
+       1         32      32.0   awd::profile::TaskingCriteria                     C++     WirelessDiagnostics
+       1         32      32.0   awd::profile::TimerSpec                           C++     WirelessDiagnostics
+       1         32      32.0   std::__shared_ptr_pointer<CEM::ReadOnlyFile<unsigned char>*, std::shared_ptr<CEM::ReadOnlyFile<unsigned char>>::__shared_ptr_default_delete<CEM::ReadOnlyFile<unsigned char>, CEM::ReadOnlyFile<unsigned char>>>  C++     CoreEmoji
+       1         32      32.0   wireless_diagnostics::google::protobuf::DescriptorProto_ExtensionRange  C++     libprotobuf.dylib
+       1         16      16.0   AXAVFoundationGlue                                ObjC    AVFoundation
+       1         16      16.0   AXAVKitGlue                                       ObjC    AVKit
+       1         16      16.0   AXAnnotationKitGlue                               ObjC    AnnotationKit
+       1         16      16.0   AXAssistantServicesGlue                           ObjC    AssistantServices
+       1         16      16.0   AXAuthKitGlue                                     ObjC    AuthKitUI
+       1         16      16.0   AXAuthenticationServicesGlue                      ObjC    AuthenticationServices
+       1         16      16.0   AXBannerKitGlue                                   ObjC    BannerKit
+       1         16      16.0   AXBaseBoardUIGlue                                 ObjC    BaseBoardUI
+       1         16      16.0   AXContactsAutocompleteUIGlue                      ObjC    ContactsAutocompleteUI
+       1         16      16.0   AXCoverSheetKitGlue                               ObjC    CoverSheetKit
+       1         16      16.0   AXEventKitUIGlue                                  ObjC    EventKitUIFramework
+       1         16      16.0   AXFrontBoardGlue                                  ObjC    FrontBoard
+       1         16      16.0   AXHelpKitGlue                                     ObjC    HelpKit
+       1         16      16.0   AXIntentsUIGlue                                   ObjC    IntentsUI
+       1         16      16.0   AXLinkPresentationGlue                            ObjC    LinkPresentation
+       1         16      16.0   AXLocalAuthenticationPrivateUIGlue                ObjC    LocalAuthenticationPrivateUI
+       1         16      16.0   AXMapKitSwiftUIGlue                               ObjC    MapKitSwiftUI
+       1         16      16.0   AXMediaPlayerFrameworkGlue                        ObjC    MediaPlayerFramework
+       1         16      16.0   AXMessageUIFrameworkGlue                          ObjC    MessageUIFramework
+       1         16      16.0   AXMobilePiPGlue                                   ObjC    Pegasus
+       1         16      16.0   AXOnBoardingKitGlue                               ObjC    OnBoardingKit
+       1         16      16.0   AXPreferencesFrameworkGlue                        ObjC    PreferencesFramework
+       1         16      16.0   AXPrintKitUIGlue                                  ObjC    PrintKitUI
+       1         16      16.0   AXProxCardKitGlue                                 ObjC    ProxCardKit
+       1         16      16.0   AXRealityFoundationGlue                           ObjC    RealityFoundation
+       1         16      16.0   AXRemoteUIGlue                                    ObjC    RemoteUIFramework
+       1         16      16.0   AXSearchFoundationGlue                            ObjC    SearchFoundation
+       1         16      16.0   AXShareSheetGlue                                  ObjC    ShareSheet
+       1         16      16.0   AXSpringBoardFoundationGlue                       ObjC    SpringBoardFoundation
+       1         16      16.0   AXSpringBoardUIServicesGlue                       ObjC    SpringBoardUIServices
+       1         16      16.0   AXStoreKitGlue                                    ObjC    StoreKitFramework
+       1         16      16.0   AXSubsystemAXNotifications                        ObjC    AXCoreUtilities
+       1         16      16.0   AXSwiftUIGlue                                     ObjC    SwiftUI
+       1         16      16.0   AXTelephonyUIGlue                                 ObjC    TelephonyUIFramework
+       1         16      16.0   AXTextInputUIGlue                                 ObjC    TextInputUI
+       1         16      16.0   AXUIKitGlue                                       ObjC    UIKit
+       1         16      16.0   AXVisionKitCoreGlue                               ObjC    VisionKitCore
+       1         16      16.0   AXiTunesStoreGlue                                 ObjC    iTunesStoreFramework
+       1         16      16.0   AccessibilitySettingsLoader                       ObjC    AccessibilitySettingsLoader
+       1         16      16.0   AssistiveTouchHelper                              ObjC    AccessibilitySettingsLoader
+       1         16      16.0   BKSHIDServiceConnectionFactory                    ObjC    BackBoardServices
+       1         16      16.0   CADynamicFrameRateSource                          ObjC    QuartzCore
+       1         16      16.0   CASuspendNotification                             ObjC    QuartzCore
+       1         16      16.0   CLFSystemShellSwitcher                            ObjC    ClarityFoundation
+       1         16      16.0   FBMutableWorkspaceConnectionsState                ObjC    FrontBoard
+       1         16      16.0   FBSPseudoSceneUpdater                             ObjC    FrontBoardServices
+       1         16      16.0   FBWorkspaceConnectionsState                       ObjC    FrontBoard
+       1         16      16.0   FontServicesDaemonManager                         ObjC    FontServices
+       1         16      16.0   HearingManager                                    ObjC    AccessibilitySettingsLoader
+       1         16      16.0   MTCoreMaterialDefaultPlatformConfiguration        ObjC    CoreMaterial
+       1         16      16.0   NSCFTimer                                         ObjC    Foundation
+       1         16      16.0   NSIndexPath._indexes (uint64_t[])                 C       Foundation
+       1         16      16.0   NSMutableOrderedSet.cow (struct __cow_state_t)    C       CoreFoundation
+       1         16      16.0   NSObject                                          ObjC    libobjc.A.dylib
+       1         16      16.0   RBSMachPort                                       ObjC    RunningBoardServices
+       1         16      16.0   SpeakThisServicesUI                               ObjC    AccessibilitySettingsLoader
+       1         16      16.0   SpeakTypingManager                                ObjC    AccessibilitySettingsLoader
+       1         16      16.0   SwiftUI.(LayoutEngineBox in $1dbb95c04)<SwiftUI.LayoutComputer.DefaultEngine>  Swift   SwiftUI
+       1         16      16.0   UIAccessibilityInformationLoader                  ObjC    UIAccessibility
+       1         16      16.0   UIBlurEffect                                      ObjC    UIKitCore
+       1         16      16.0   UIKeyboardPreferencesController                   ObjC    UIKitCore
+       1         16      16.0   UISDeviceContext                                  ObjC    UIKitServices
+       1         16      16.0   Update.TraceHost                                  Swift   SwiftUICore
+       1         16      16.0   ZoomServicesUI                                    ObjC    AccessibilitySettingsLoader
+       1         16      16.0   _EXDefaults                                       ObjC    ExtensionFoundation
+       1         16      16.0   _NSFileManagerBridge                              Swift   Foundation
+       1         16      16.0   _NSUIKitTextGraphicsContext                       ObjC    UIFoundation
+       1         16      16.0   _NSZeroData                                       ObjC    Foundation
+       1         16      16.0   _UIEmptyEffect                                    ObjC    UIKitCore
+       1         16      16.0   _UIFocusBehavior_IOS                              ObjC    UIKitCore
+       1         16      16.0   _UILabelVisualStyle_iOS                           ObjC    UIKitCore
+       1         16      16.0   _UIObjectReferenceCounter                         ObjC    UIKitCore
+       1         16      16.0   _UIOpenURLApplicationBSActionHandler              ObjC    UIKitCore
+       1         16      16.0   _UIPresentationControllerNullVisualStyleProvider  ObjC    UIKitCore
+       1         16      16.0   _UIScreenFixedCoordinateSpace                     ObjC    UIKitCore
+       1         16      16.0   _UIScrollViewScrollIndicatorVisualStyle_CarPlay   ObjC    UIKitCore
+       1         16      16.0   _UIScrollViewScrollIndicatorVisualStyle_iOS       ObjC    UIKitCore
+       1         16      16.0   _UIScrollViewScrollIndicatorVisualStyle_tvOS      ObjC    UIKitCore
+       1         16      16.0   _UISheetPresentationMetrics                       ObjC    UIKitCore
+       1         16      16.0   _UISimpleFenceProvider                            ObjC    UIKitCore
+       1         16      16.0   _UISwiftTraits.UnfairLock._lock (malloc)                  UIKitCore
+       1         16      16.0   _UISystemReferenceAngleMultiplexer                ObjC    UIKitCore
+       1         16      16.0   _UIViewControllerControlMessageDeputyXPCInterface  ObjC    UIKitCore
+       1         16      16.0   _UIViewServiceTextEffectsOperator_XPCInterface    ObjC    UIKitCore
+       1         16      16.0   _UIViewServiceViewControllerOperator_XPCInterface  ObjC    UIKitCore
+       1         16      16.0   _UIViewWindowRotationNotificationObserver         ObjC    UIKitCore
+       1         16      16.0   xpc_array_t (Storage)                             C       libxpc.dylib
+
