@@ -99,6 +99,8 @@ final class KeyboardViewController: UIInputViewController {
     var testProxy: UITextDocumentProxy?
     private var proxy: UITextDocumentProxy { testProxy ?? textDocumentProxy }
 
+    static let minimal = true
+
     /// Each text field gets its own keyboard; the log shows whether the earlier ones are freed.
     deinit {
         log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) freed")
@@ -107,6 +109,19 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) loaded")
+        // Experiment: nothing but a label and a 268 point height constraint.
+        if Self.minimal {
+            let label = UILabel()
+            label.text = "minimal keyboard"
+            label.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(label)
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
+            label.centerYAnchor.constraint(equalTo: view.centerYAnchor).isActive = true
+            let minimal = view.heightAnchor.constraint(equalToConstant: 268)
+            minimal.priority = .defaultHigh
+            minimal.isActive = true
+            return
+        }
         // Both orientations' sizes are worked out (and kept) on the first run after install.
         _ = (portraitMetrics, landscapeMetrics)
         buildUI()
@@ -160,6 +175,7 @@ final class KeyboardViewController: UIInputViewController {
     /// let through at once.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        if Self.minimal { return }
         var view: UIView? = self.view.window
         while let current = view {
             current.gestureRecognizers?.forEach { $0.delaysTouchesBegan = false }
@@ -169,6 +185,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        if Self.minimal { return }
         willAppear = true
         view.setNeedsUpdateConstraints()
         if let previewState {
@@ -194,12 +211,14 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        if Self.minimal { return }
         finishEdits()
         if touchSaveScheduled { touchModel.save() }
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
+        if Self.minimal { return }
         if edits.isTracking { report(edits.documentChanged(documentContext)) }
         updateSuggestions()
         updateAutoShift()
@@ -207,6 +226,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func selectionDidChange(_ textInput: UITextInput?) {
         super.selectionDidChange(textInput)
+        if Self.minimal { return }
         if edits.isTracking { report(edits.documentChanged(documentContext)) }
         updateSuggestions()
         updateAutoShift()
@@ -1198,6 +1218,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func updateViewConstraints() {
         super.updateViewConstraints()
+        if Self.minimal { return }
         guard willAppear, let heightConstraint else { return }
         let height = isCompact ? compactHeight : fullHeight
         if heightConstraint.constant != height { heightConstraint.constant = height }
@@ -1213,6 +1234,7 @@ final class KeyboardViewController: UIInputViewController {
             loggedSize = view.bounds.size
             log.info("layout \(Int(self.view.bounds.width))x\(Int(self.view.bounds.height)), asked \(Int(self.fullHeight)), window \(Int(self.view.window?.bounds.height ?? 0))")
         }
+        if Self.minimal { return }
         // The number row, the suggestion bar or the orientation changed the height.
         if !isCompact, let height = heightConstraint, height.isActive, height.constant != fullHeight {
             view.setNeedsUpdateConstraints()
