@@ -176,7 +176,6 @@ final class KeyboardViewController: UIInputViewController {
     /// let through at once.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        if Self.minimal { return }
         var view: UIView? = self.view.window
         while let current = view {
             current.gestureRecognizers?.forEach { $0.delaysTouchesBegan = false }
