@@ -1,0 +1,36 @@
+Process:         PersianSTTKeyboard [32994]
+Path:            /Users/runner/Library/Developer/CoreSimulator/Devices/EC95E1D0-771D-42FF-9728-61D0A1706F00/data/Containers/Bundle/Application/36611018-2A19-4D3F-B100-5C3FDB66A389/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard
+Load Address:    0x1046b8000
+Identifier:      ir.nikpendar.PersianSTT.Keyboard
+Version:         0.1 (1)
+Code Type:       ARM64
+Platform:        iOS Simulator
+Parent Process:  launchd_sim [8423]
+Target Type:     corpse
+
+Date/Time:       2026-10-18 16:21:58.659 +0000
+Launch Time:     2026-10-18 16:14:35.314 +0000
+OS Version:      macOS 15.7.9 (24G830)
+Report Version:  7
+Analysis Tool:   /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/bin/heap
+Analysis Tool Version:  iOS Simulator 26.2 (23C54)
+
+Physical footprint:         55.8M
+Physical footprint (peak):  57.3M
+Idle exit:                  untracked
+----
+
+Process 32994: 3 zones
+
+All zones: 155818 nodes malloced - Sizes: 1648KB[1] 1552KB[1] 640KB[1] 320KB[1] 256KB[1] 224KB[1] 128KB[2] 112KB[1] 80KB[1] 48KB[4] 32KB[1] 27.5KB[1] 27KB[4] 24KB[2] 22KB[2] 18KB[1] 17KB[4] 16KB[14] 15KB[5] 13.5KB[6] 12.5KB[2] 12KB[10] 11.5KB[4] 10.5KB[1] 10KB[9] 9.5KB[6] 9KB[1] 8.5KB[3] 8KB[112] 7.5KB[3] 6.5KB[3] 6KB[31] 5.5KB[1] 5KB[3] 4.5KB[14] 4KB[44] 3.5KB[82] 3KB[59] 2.5KB[112] 2KB[411] 1.5KB[94] 1KB[80] 1008[9] 992[2] 976[6] 960[6] 944[1] 912[5] 896[5] 880[9] 864[4] 848[4] 832[23] 816[420] 800[46] 784[7] 768[9] 752[28] 736[4] 704[12] 688[8] 672[14] 656[99] 640[26] 624[6] 608[423] 592[18] 576[19] 560[30] 544[53] 528[34] 512[527] 496[360] 480[167] 464[423] 448[556] 432[226] 416[6238] 400[225] 384[415] 368[69] 352[32] 336[38] 320[185] 304[2743] 288[181] 272[331] 256[617] 240[947] 224[931] 208[3852] 192[3454] 176[1002] 160[1251] 144[514] 128[1844] 112[4952] 96[5034] 80[8495] 64[14549] 48[47305] 32[38747] 16[7139] 
+
+Found:  4632 ObjC classes  318 Swift classes  69 C++ classes  153 CFTypes
+Type names for non-objects could be derived from allocation backtraces if the process used MallocStackLogging
+
+Active blocks in all zones that match pattern 'DictationOrbView':
+0x104d12670: DictationOrbView (608 bytes)
+0x104d1f2d0: DictationOrbView (608 bytes)
+0x104e581e0: DictationOrbView (608 bytes)
+0x11f537810: DictationOrbView (608 bytes)
+0x120bb25c0: DictationOrbView (608 bytes)
+

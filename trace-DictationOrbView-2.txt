@@ -1,0 +1,49 @@
+Tracing: <DictationOrbView 0x104d1f2d0> [608]
+
+Found 9 roots referencing: <DictationOrbView 0x104d1f2d0> [608]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    9 <DictationOrbView 0x104d1f2d0> [608]
+      7 <NSMutableArray (Storage) 0x600000df4a80> [48]    +32: __strong  0x600000df4aa0
+      + 7 <NSMutableArray 0x600000df4630> [48]  item count: 5    +16: __strong storage 0x600000df4640
+      +   7 <UIInputView 0x104a5d110> [624]    +56: __strong _subviewCache 0x104a5d148
+      +     7 <NSISEngine 0x11f70f0f0> [448]    +56: _delegate 0x11f70f128
+      +       4 <UILabel 0x104a58e80> [816]   +240: __strong _layoutEngine 0x104a58f70
+      +       ! 4 0x10515d200 [28160] +17424:  0x105161610
+      +       !   4 <CFXNotificationRegistrar 0x600003500160> [176]   +144:  0x6000035001f0
+      +       !     4 <CFNotificationCenter 0x60000020c960> [32]    +16:  0x60000020c970
+      +       !       3 <NSNotificationCenter 0x60000020cda0> [32]     +8: _impl 0x60000020cda8
+      +       !       : 1 <__NSObserver 0x600000239480> [32]     +8: nc 0x600000239488
+      +       !       : | 1 <_UICache 0x600000c44300> [48]    +40: _noteObserver 0x600000c44328
+      +       !       : |   1 <_UIAssetManager 0x6000030047e0> [144]     +8: __strong _imageCache 0x6000030047e8
+      +       !       : |     1 <NSMutableDictionary (Storage) 0x60000391c1a0> [208]   +152: __strong  0x60000391c238
+      +       !       : |       1 <NSMutableDictionary 0x600000239a00> [32]  item count: 4     +8: __strong storage 0x600000239a08
+      +       !       : |         1 <__NSMallocBlock__ 0x600000c43600> [48]  UIFoundation  __16-[_UICache init]_block_invoke  0x185120128    +40: __strong [capture] 0x600000c43628
+      +       !       : |           1 0x600001736000 [64]    +40:  0x600001736028
+      +       !       : |             1 0x600002115220 [80]    +40:  0x600002115248
+      +       !       : |               1 Kernel Pointers Into User Space 
+      +       !       : 1 <__NSObserver 0x6000002405a0> [32]     +8: nc 0x6000002405a8
+      +       !       : | 1 <_UICache 0x600000c3ee20> [48]    +40: _noteObserver 0x600000c3ee48
+      +       !       : |   1 Region UIFoundation __DATA __bss: '_sharedFontCache.__sharedFontCache' 0x1f2877e58
+      +       !       : 1 Region Foundation __DATA __bss: '_MergedGlobals.9' + 40 0x1f278de28
+      +       !       1 Region CoreFoundation __DATA __bss: '__taskCenter' 0x1f26f9378
+      +       2 <UIScrollView 0x105878200> [2560]   +240: __strong _layoutEngine 0x1058782f0
+      +       ! 1 <Swift._SetStorage<UIKit.(ObservationTrackingContext in $186d456c0).ObjectUpdate> 0x600002c5a900> [128]  item count: 0    +64:  0x600002c5a940
+      +       ! : 1 Region UIKitCore __DATA __data: 'OBJC_METACLASS_$__TtC5UIKit31_UIEdgePanDismissSubInteraction' + 224 0x1f2928cd0
+      +       ! 1 <_UIScrollPocketRegistrationInteraction 0x600000e0d8c0> [48]    +32: _view 0x600000e0d8e0
+      +       !   1 <NSMutableArray (Storage) 0x600000300400> [32]    +16: __strong  0x600000300410
+      +       !     1 0x106078c00 [2560]  +1035:  0x10607900b
+      +       !       1 <NSMutableCharacterSet 0x600000ddbe40> [48]    +24:  0x600000ddbe58
+      +       !         1 Region CoreText __DATA __bss: '_MergedGlobals' + 120 0x1f27c9078
+      +       1 <KeyView 0x104e601e0> [608]   +240: __strong _layoutEngine 0x104e602d0
+      +         1 <Swift._ContiguousArrayStorage<Swift.UInt16> 0x115984000> [655360]  item count: 313739 +237812:  0x1159be0f4 --> offset 112
+      +           1 <Lexicon 0x600002c5d400> [128]    +64: __strong followerRanks 0x600002c5d440
+      +             1 Region PersianSTTKeyboard __DATA __common: 'static Lexicon.shared' 0x10473f210
+      2 0x6000026651a0 [96]    +64:  0x6000026651e0
+        2 0x11f63c000 [262144] +241064:  0x11f676da8
+          1 Region dyld private memory  region + 234584 0x11f639458 --> offset 2
+          ! 1 Region __DATA_DIRTY /usr/lib/dyld __DATA_DIRTY __all_image_info: 'dyld_all_image_infos' + 304 0x104bc8130 --> offset 96
+          1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f26c94c8

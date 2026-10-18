@@ -1,0 +1,74 @@
+Tracing: <KeysView 0x104ac7710> [432]
+
+Found 9 roots referencing: <KeysView 0x104ac7710> [432]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    9 <KeysView 0x104ac7710> [432]
+      4 <NSMutableArray (Storage) 0x600000e10450> [48]    +24: __strong  0x600000e10468
+      + 4 <NSMutableArray 0x600000e104e0> [48]  item count: 5    +16: __strong storage 0x600000e104f0
+      +   4 <UIInputView 0x11f70e8a0> [624]    +56: __strong _subviewCache 0x11f70e8d8
+      +     4 <NSISEngine 0x11f551c10> [448]    +56: _delegate 0x11f551c48
+      +       4 <UILabel 0x104d4f1e0> [816]   +240: __strong _layoutEngine 0x104d4f2d0
+      +         4 0x10515d200 [28160] +21904:  0x105162790
+      +           4 <CFXNotificationRegistrar 0x600003500160> [176]   +144:  0x6000035001f0
+      +             4 <CFNotificationCenter 0x60000020c960> [32]    +16:  0x60000020c970
+      +               3 <NSNotificationCenter 0x60000020cda0> [32]     +8: _impl 0x60000020cda8
+      +               ! 1 <__NSObserver 0x600000239480> [32]     +8: nc 0x600000239488
+      +               ! : 1 <_UICache 0x600000c44300> [48]    +40: _noteObserver 0x600000c44328
+      +               ! :   1 <_UIAssetManager 0x6000030047e0> [144]     +8: __strong _imageCache 0x6000030047e8
+      +               ! :     1 <NSMutableDictionary (Storage) 0x60000391c1a0> [208]   +152: __strong  0x60000391c238
+      +               ! :       1 <NSMutableDictionary 0x600000239a00> [32]  item count: 4     +8: __strong storage 0x600000239a08
+      +               ! :         1 <__NSMallocBlock__ 0x600000c43600> [48]  UIFoundation  __16-[_UICache init]_block_invoke  0x185120128    +40: __strong [capture] 0x600000c43628
+      +               ! :           1 0x600001736000 [64]    +40:  0x600001736028
+      +               ! :             1 0x600002115220 [80]    +40:  0x600002115248
+      +               ! :               1 Kernel Pointers Into User Space 
+      +               ! 1 <__NSObserver 0x6000002405a0> [32]     +8: nc 0x6000002405a8
+      +               ! : 1 <_UICache 0x600000c3ee20> [48]    +40: _noteObserver 0x600000c3ee48
+      +               ! :   1 Region UIFoundation __DATA __bss: '_sharedFontCache.__sharedFontCache' 0x1f2877e58
+      +               ! 1 Region Foundation __DATA __bss: '_MergedGlobals.9' + 40 0x1f278de28
+      +               1 Region CoreFoundation __DATA __bss: '__taskCenter' 0x1f26f9378
+      3 0x106a31ba0 [304]   +128:  0x106a31c20
+      + 2 0x106940a50 [304]     +8:  0x106940a58
+      + ! 2 0x106940440 [304]     +8:  0x106940448
+      + !   2 0x1069406a0 [304]     +8:  0x1069406a8
+      + !     2 <_UILabelLayer 0x600002c38500> [128]    +16: _attr + 8 0x600002c38510
+      + !       2 <Swift._DictionaryStorage<UIKit.(UpdateKey in $186d4569c), UIKit.(TrackingDictionary in $186d455cc).SmallCollection<Observation.ObservationTracking>> 0x600003514a50> [176]  item count: 2    +88:  0x600003514aa8
+      + !         2 <TrackingDictionary 0x6000002d39c0> [32]    +16: __strong storage._variant 0x6000002d39d0
+      + !           2 <(extension in UIKit):__C._UITypedStorage.(TypedValue in $186d3fc2c)<Swift.Optional<UIKit.(TrackingDictionary in $186d455cc)>> 0x6000002d3ac0> [32]    +16: __strong value 0x6000002d3ad0
+      + !             2 <Swift._DictionaryStorage<Swift.ObjectIdentifier, (extension in UIKit):__C._UITypedStorage.(BaseValue in $186d3fbe8)> 0x60000391e3c0> [208]  item count: 6   +160:  0x60000391e460
+      + !               2 <_UITypedStorage 0x600000019800> [16]     +8: storage 0x600000019808
+      + !                 2 <UIScrollView 0x105878200> [2560]   +232: __strong _typedStorage 0x1058782e8
+      + !                   1 <Swift._SetStorage<UIKit.(ObservationTrackingContext in $186d456c0).ObjectUpdate> 0x600002c5a900> [128]  item count: 0    +64:  0x600002c5a940
+      + !                   : 1 Region UIKitCore __DATA __data: 'OBJC_METACLASS_$__TtC5UIKit31_UIEdgePanDismissSubInteraction' + 224 0x1f2928cd0
+      + !                   1 <_UIScrollPocketRegistrationInteraction 0x600000e0d8c0> [48]    +32: _view 0x600000e0d8e0
+      + !                     1 <NSMutableArray (Storage) 0x600000300400> [32]    +16: __strong  0x600000300410
+      + !                       1 0x106078c00 [2560]  +1035:  0x10607900b
+      + !                         1 <NSMutableCharacterSet 0x600000ddbe40> [48]    +24:  0x600000ddbe58
+      + !                           1 Region CoreText __DATA __bss: '_MergedGlobals' + 120 0x1f27c9078
+      + 1 0x10693d6d0 [304]     +8:  0x10693d6d8
+      +   1 0x10693d0e0 [304]     +8:  0x10693d0e8
+      +     1 <CALayer 0x600000c97b10> [48]    +16: _attr + 8 0x600000c97b20
+      +       1 <CALayerArray 0x600000c38510> [48]     +8: _ivars 0x600000c38518
+      +         1 <Swift._DictionaryStorage<Swift.Int, Observation.ObservationRegistrar.(State in $2573f9b8c).Observation> 0x6000033e1680> [160]  item count: 1    +96:  0x6000033e16e0
+      +           1 <Observation._ManagedCriticalState<Observation.ObservationRegistrar.(State in $2573f9b8c)>.(LockedBuffer in $2573f98ac)<> 0x600000c38570> [48]    +24: __strong header.observations._variant 0x600000c38588
+      +             1 <Swift._DictionaryStorage<Swift.ObjectIdentifier, Observation.ObservationTracking.Entry> 0x600003514b00> [176]  item count: 2    +72:  0x600003514b48
+      +               1 <Closure context 0x600000ca54d0> [48]    +24: __strong [capture] 0x600000ca54e8
+      +                 1 <Swift._DictionaryStorage<Swift.Int, Observation.ObservationRegistrar.(State in $2573f9b8c).Observation> 0x600003d472a0> [240]  item count: 1   +176:  0x600003d47350
+      +                   1 <Observation._ManagedCriticalState<Observation.ObservationRegistrar.(State in $2573f9b8c)>.(LockedBuffer in $2573f98ac)<> 0x600000df90e0> [48]    +24: __strong header.observations._variant 0x600000df90f8
+      +                     1 <ObservationRegistrar.Extent 0x6000002fbe20> [32]    +16: __strong context.state.buffer 0x6000002fbe30
+      +                       1 <_UICornerProvider 0x600003b28ee0> [224]   +208: __strong _$observationRegistrar.extent 0x600003b28fb0
+      +                         1 <NSMutableDictionary (Storage) 0x6000029233a0> [112]    +72: __strong  0x6000029233e8
+      +                           1 <NSMutableDictionary 0x60000027a520> [32]  item count: 4     +8: __strong storage 0x60000027a528
+      +                             1 <UITraitCollection 0x104a63580> [304]   +224: _clientDefinedTraits 0x104a63660
+      +                               1 <KeyView 0x104e601e0> [608]    +24: __strong _cachedTraitCollection 0x104e601f8
+      +                                 1 <Swift._ContiguousArrayStorage<Swift.UInt16> 0x115984000> [655360]  item count: 313739 +237812:  0x1159be0f4 --> offset 112
+      +                                   1 <Lexicon 0x600002c5d400> [128]    +64: __strong followerRanks 0x600002c5d440
+      +                                     1 Region PersianSTTKeyboard __DATA __common: 'static Lexicon.shared' 0x10473f210
+      2 0x600002659aa0 [96]    +64:  0x600002659ae0
+        2 0x11f63c000 [262144] +230632:  0x11f6744e8
+          1 Region dyld private memory  region + 234584 0x11f639458 --> offset 2
+          ! 1 Region __DATA_DIRTY /usr/lib/dyld __DATA_DIRTY __all_image_info: 'dyld_all_image_infos' + 304 0x104bc8130 --> offset 96
+          1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f26c94c8
