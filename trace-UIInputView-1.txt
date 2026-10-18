@@ -1,0 +1,13 @@
+Tracing: <UIInputView 0x104d16d40> [624]
+
+Found 1 root referencing: <UIInputView 0x104d16d40> [624]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    1 <UIInputView 0x104d16d40> [624]
+      1 <NSLayoutDimension 0x6000017181c0> [64]     +8: _referenceItem 0x6000017181c8
+        1 0x104c6ffd0 [384]   +304:  0x104c70100
+          1 0x1060f7200 [8192]  +3368:  0x1060f7f28
+            1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f26c94c8
