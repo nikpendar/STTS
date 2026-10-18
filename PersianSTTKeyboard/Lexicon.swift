@@ -680,16 +680,17 @@ final class Lexicon {
 
     // MARK: - Glide
 
-    /// Candidates for a glide that starts on one of `firstLetters`, with their scores.
-    func glideCandidates(firstLetters: Set<Character>, lastLetters: Set<Character>,
-                         maxLetters: Int) -> [(word: String, letters: [Character], score: Double)] {
+    /// Candidates for a glide that starts on one of `firstLetters`, with their scores: how
+    /// likely each is after `context`, as the suggestion bar ranks words.
+    func glideCandidates(firstLetters: Set<Character>, lastLetters: Set<Character>, maxLetters: Int,
+                         context: Context = .none) -> [(word: String, letters: [Character], score: Double)] {
         var result: [(word: String, letters: [Character], score: Double)] = []
         for first in firstLetters {
             for i in byFirstLetter[first] ?? [] {
                 let entry = entries[i]
                 let letters = language.pathLetters(entry.key)
                 guard letters.count <= maxLetters, let last = letters.last, lastLetters.contains(last),
-                      let score = score(key: entry.key, zipf: entry.zipf) else { continue }
+                      let score = rankScore(key: entry.key, zipf: entry.zipf, context: context) else { continue }
                 result.append((entry.word, letters, score))
             }
         }
@@ -697,7 +698,7 @@ final class Lexicon {
             let letters = language.pathLetters(key)
             guard let first = letters.first, let last = letters.last, firstLetters.contains(first),
                   lastLetters.contains(last), letters.count <= maxLetters,
-                  let score = score(key: key, zipf: nil) else { continue }
+                  let score = rankScore(key: key, zipf: nil, context: context) else { continue }
             result.append((user.word, letters, score))
         }
         return result

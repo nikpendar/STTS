@@ -1,4 +1,4 @@
-// Checks the keyboard's word logic (Lexicon.swift, VoiceCommands.swift, TouchModel.swift) without a simulator:
+// Checks the keyboard's word logic (Lexicon, VoiceCommands, TouchModel, GlideDecoder) without a simulator:
 // .github/workflows/logic-test.yml compiles these files with this one on a Mac and runs them.
 import Foundation
 
@@ -180,6 +180,28 @@ for _ in 0..<30 { touches.learn(CGPoint(x: 0.55, y: 0), key: "b", layout: "t") }
 check("learned habit", touches.choose(CGPoint(x: 70, y: 27), among: keys(), hit: 2, layout: "t"), 1)
 check("learned habit keeps centres", touches.choose(CGPoint(x: 85, y: 27), among: keys(), hit: 2, layout: "t"), 2)
 check("far touches are not learned", { var m = TouchModel(); m.learn(CGPoint(x: 2, y: 0), key: "b", layout: "t"); return m.isEmpty }(), true)
+
+// Glide typing: the Persian letter rows, 34 points wide and 54 high. A line halfway between
+// the lines of two words is read as the one that fits the word before.
+let glideRows = ["ضصقفغعهخحجچ", "شسیبلاتنمکگ", "ظطزرذدپوث"]
+var glideKeys: [Character: CGPoint] = [:]
+for (row, letters) in glideRows.enumerated() {
+    for (column, letter) in letters.enumerated() {
+        glideKeys[letter] = CGPoint(x: (CGFloat(column) + 0.5) * 34, y: (CGFloat(row) + 0.5) * 54)
+    }
+}
+func glideLine(_ word: String) -> [CGPoint] {
+    GlideDecoder.resample(Lexicon.pathLetters(Lexicon.key(word)).compactMap { glideKeys[$0] }, 32)
+}
+let between = zip(glideLine("خوب"), glideLine("خواب")).map { CGPoint(x: ($0.x + $1.x) / 2, y: ($0.y + $1.y) / 2) }
+func glide(after word: String?) -> String {
+    let context: Lexicon.Context = word.map { .word(Lexicon.key($0)) } ?? .none
+    return GlideDecoder.decode(between, keys: glideKeys, unit: 34, context: context).first ?? "nil"
+}
+print("glide between خوب and خواب, no word before:", glide(after: nil))
+check("glide after خیلی", glide(after: "خیلی"), "خوب")
+check("glide after اتاق", glide(after: "اتاق"), "خواب")
+check("glide of a whole word", GlideDecoder.decode(glideLine("سلام"), keys: glideKeys, unit: 34).first ?? "nil", "سلام")
 
 let start = Date()
 for word in ["سلان", "کتاا", "مرسس", "زندگس", "صحبط", "اسفاده", "دوستت", "ممنوم"] {

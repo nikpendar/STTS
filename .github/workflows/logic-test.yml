@@ -10,6 +10,7 @@ on:
       - PersianSTTKeyboard/VoiceCommands.swift
       - PersianSTTKeyboard/SpokenNumbers.swift
       - PersianSTTKeyboard/TouchModel.swift
+      - PersianSTTKeyboard/GlideDecoder.swift
       - PersianSTTKeyboard/fa_words.txt
       - PersianSTTKeyboard/fa_bigrams.bin
       - PersianSTTKeyboard/en_words.txt
@@ -26,7 +27,8 @@ jobs:
         run: |
           # Errors and failed checks go to annotations, which are readable where the log is not.
           if ! swiftc -O -module-name KeyboardLogic PersianSTTKeyboard/Lexicon.swift PersianSTTKeyboard/VoiceCommands.swift \
-            PersianSTTKeyboard/SpokenNumbers.swift PersianSTTKeyboard/TouchModel.swift Tests/KeyboardLogic/main.swift \
+            PersianSTTKeyboard/SpokenNumbers.swift PersianSTTKeyboard/TouchModel.swift PersianSTTKeyboard/GlideDecoder.swift \
+            Tests/KeyboardLogic/main.swift \
             -o logic-test 2> build.txt; then
             grep "error:" build.txt | head -20 | sed 's/^/::error::/'
             exit 1

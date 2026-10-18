@@ -1463,15 +1463,16 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     /// What comes before the word at the cursor (`word`, possibly empty): the word before it,
-    /// the start of a sentence, or neither.
-    private func typingContext(before word: String) -> Lexicon.Context {
+    /// the start of a sentence, or neither. `separated`: the new word will be typed with a space
+    /// of its own, as a glide's is, so a word right before the cursor counts.
+    private func typingContext(before word: String, separated: Bool = false) -> Lexicon.Context {
         let before = proxy.documentContextBeforeInput ?? ""
         var rest = Substring(before).dropLast(word.count)
         let spaces = rest.reversed().prefix { $0 == " " || $0 == "\u{00A0}" }.count
         rest = rest.dropLast(spaces)
         guard let last = rest.last else { return .sentenceStart }
         if last.isNewline || ".!?؟…".contains(last) { return .sentenceStart }
-        guard spaces > 0 || !word.isEmpty else { return .none }
+        guard spaces > 0 || !word.isEmpty || separated else { return .none }
         let lexicon = lexicon
         var start = rest.endIndex
         while start > rest.startIndex {
@@ -1748,11 +1749,13 @@ final class KeyboardViewController: UIInputViewController {
             if let character = letterKey(at: start)?.character { typeKey(character) }
             return
         }
-        let words = GlideDecoder.decode(path, keys: letterCenters(), unit: keyWidth, lexicon: lexicon)
-            .map { cased($0, like: "") }
-        guard let word = words.first else { return }
         let last = proxy.documentContextBeforeInput?.unicodeScalars.last
         let prefix = last.map { !CharacterSet.whitespacesAndNewlines.contains($0) && $0 != "\u{200C}" } == true ? " " : ""
+        // The word before picks among readings the line fits about as well.
+        let context = typingContext(before: "", separated: !prefix.isEmpty)
+        let words = GlideDecoder.decode(path, keys: letterCenters(), unit: keyWidth, lexicon: lexicon, context: context)
+            .map { cased($0, like: "") }
+        guard let word = words.first else { return }
         lastGlide = (word, prefix + word, Array(words.dropFirst()))
         wordTouches.removeAll()
         insert(prefix + word)
