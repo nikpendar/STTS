@@ -1,0 +1,31 @@
+Process:         PersianSTTKeyboard [31800]
+Path:            /Users/runner/Library/Developer/CoreSimulator/Devices/0D2AE22D-84BA-41CF-A7B5-64A33EBE2EC3/data/Containers/Bundle/Application/1D92B9B7-0580-4BAC-9510-6DA58CCCB015/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard
+Load Address:    0x104980000
+Identifier:      ir.nikpendar.PersianSTT.Keyboard
+Version:         0.1 (1)
+Code Type:       ARM64
+Platform:        iOS Simulator
+Parent Process:  launchd_sim [8638]
+Target Type:     corpse
+
+Date/Time:       2026-10-18 17:53:00.112 +0000
+Launch Time:     2026-10-18 17:44:43.232 +0000
+OS Version:      macOS 15.7.9 (24G830)
+Report Version:  7
+Analysis Tool:   /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/bin/heap
+Analysis Tool Version:  iOS Simulator 26.2 (23C54)
+
+Physical footprint:         51.1M
+Physical footprint (peak):  55.6M
+Idle exit:                  untracked
+----
+
+Process 31800: 5 zones
+
+All zones: 92427 nodes malloced - Sizes: 1648KB[1] 1552KB[1] 640KB[1] 320KB[1] 224KB[1] 128KB[2] 112KB[1] 80KB[1] 48KB[4] 32KB[1] 27KB[4] 24.5KB[1] 24KB[2] 18KB[1] 17KB[4] 16KB[23] 13.5KB[3] 12.5KB[1] 12KB[10] 10.5KB[1] 10KB[8] 9KB[1] 8.5KB[3] 8KB[38] 7.5KB[3] 6.5KB[2] 6KB[12] 5.5KB[1] 5KB[5] 4.5KB[8] 4KB[38] 3.5KB[31] 3KB[22] 2.5KB[78] 2KB[85] 1.5KB[61] 1KB[77] 1008[11] 992[2] 976[2] 960[1] 944[1] 912[1] 896[5] 880[9] 864[1] 832[8] 816[7] 800[8] 784[7] 768[15] 752[8] 736[4] 704[3] 688[6] 672[4] 656[93] 640[13] 624[6] 608[13] 592[14] 576[16] 560[20] 544[32] 528[34] 512[253] 496[135] 480[159] 464[200] 448[316] 432[220] 416[112] 400[18] 384[17] 368[52] 352[19] 336[29] 320[30] 304[80] 288[60] 272[98] 256[375] 240[936] 224[900] 208[3805] 192[1719] 176[110] 160[155] 144[167] 128[936] 112[1645] 96[670] 80[2304] 64[9627] 48[39028] 32[25930] 16[1441] 
+
+Found:  4645 ObjC classes  453 Swift classes  62 C++ classes  152 CFTypes
+Type names for non-objects could be derived from allocation backtraces if the process used MallocStackLogging
+
+Active blocks in all zones that match pattern 'DictationOrbView':
+

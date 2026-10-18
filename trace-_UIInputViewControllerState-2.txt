@@ -1,0 +1,14 @@
+Tracing: <_UIInputViewControllerState 0x600000d24570> [48]
+
+Found 1 root referencing: <_UIInputViewControllerState 0x600000d24570> [48]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    1 <_UIInputViewControllerState 0x600000d24570> [48]
+      1 <_UITextDocumentInterface 0x600001751200> [64]    +40: __strong _controllerState 0x600001751228
+        1 <NSMutableArray (Storage) 0x600000e05920> [48]    +32: __strong  0x600000e05940
+          1 <NSMutableArray 0x600000c918c0> [48]  item count: 5    +16: __strong storage 0x600000c918d0
+            1 <TUIKeyboardInputManagerMux 0x600001741e80> [64]    +40: __strong _clients 0x600001741ea8
+              1 Region TextInputUI __DATA __bss: 'sharedInstance.__instance' 0x1f3860ca8

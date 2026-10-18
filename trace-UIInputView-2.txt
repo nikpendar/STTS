@@ -1,0 +1,24 @@
+Tracing: <UIInputView 0x105825e60> [624]
+
+Found 2 roots referencing: <UIInputView 0x105825e60> [624]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    2 <UIInputView 0x105825e60> [624]
+      1 <NSISRestrictedToNonNegativeVariable 0x600001724080> [64]     +8: _delegate 0x600001724088
+      + 1 0x106959200 [2048]   +128:  0x106959280
+      +   1 0x10682fc00 [2048]    +88:  0x10682fc58 --> offset 256
+      +     1 0x600001732080 [64]    +40:  0x6000017320a8 --> offset 1131
+      +       1 0x6000017321c0 [64]     +8:  0x6000017321c8
+      +         1 0x600001731e00 [64]     +8:  0x600001731e08
+      +           1 0x6000017323c0 [64]     +0:  0x6000017323c0
+      +             1 0x600001731a00 [64]     +0:  0x600001731a00
+      +               1 0x600001732d40 [64]     +8:  0x600001732d48
+      +                 1 0x600000266d60 [32]     +8:  0x600000266d68
+      +                   1 Region CoreSVG __DATA __bss: 'NameToColorMap()::__colorMap' 0x1f37cc590
+      1 <NSLayoutDimension 0x6000017166c0> [64]     +8: _referenceItem 0x6000017166c8
+        1 0x120416e50 [384]   +208:  0x120416f20
+          1 0x106862600 [16384]  +8072:  0x106864588
+            1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f26c94c8
