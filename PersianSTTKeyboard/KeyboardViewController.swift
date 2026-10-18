@@ -941,6 +941,12 @@ final class KeyboardViewController: UIInputViewController {
         let height = view.heightAnchor.constraint(equalToConstant: fullHeight)
         height.priority = UILayoutPriority(999)
         heightConstraint = height
+        let sizer = UILabel()
+        sizer.isHidden = true
+        sizer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(sizer)
+        sizer.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
+        sizer.centerYAnchor.constraint(equalTo: view.centerYAnchor).isActive = true
         render()
     }
 
