@@ -929,6 +929,7 @@ final class KeyboardViewController: UIInputViewController {
         let height = view.heightAnchor.constraint(equalToConstant: fullHeight)
         height.priority = UILayoutPriority(999)
         heightConstraint = height
+        preferredContentSize = CGSize(width: UIScreen.main.bounds.width, height: fullHeight)
         render()
     }
 
@@ -1196,6 +1197,7 @@ final class KeyboardViewController: UIInputViewController {
         let height = isCompact ? compactHeight : fullHeight
         if heightConstraint.constant != height { heightConstraint.constant = height }
         if !heightConstraint.isActive { heightConstraint.isActive = true }
+        preferredContentSize = CGSize(width: view.bounds.width, height: height)
     }
 
     /// Keys sit on a grid of `columns` equal cells across the whole width (inside the safe area,
