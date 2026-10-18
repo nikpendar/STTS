@@ -105,7 +105,7 @@ jobs:
           done
           # The keyboard in other text fields: the height iOS gives it should be the same everywhere.
           mark() { echo "===== $1 $(date +%T)" | tee -a out/hosts.txt; sleep 9; xcrun simctl io "$DEVICE" screenshot "out/host-$1.png"
-            PID="$(pgrep -f PersianSTTKeyboard | head -n1)"
+            PID="$(pgrep -x PersianSTTKeyboard | head -n1)"
             [ -n "$PID" ] && footprint "$PID" 2>/dev/null | grep -iE "footprint|phys" | head -n 3 | tee -a out/hosts.txt || echo "no keyboard process" | tee -a out/hosts.txt; }
           spotlight() { axe button home --udid "$DEVICE" || xcrun simctl launch "$DEVICE" com.apple.springboard || true; sleep 3
             axe swipe --start-x 187 --start-y 330 --end-x 187 --end-y 640 --duration 0.4 --udid "$DEVICE" || true; }
