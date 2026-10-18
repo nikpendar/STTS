@@ -219,7 +219,6 @@ final class KeyboardViewController: UIInputViewController {
 
     override func textDidChange(_ textInput: UITextInput?) {
         super.textDidChange(textInput)
-        if Self.minimal { return }
         if edits.isTracking { report(edits.documentChanged(documentContext)) }
         updateSuggestions()
         updateAutoShift()
@@ -227,7 +226,6 @@ final class KeyboardViewController: UIInputViewController {
 
     override func selectionDidChange(_ textInput: UITextInput?) {
         super.selectionDidChange(textInput)
-        if Self.minimal { return }
         if edits.isTracking { report(edits.documentChanged(documentContext)) }
         updateSuggestions()
         updateAutoShift()
