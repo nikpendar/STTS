@@ -1235,7 +1235,6 @@ final class KeyboardViewController: UIInputViewController {
             loggedSize = view.bounds.size
             log.info("layout \(Int(self.view.bounds.width))x\(Int(self.view.bounds.height)), asked \(Int(self.fullHeight)), window \(Int(self.view.window?.bounds.height ?? 0))")
         }
-        if Self.minimal { return }
         // The number row, the suggestion bar or the orientation changed the height.
         if !isCompact, let height = heightConstraint, height.isActive, height.constant != fullHeight {
             view.setNeedsUpdateConstraints()
