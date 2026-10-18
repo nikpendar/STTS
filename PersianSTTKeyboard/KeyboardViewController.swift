@@ -120,8 +120,6 @@ final class KeyboardViewController: UIInputViewController {
             let minimal = view.heightAnchor.constraint(equalToConstant: 268)
             minimal.priority = .defaultHigh
             minimal.isActive = true
-            buildUI()
-            return
         }
         // Both orientations' sizes are worked out (and kept) on the first run after install.
         _ = (portraitMetrics, landscapeMetrics)
