@@ -1,0 +1,26 @@
+Invalid connection: com.apple.coresymbolicationd
+Tracing: <UIInputView 0x101017c20> [608]
+
+Found 2 roots referencing: <UIInputView 0x101017c20> [608]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+This reverse reference tree can be imported into Instruments using Import Sample Data to allow data mining.
+
+    2 <UIInputView 0x101017c20> [608]
+      2 <NSLayoutDimension 0x600001778600> [64]     +8: _referenceItem 0x600001778608
+        2 0x1011953c0 [384]   +232:  0x1011954a8
+          2 0x1020a8800 [16384] +15368:  0x1020ac408
+            1 0x1020ace00 [2048]  +1696:  0x1020ad4a0 --> offset 15368
+            + 1 0x60000027e960 [32]    +24:  0x60000027e978
+            +   1 0x600001774800 [64]    +32:  0x600001774820
+            +     1 <TTenuousComponentFont 0x101004290> [816]   +208:  0x101004360
+            +       1 <UICTFont 0x100708ac0> [608]   +456:  0x100708c88
+            +         1 <NSMutableDictionary (Storage) 0x600000d0c7e0> [48]    +40: __strong  0x600000d0c808
+            +           1 <NSMutableDictionary 0x600000230660> [32]  item count: 3     +8: __strong storage 0x600000230668
+            +             1 <_UITextAttributeDictionaryImplM 0x6000002306a0> [32]    +16: __strong _storage 0x6000002306b0
+            +               1 <_UITextAttributeDefaults 0x600000004820> [16]     +8: __strong _attributes 0x600000004828
+            +                 1 <_UITextAttributeDefaultCategories 0x600002138dc0> [80]     +8: __strong _generic 0x600002138dc8
+            +                   1 Region UIKitCore __DATA __bss: '_MergedGlobals' + 16 0x1f3072638
+            1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f2df68c8
