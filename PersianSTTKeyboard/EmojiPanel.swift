@@ -1,8 +1,10 @@
 import UIKit
 
-/// The emoji panel: a grid in sections, with a bar of category buttons under it. The first
-/// section mixes emoji for the words just typed (`EmojiPanel.suggestions`) with the recently
-/// used ones. Cells are reused, so the panel stays light however many emoji it lists.
+/// The emoji panel, laid out as the iOS emoji keyboard: a search field on top, a grid in
+/// sections that scrolls up and down, and a row of category buttons at the bottom (between
+/// الفبا and backspace, which the keyboard places), scrolling sideways when they do not fit.
+/// The first section mixes emoji for the words just typed (`EmojiPanel.suggestions`) with the
+/// recently used ones. Cells are reused, so the panel stays light however many emoji it lists.
 final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     struct Category {
         let symbol: String
@@ -11,22 +13,45 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
     }
 
     var onPick: ((String) -> Void)?
+    /// The search field was tapped: the keyboard shows its letters to type the search.
+    var onSearch: (() -> Void)?
     var textColor = UIColor.label {
         didSet {
-            categoryButtons.forEach { $0.tintColor = textColor.withAlphaComponent(0.45) }
+            searchField.textColor = textColor
             highlightCategory()
             grid.reloadData()
         }
     }
+    /// The size of the letters on the keys over the standard size: the emoji and the category
+    /// buttons follow it, the buttons within bounds.
+    var scale: CGFloat = 1 {
+        didSet {
+            guard scale != oldValue else { return }
+            buildCategoryButtons()
+            setNeedsLayout()
+            grid.reloadData()
+        }
+    }
+    /// Heights of the search field and of the category row (a key row), and the room the
+    /// keyboard keeps beside the category row for الفبا on the left and backspace on the right.
+    var searchHeight: CGFloat = 38
+    var bottomHeight: CGFloat = 54
+    var bottomInsets: (left: CGFloat, right: CGFloat) = (0, 0)
+    var isEnglish = false {
+        didSet { searchField.placeholder = isEnglish ? "Search Emoji" : "جستجوی شکلک" }
+    }
 
     private var categories: [Category] = EmojiPanel.standard
+    private let searchField = EmojiSearchField()
     private let grid: UICollectionView
     private let layout = UICollectionViewFlowLayout()
-    private let categoryBar = UIStackView()
+    private let categoryScroll = UIScrollView()
     private var categoryButtons: [UIButton] = []
     private var current = 0
-    private static let barHeight: CGFloat = 30
     private static let recentKey = "recentEmoji"
+
+    /// The emoji's point size: 28 at the standard letter size.
+    static func emojiSize(scale: CGFloat) -> CGFloat { min(44, max(20, (28 * scale).rounded())) }
 
     override init(frame: CGRect) {
         layout.scrollDirection = .vertical
@@ -36,6 +61,9 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         layout.headerReferenceSize = CGSize(width: 0, height: 22)
         grid = UICollectionView(frame: .zero, collectionViewLayout: layout)
         super.init(frame: frame)
+        searchField.placeholder = "جستجوی شکلک"
+        searchField.addAction(UIAction { [weak self] _ in self?.onSearch?() }, for: .touchUpInside)
+        addSubview(searchField)
         grid.backgroundColor = .clear
         grid.showsVerticalScrollIndicator = false
         grid.dataSource = self
@@ -44,21 +72,11 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         grid.register(EmojiHeader.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
                       withReuseIdentifier: "header")
         addSubview(grid)
-        categoryBar.axis = .horizontal
-        categoryBar.distribution = .fillEqually
+        categoryScroll.showsHorizontalScrollIndicator = false
         // Categories read right to left, like the keyboard.
-        categoryBar.semanticContentAttribute = .forceRightToLeft
-        for (index, category) in categories.enumerated() {
-            let button = UIButton(type: .system)
-            button.setImage(UIImage(systemName: category.symbol,
-                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .medium)),
-                            for: .normal)
-            button.accessibilityLabel = category.title
-            button.addAction(UIAction { [weak self] _ in self?.jump(to: index) }, for: .touchUpInside)
-            categoryButtons.append(button)
-            categoryBar.addArrangedSubview(button)
-        }
-        addSubview(categoryBar)
+        categoryScroll.semanticContentAttribute = .forceRightToLeft
+        addSubview(categoryScroll)
+        buildCategoryButtons()
         textColor = .label
     }
 
@@ -66,27 +84,66 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         fatalError("init(coder:) has not been implemented")
     }
 
+    private func buildCategoryButtons() {
+        categoryButtons.forEach { $0.removeFromSuperview() }
+        let pointSize = min(20, max(13, (15 * scale).rounded()))
+        categoryButtons = categories.enumerated().map { index, category in
+            let button = UIButton(type: .system)
+            button.setImage(UIImage(systemName: category.symbol,
+                                    withConfiguration: UIImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)),
+                            for: .normal)
+            button.accessibilityLabel = category.title
+            button.addAction(UIAction { [weak self] _ in self?.jump(to: index) }, for: .touchUpInside)
+            categoryScroll.addSubview(button)
+            return button
+        }
+        highlightCategory()
+    }
+
     /// Fills the first section: emoji for `text` (the words before the cursor), then the
     /// recently used ones.
     func refresh(for text: String) {
         var first = Self.suggestions(for: text)
-        for emoji in UserDefaults.standard.stringArray(forKey: Self.recentKey) ?? [] where !first.contains(emoji) {
+        for emoji in Self.recent where !first.contains(emoji) {
             first.append(emoji)
         }
-        if first.isEmpty { first = ["😂", "❤️", "👍", "🙏", "😍", "😊", "🌹", "🎉"] }
+        if first.isEmpty { first = Self.starters }
         categories[0].emojis = Array(first.prefix(32))
         grid.reloadData()
     }
 
+    static let starters = ["😂", "❤️", "👍", "🙏", "😍", "😊", "🌹", "🎉"]
+
     override func layoutSubviews() {
         super.layoutSubviews()
-        let barHeight = min(Self.barHeight, bounds.height / 4)
-        grid.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height - barHeight)
-        categoryBar.frame = CGRect(x: 0, y: bounds.height - barHeight, width: bounds.width, height: barHeight)
+        let top = min(searchHeight, bounds.height / 4)
+        let bottom = min(bottomHeight, bounds.height / 3)
+        searchField.frame = CGRect(x: 6, y: 4, width: bounds.width - 12, height: max(0, top - 8))
+        grid.frame = CGRect(x: 0, y: top, width: bounds.width, height: bounds.height - top - bottom)
+        categoryScroll.frame = CGRect(x: bottomInsets.left, y: bounds.height - bottom,
+                                      width: max(0, bounds.width - bottomInsets.left - bottomInsets.right), height: bottom)
+        // Equal shares of the row when they fit, else each a fixed width and the row scrolls.
+        let least = min(52, max(34, 38 * scale))
+        let count = CGFloat(max(categoryButtons.count, 1))
+        let buttonWidth = max(least, categoryScroll.bounds.width / count)
+        for (index, button) in categoryButtons.enumerated() {
+            // Right to left: the first category at the right end.
+            let x = (count - 1 - CGFloat(index)) * buttonWidth
+            button.frame = CGRect(x: x, y: 0, width: buttonWidth, height: bottom)
+        }
+        let contentWidth = buttonWidth * count
+        if categoryScroll.contentSize.width != contentWidth {
+            categoryScroll.contentSize = CGSize(width: contentWidth, height: bottom)
+            categoryScroll.contentOffset = CGPoint(x: max(0, contentWidth - categoryScroll.bounds.width), y: 0)
+        }
         layout.invalidateLayout()
     }
 
-    private var columns: Int { bounds.width > 500 ? 14 : 8 }
+    private var cellSide: CGFloat {
+        let wanted = Self.emojiSize(scale: scale) * 1.45
+        let columns = max(6, floor(grid.bounds.width / wanted))
+        return floor(grid.bounds.width / columns)
+    }
 
     private func jump(to section: Int) {
         guard section < categories.count, !categories[section].emojis.isEmpty else { return }
@@ -103,13 +160,23 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         for (index, button) in categoryButtons.enumerated() {
             button.tintColor = index == current ? textColor : textColor.withAlphaComponent(0.45)
         }
+        guard current < categoryButtons.count else { return }
+        categoryScroll.scrollRectToVisible(categoryButtons[current].frame, animated: false)
+    }
+
+    // MARK: - Recent
+
+    static var recent: [String] { UserDefaults.standard.stringArray(forKey: recentKey) ?? [] }
+
+    static func remember(_ emoji: String) {
+        var recent = Self.recent
+        recent.removeAll { $0 == emoji }
+        recent.insert(emoji, at: 0)
+        UserDefaults.standard.set(Array(recent.prefix(24)), forKey: recentKey)
     }
 
     private func picked(_ emoji: String) {
-        var recent = UserDefaults.standard.stringArray(forKey: Self.recentKey) ?? []
-        recent.removeAll { $0 == emoji }
-        recent.insert(emoji, at: 0)
-        UserDefaults.standard.set(Array(recent.prefix(24)), forKey: Self.recentKey)
+        Self.remember(emoji)
         onPick?(emoji)
     }
 
@@ -124,6 +191,8 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "emoji", for: indexPath) as! EmojiCell
         cell.label.text = categories[indexPath.section].emojis[indexPath.item]
+        let size = Self.emojiSize(scale: scale)
+        if cell.label.font.pointSize != size { cell.label.font = .systemFont(ofSize: size) }
         return cell
     }
 
@@ -138,8 +207,8 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout,
                         sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let side = floor(collectionView.bounds.width / CGFloat(columns))
-        return CGSize(width: side, height: min(side, 42))
+        let side = cellSide
+        return CGSize(width: side, height: side)
     }
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout,
@@ -154,6 +223,7 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
 
     /// The category button follows the section at the top of the grid.
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard scrollView === grid else { return }
         let top = CGPoint(x: 1, y: scrollView.contentOffset.y + 30)
         let section = grid.indexPathForItem(at: top)?.section
             ?? grid.indexPathsForVisibleItems.map(\.section).min() ?? current
@@ -161,6 +231,54 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
             current = section
             highlightCategory()
         }
+    }
+
+    // MARK: - Search
+
+    /// Persian and English names and keywords of each emoji (emoji_names.txt, from CLDR),
+    /// read the first time a search is typed.
+    private static let names: [(emoji: String, terms: [String])] = {
+        // The keyboard's copy; the app, which hosts the keyboard for tests, finds it in the extension.
+        guard let url = Bundle(for: EmojiPanel.self).url(forResource: "emoji_names", withExtension: "txt")
+                ?? Bundle.main.builtInPlugInsURL?.appendingPathComponent("PersianSTTKeyboard.appex/emoji_names.txt"),
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        return text.split(separator: "\n").compactMap { line in
+            let parts = line.split(separator: "\t", maxSplits: 1)
+            guard parts.count == 2 else { return nil }
+            return (String(parts[0]), parts[1].split(separator: "|").map { normalized(String($0)) })
+        }
+    }()
+
+    /// Lower case, Arabic ي and ك as Persian ی and ک, ZWNJ as a space.
+    private static func normalized(_ text: String) -> String {
+        text.lowercased()
+            .replacingOccurrences(of: "\u{064A}", with: "\u{06CC}")
+            .replacingOccurrences(of: "\u{0643}", with: "\u{06A9}")
+            .replacingOccurrences(of: "\u{200C}", with: " ")
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Emoji whose name or a keyword starts with the query, or has a word that does: names
+    /// and whole keywords first, as the iOS emoji search ranks them.
+    static func search(_ query: String, limit: Int = 60) -> [String] {
+        let query = normalized(query)
+        guard !query.isEmpty else { return [] }
+        var ranked: [(emoji: String, rank: Int, index: Int)] = []
+        for (index, entry) in names.enumerated() {
+            var best = Int.max
+            for (position, term) in entry.terms.enumerated() {
+                let rank: Int
+                if term == query { rank = 0 }
+                else if term.hasPrefix(query) { rank = 1 }
+                else if term.contains(" " + query) { rank = 2 }
+                else { continue }
+                // The emoji's own name (the first term in each language) ranks a little higher.
+                best = min(best, rank * 2 + (position == 0 ? 0 : 1))
+            }
+            if best != .max { ranked.append((entry.emoji, best, index)) }
+        }
+        ranked.sort { ($0.rank, $0.index) < ($1.rank, $1.index) }
+        return ranked.prefix(limit).map(\.emoji)
     }
 
     // MARK: - Suggestions
@@ -295,5 +413,146 @@ private final class EmojiHeader: UICollectionReusableView {
     override func layoutSubviews() {
         super.layoutSubviews()
         label.frame = bounds.insetBy(dx: 6, dy: 0)
+    }
+}
+
+/// The field at the top of the emoji panel, and of the search row while a search is typed:
+/// a magnifier, the query or a placeholder, on a rounded grey ground as in iOS.
+final class EmojiSearchField: UIControl {
+    var placeholder = "" { didSet { update() } }
+    /// The search typed so far; nil shows the placeholder.
+    var query: String? { didSet { update() } }
+    var textColor = UIColor.label { didSet { update() } }
+    private let icon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
+    private let label = UILabel()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = UIColor.label.withAlphaComponent(0.08)
+        layer.cornerRadius = 9
+        layer.cornerCurve = .continuous
+        icon.contentMode = .center
+        icon.isUserInteractionEnabled = false
+        label.isUserInteractionEnabled = false
+        label.textAlignment = .natural
+        addSubview(icon)
+        addSubview(label)
+        isAccessibilityElement = true
+        accessibilityTraits = .searchField
+        update()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func update() {
+        let empty = (query ?? "").isEmpty
+        label.text = empty ? placeholder : query
+        label.textColor = empty ? textColor.withAlphaComponent(0.45) : textColor
+        label.font = AppFont.font(ofSize: min(16, max(12, bounds.height * 0.5)))
+        icon.tintColor = textColor.withAlphaComponent(0.45)
+        accessibilityLabel = placeholder
+        accessibilityValue = query
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Right to left: the magnifier at the right end, as the field reads in Persian.
+        let side = bounds.height
+        icon.frame = CGRect(x: bounds.width - side - 2, y: 0, width: side, height: side)
+        label.frame = CGRect(x: 8, y: 0, width: max(0, bounds.width - side - 12), height: side)
+        label.textAlignment = .right
+        update()
+    }
+}
+
+/// While an emoji search is typed: the search field with a button that ends the search, and
+/// a row of the emoji found, which scrolls sideways.
+final class EmojiSearchView: UIView {
+    var onPick: ((String) -> Void)?
+    var onClose: (() -> Void)?
+    var textColor = UIColor.label {
+        didSet {
+            field.textColor = textColor
+            close.tintColor = textColor.withAlphaComponent(0.6)
+            empty.textColor = textColor.withAlphaComponent(0.45)
+        }
+    }
+    var scale: CGFloat = 1 { didSet { if scale != oldValue { show(results) } } }
+    var fieldHeight: CGFloat = 38
+    let field = EmojiSearchField()
+    private let close = UIButton(type: .system)
+    private let row = UIScrollView()
+    private let empty = UILabel()
+    private var buttons: [UIButton] = []
+    private var results: [String] = []
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        field.isUserInteractionEnabled = false
+        addSubview(field)
+        close.setImage(UIImage(systemName: "xmark.circle.fill",
+                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 18)), for: .normal)
+        close.accessibilityLabel = "پایان جستجو"
+        close.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
+        addSubview(close)
+        row.showsHorizontalScrollIndicator = false
+        row.semanticContentAttribute = .forceRightToLeft
+        addSubview(row)
+        empty.font = AppFont.font(ofSize: 13)
+        empty.textAlignment = .center
+        addSubview(empty)
+        textColor = .label
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    /// Shows the query and what it finds; with no query yet, the recently used emoji.
+    func update(query: String, isEnglish: Bool) {
+        field.placeholder = isEnglish ? "Search Emoji" : "جستجوی شکلک"
+        field.query = query
+        let found = query.isEmpty ? (EmojiPanel.recent.isEmpty ? EmojiPanel.starters : EmojiPanel.recent)
+                                  : EmojiPanel.search(query)
+        empty.text = found.isEmpty ? (isEnglish ? "No Emoji Found" : "شکلکی پیدا نشد") : nil
+        show(found)
+    }
+
+    private func show(_ found: [String]) {
+        results = found
+        buttons.forEach { $0.removeFromSuperview() }
+        let size = EmojiPanel.emojiSize(scale: scale)
+        buttons = found.map { emoji in
+            let button = UIButton(type: .custom)
+            button.setTitle(emoji, for: .normal)
+            button.titleLabel?.font = .systemFont(ofSize: size)
+            button.addAction(UIAction { [weak self] _ in
+                UIDevice.current.playInputClick()
+                EmojiPanel.remember(emoji)
+                self?.onPick?(emoji)
+            }, for: .touchUpInside)
+            row.addSubview(button)
+            return button
+        }
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let top = min(fieldHeight, bounds.height / 2)
+        close.frame = CGRect(x: 0, y: 0, width: top + 6, height: top)
+        field.frame = CGRect(x: top + 6, y: 4, width: max(0, bounds.width - top - 12), height: max(0, top - 8))
+        row.frame = CGRect(x: 0, y: top, width: bounds.width, height: bounds.height - top)
+        empty.frame = row.frame
+        let side = EmojiPanel.emojiSize(scale: scale) * 1.45
+        let count = CGFloat(buttons.count)
+        for (index, button) in buttons.enumerated() {
+            // Right to left: the best match at the right end.
+            button.frame = CGRect(x: (count - 1 - CGFloat(index)) * side, y: 0, width: side, height: row.bounds.height)
+        }
+        row.contentSize = CGSize(width: max(row.bounds.width, side * count), height: row.bounds.height)
+        row.contentOffset = CGPoint(x: max(0, row.contentSize.width - row.bounds.width), y: 0)
     }
 }

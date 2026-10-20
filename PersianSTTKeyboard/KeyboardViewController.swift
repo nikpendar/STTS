@@ -38,7 +38,19 @@ final class KeyboardViewController: UIInputViewController {
     /// The optional digits over the letters.
     private var numberRowHeight: CGFloat { metrics.numberRow }
     /// No margin under the bottom row: the keys sit as low as the extension can draw.
-    private var fullHeight: CGFloat { barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) }
+    private var fullHeight: CGFloat {
+        barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) + (emojiSearch != nil ? searchExtraHeight : 0)
+    }
+    /// The emoji search typed so far, while one is typed on the letters (nil otherwise).
+    private var emojiSearch: String?
+    /// What an emoji search adds over the suggestion bar: the row of emoji found, and enough
+    /// for the search field when the bar is switched off.
+    private var searchExtraHeight: CGFloat {
+        let results = min(56, max(38, (EmojiPanel.emojiSize(scale: emojiScale) * 1.5).rounded()))
+        return results + max(0, 34 - barHeight)
+    }
+    /// The letters' size over the standard one, for the emoji.
+    private var emojiScale: CGFloat { letterFontSize / CGFloat(KeyStyle.standardLetterSize) }
     private var compactHeight: CGFloat { isLandscape ? 120 : 150 }
     /// The orientation the keyboard was last given, from its own width (it is as wide as the
     /// screen) or from the size it turns to. The screen's bounds are only right when the keyboard
@@ -339,6 +351,7 @@ final class KeyboardViewController: UIInputViewController {
         let height = view.bounds.height - press.location(in: view).y
         switch press.state {
         case .began:
+            guard emojiSearch == nil else { return }
             switch state {
             case .ready:
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -606,6 +619,10 @@ final class KeyboardViewController: UIInputViewController {
     /// dictated text can be followed.
     private func insert(_ text: String, dictated: Bool = false) {
         guard !text.isEmpty else { return }
+        if emojiSearch != nil, !dictated {
+            editEmojiSearch(adding: text)
+            return
+        }
         lastSpace = nil
         lastAutoZWNJ = nil
         manualShift = false
@@ -847,6 +864,7 @@ final class KeyboardViewController: UIInputViewController {
     /// Covers the keys while the menu stays open, and closes it when touched.
     private let menuShield = UIControl()
     private let emojiPanel = EmojiPanel()
+    private let emojiSearchView = EmojiSearchView()
     private let layerKey = KeyView(title: "۱۲۳", fontSize: 16)
     /// English: #+= on the numbers layer and 123 behind it, where shift is on the letters.
     private let moreKey = KeyView(title: "#+=", fontSize: 16)
@@ -961,7 +979,12 @@ final class KeyboardViewController: UIInputViewController {
 
         emojiPanel.isHidden = true
         emojiPanel.onPick = { [weak self] emoji in self?.insert(emoji) }
+        emojiPanel.onSearch = { [weak self] in self?.beginEmojiSearch() }
         keysView.addSubview(emojiPanel)
+        emojiSearchView.isHidden = true
+        emojiSearchView.onPick = { [weak self] emoji in self?.insertFoundEmoji(emoji) }
+        emojiSearchView.onClose = { [weak self] in self?.endEmojiSearch(backToEmoji: true) }
+        keysView.addSubview(emojiSearchView)
 
         backspaceKey.accessibilityIdentifier = "backspaceKey"
         backspaceKey.addTarget(self, action: #selector(backspaceDown), for: .touchDown)
@@ -983,7 +1006,8 @@ final class KeyboardViewController: UIInputViewController {
         spaceHold.minimumPressDuration = 0.35
         spaceKey.addGestureRecognizer(spaceHold)
         spaceKey.accessibilityHint = "برای دیکته نگه دارید"
-        spaceKey.imageOnTrailingEdge = true
+        // The mic at the space bar's right end says that holding it dictates.
+        spaceKey.trailingImage = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .medium))
         shiftKey.accessibilityIdentifier = "shiftKey"
         shiftKey.addTarget(self, action: #selector(toggleShift), for: .touchUpInside)
         keysView.addSubview(shiftKey)
@@ -1073,6 +1097,14 @@ final class KeyboardViewController: UIInputViewController {
             emojiPanel.refresh(for: proxy.documentContextBeforeInput ?? "")
         }
         emojiPanel.isHidden = layer != .emoji
+        emojiPanel.isEnglish = isEnglish
+        // On the emoji: الفبا and backspace without a key drawn, either side of the categories,
+        // in place of the bottom row.
+        let onEmoji = layer == .emoji
+        for key in [emojiKey, spaceKey, returnKey] { key.isHidden = onEmoji }
+        layerKey.plain = onEmoji
+        backspaceKey.plain = onEmoji
+        emojiSearchView.isHidden = emojiSearch == nil
         characterKeys = rows.enumerated().map { rowIndex, row in
             row.enumerated().map { column, character in
                 // English letters follow shift (`setShifted`).
@@ -1090,7 +1122,7 @@ final class KeyboardViewController: UIInputViewController {
                 return key
             }
         }
-        let onLetters = layer == .letters || layer == .emoji
+        let onLetters = layer == .letters
         layerKey.title = isEnglish ? (onLetters ? "123" : "ABC") : (onLetters ? "۱۲۳" : "الفبا")
         shiftKey.isHidden = !(isEnglish && layer == .letters)
         moreKey.isHidden = !(layer == .symbols || layer == .moreSymbols)
@@ -1132,11 +1164,17 @@ final class KeyboardViewController: UIInputViewController {
         view.layer.cornerRadius = solid == nil ? 0 : 16
         view.layer.cornerCurve = .continuous
         view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        // Letters left to the system colour turn light on a dark background and dark on a light one.
+        // Letters left to the system colour turn light on a dark background and dark on a light
+        // one. Keys of a solid fill decide it first, as the letters sit on them: white keys kept
+        // white letters where the app asked for a dark keyboard (Spotlight on the home screen).
         let average = picture.map { KeyboardBackground.averageColor(of: $0) } ?? solid
         var interface = UIUserInterfaceStyle.unspecified
-        if style.text == nil, let average {
-            interface = KeyboardBackground.luminance(average) < 0.5 ? .dark : .light
+        if style.text == nil {
+            if style.fill.a >= 0.5 {
+                interface = KeyboardBackground.luminance(style.fill.color.withAlphaComponent(1)) < 0.5 ? .dark : .light
+            } else if let average {
+                interface = KeyboardBackground.luminance(average) < 0.5 ? .dark : .light
+            }
         }
         view.overrideUserInterfaceStyle = interface
         let functionKeys = [backspaceKey, layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey]
@@ -1148,6 +1186,9 @@ final class KeyboardViewController: UIInputViewController {
         updateSpaceImage()
         suggestionBar.textColor = style.textColor
         emojiPanel.textColor = style.textColor
+        emojiPanel.scale = emojiScale
+        emojiSearchView.textColor = style.textColor
+        emojiSearchView.scale = emojiScale
         suggestionBar.fontSize = (19 * letterFontSize / CGFloat(KeyStyle.standardLetterSize)).rounded()
         glideTrail.lensBackground = average ?? Self.systemKeyboardBackground
         render()
@@ -1276,14 +1317,14 @@ final class KeyboardViewController: UIInputViewController {
     /// with neither fill nor outline would leave nothing of the bar to see: it is named instead.
     private func updateSpaceImage() {
         let named = keyStyle.keysAreClear
-        spaceKey.image = named ? nil : KeyIcons.space
+        spaceKey.image = named || languageSwitches >= 3 ? nil : KeyIcons.space
         spaceKey.title = named ? (isEnglish ? "space" : "فاصله") : nil
         spaceKey.accessibilityLabel = isEnglish ? "space" : "فاصله"
     }
 
     /// A horizontal swipe on the space bar switches between Persian and English, like SwiftKey.
     @objc private func spaceSwiped(_ pan: UIPanGestureRecognizer) {
-        guard pan.state == .ended, hold == nil, !isCompact, abs(pan.translation(in: view).x) > 40 else { return }
+        guard pan.state == .ended, hold == nil, !isCompact, emojiSearch == nil, abs(pan.translation(in: view).x) > 40 else { return }
         isEnglish.toggle()
         if layer == .emoji || layer == .moreSymbols { layer = .letters }
         languageSwitches += 1
@@ -1340,13 +1381,16 @@ final class KeyboardViewController: UIInputViewController {
         // bar, down to a thin strip, and only then out of the rows. With the number row on, the
         // other layers spread their four rows over the letters' and the digits' height.
         let keysNeeded = 4 * rowHeight + (options.numberRow ? numberRowHeight : 0)
-        let leastBar: CGFloat = options.suggestionBar ? (isLandscape ? 26 : 30) : barHeight
+        let searchExtra = emojiSearch != nil ? searchExtraHeight : 0
+        let leastBar: CGFloat = (options.suggestionBar ? (isLandscape ? 26 : 30) : barHeight) + searchExtra
         let bar = max(leastBar, height - keysNeeded)
         let scale = min(1, (height - bar) / keysNeeded)
         let numbers = showsNumberRow ? numberRowHeight * scale : 0
         let row = (keysNeeded * scale - numbers) / 4
         suggestionBar.frame = CGRect(x: left, y: 0, width: width, height: bar)
-        suggestionBar.isHidden = !options.suggestionBar
+        suggestionBar.isHidden = !options.suggestionBar || emojiSearch != nil || layer == .emoji
+        emojiSearchView.frame = CGRect(x: left, y: 0, width: width, height: bar)
+        emojiSearchView.fieldHeight = bar - searchExtra + max(0, 34 - barHeight)
         let unit = width / CGFloat(columns)
         let top = bar + numbers
         for (index, key) in numberKeys.enumerated() {
@@ -1368,8 +1412,14 @@ final class KeyboardViewController: UIInputViewController {
         shiftKey.frame = CGRect(x: left, y: thirdY, width: 1.5 * unit, height: row)
         moreKey.frame = isPersianSymbols ? CGRect(x: left, y: thirdY, width: unit, height: row) : shiftKey.frame
 
-        // Emoji panel: fills the three key rows, minus the backspace column.
-        emojiPanel.frame = CGRect(x: left, y: top, width: width - unit, height: 3 * row)
+        // Emoji panel: the search field in the suggestion bar's place (at least 30 high), the
+        // grid over the three key rows, and the categories in the bottom row between الفبا on
+        // the left and backspace on the right.
+        let edgeKey = 1.6 * width / 11
+        emojiPanel.searchHeight = max(30, bar)
+        emojiPanel.bottomHeight = row
+        emojiPanel.bottomInsets = (edgeKey, edgeKey)
+        emojiPanel.frame = CGRect(x: left, y: 0, width: width, height: top + 4 * row)
 
         for (index, keys) in characterKeys.enumerated() {
             let y = top + CGFloat(index) * row
@@ -1402,10 +1452,15 @@ final class KeyboardViewController: UIInputViewController {
             view.frame = CGRect(x: x, y: y, width: keyWidth, height: row)
             x += keyWidth
         }
-        place(layerKey, 2 * eleventh)
-        place(emojiKey, 2 * eleventh)
-        place(spaceKey, 5 * eleventh)
-        place(returnKey, 2 * eleventh)
+        if layer == .emoji {
+            layerKey.frame = CGRect(x: left, y: y, width: edgeKey, height: row)
+            backspaceKey.frame = CGRect(x: left + width - edgeKey, y: y, width: edgeKey, height: row)
+        } else {
+            place(layerKey, 2 * eleventh)
+            place(emojiKey, 2 * eleventh)
+            place(spaceKey, 5 * eleventh)
+            place(returnKey, 2 * eleventh)
+        }
         let returnImage = isEnglish ? KeyIcons.returnKey : KeyIcons.returnKeyMirrored
         if returnKey.image !== returnImage { returnKey.image = returnImage }
         if !keyMenu.isHidden { placeMenu() }
@@ -1423,7 +1478,8 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func toggleLayer() {
-        layer = layer == .letters || layer == .emoji ? .symbols : .letters
+        endEmojiSearch(backToEmoji: false)
+        layer = layer == .letters ? .symbols : .letters
         buildCharacterKeys()
     }
 
@@ -1433,13 +1489,67 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func toggleEmoji() {
+        endEmojiSearch(backToEmoji: false)
         layer = layer == .emoji ? .letters : .emoji
         buildCharacterKeys()
+    }
+
+    // MARK: - Emoji search
+
+    /// As in the iOS emoji keyboard: the letters come up under a search field and a row of
+    /// the emoji found; what is typed goes into the search, not the text.
+    private func beginEmojiSearch() {
+        UIDevice.current.playInputClick()
+        emojiSearch = ""
+        layer = .letters
+        emojiSearchView.update(query: "", isEnglish: isEnglish)
+        buildCharacterKeys()
+        view.setNeedsUpdateConstraints()
+    }
+
+    /// Ends the search, back on the emoji grid or wherever the keyboard goes next.
+    private func endEmojiSearch(backToEmoji: Bool) {
+        guard emojiSearch != nil else { return }
+        emojiSearch = nil
+        emojiSearchView.isHidden = true
+        view.setNeedsUpdateConstraints()
+        if backToEmoji {
+            layer = .emoji
+            buildCharacterKeys()
+        } else {
+            updateSuggestions()
+            view.setNeedsLayout()
+        }
+    }
+
+    /// Typing while searching changes the search: text added, or one character taken back.
+    private func editEmojiSearch(adding text: String?) {
+        guard var query = emojiSearch else { return }
+        if let text {
+            query += text.lowercased()
+        } else if !query.isEmpty {
+            query.removeLast()
+        }
+        emojiSearch = query
+        emojiSearchView.update(query: query, isEnglish: isEnglish)
+        if isEnglish { setShifted(false) }
+    }
+
+    /// An emoji picked from the search goes into the text; the search stays for another one.
+    private func insertFoundEmoji(_ emoji: String) {
+        let query = emojiSearch
+        emojiSearch = nil
+        insert(emoji)
+        emojiSearch = query
     }
 
     /// Two spaces in quick succession after a word type a full stop and a space, a third turns
     /// it into a comma (، in Persian), when switched on in the app.
     @objc private func insertSpace() {
+        if emojiSearch != nil {
+            editEmojiSearch(adding: " ")
+            return
+        }
         let now = CACurrentMediaTime()
         // A picked word brings its own space, which stands for the first tap: the next two taps
         // type the full stop and the comma as they would after a typed word.
@@ -1524,6 +1634,10 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     @objc private func insertReturn() {
+        if emojiSearch != nil {
+            endEmojiSearch(backToEmoji: true)
+            return
+        }
         let word = currentWord()
         commitTouches(typed: word, as: word)
         learnCurrentWord()
@@ -1532,6 +1646,10 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func backspaceDown() {
         click(.delete)
+        if emojiSearch != nil {
+            editEmojiSearch(adding: nil)
+            return
+        }
         if let change = lastAutoZWNJ, (proxy.documentContextBeforeInput ?? "").hasSuffix(change.inserted) {
             lastAutoZWNJ = nil
             zwnjDeclined.insert(String(change.original.dropLast()))
@@ -2011,7 +2129,7 @@ extension KeyboardViewController: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === spacePan { return !keyPopup.isShowingVariants }
         guard gestureRecognizer === glidePan else { return true }
-        guard layer == .letters, !isCompact, keyMenu.isHidden, !keyPopup.isShowingVariants,
+        guard layer == .letters, emojiSearch == nil, !isCompact, keyMenu.isHidden, !keyPopup.isShowingVariants,
               lexicon.isLoaded else { return false }
         let point = glidePan.location(in: keysView)
         let moved = glidePan.translation(in: keysView)
@@ -2039,6 +2157,8 @@ private final class KeyView: UIControl {
     private let content = UIView()
     private let face = UIView()
     private let label = UILabel()
+    /// Holds the label inside the drawn key: a letter wider than the key is cut off there.
+    private let labelClip = UIView()
     private let imageView = UIImageView()
     private let highlight = UIView()
 
@@ -2069,6 +2189,7 @@ private final class KeyView: UIControl {
             label.textColor = textColor
         }
         imageView.isHidden = message != nil
+        trailingImageView.isHidden = message != nil
         if message != nil || storedTitle != nil { accessibilityLabel = message ?? storedTitle }
     }
 
@@ -2086,14 +2207,28 @@ private final class KeyView: UIControl {
         set { imageView.image = newValue }
     }
 
-    /// The image at the right end of the key instead of its middle (the space bar's globe).
-    var imageOnTrailingEdge = false {
-        didSet { setNeedsLayout() }
+    /// No drawn key, only its label or image (backspace and الفبا beside the emoji categories).
+    var plain = false {
+        didSet { face.isHidden = plain }
     }
+
+    /// A second image at the right end of the key (the space bar's mic), drawn as faintly as
+    /// the main one.
+    var trailingImage: UIImage? {
+        get { trailingImageView.image }
+        set {
+            trailingImageView.image = newValue
+            setNeedsLayout()
+        }
+    }
+    private let trailingImageView = UIImageView()
 
     /// Draws the image faintly, as a hint rather than a label.
     var dimsImage = false {
-        didSet { imageView.alpha = dimsImage ? 0.4 : 1 }
+        didSet {
+            imageView.alpha = dimsImage ? 0.4 : 1
+            trailingImageView.alpha = imageView.alpha
+        }
     }
 
     var fontSize: CGFloat {
@@ -2139,11 +2274,16 @@ private final class KeyView: UIControl {
         label.adjustsFontSizeToFitWidth = true
         label.minimumScaleFactor = 0.5
         updateLabel()
-        content.addSubview(label)
+        labelClip.clipsToBounds = true
+        labelClip.isUserInteractionEnabled = false
+        labelClip.addSubview(label)
+        content.addSubview(labelClip)
 
         imageView.tintColor = .label
         imageView.contentMode = .center
         content.addSubview(imageView)
+        trailingImageView.contentMode = .center
+        content.addSubview(trailingImageView)
         self.symbol = symbol
         imageView.image = symbol.flatMap {
             UIImage(systemName: $0, withConfiguration: UIImage.SymbolConfiguration(pointSize: 19))
@@ -2160,6 +2300,7 @@ private final class KeyView: UIControl {
         face.layer.borderWidth = style.stroke.a > 0 ? 1 : 0
         textColor = style.textColor
         imageView.tintColor = textColor
+        trailingImageView.tintColor = textColor
         updateLabel()
     }
 
@@ -2171,13 +2312,26 @@ private final class KeyView: UIControl {
         let inner = bounds.inset(by: faceInsets)
         highlight.frame = inner
         face.frame = inner
-        // Words (ABC, 123, status messages) keep off the edges; a letter may fill the key.
-        label.frame = inner.insetBy(dx: (label.text?.count ?? 0) > 1 ? 4 : 1, dy: 0)
-        imageView.frame = inner
-        if imageOnTrailingEdge, let image = imageView.image {
-            let width = min(inner.width, image.size.width + 20)
-            imageView.frame = CGRect(x: inner.maxX - width, y: inner.minY, width: width, height: inner.height)
+        labelClip.frame = inner
+        // Words (ABC, 123, status messages) keep off the edges and shrink to fit. Letters all
+        // keep the chosen size: one wider than the key (ص ض س ش when large) sits against the
+        // key's right edge, where it starts, and the rest is cut off.
+        let isLetter = message == nil && (label.text?.count ?? 0) == 1
+        label.adjustsFontSizeToFitWidth = !isLetter
+        label.lineBreakMode = isLetter ? .byClipping : .byTruncatingTail
+        let room = labelClip.bounds.insetBy(dx: isLetter ? 1 : 4, dy: 0)
+        let textWidth = isLetter ? ceil(label.intrinsicContentSize.width) : 0
+        if isLetter, textWidth > room.width {
+            label.frame = CGRect(x: labelClip.bounds.maxX - textWidth, y: 0, width: textWidth, height: labelClip.bounds.height)
+        } else {
+            label.frame = room
         }
+        imageView.frame = inner
+        if let image = trailingImageView.image {
+            let width = min(inner.width / 3, image.size.width + 20)
+            trailingImageView.frame = CGRect(x: inner.maxX - width, y: inner.minY, width: width, height: inner.height)
+        }
+        trailingImageView.isHidden = message != nil
         // Low landscape rows: a tall image shrinks instead of spilling out of the key.
         let size = imageView.image?.size ?? .zero
         imageView.contentMode = size.width > inner.width || size.height > inner.height ? .scaleAspectFit : .center
@@ -2280,10 +2434,9 @@ private final class KeyPopupView: UIView {
         let foot = key.faceFrame
         var width = foot.width + 2 * min(10, foot.width * 0.3)
         let height = cardFrame(width: width, midX: foot.midX, foot: foot).height
-        var fontSize = min(34, height * 0.72)
-        // ص ض س ش are wide and low: at the same size they read smaller than the other letters, so
-        // they are drawn larger and widen the card instead of being shrunk to fit it.
-        if Self.wideLetters.contains(title) { fontSize *= 1.3 }
+        let fontSize = min(34, height * 0.72)
+        // Every letter at the same size: a wide one (ص ض س ش) widens the card instead of being
+        // shrunk to fit it.
         if image == nil {
             let textWidth = (title as NSString).size(withAttributes: [.font: keyFont(for: title, size: fontSize)]).width
             width = min(max(width, textWidth.rounded(.up) + 10), bounds.width)
@@ -2298,8 +2451,6 @@ private final class KeyPopupView: UIView {
     /// A letter's forms start over the key, its own letter first, and run to the left, or to
     /// the right with `toTheRight`. With `anchor`, the items run left to right and the one at
     /// `anchor` starts over the key and is chosen first.
-    private static let wideLetters: Set<String> = ["ص", "ض", "س", "ش"]
-
     func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle,
                       toTheRight: Bool = false, anchor: Int? = nil) {
         let foot = key.faceFrame

@@ -38,6 +38,7 @@
 		A10000000000000000000032 /* GlideTyping.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GlideTyping.swift */; };
 		A10000000000000000000033 /* GlideTyping.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GlideTyping.swift */; };
 		A10000000000000000000034 /* fa_words.txt in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* fa_words.txt */; };
+		A10000000000000000000049 /* emoji_names.txt in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* emoji_names.txt */; };
 		A10000000000000000000035 /* ModelImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* ModelImporter.swift */; };
 		A10000000000000000000036 /* VoiceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* VoiceCommands.swift */; };
 		A10000000000000000000037 /* VoiceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* VoiceCommands.swift */; };
@@ -99,6 +100,7 @@
 		A2000000000000000000003E /* GlideDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlideDecoder.swift; sourceTree = "<group>"; };
 		A2000000000000000000003F /* EmojiPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiPanel.swift; sourceTree = "<group>"; };
 		A20000000000000000000032 /* fa_words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = fa_words.txt; sourceTree = "<group>"; };
+		A20000000000000000000040 /* emoji_names.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = emoji_names.txt; sourceTree = "<group>"; };
 		A20000000000000000000033 /* ModelImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelImporter.swift; sourceTree = "<group>"; };
 		A20000000000000000000034 /* VoiceCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCommands.swift; sourceTree = "<group>"; };
 		A2000000000000000000003B /* SpokenNumbers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpokenNumbers.swift; sourceTree = "<group>"; };
@@ -179,6 +181,7 @@
 				A2000000000000000000003E /* GlideDecoder.swift */,
 				A2000000000000000000003F /* EmojiPanel.swift */,
 				A20000000000000000000032 /* fa_words.txt */,
+				A20000000000000000000040 /* emoji_names.txt */,
 				A20000000000000000000034 /* VoiceCommands.swift */,
 				A2000000000000000000003B /* SpokenNumbers.swift */,
 				A20000000000000000000039 /* TouchModel.swift */,
@@ -292,6 +295,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000034 /* fa_words.txt in Resources */,
+				A10000000000000000000049 /* emoji_names.txt in Resources */,
 				A10000000000000000000038 /* fa_bigrams.bin in Resources */,
 				A10000000000000000000039 /* en_words.txt in Resources */,
 				A1000000000000000000003A /* en_bigrams.bin in Resources */,
