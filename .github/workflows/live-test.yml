@@ -346,6 +346,24 @@ jobs:
           xcrun simctl io "$DEVICE" screenshot out/5n-persian-more.png
           axe tap -x "$LKX" -y "$LKY" --udid "$DEVICE"; sleep 0.5
 
+          # Emoji: the panel, then a search for «قلب» typed on the letters, then back.
+          axe tap -x "$EX" -y "$EY" --udid "$DEVICE"; sleep 1
+          xcrun simctl io "$DEVICE" screenshot out/5o-emoji.png
+          dump out/ui-17.json || true
+          read QX QY < <(python3 find.py "جستجوی شکلک" out/ui-17.json || echo "187 560")
+          axe tap -x "$QX" -y "$QY" --udid "$DEVICE"; sleep 1
+          dump out/ui-18.json || true
+          for k in letter-0-2 letter-1-4 letter-1-3; do
+            read KX KY < <(python3 find.py "$k" out/ui-18.json || echo "0 0")
+            axe tap -x "$KX" -y "$KY" --udid "$DEVICE"; sleep 0.4
+          done
+          sleep 0.6
+          xcrun simctl io "$DEVICE" screenshot out/5p-emoji-search.png
+          read CX CY < <(python3 find.py "پایان جستجو" out/ui-18.json || echo "20 560")
+          axe tap -x "$CX" -y "$CY" --udid "$DEVICE"; sleep 0.8
+          read LKX2 LKY2 < <(python3 find.py layerKey out/ui-17.json || echo "$LKX $LKY")
+          axe tap -x "$LKX2" -y "$LKY2" --udid "$DEVICE"; sleep 0.5
+
           # Held briefly in silence: nothing is typed.
           read SPX SPY < <(python3 find.py spaceKey out/ui-5b.json || echo "240 817")
           axe touch -x "$SPX" -y "$SPY" --down --udid "$DEVICE"; sleep 3
