@@ -138,13 +138,14 @@ jobs:
           dump out/ui-1.json || true
           # Dictation: the space bar is held while the speech plays, then let go.
           read SPX SPY < <(python3 find.py spaceKey out/ui-1.json || echo "240 817")
-          SPEECH="$(python3 -c 'import wave,sys; w=wave.open(sys.argv[1]); print(int(w.getnframes()/w.getframerate())+1)' speech.wav)"
-          axe touch -x "$SPX" -y "$SPY" --down --udid "$DEVICE"
+          SPEECH="$(python3 -c 'import wave,sys; w=wave.open(sys.argv[1]); print(int(w.getnframes()/w.getframerate())+1)' speech.wav || echo 20)"
+          echo "::notice::speech $SPEECH s"
+          axe touch -x "$SPX" -y "$SPY" --down --udid "$DEVICE" || echo "::warning::touch down failed"
           # One screenshot only: each one costs the 3-core runner seconds of CPU and skews pass times.
           sleep 16
           xcrun simctl io "$DEVICE" screenshot out/2-recording-16s.png
           sleep "$(( SPEECH > 14 ? SPEECH - 14 : 2 ))"
-          axe touch -x "$SPX" -y "$SPY" --up --udid "$DEVICE"
+          axe touch -x "$SPX" -y "$SPY" --up --udid "$DEVICE" || echo "::warning::touch up failed"
           grep -q "recording started, held" out/log.txt || echo "::error::holding the space bar did not start a held recording"
           sleep 1
           xcrun simctl io "$DEVICE" screenshot out/3-processing.png
@@ -348,7 +349,7 @@ jobs:
           # Held briefly in silence: nothing is typed.
           read SPX SPY < <(python3 find.py spaceKey out/ui-5b.json || echo "240 817")
           axe touch -x "$SPX" -y "$SPY" --down --udid "$DEVICE"; sleep 3
-          axe touch -x "$SPX" -y "$SPY" --up --udid "$DEVICE"
+          axe touch -x "$SPX" -y "$SPY" --up --udid "$DEVICE" || echo "::warning::touch up failed"
           sleep 4
           xcrun simctl io "$DEVICE" screenshot out/5d-no-speech.png
 
