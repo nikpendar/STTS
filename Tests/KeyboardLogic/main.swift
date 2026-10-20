@@ -205,7 +205,7 @@ check("glide of a whole word", GlideDecoder.decode(glideLine("سلام"), keys: 
 
 // Automatic correction on a space: clear misspellings only.
 for word in ["مرسس", "سلان", "صحبط", "ممنوم", "زندگس", "کیلس", "اسفاده", "خوبب", "واتساپ", "کتاپ", "میخام", "دوسن"] {
-    let top = fa.costedCorrections(for: word, context: .none, limit: 4).map { "\($0.word) \(String(format: "%.2f", $0.score)) c\($0.cost)" }
+    let top = fa.costedCorrections(for: word, context: .none, limit: 4, wholeWords: true).map { "\($0.word) \(String(format: "%.2f", $0.score)) c\($0.cost)" }
     print("::notice::fa", word, top, "->", fa.autoCorrection(for: word) ?? "nil")
 }
 for word in ["teh", "becuase", "recieve", "xqzt", "keyless", "wierd"] {

@@ -586,7 +586,8 @@ final class Lexicon {
     }
 
     /// `corrections` with each one's cost in half edits.
-    func costedCorrections(for typed: String, context: Context, limit: Int)
+    /// `wholeWords`: only listed words the typing spells out whole, not longer ones it begins.
+    func costedCorrections(for typed: String, context: Context, limit: Int, wholeWords: Bool = false)
         -> [(word: String, score: Double, cost: Int)] {
         let key = language.key(typed)
         let a = language.indices(key).map(Int.init)
@@ -657,7 +658,7 @@ final class Lexicon {
             let (full, prefix) = distance(entry.codes)
             if let full, full > 0, full <= maxCost {
                 consider(word: entry.word, key: entry.key, zipf: entry.zipf, cost: full)
-            } else if let prefix, prefix > 0, prefix <= maxPrefixCost {
+            } else if !wholeWords, let prefix, prefix > 0, prefix <= maxPrefixCost {
                 consider(word: entry.word, key: entry.key, zipf: entry.zipf, cost: prefix)
             }
         }
@@ -677,7 +678,7 @@ final class Lexicon {
     func autoCorrection(for typed: String, context: Context = .none) -> String? {
         let key = language.key(typed)
         guard key.count >= 3, !isKnown(typed) else { return nil }
-        let ranked = costedCorrections(for: typed, context: context, limit: 8)
+        let ranked = costedCorrections(for: typed, context: context, limit: 8, wholeWords: true)
             .filter { abs(language.key($0.word).count - key.count) <= 1 }
         guard let best = ranked.first, best.score >= Self.autoCorrectScore else { return nil }
         // Unclear typing: a reading as near as the best one scores close to it, or a nearer one
@@ -685,7 +686,7 @@ final class Lexicon {
         // behind (مراسم for مرسس) leaves it clear.
         for other in ranked.dropFirst() {
             let lead = best.score - other.score
-            if other.cost <= best.cost && lead < Self.autoCorrectMargin { return nil }
+            if other.cost <= best.cost && lead < Self.autoCorrectEvenMargin { return nil }
             if other.cost < best.cost && lead < 2 * Self.autoCorrectMargin { return nil }
         }
         return best.word
@@ -694,6 +695,7 @@ final class Lexicon {
     /// The best reading's score (`corrections`) must reach this, and lead the next by the margin.
     static let autoCorrectScore = 3.0
     static let autoCorrectMargin = 0.75
+    static let autoCorrectEvenMargin = 1.0
 
     /// Completions and corrections of an unknown typed word together, best first.
     func suggestions(forUnknown typed: String, context: Context, correct: Bool, limit: Int) -> [String] {
