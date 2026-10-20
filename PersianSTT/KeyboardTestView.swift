@@ -20,6 +20,8 @@ struct KeyboardTestView: View {
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .padding()
                 HostedKeyboard(document: document)
+            } else if UserDefaults.standard.bool(forKey: "keyboardAccessory") {
+                AccessoryTextView()
             } else {
                 TextField("آزمون کیبورد", text: $text)
                     .textFieldStyle(.roundedBorder)
@@ -77,4 +79,22 @@ private struct HostedKeyboard: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+}
+
+/// A text view with a toolbar over the keyboard, as in Notes (`-keyboardAccessory 1`): the
+/// height iOS gives the keyboard under an accessory view.
+private struct AccessoryTextView: UIViewRepresentable {
+    func makeUIView(context: Context) -> UITextView {
+        let view = UITextView()
+        view.font = .systemFont(ofSize: 18)
+        let bar = UIToolbar(frame: CGRect(x: 0, y: 0, width: 320, height: 44))
+        bar.items = [UIBarButtonItem(image: UIImage(systemName: "textformat"), style: .plain, target: nil, action: nil),
+                     .flexibleSpace(),
+                     UIBarButtonItem(image: UIImage(systemName: "checklist"), style: .plain, target: nil, action: nil)]
+        view.inputAccessoryView = bar
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { view.becomeFirstResponder() }
+        return view
+    }
+
+    func updateUIView(_ view: UITextView, context: Context) {}
 }
