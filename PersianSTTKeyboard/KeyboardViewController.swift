@@ -636,10 +636,6 @@ final class KeyboardViewController: UIInputViewController {
     /// `moreSymbols` is English only: the layer behind #+=.
     private enum Layer { case letters, symbols, moreSymbols, emoji }
 
-    private static let emojis: [String] = Array(
-        "😀😃😄😁😆😅😂🤣🙂🙃😉😊😇🥰😍🤩😘😗😚😙😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬😌😔😪🤤😴😷🤒🤕🤢🤮🥵🥶🥴😵🤯🤠🥳😎🤓🧐😕😟🙁😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀💩🤡👻👽🤖😺😸😹😻😼😽🙀😿😾🙈🙉🙊💋💌💘💝💖💗💓💞💕💟❣💔🧡💛💚💙💜🤎🖤🤍💯💢💥💫💦💨🕳💬💭💤👋🤚🖐✋🖖👌🤏✌🤞🤟🤘🤙👈👉👆🖕👇☝👍👎✊👊🤛🤜👏🙌👐🤲🤝🙏✍💅🤳💪🌹🌷🌸🌼🌻🌺🍀🍁🍂🌱🌲🌳🌴🌵☀🌙⭐🌟✨⚡🔥🌈☁❄💧🌊🍎🍊🍋🍉🍇🍓🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥕🌽🍞🧀🍕🍔🍟🌭🥗🍿🍰🎂🍫🍬🍭🍩🍪☕🍵🥤🎉🎊🎁🎈🏆⚽🏀🎵🎶📱💻⌚📷💡📚✏📌📎✂🔒🔑❤✅❌❓❗⚠🇮🇷"
-    ).map(String.init)
-
     /// Keys fill the whole width. A layer has `columns` cells per row: Persian 11, English 10.
     /// Persian: every key one cell, the third row ending with backspace, which takes the cells
     /// its keys leave; Apple's iOS layout, with ژ moved under ز (`variants`). English: as on
@@ -761,8 +757,7 @@ final class KeyboardViewController: UIInputViewController {
     private let keyPopup = KeyPopupView()
     /// Covers the keys while the menu stays open, and closes it when touched.
     private let menuShield = UIControl()
-    private let emojiScroll = UIScrollView()
-    private var emojiKeysBuilt = false
+    private let emojiPanel = EmojiPanel()
     private let layerKey = KeyView(title: "۱۲۳", fontSize: 16)
     /// English: #+= on the numbers layer and 123 behind it, where shift is on the letters.
     private let moreKey = KeyView(title: "#+=", fontSize: 16)
@@ -875,10 +870,9 @@ final class KeyboardViewController: UIInputViewController {
         // Symbols keep the same direction on every device, whatever the host app's language.
         view.semanticContentAttribute = .forceRightToLeft
 
-        emojiScroll.backgroundColor = .clear
-        emojiScroll.showsVerticalScrollIndicator = false
-        emojiScroll.isHidden = true
-        keysView.addSubview(emojiScroll)
+        emojiPanel.isHidden = true
+        emojiPanel.onPick = { [weak self] emoji in self?.insert(emoji) }
+        keysView.addSubview(emojiPanel)
 
         backspaceKey.accessibilityIdentifier = "backspaceKey"
         backspaceKey.addTarget(self, action: #selector(backspaceDown), for: .touchDown)
@@ -982,9 +976,9 @@ final class KeyboardViewController: UIInputViewController {
         case .moreSymbols: rows = isEnglish ? Self.englishMoreRows : Self.persianMoreRows
         case .emoji:
             rows = []
-            buildEmojiKeysIfNeeded()
+            emojiPanel.refresh(for: proxy.documentContextBeforeInput ?? "")
         }
-        emojiScroll.isHidden = layer != .emoji
+        emojiPanel.isHidden = layer != .emoji
         characterKeys = rows.enumerated().map { rowIndex, row in
             row.enumerated().map { column, character in
                 // English letters follow shift (`setShifted`).
@@ -1059,6 +1053,7 @@ final class KeyboardViewController: UIInputViewController {
         for key in numberKeys { key.fontSize = numberFontSize }
         updateSpaceImage()
         suggestionBar.textColor = style.textColor
+        emojiPanel.textColor = style.textColor
         suggestionBar.fontSize = (19 * letterFontSize / CGFloat(KeyStyle.standardLetterSize)).rounded()
         glideTrail.lensBackground = average ?? Self.systemKeyboardBackground
         render()
@@ -1204,21 +1199,6 @@ final class KeyboardViewController: UIInputViewController {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    /// The ~250 emoji keys are created the first time the panel opens, not when the keyboard
-    /// loads, so switching to this keyboard stays as quick as switching to the system ones.
-    private func buildEmojiKeysIfNeeded() {
-        guard !emojiKeysBuilt else { return }
-        emojiKeysBuilt = true
-        for emoji in Self.emojis {
-            let key = KeyView(title: emoji, fontSize: 28)
-            key.addAction(UIAction { [weak self] _ in self?.click(.character) }, for: .touchDown)
-            key.addAction(UIAction { [weak self] _ in
-                self?.insert(emoji)
-            }, for: .touchUpInside)
-            emojiScroll.addSubview(key)
-        }
-    }
-
     override func updateViewConstraints() {
         super.updateViewConstraints()
         guard willAppear, let heightConstraint else { return }
@@ -1293,16 +1273,8 @@ final class KeyboardViewController: UIInputViewController {
         shiftKey.frame = CGRect(x: left, y: thirdY, width: 1.5 * unit, height: row)
         moreKey.frame = isPersianSymbols ? CGRect(x: left, y: thirdY, width: unit, height: row) : shiftKey.frame
 
-        // Emoji grid: fills the three key rows, minus the backspace column.
-        emojiScroll.frame = CGRect(x: left, y: top, width: width - unit, height: 3 * row)
-        let emojiColumns = isLandscape ? 14 : 8
-        let cell = emojiScroll.frame.width / CGFloat(emojiColumns)
-        for (index, key) in emojiScroll.subviews.compactMap({ $0 as? KeyView }).enumerated() {
-            key.frame = CGRect(x: CGFloat(index % emojiColumns) * cell, y: CGFloat(index / emojiColumns) * row,
-                               width: cell, height: row)
-        }
-        let emojiRows = (Self.emojis.count + emojiColumns - 1) / emojiColumns
-        emojiScroll.contentSize = CGSize(width: emojiScroll.frame.width, height: CGFloat(emojiRows) * row)
+        // Emoji panel: fills the three key rows, minus the backspace column.
+        emojiPanel.frame = CGRect(x: left, y: top, width: width - unit, height: 3 * row)
 
         for (index, keys) in characterKeys.enumerated() {
             let y = top + CGFloat(index) * row
@@ -1406,6 +1378,10 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         let word = currentWord()
+        if applyAutoCorrection(word) {
+            lastSpace = (now, 1)
+            return
+        }
         commitTouches(typed: word, as: word)
         if applyAutoZWNJ(word) {
             lastSpace = (now, 1)
@@ -1438,6 +1414,25 @@ final class KeyboardViewController: UIInputViewController {
         insert(new + " ")
         lexicon.learn(new, after: context)
         lastAutoZWNJ = (new + " ", old + " ")
+        return true
+    }
+
+    /// With typo correction on, a space puts the word the typed one surely misspells in its
+    /// place, read with the word before (`Lexicon.autoCorrection`); a word that cannot be told
+    /// for sure stays as typed. Backspace right after puts the typed word back, and that word is
+    /// left alone from then on.
+    private func applyAutoCorrection(_ word: String) -> Bool {
+        guard options.correctTypos, layer == .letters, lexicon.isLoaded, lastGlide == nil, word.count >= 3,
+              !zwnjDeclined.contains(word) else { return false }
+        updateNeighbours()
+        let context = typingContext(before: word)
+        guard let found = lexicon.autoCorrection(for: word, context: context) else { return false }
+        let new = cased(found, like: word)
+        commitTouches(typed: word, as: new)
+        for _ in 0..<word.count { deleteBackward() }
+        insert(new + " ")
+        lexicon.learn(new, after: context)
+        lastAutoZWNJ = (new + " ", word + " ")
         return true
     }
 

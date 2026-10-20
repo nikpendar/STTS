@@ -13,7 +13,6 @@ struct ContentView: View {
     @ObservedObject private var importer = ModelImporter.shared
     @State private var pickingModel = false
     @AppStorage(PersonalModel.uploadKey) private var trainingUpload = false
-    @AppStorage(PersonalModel.repoKey) private var trainingRepo = PersonalModel.defaultRepo
     @State private var trainingToken = PersonalModel.shared.token
     @AppStorage(PersonalModel.autoUpdateKey) private var trainingAutoUpdate = false
     @AppStorage(KeyboardSession.idleMinutesKey) private var sessionMinutes = KeyboardSession.defaultIdleMinutes
@@ -55,7 +54,8 @@ struct ContentView: View {
                 }
 
                 Section {
-                    if !needsModel {
+                    // A build with the model inside has nothing to import.
+                    if !needsModel, Transcriber.bundledModel == nil {
                         NavigationLink { page("مدل گفتار") { modelSection } } label: {
                             LabeledContent {
                                 Text(model.modelName.isEmpty ? "—" : model.modelName).lineLimit(1)
@@ -197,21 +197,20 @@ struct ContentView: View {
                 }
                 // Off, the bar's own options stay in view, greyed, so turning it back on finds them
                 // as they were.
-                Group {
-                    Toggle(isOn: $options.predictNextWord) {
-                        SettingLabel("پیش‌بینی کلمه‌ی بعدی", symbol: "text.append", color: .blue)
-                    }
-                    Toggle(isOn: $options.correctTypos) {
-                        SettingLabel("اصلاح غلط تایپی", symbol: "checkmark.seal.fill", color: .green)
-                    }
+                Toggle(isOn: $options.predictNextWord) {
+                    SettingLabel("پیش‌بینی کلمه‌ی بعدی", symbol: "text.append", color: .blue)
                 }
                 .disabled(!options.suggestionBar)
                 .opacity(options.suggestionBar ? 1 : 0.45)
+                // Corrects on a space, with or without the row.
+                Toggle(isOn: $options.correctTypos) {
+                    SettingLabel("اصلاح غلط تایپی", symbol: "checkmark.seal.fill", color: .green)
+                }
             } header: {
                 Text("ردیف پیشنهاد").font(.app(.footnote))
             } footer: {
                 Text(options.suggestionBar
-                     ? "در فارسی و انگلیسی، بعد از هر فاصله کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند و کیبورد کلمه‌هایی را که خودتان پشت سر هم می‌نویسید هم یاد می‌گیرد. برای کلمه‌ای که در فهرست نیست، نزدیک‌ترین کلمه‌ی درست هم پیشنهاد می‌شود و چیزی خودکار عوض نمی‌شود."
+                     ? "در فارسی و انگلیسی، بعد از هر فاصله کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند و کیبورد کلمه‌هایی را که خودتان پشت سر هم می‌نویسید هم یاد می‌گیرد. با اصلاح غلط تایپی، بعد از فاصله کلمه‌ای که به‌روشنی اشتباه تایپ شده با کلمه‌ی درست عوض می‌شود و اگر مطمئن نباشد دست نمی‌خورد؛ پاک کردن بلافاصله بعد از آن، کلمه‌ی تایپ‌شده را برمی‌گرداند."
                      : "ردیف بالای کلیدها پنهان است و کیبورد کوتاه‌تر می‌شود.")
                     .font(.app(.footnote))
             }
@@ -405,14 +404,6 @@ struct ContentView: View {
             }
             .onChange(of: trainingUpload) { _, on in
                 if on { Task { await personal.upload() } }
-            }
-            HStack {
-                SettingLabel("مخزن", symbol: "externaldrive.fill.badge.icloud", color: .gray)
-                TextField(PersonalModel.defaultRepo, text: $trainingRepo)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .multilineTextAlignment(.trailing)
-                    .environment(\.layoutDirection, .leftToRight)
             }
             HStack {
                 SettingLabel("توکن GitHub", symbol: "key.fill", color: .yellow)

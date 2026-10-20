@@ -2,7 +2,8 @@
 # Install the resulting .ipa with AltServer (Option-click > Sideload .ipa). With a free Apple ID,
 # Sideloadly signs the keyboard extension with the app's profile and iOS kills it at launch.
 # The speech model, Shenava Koochik (Core ML, 212 MB), is the separate ShenavaModel artifact,
-# imported once in the app; the Whisper version is archived on branch archive/whisper.
+# imported once in the app; KeylessShenavaEmbedded.ipa is the same app with the model inside
+# (no import, no model page). The Whisper version is archived on branch archive/whisper.
 name: Build unsigned IPA
 
 on:
@@ -58,10 +59,14 @@ jobs:
 
       - name: Build
         run: |
+          # Settings the app is built with (TRAINING_REPO), from config.env.
+          set -a; . ./config.env; set +a
           xcodebuild -project PersianSTT.xcodeproj -target PersianSTT \
             -configuration Release -sdk iphoneos \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            TRAINING_REPO="$TRAINING_REPO" \
             build
+          plutil -p build/Release-iphoneos/PersianSTT.app/Info.plist | grep TrainingRepository
 
       - name: Package IPA
         env:
@@ -103,9 +108,25 @@ jobs:
           codesign -dv Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex 2>&1 | head -5
           zip -qry KeylessShenava.ipa Payload
           ls -lh KeylessShenava.ipa
+          # The same app with the model compiled inside, where Transcriber finds it.
+          if [ ! -d PersianSTT/Models/Koochik.mlmodelc ]; then
+            xcrun coremlcompiler compile build-model/Koochik.mlmodel "$RUNNER_TEMP/compiled" \
+              --deployment-target 15.0 --platform ios
+            cp -R "$RUNNER_TEMP/compiled/Koochik.mlmodelc" "$APP/Models/"
+            codesign --force --sign - Payload/PersianSTT.app
+            zip -qry KeylessShenavaEmbedded.ipa Payload
+            ls -lh KeylessShenavaEmbedded.ipa
+          fi
 
       - uses: actions/upload-artifact@v5
         with:
           name: KeylessShenava
           path: KeylessShenava.ipa
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v5
+        if: hashFiles('KeylessShenavaEmbedded.ipa') != ''
+        with:
+          name: KeylessShenavaEmbedded
+          path: KeylessShenavaEmbedded.ipa
           compression-level: 0

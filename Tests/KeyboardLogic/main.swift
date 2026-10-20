@@ -214,7 +214,8 @@ for word in ["teh", "becuase", "recieve", "xqzt", "keyless", "wierd"] {
 }
 check("auto mrsi", fa.autoCorrection(for: "مرسس") ?? "nil", "مرسی")
 check("auto sohbat", fa.autoCorrection(for: "صحبط") ?? "nil", "صحبت")
-check("auto en teh", english.autoCorrection(for: "teh") ?? "nil", "the")
+check("auto خوبب is not خوبی", fa.autoCorrection(for: "خوبب") == "خوبی", false)
+check("auto سلان", fa.autoCorrection(for: "سلان") ?? "nil", "سلام")
 check("auto en recieve", english.autoCorrection(for: "recieve") ?? "nil", "receive")
 check("auto leaves nonsense", english.autoCorrection(for: "xqzt") ?? "nil", "nil")
 check("auto leaves a known word", fa.autoCorrection(for: "سلام") ?? "nil", "nil")

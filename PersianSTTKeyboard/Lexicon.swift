@@ -582,16 +582,22 @@ final class Lexicon {
     /// misspelt beginning of a longer word counts too, at up to one edit. In English a left-out
     /// apostrophe costs half (dont for don't), even in words of two letters (im for I'm).
     func corrections(for typed: String, context: Context = .none, limit: Int) -> [(word: String, score: Double)] {
+        costedCorrections(for: typed, context: context, limit: limit).map { ($0.word, $0.score) }
+    }
+
+    /// `corrections` with each one's cost in half edits.
+    private func costedCorrections(for typed: String, context: Context, limit: Int)
+        -> [(word: String, score: Double, cost: Int)] {
         let key = language.key(typed)
         let a = language.indices(key).map(Int.init)
         let n = a.count
         guard isLoaded else { return [] }
-        var found: [(word: String, score: Double)] = []
+        var found: [(word: String, score: Double, cost: Int)] = []
 
         func consider(word: String, key: String, zipf: Double?, cost: Int) {
             guard let score = rankScore(key: key, zipf: zipf, context: context) else { return }
             // Half an edit costs as much as a word about five times rarer.
-            found.append((word, score - 0.75 * Double(cost)))
+            found.append((word, score - 0.75 * Double(cost), cost))
         }
 
         let apostrophe = language == .english ? Int(Language.apostrophe) : -1
@@ -671,10 +677,17 @@ final class Lexicon {
     func autoCorrection(for typed: String, context: Context = .none) -> String? {
         let key = language.key(typed)
         guard key.count >= 3, !isKnown(typed) else { return nil }
-        let ranked = corrections(for: typed, context: context, limit: 8)
+        let ranked = costedCorrections(for: typed, context: context, limit: 8)
             .filter { abs(language.key($0.word).count - key.count) <= 1 }
         guard let best = ranked.first, best.score >= Self.autoCorrectScore else { return nil }
-        if let second = ranked.dropFirst().first, best.score - second.score < Self.autoCorrectMargin { return nil }
+        // Unclear typing: a reading as near as the best one scores close to it, or a nearer one
+        // (خوب for خوبب, behind the commoner خوبی) is not far behind. A farther reading close
+        // behind (مراسم for مرسس) leaves it clear.
+        for other in ranked.dropFirst() {
+            let lead = best.score - other.score
+            if other.cost <= best.cost && lead < Self.autoCorrectMargin { return nil }
+            if other.cost < best.cost && lead < 2 * Self.autoCorrectMargin { return nil }
+        }
         return best.word
     }
 

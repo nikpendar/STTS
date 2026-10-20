@@ -20,9 +20,10 @@ final class PersonalModel: ObservableObject {
     static let shared = PersonalModel()
 
     static let uploadKey = "trainingUpload"
-    static let repoKey = "trainingRepository"
     static let autoUpdateKey = "trainingAutoUpdate"
     static let versionKey = "personalModelVersion"
+    /// The private repository, owner/name: TRAINING_REPO in config.env, which the build puts in
+    /// Info.plist (TrainingRepository); this when a build has none.
     static let defaultRepo = "nikpendar/keyless-training"
 
     /// Corrected dictations waiting for upload.
@@ -94,8 +95,10 @@ final class PersonalModel: ObservableObject {
 
     /// owner/name of the private repository.
     private var repo: String {
-        let text = UserDefaults.standard.string(forKey: Self.repoKey)?.trimmingCharacters(in: .whitespaces) ?? ""
-        return text.isEmpty ? Self.defaultRepo : text
+        if Self.testAPI != nil, let test = UserDefaults.standard.string(forKey: "trainingRepository") { return test }
+        let configured = (Bundle.main.object(forInfoDictionaryKey: "TrainingRepository") as? String)?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+        return configured.contains("/") ? configured : Self.defaultRepo
     }
 
     /// The GitHub access token (fine-grained, Contents read and write on the repository only),

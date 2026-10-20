@@ -124,7 +124,7 @@ final class Transcriber: ObservableObject {
     }
 
     /// A compiled model inside the app, only in builds that bundle it.
-    private static var bundledModel: URL? {
+    static var bundledModel: URL? {
         Bundle.main.urls(forResourcesWithExtension: "mlmodelc", subdirectory: "Models")?.first
     }
 
