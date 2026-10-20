@@ -204,8 +204,8 @@ check("glide after اتاق", glide(after: "اتاق"), "خواب")
 check("glide of a whole word", GlideDecoder.decode(glideLine("سلام"), keys: glideKeys, unit: 34).first ?? "nil", "سلام")
 
 // Automatic correction on a space: clear misspellings only.
-for word in ["مرسس", "سلان", "صحبط", "ممنوم", "زندگس", "کیلس", "اسفاده", "خوبب", "واتساپ"] {
-    let top = fa.corrections(for: word, limit: 3).map { "\($0.word) \(String(format: "%.2f", $0.score))" }
+for word in ["مرسس", "سلان", "صحبط", "ممنوم", "زندگس", "کیلس", "اسفاده", "خوبب", "واتساپ", "کتاپ", "میخام", "دوسن"] {
+    let top = fa.costedCorrections(for: word, context: .none, limit: 4).map { "\($0.word) \(String(format: "%.2f", $0.score)) c\($0.cost)" }
     print("::notice::fa", word, top, "->", fa.autoCorrection(for: word) ?? "nil")
 }
 for word in ["teh", "becuase", "recieve", "xqzt", "keyless", "wierd"] {
@@ -218,6 +218,7 @@ check("auto خوبب is not خوبی", fa.autoCorrection(for: "خوبب") == "خ
 check("auto سلان", fa.autoCorrection(for: "سلان") ?? "nil", "سلام")
 check("auto en recieve", english.autoCorrection(for: "recieve") ?? "nil", "receive")
 check("auto leaves nonsense", english.autoCorrection(for: "xqzt") ?? "nil", "nil")
+check("auto leaves کیلس", fa.autoCorrection(for: "کیلس") ?? "nil", "nil")
 check("auto leaves a known word", fa.autoCorrection(for: "سلام") ?? "nil", "nil")
 
 let start = Date()

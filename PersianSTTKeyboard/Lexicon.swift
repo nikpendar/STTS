@@ -586,7 +586,7 @@ final class Lexicon {
     }
 
     /// `corrections` with each one's cost in half edits.
-    private func costedCorrections(for typed: String, context: Context, limit: Int)
+    func costedCorrections(for typed: String, context: Context, limit: Int)
         -> [(word: String, score: Double, cost: Int)] {
         let key = language.key(typed)
         let a = language.indices(key).map(Int.init)
