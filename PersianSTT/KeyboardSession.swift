@@ -65,7 +65,10 @@ final class KeyboardSession: ObservableObject {
             }
         }
         observer.observe(DictationBridge.start) { [weak self] in
-            MainActor.assumeIsolated { self?.startCapture() }
+            MainActor.assumeIsolated { self?.startCapture(held: false) }
+        }
+        observer.observe(DictationBridge.startHeld) { [weak self] in
+            MainActor.assumeIsolated { self?.startCapture(held: true) }
         }
         observer.observe(DictationBridge.stop) { [weak self] in
             MainActor.assumeIsolated { self?.finishCapture() }
@@ -213,7 +216,8 @@ final class KeyboardSession: ObservableObject {
         }
     }
 
-    private func startCapture() {
+    /// `held`: the keyboard's space bar is held; the keyboard ends the recording, not a silence.
+    private func startCapture(held: Bool) {
         guard isActive else { return }
         Self.ambientNoise = collector.begin()
         server.clear()
@@ -221,9 +225,9 @@ final class KeyboardSession: ObservableObject {
         dictationID += 1
         resetIdleTimer()
         DictationBridge.post(DictationBridge.recording)
-        log.info("recording started, auto stop \(Self.autoStopSeconds) s")
+        log.info("recording started, \(held ? "held" : "auto stop \(Self.autoStopSeconds) s", privacy: .public)")
         startStreaming(id: dictationID)
-        startMonitor()
+        startMonitor(held: held)
         if let testAudio { feedTestAudio(testAudio) }
     }
 
@@ -231,7 +235,7 @@ final class KeyboardSession: ObservableObject {
     /// keyboard (as one of `DictationBridge.levels` notifications, only when it changes), so the
     /// orb keeps up with the voice; twice a second it drops a recording in which nobody has
     /// spoken for `noSpeechSeconds`, and ends one after `autoStopSeconds` of silence following speech.
-    private func startMonitor() {
+    private func startMonitor(held: Bool) {
         monitorTask?.cancel()
         let autoStop = Self.autoStopSeconds
         monitorTask = Task { [weak self] in
@@ -247,7 +251,8 @@ final class KeyboardSession: ObservableObject {
                     lastStep = step
                     DictationBridge.post(DictationBridge.level(step))
                 }
-                // Speech decisions twice a second are enough.
+                // Speech decisions twice a second are enough, and none while the space bar is held.
+                guard !held else { continue }
                 let levels = self.collector.levels()
                 guard levels.count - checked >= 5 else { continue }
                 checked = levels.count

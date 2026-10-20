@@ -67,6 +67,10 @@ final class KeyboardViewController: UIInputViewController {
         view.setNeedsLayout()
     }
     private var messageTimer: Timer?
+    /// The space bar held for dictation: where the finger started and whether it locked.
+    private var hold: (startHeight: CGFloat, locked: Bool)?
+    /// The finger was lifted before the app confirmed the recording.
+    private var stopWhenRecording = false
     private var recordingStart = Date()
     private var isCompact = false
     /// While the keyboard grows or shrinks for dictation, the keys keep the full-height layout.
@@ -299,12 +303,7 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func micTapped() {
         switch state {
         case .ready:
-            state = .starting
-            DictationBridge.post(DictationBridge.start)
-            // No answer means the app was closed and the session is gone.
-            schedule(after: 0.8) { [weak self] in
-                if self?.state == .starting { self?.state = .noSession }
-            }
+            startDictation(held: false)
         case .recording:
             DictationBridge.post(DictationBridge.stop)
             beginTranscribing()
@@ -321,6 +320,72 @@ final class KeyboardViewController: UIInputViewController {
             break
         }
     }
+
+    /// Asks the app to record. `held`: while a finger holds the space bar, which the app then
+    /// does not stop by itself after a silence.
+    private func startDictation(held: Bool) {
+        state = .starting
+        DictationBridge.post(held ? DictationBridge.startHeld : DictationBridge.start)
+        // No answer means the app was closed and the session is gone.
+        schedule(after: 0.8) { [weak self] in
+            if self?.state == .starting { self?.state = .noSession }
+        }
+    }
+
+    /// Holding the space bar dictates, as long as the finger stays down; sliding it up locks
+    /// the recording, which a tap on the orb then ends (as voice messages in Telegram).
+    @objc private func spaceHeld(_ press: UILongPressGestureRecognizer) {
+        // From the bottom of the keyboard, which stays put while it shrinks to the orb.
+        let height = view.bounds.height - press.location(in: view).y
+        switch press.state {
+        case .began:
+            switch state {
+            case .ready:
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                hold = (startHeight: height, locked: false)
+                orb.recordingHint = Self.holdHint
+                startDictation(held: true)
+            case .noSession, .checking:
+                open(DictationBridge.sessionURL)
+            default:
+                break
+            }
+        case .changed:
+            guard let current = hold, !current.locked, height - current.startHeight > Self.lockDistance else { return }
+            hold?.locked = true
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            orb.recordingHint = Self.lockedHint
+        case .ended, .cancelled, .failed:
+            guard let current = hold else { return }
+            if current.locked {
+                hold = nil
+            } else {
+                releaseHold()
+            }
+        default:
+            break
+        }
+    }
+
+    /// The finger left the space bar: the recording ends and its text goes in. A recording the
+    /// app has not confirmed yet ends as soon as it does.
+    private func releaseHold() {
+        hold = nil
+        orb.recordingHint = nil
+        switch state {
+        case .recording:
+            DictationBridge.post(DictationBridge.stop)
+            beginTranscribing()
+        case .starting:
+            stopWhenRecording = true
+        default:
+            break
+        }
+    }
+
+    private static let lockDistance: CGFloat = 60
+    private static let holdHint = "برای پایان رها کنید، برای قفل به بالا بکشید"
+    private static let lockedHint = "قفل شد… برای پایان بزنید"
 
     private func beginTranscribing() {
         state = .transcribing
@@ -360,6 +425,11 @@ final class KeyboardViewController: UIInputViewController {
         liveText = ""
         livePrefix = spaceBeforeDictation()
         edits.dictationStarted(documentContext, prefix: livePrefix)
+        if stopWhenRecording {
+            stopWhenRecording = false
+            DictationBridge.post(DictationBridge.stop)
+            beginTranscribing()
+        }
     }
 
     /// As iOS dictation does: a space after a word, none after a space, a bracket or a ZWNJ.
@@ -875,7 +945,7 @@ final class KeyboardViewController: UIInputViewController {
         }, for: .touchDown)
         micButton.addAction(UIAction { [weak self] _ in KeyView.press(self?.micButton, down: false) },
                             for: [.touchUpInside, .touchUpOutside, .touchCancel])
-        keysView.addSubview(micButton)
+        // Dictation is on the space bar (held); the mic button stays only for its state.
 
         orb.backgroundColor = Self.touchableClear
         orb.isHidden = true
@@ -909,6 +979,11 @@ final class KeyboardViewController: UIInputViewController {
         spaceKey.addTarget(self, action: #selector(insertSpace), for: .touchUpInside)
         spacePan.delegate = self
         spaceKey.addGestureRecognizer(spacePan)
+        let spaceHold = UILongPressGestureRecognizer(target: self, action: #selector(spaceHeld(_:)))
+        spaceHold.minimumPressDuration = 0.35
+        spaceKey.addGestureRecognizer(spaceHold)
+        spaceKey.accessibilityHint = "برای دیکته نگه دارید"
+        spaceKey.imageOnTrailingEdge = true
         shiftKey.accessibilityIdentifier = "shiftKey"
         shiftKey.addTarget(self, action: #selector(toggleShift), for: .touchUpInside)
         keysView.addSubview(shiftKey)
@@ -1201,14 +1276,14 @@ final class KeyboardViewController: UIInputViewController {
     /// with neither fill nor outline would leave nothing of the bar to see: it is named instead.
     private func updateSpaceImage() {
         let named = keyStyle.keysAreClear
-        spaceKey.image = named || languageSwitches >= 3 ? nil : KeyIcons.space
+        spaceKey.image = named ? nil : KeyIcons.space
         spaceKey.title = named ? (isEnglish ? "space" : "فاصله") : nil
         spaceKey.accessibilityLabel = isEnglish ? "space" : "فاصله"
     }
 
     /// A horizontal swipe on the space bar switches between Persian and English, like SwiftKey.
     @objc private func spaceSwiped(_ pan: UIPanGestureRecognizer) {
-        guard pan.state == .ended, abs(pan.translation(in: view).x) > 40 else { return }
+        guard pan.state == .ended, hold == nil, !isCompact, abs(pan.translation(in: view).x) > 40 else { return }
         isEnglish.toggle()
         if layer == .emoji || layer == .moreSymbols { layer = .letters }
         languageSwitches += 1
@@ -1317,9 +1392,9 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
 
-        // Bottom row, left to right, in elevenths of the width: Persian 123 one, emoji (and
-        // settings) two, space four, mic two, return two at the right edge, its arrow mirrored;
-        // English, which has no dictation, 123 two, emoji two, space five and return two.
+        // Bottom row, left to right, in elevenths of the width: 123 two, emoji (and settings)
+        // two, space five (held, it dictates), return two at the right edge, its arrow mirrored
+        // in Persian.
         let eleventh = width / 11
         let y = top + 3 * row
         var x = left
@@ -1327,11 +1402,9 @@ final class KeyboardViewController: UIInputViewController {
             view.frame = CGRect(x: x, y: y, width: keyWidth, height: row)
             x += keyWidth
         }
-        micButton.isHidden = isEnglish
-        place(layerKey, (isEnglish ? 2 : 1) * eleventh)
+        place(layerKey, 2 * eleventh)
         place(emojiKey, 2 * eleventh)
-        place(spaceKey, (isEnglish ? 5 : 4) * eleventh)
-        if !isEnglish { place(micButton, 2 * eleventh) }
+        place(spaceKey, 5 * eleventh)
         place(returnKey, 2 * eleventh)
         let returnImage = isEnglish ? KeyIcons.returnKey : KeyIcons.returnKeyMirrored
         if returnKey.image !== returnImage { returnKey.image = returnImage }
@@ -2013,6 +2086,11 @@ private final class KeyView: UIControl {
         set { imageView.image = newValue }
     }
 
+    /// The image at the right end of the key instead of its middle (the space bar's globe).
+    var imageOnTrailingEdge = false {
+        didSet { setNeedsLayout() }
+    }
+
     /// Draws the image faintly, as a hint rather than a label.
     var dimsImage = false {
         didSet { imageView.alpha = dimsImage ? 0.4 : 1 }
@@ -2096,6 +2174,10 @@ private final class KeyView: UIControl {
         // Words (ABC, 123, status messages) keep off the edges; a letter may fill the key.
         label.frame = inner.insetBy(dx: (label.text?.count ?? 0) > 1 ? 4 : 1, dy: 0)
         imageView.frame = inner
+        if imageOnTrailingEdge, let image = imageView.image {
+            let width = min(inner.width, image.size.width + 20)
+            imageView.frame = CGRect(x: inner.maxX - width, y: inner.minY, width: width, height: inner.height)
+        }
         // Low landscape rows: a tall image shrinks instead of spilling out of the key.
         let size = imageView.image?.size ?? .zero
         imageView.contentMode = size.width > inner.width || size.height > inner.height ? .scaleAspectFit : .center
@@ -2547,6 +2629,11 @@ private final class DictationOrbView: UIControl {
         didSet { if mode != oldValue { update() } }
     }
 
+    /// While the space bar is held: how the recording ends (lift the finger, or tap once locked).
+    var recordingHint: String? {
+        didSet { if mode == .recording, recordingHint != oldValue { caption.text = recordingHint ?? Self.listeningCaption } }
+    }
+
     private let pulse = CALayer()
     private let gradient = CAGradientLayer()
     private let gradientMask = CAShapeLayer()
@@ -2671,7 +2758,7 @@ private final class DictationOrbView: UIControl {
             liveRing.track.isHidden = false
             liveRing.ring.isHidden = !liveRing.isRunning
             processingRing.isHidden = true
-            caption.text = Self.listeningCaption
+            caption.text = recordingHint ?? Self.listeningCaption
         case .processing:
             gradient.opacity = 0.35
             setLoading(false)
@@ -2765,7 +2852,7 @@ private final class DictationOrbView: UIControl {
         gradient.setAffineTransform(CGAffineTransform(rotationAngle: spin))
         CATransaction.commit()
         if mode == .recording {
-            let text = !heardVoice && now - motionStart > 3.5 ? "صدایی نمی‌شنوم…" : Self.listeningCaption
+            let text = !heardVoice && now - motionStart > 3.5 ? "صدایی نمی‌شنوم…" : recordingHint ?? Self.listeningCaption
             if caption.text != text { caption.text = text }
         }
     }

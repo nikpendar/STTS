@@ -14,6 +14,8 @@ enum DictationBridge {
     static let alive = "com.persianstt.alive"
     /// Keyboard starts and stops a recording; the app confirms with `recording`.
     static let start = "com.persianstt.start"
+    /// As `start`, while the space bar is held: no stop after a silence, the keyboard ends it.
+    static let startHeld = "com.persianstt.startHeld"
     static let recording = "com.persianstt.recording"
     static let stop = "com.persianstt.stop"
     /// Keyboard abandons the transcription in progress.

@@ -348,7 +348,7 @@ struct ContentView: View {
         Section {
             SetupStep(number: "۱", text: "Settings › General › Keyboard › Keyboards › Add New Keyboard")
             SetupStep(number: "۲", text: "«کیلس» را انتخاب و Allow Full Access را روشن کنید.")
-            SetupStep(number: "۳", text: "در هر اپی با 🌐 به این کیبورد بروید و میکروفون را بزنید.")
+            SetupStep(number: "۳", text: "در هر اپی با 🌐 به این کیبورد بروید و برای دیکته کلید فاصله را نگه دارید.")
             Button {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
@@ -489,7 +489,7 @@ struct ContentView: View {
             return "برای دیکته، یک بار فایل مدل گفتار را وارد کنید."
         }
         if keyboard.isActive {
-            return "کیبورد آماده است. به اپ قبلی برگردید و با میکروفون کیبورد دیکته کنید."
+            return "کیبورد آماده است. به اپ قبلی برگردید و با نگه‌داشتن کلید فاصله دیکته کنید."
         }
         return keyboard.message.isEmpty ? "برای دیکته با کیبورد، جلسه را شروع کنید." : keyboard.message
     }
