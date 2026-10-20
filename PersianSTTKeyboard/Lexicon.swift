@@ -665,6 +665,23 @@ final class Lexicon {
         return Array(found.prefix(limit))
     }
 
+    /// The listed word a typed one surely misspells, to put in its place on a space: a word
+    /// about as long (not a longer one it begins), common enough after the word before, and
+    /// clearly likelier than any other reading. Nil when the typing cannot be told for sure.
+    func autoCorrection(for typed: String, context: Context = .none) -> String? {
+        let key = language.key(typed)
+        guard key.count >= 3, !isKnown(typed) else { return nil }
+        let ranked = corrections(for: typed, context: context, limit: 8)
+            .filter { abs(language.key($0.word).count - key.count) <= 1 }
+        guard let best = ranked.first, best.score >= Self.autoCorrectScore else { return nil }
+        if let second = ranked.dropFirst().first, best.score - second.score < Self.autoCorrectMargin { return nil }
+        return best.word
+    }
+
+    /// The best reading's score (`corrections`) must reach this, and lead the next by the margin.
+    static let autoCorrectScore = 3.0
+    static let autoCorrectMargin = 0.75
+
     /// Completions and corrections of an unknown typed word together, best first.
     func suggestions(forUnknown typed: String, context: Context, correct: Bool, limit: Int) -> [String] {
         var ranked = scoredCompletions(for: language.key(typed), context: context)

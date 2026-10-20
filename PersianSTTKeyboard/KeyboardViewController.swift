@@ -40,7 +40,13 @@ final class KeyboardViewController: UIInputViewController {
     /// No margin under the bottom row: the keys sit as low as the extension can draw.
     private var fullHeight: CGFloat { barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) }
     private var compactHeight: CGFloat { isLandscape ? 120 : 150 }
-    private var isLandscape: Bool { UIScreen.main.bounds.width > UIScreen.main.bounds.height }
+    /// While the phone turns, the orientation it turns to: the screen's size still gives the old
+    /// one then, so the keyboard kept the height of the orientation it left (too tall in
+    /// landscape, too short back in portrait) until another keyboard was switched to and back.
+    private var turningToLandscape: Bool?
+    private var isLandscape: Bool {
+        turningToLandscape ?? (UIScreen.main.bounds.width > UIScreen.main.bounds.height)
+    }
     private var messageTimer: Timer?
     private var recordingStart = Date()
     private var isCompact = false
@@ -1053,6 +1059,7 @@ final class KeyboardViewController: UIInputViewController {
         for key in numberKeys { key.fontSize = numberFontSize }
         updateSpaceImage()
         suggestionBar.textColor = style.textColor
+        suggestionBar.fontSize = (19 * letterFontSize / CGFloat(KeyStyle.standardLetterSize)).rounded()
         glideTrail.lensBackground = average ?? Self.systemKeyboardBackground
         render()
     }
@@ -1319,8 +1326,8 @@ final class KeyboardViewController: UIInputViewController {
         }
 
         // Bottom row, left to right, in elevenths of the width: Persian 123 one, emoji (and
-        // settings) two, space four, return two, mic two; English, which has no dictation,
-        // 123 two, emoji two, space five and return two where the mic is.
+        // settings) two, space four, mic two, return two at the right edge, its arrow mirrored;
+        // English, which has no dictation, 123 two, emoji two, space five and return two.
         let eleventh = width / 11
         let y = top + 3 * row
         var x = left
@@ -1332,14 +1339,28 @@ final class KeyboardViewController: UIInputViewController {
         place(layerKey, (isEnglish ? 2 : 1) * eleventh)
         place(emojiKey, 2 * eleventh)
         place(spaceKey, (isEnglish ? 5 : 4) * eleventh)
-        place(returnKey, 2 * eleventh)
         if !isEnglish { place(micButton, 2 * eleventh) }
+        place(returnKey, 2 * eleventh)
+        let returnImage = isEnglish ? KeyIcons.returnKey : KeyIcons.returnKeyMirrored
+        if returnKey.image !== returnImage { returnKey.image = returnImage }
         if !keyMenu.isHidden { placeMenu() }
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
+        // The keyboard is as wide as the screen: wider than the screen's short side in landscape.
+        let screen = UIScreen.main.bounds.size
+        turningToLandscape = size.width > min(screen.width, screen.height) + 1
+        heightConstraint?.constant = isCompact ? compactHeight : fullHeight
+        view.setNeedsUpdateConstraints()
         view.setNeedsLayout()
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
+            guard let self else { return }
+            self.turningToLandscape = nil
+            self.heightConstraint?.constant = self.isCompact ? self.compactHeight : self.fullHeight
+            self.view.setNeedsUpdateConstraints()
+            self.view.setNeedsLayout()
+        }
     }
 
     @objc private func toggleLayer() {
@@ -2166,11 +2187,18 @@ private final class KeyPopupView: UIView {
 
     func showPreview(_ title: String, image: UIImage? = nil, on key: KeyView, style: KeyStyle) {
         let foot = key.faceFrame
-        let width = foot.width + 2 * min(10, foot.width * 0.3)
+        var width = foot.width + 2 * min(10, foot.width * 0.3)
+        let height = cardFrame(width: width, midX: foot.midX, foot: foot).height
+        let fontSize = min(34, height * 0.72)
+        // Wide letters (ص ض س ش) widen the card instead of being shrunk to fit it.
+        if image == nil {
+            let textWidth = (title as NSString).size(withAttributes: [.font: keyFont(for: title, size: fontSize)]).width
+            width = min(max(width, textWidth.rounded(.up) + 10), bounds.width)
+        }
         let card = cardFrame(width: width, midX: foot.midX, foot: foot)
         isShowingVariants = false
         present(on: key, foot: foot, card: card, cells: [card], items: [Item(text: title, label: title, image: image)],
-                style: style, fontSize: min(34, card.height * 0.72))
+                style: style, fontSize: fontSize)
         select(index: nil, feedback: false)
     }
 
@@ -2744,6 +2772,15 @@ private enum KeyIcons {
     /// Return, drawn as in a left-to-right layout: the symbol image itself would be mirrored
     /// in this right-to-left keyboard.
     static let returnKey = leftToRight("return")
+    /// Return for Persian, mirrored: the arrow comes down on the left and points right.
+    static let returnKeyMirrored: UIImage = {
+        let image = returnKey
+        return UIGraphicsImageRenderer(size: image.size).image { context in
+            context.cgContext.translateBy(x: image.size.width, y: 0)
+            context.cgContext.scaleBy(x: -1, y: 1)
+            image.withTintColor(.black).draw(at: .zero)
+        }.withRenderingMode(.alwaysTemplate)
+    }()
     /// Backspace pointing left for English, and right as before for Persian.
     static let deleteLeft = leftToRight("delete.left")
     static let deleteRight = leftToRight("delete.right")
@@ -2883,6 +2920,10 @@ private final class SuggestionBar: UIView {
     var textColor = UIColor.label {
         didSet { slots.forEach { $0.setTitleColor(textColor, for: .normal) } }
     }
+    /// Follows the letters' size setting: 19 points at the standard 23.
+    var fontSize: CGFloat = 19 {
+        didSet { if fontSize != oldValue { show(items) } }
+    }
     private var slots: [UIButton] = []
     private var dividers: [UIView] = []
     /// Right, middle, left.
@@ -2922,7 +2963,7 @@ private final class SuggestionBar: UIView {
         self.items = (items + [nil, nil, nil]).prefix(3).map { $0 }
         for (slot, item) in zip(slots, self.items) {
             slot.setTitle(item.map { $0.literal ? "«\($0.text)»" : $0.text }, for: .normal)
-            slot.titleLabel?.font = keyFont(for: item?.text, size: 19)
+            slot.titleLabel?.font = keyFont(for: item?.text, size: fontSize)
             slot.isEnabled = item != nil
         }
         let filled = self.items.compactMap { $0 }.count
