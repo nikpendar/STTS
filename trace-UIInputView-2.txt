@@ -1,0 +1,39 @@
+Tracing: <UIInputView 0x1030ec9d0> [624]
+
+Found 2 roots referencing: <UIInputView 0x1030ec9d0> [624]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    2 <UIInputView 0x1030ec9d0> [624]
+      1 <NSLayoutConstraint 0x60000214b890> [80]     +8: _container 0x60000214b898
+      + 1 <NSMutableArray (Storage) 0x600002188460> [80]    +48: __strong  0x600002188490
+      +   1 <NSMutableArray 0x600000de7d20> [48]  item count: 5    +16: __strong storage 0x600000de7d30
+      +     1 0x6000002c4c80 [32]     +8:  0x6000002c4c88
+      +       1 <SVGPathCommand 0x6000017271c0> [64]    +56:  0x6000017271f8
+      +         1 0x600002c0be80 [128]    +48:  0x600002c0beb0
+      +           1 <SVGPath 0x60000301f7b0> [144]    +48:  0x60000301f7e0
+      +             1 <SVGAttribute 0x600002922f40> [112]    +88:  0x600002922f98
+      +               1 0x600000cbfd80 [48]    +40:  0x600000cbfda8
+      +                 1 0x600000cbc210 [48]     +8:  0x600000cbc218
+      +                   1 <SVGAttributeMap 0x60000212a1c0> [80]    +48:  0x60000212a1f0
+      +                     1 <SVGShapeNode 0x103150a50> [336]    +56:  0x103150a88
+      +                       1 0x600000006440 [16]     +8:  0x600000006448
+      +                         1 <SVGNode 0x60000391aff0> [208]    +88:  0x60000391b048
+      +                           1 0x600000005470 [16]     +0:  0x600000005470
+      +                             1 <SVGRootNode 0x10315fe40> [288]    +88:  0x10315fe98
+      +                               1 <SVGDocument 0x60000212aee0> [80]    +48:  0x60000212af10
+      +                                 1 <SVGDocument 0x600000284860> [32]    +16:  0x600000284870
+      +                                   1 <_CUIThemeSVGRendition 0x10316e260> [352]   +216: _svgDocument 0x10316e338
+      +                                     1 <NSMutableDictionary (Storage) 0x102865600> [2048]  +1080: __strong  0x102865a38
+      +                                       1 <NSMutableDictionary 0x600000272e40> [32]  item count: 55     +8: __strong storage 0x600000272e48
+      +                                         1 <CUIStructuredThemeStore 0x6000026062e0> [96]     +8: _cache 0x6000026062e8
+      +                                           1 0x6000017db4c0 [64]    +16:  0x6000017db4d0
+      +                                             1 <CFBasicHash 0x600001726080> [64]    +40:  0x6000017260a8
+      +                                               1 <NSClassicMapTable 0x60000260db60> [96]    +80: _ht 0x60000260dbb0
+      +                                                 1 Region CoreUI __DATA __bss: '__PerformBlockWithThemeRegistry.__themeRegistry' 0x1f2ec3268
+      1 <NSLayoutDimension 0x60000174fa80> [64]     +8: _referenceItem 0x60000174fa88
+        1 0x103299e50 [384]   +208:  0x103299f20
+          1 0x103374000 [65536] +10504:  0x103376908
+            1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f26c94c8
