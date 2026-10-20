@@ -263,6 +263,11 @@ jobs:
           axe touch -x "$BX" -y "$BY" --down --udid "$DEVICE" && \
             xcrun simctl io "$DEVICE" screenshot out/5f-preview.png; axe touch -x "$BX" -y "$BY" --up --udid "$DEVICE" || true
           sleep 0.5
+          # A wide letter (س) in the enlarged popup.
+          read SX SY < <(python3 find.py letter-1-1 out/ui-8.json || echo "40 735")
+          axe touch -x "$SX" -y "$SY" --down --udid "$DEVICE" && \
+            xcrun simctl io "$DEVICE" screenshot out/5f2-preview-wide.png; axe touch -x "$SX" -y "$SY" --up --udid "$DEVICE" || true
+          sleep 0.5
           read AX AY < <(python3 find.py letter-1-5 out/ui-8.json || echo "196 735")
           read KX KY < <(python3 find.py letter-1-4 out/ui-8.json || echo "160 735")
           axe touch -x "$AX" -y "$AY" --down --udid "$DEVICE" && sleep 0.8 && \
