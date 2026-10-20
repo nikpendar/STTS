@@ -194,7 +194,8 @@ final class PersonalModel: ObservableObject {
     }
 
     private func request(_ path: String, method: String = "GET") -> URLRequest {
-        var request = URLRequest(url: URL(string: "\(Self.testAPI ?? "https://api.github.com")/repos/\(repo)/\(path)")!)
+        let url = "\(Self.testAPI ?? "https://api.github.com")/repos/\(repo)" + (path.isEmpty ? "" : "/\(path)")
+        var request = URLRequest(url: URL(string: url)!)
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
@@ -272,7 +273,14 @@ final class PersonalModel: ObservableObject {
                 status = line
             }
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.lastCheckKey)
-            let (data, code) = try await send(request("releases/latest"))
+            // Before the first training run there is no release, and GitHub answers 404 for a
+            // repository it does serve: only the repository itself says whether it can be reached.
+            var code = 0, data = Data()
+            do {
+                (data, code) = try await send(request("releases/latest"))
+            } catch GitHubError.notFound {
+                _ = try await send(request(""))
+            }
             guard code == 200 else {
                 available = nil
                 if status.isEmpty { status = "هنوز مدل شخصی منتشر نشده است" }
