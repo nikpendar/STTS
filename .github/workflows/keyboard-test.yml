@@ -123,6 +123,13 @@ jobs:
           xcrun simctl launch "$DEVICE" com.apple.reminders; sleep 6
           axe tap --label "New Reminder" --udid "$DEVICE" || true
           mark 6-reminders
+          xcrun simctl launch "$DEVICE" com.apple.mobilenotes; sleep 8
+          axe describe-ui --udid "$DEVICE" > out/ui-notes.json 2>&1 || true
+          for label in "Continue" "Not Now"; do axe tap --label "$label" --udid "$DEVICE" || true; sleep 2; done
+          axe tap --label "New Note" --udid "$DEVICE" || axe tap --label "Compose" --udid "$DEVICE" || axe tap -x 340 -y 780 --udid "$DEVICE" || true
+          sleep 3
+          axe describe-ui --udid "$DEVICE" > out/ui-notes-2.json 2>&1 || true
+          mark 7-notes
           # What the keyboard's memory is made of, and whether earlier keyboards were freed.
           PID="$(pgrep -x PersianSTTKeyboard | head -n1)"
           if [ -n "$PID" ]; then

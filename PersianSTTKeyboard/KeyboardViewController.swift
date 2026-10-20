@@ -40,12 +40,31 @@ final class KeyboardViewController: UIInputViewController {
     /// No margin under the bottom row: the keys sit as low as the extension can draw.
     private var fullHeight: CGFloat { barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) }
     private var compactHeight: CGFloat { isLandscape ? 120 : 150 }
-    /// While the phone turns, the orientation it turns to: the screen's size still gives the old
-    /// one then, so the keyboard kept the height of the orientation it left (too tall in
-    /// landscape, too short back in portrait) until another keyboard was switched to and back.
-    private var turningToLandscape: Bool?
+    /// The orientation the keyboard was last given, from its own width (it is as wide as the
+    /// screen) or from the size it turns to. The screen's bounds are only right when the keyboard
+    /// loads: in an extension they keep that orientation after the phone turns (iOS 26 and 27),
+    /// so the keyboard kept the height it loaded with (too tall in landscape, too short back in
+    /// portrait) until another keyboard was switched to and back.
+    private var knownLandscape: Bool?
     private var isLandscape: Bool {
-        turningToLandscape ?? (UIScreen.main.bounds.width > UIScreen.main.bounds.height)
+        knownLandscape ?? (UIScreen.main.bounds.width > UIScreen.main.bounds.height)
+    }
+    /// The screen's short side, whichever way its bounds are stale.
+    private var screenShortSide: CGFloat { min(UIScreen.main.bounds.width, UIScreen.main.bounds.height) }
+
+    /// Takes the orientation from a width the keyboard is (or will be) given, and asks for the
+    /// height of that orientation when it changed.
+    private func noteWidth(_ width: CGFloat) {
+        guard width > 0 else { return }
+        let landscape = width > screenShortSide + 1
+        guard landscape != isLandscape || knownLandscape == nil else { return }
+        let changed = landscape != isLandscape
+        knownLandscape = landscape
+        guard changed else { return }
+        log.info("orientation \(landscape ? "landscape" : "portrait", privacy: .public) from width \(Int(width))")
+        heightConstraint?.constant = isCompact ? compactHeight : fullHeight
+        view.setNeedsUpdateConstraints()
+        view.setNeedsLayout()
     }
     private var messageTimer: Timer?
     private var recordingStart = Date()
@@ -1216,6 +1235,7 @@ final class KeyboardViewController: UIInputViewController {
             loggedSize = view.bounds.size
             log.info("layout \(Int(self.view.bounds.width))x\(Int(self.view.bounds.height)), asked \(Int(self.fullHeight)), window \(Int(self.view.window?.bounds.height ?? 0))")
         }
+        noteWidth(view.bounds.width)
         // The number row, the suggestion bar or the orientation changed the height.
         if !isCompact, let height = heightConstraint, height.isActive, height.constant != fullHeight {
             view.setNeedsUpdateConstraints()
@@ -1321,17 +1341,11 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         // The keyboard is as wide as the screen: wider than the screen's short side in landscape.
-        let screen = UIScreen.main.bounds.size
-        turningToLandscape = size.width > min(screen.width, screen.height) + 1
-        heightConstraint?.constant = isCompact ? compactHeight : fullHeight
-        view.setNeedsUpdateConstraints()
-        view.setNeedsLayout()
+        noteWidth(size.width)
         coordinator.animate(alongsideTransition: nil) { [weak self] _ in
             guard let self else { return }
-            self.turningToLandscape = nil
-            self.heightConstraint?.constant = self.isCompact ? self.compactHeight : self.fullHeight
+            self.noteWidth(self.view.bounds.width)
             self.view.setNeedsUpdateConstraints()
-            self.view.setNeedsLayout()
         }
     }
 
@@ -2184,8 +2198,10 @@ private final class KeyPopupView: UIView {
         let foot = key.faceFrame
         var width = foot.width + 2 * min(10, foot.width * 0.3)
         let height = cardFrame(width: width, midX: foot.midX, foot: foot).height
-        let fontSize = min(34, height * 0.72)
-        // Wide letters (ص ض س ش) widen the card instead of being shrunk to fit it.
+        var fontSize = min(34, height * 0.72)
+        // ص ض س ش are wide and low: at the same size they read smaller than the other letters, so
+        // they are drawn larger and widen the card instead of being shrunk to fit it.
+        if Self.wideLetters.contains(title) { fontSize *= 1.3 }
         if image == nil {
             let textWidth = (title as NSString).size(withAttributes: [.font: keyFont(for: title, size: fontSize)]).width
             width = min(max(width, textWidth.rounded(.up) + 10), bounds.width)
@@ -2200,6 +2216,8 @@ private final class KeyPopupView: UIView {
     /// A letter's forms start over the key, its own letter first, and run to the left, or to
     /// the right with `toTheRight`. With `anchor`, the items run left to right and the one at
     /// `anchor` starts over the key and is chosen first.
+    private static let wideLetters: Set<String> = ["ص", "ض", "س", "ش"]
+
     func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle,
                       toTheRight: Bool = false, anchor: Int? = nil) {
         let foot = key.faceFrame
@@ -2323,6 +2341,7 @@ private final class KeyPopupView: UIView {
             label.textAlignment = .center
             label.adjustsFontSizeToFitWidth = true
             label.minimumScaleFactor = 0.5
+            label.lineBreakMode = .byClipping
             addSubview(label)
             labels.append(label)
             let image = UIImageView()
@@ -2337,6 +2356,8 @@ private final class KeyPopupView: UIView {
             guard index < items.count else { continue }
             label.text = items[index].label
             label.font = keyFont(for: items[index].label, size: fontSize)
+            // A single letter is never shrunk: its card was made wide enough for it.
+            label.adjustsFontSizeToFitWidth = items.count > 1
             label.frame = cells[index]
             image.image = items[index].image
             image.frame = cells[index]
