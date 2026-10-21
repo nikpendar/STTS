@@ -109,7 +109,9 @@ jobs:
           zip -qry KeylessShenava.ipa Payload
           ls -lh KeylessShenava.ipa
           # The same app with the model compiled inside, where Transcriber finds it.
-          if [ ! -d PersianSTT/Models/Koochik.mlmodelc ]; then
+          # Only when config.env asks for it (BUILD_EMBEDDED=1).
+          BUILD_EMBEDDED="$(sed -n 's/^BUILD_EMBEDDED=//p' config.env)"
+          if [ "$BUILD_EMBEDDED" = 1 ] && [ ! -d PersianSTT/Models/Koochik.mlmodelc ]; then
             xcrun coremlcompiler compile build-model/Koochik.mlmodel "$RUNNER_TEMP/compiled" \
               --deployment-target 15.0 --platform ios
             cp -R "$RUNNER_TEMP/compiled/Koochik.mlmodelc" "$APP/Models/"

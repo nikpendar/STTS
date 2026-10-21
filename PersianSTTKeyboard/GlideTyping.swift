@@ -29,7 +29,8 @@ final class GlideTrailView: UIView {
     private var endTime: CFTimeInterval = 0
     private var glass: TrailGlass?
     private static let lifetime: CFTimeInterval = 0.32
-    private static let fadeTime: CFTimeInterval = 0.22
+    /// After the finger lifts, the whole drop stays and fades this slowly.
+    private static let fadeTime: CFTimeInterval = 0.6
     private static let headRadius: CGFloat = 17
     /// The drop never gets longer than this, however fast the finger moves.
     private static let maxLength: CGFloat = 130
@@ -142,7 +143,8 @@ final class GlideTrailView: UIView {
         let now = CACurrentMediaTime()
         // The head stays while the finger is down; the tail follows it.
         let headTime = isTracking ? points.last?.time : nil
-        points.removeAll { now - $0.time > Self.lifetime && $0.time != headTime }
+        // Once the finger lifts the line stops shortening and only fades.
+        if isTracking { points.removeAll { now - $0.time > Self.lifetime && $0.time != headTime } }
         let fade = isTracking ? 1 : CGFloat(max(0, 1 - (now - endTime) / Self.fadeTime))
         if fade <= 0 { points.removeAll() }
         draw(fade: fade)
@@ -219,7 +221,7 @@ final class GlideTrailView: UIView {
                 continue
             }
             let c = centres[i].point, r = radii[i] * discScale
-            let zoom = 1 + 0.35 * radii[i] / Self.headRadius
+            let zoom = 1 + 0.6 * radii[i] / Self.headRadius
             disc.isHidden = false
             disc.zPosition = -centres[i].along
             disc.frame = CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)

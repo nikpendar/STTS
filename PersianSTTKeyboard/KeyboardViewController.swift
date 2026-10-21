@@ -46,8 +46,11 @@ final class KeyboardViewController: UIInputViewController {
     /// What an emoji search adds over the suggestion bar: the row of emoji found, and enough
     /// for the search field when the bar is switched off.
     private var searchExtraHeight: CGFloat {
-        let results = min(56, max(38, (EmojiPanel.emojiSize(scale: emojiScale) * 1.5).rounded()))
-        return results + max(0, 34 - barHeight)
+        return searchResultsHeight + 8 + max(0, 36 - barHeight)
+    }
+    /// The row of emoji found, under the search field.
+    private var searchResultsHeight: CGFloat {
+        max(32, (EmojiSearchView.resultSize(scale: emojiScale) * 1.5).rounded())
     }
     /// The letters' size over the standard one, for the emoji.
     private var emojiScale: CGFloat { letterFontSize / CGFloat(KeyStyle.standardLetterSize) }
@@ -351,7 +354,7 @@ final class KeyboardViewController: UIInputViewController {
         let height = view.bounds.height - press.location(in: view).y
         switch press.state {
         case .began:
-            guard emojiSearch == nil else { return }
+            guard canDictateOnSpace else { return }
             switch state {
             case .ready:
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -983,7 +986,6 @@ final class KeyboardViewController: UIInputViewController {
         keysView.addSubview(emojiPanel)
         emojiSearchView.isHidden = true
         emojiSearchView.onPick = { [weak self] emoji in self?.insertFoundEmoji(emoji) }
-        emojiSearchView.onClose = { [weak self] in self?.endEmojiSearch(backToEmoji: true) }
         keysView.addSubview(emojiSearchView)
 
         backspaceKey.accessibilityIdentifier = "backspaceKey"
@@ -1006,8 +1008,6 @@ final class KeyboardViewController: UIInputViewController {
         spaceHold.minimumPressDuration = 0.35
         spaceKey.addGestureRecognizer(spaceHold)
         spaceKey.accessibilityHint = "برای دیکته نگه دارید"
-        // The mic at the space bar's right end says that holding it dictates.
-        spaceKey.trailingImage = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .medium))
         shiftKey.accessibilityIdentifier = "shiftKey"
         shiftKey.addTarget(self, action: #selector(toggleShift), for: .touchUpInside)
         keysView.addSubview(shiftKey)
@@ -1102,6 +1102,9 @@ final class KeyboardViewController: UIInputViewController {
         // in place of the bottom row.
         let onEmoji = layer == .emoji
         for key in [emojiKey, spaceKey, returnKey] { key.isHidden = onEmoji }
+        if emojiSearch != nil { emojiKey.isHidden = true }
+        returnKey.accent = emojiSearch != nil ? .systemBlue : nil
+        updateSpaceImage()
         layerKey.plain = onEmoji
         backspaceKey.plain = onEmoji
         emojiSearchView.isHidden = emojiSearch == nil
@@ -1320,7 +1323,13 @@ final class KeyboardViewController: UIInputViewController {
         spaceKey.image = named || languageSwitches >= 3 ? nil : KeyIcons.space
         spaceKey.title = named ? (isEnglish ? "space" : "فاصله") : nil
         spaceKey.accessibilityLabel = isEnglish ? "space" : "فاصله"
+        // The mic at the space bar's right end says that holding it dictates: Persian only, and
+        // not while an emoji search is typed.
+        spaceKey.trailingImage = canDictateOnSpace ? KeyIcons.spaceMic : nil
     }
+
+    /// Holding the space bar dictates (Persian speech) on the Persian letters and symbols.
+    private var canDictateOnSpace: Bool { !isEnglish && emojiSearch == nil }
 
     /// A horizontal swipe on the space bar switches between Persian and English, like SwiftKey.
     @objc private func spaceSwiped(_ pan: UIPanGestureRecognizer) {
@@ -1390,7 +1399,7 @@ final class KeyboardViewController: UIInputViewController {
         suggestionBar.frame = CGRect(x: left, y: 0, width: width, height: bar)
         suggestionBar.isHidden = !options.suggestionBar || emojiSearch != nil || layer == .emoji
         emojiSearchView.frame = CGRect(x: left, y: 0, width: width, height: bar)
-        emojiSearchView.fieldHeight = bar - searchExtra + max(0, 34 - barHeight)
+        emojiSearchView.fieldHeight = bar - searchResultsHeight
         let unit = width / CGFloat(columns)
         let top = bar + numbers
         for (index, key) in numberKeys.enumerated() {
@@ -1457,11 +1466,11 @@ final class KeyboardViewController: UIInputViewController {
             backspaceKey.frame = CGRect(x: left + width - edgeKey, y: y, width: edgeKey, height: row)
         } else {
             place(layerKey, 2 * eleventh)
-            place(emojiKey, 2 * eleventh)
-            place(spaceKey, 5 * eleventh)
+            if emojiSearch == nil { place(emojiKey, 2 * eleventh) }
+            place(spaceKey, (emojiSearch == nil ? 5 : 7) * eleventh)
             place(returnKey, 2 * eleventh)
         }
-        let returnImage = isEnglish ? KeyIcons.returnKey : KeyIcons.returnKeyMirrored
+        let returnImage = emojiSearch != nil ? KeyIcons.searchDone : isEnglish ? KeyIcons.returnKey : KeyIcons.returnKeyMirrored
         if returnKey.image !== returnImage { returnKey.image = returnImage }
         if !keyMenu.isHidden { placeMenu() }
     }
@@ -1635,7 +1644,9 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func insertReturn() {
         if emojiSearch != nil {
-            endEmojiSearch(backToEmoji: true)
+            // The blue key: the search is done, back to the letters.
+            endEmojiSearch(backToEmoji: false)
+            buildCharacterKeys()
             return
         }
         let word = currentWord()
@@ -2295,13 +2306,24 @@ private final class KeyView: UIControl {
     }
 
     func apply(_ style: KeyStyle) {
-        face.backgroundColor = style.fill.color
+        lastStyle = style
+        face.backgroundColor = accent ?? style.fill.color
         face.layer.borderColor = style.stroke.color.cgColor
-        face.layer.borderWidth = style.stroke.a > 0 ? 1 : 0
+        face.layer.borderWidth = style.stroke.a > 0 && accent == nil ? 1 : 0
         textColor = style.textColor
-        imageView.tintColor = textColor
+        imageView.tintColor = accent == nil ? textColor : .white
         trailingImageView.tintColor = textColor
         updateLabel()
+    }
+
+    private var lastStyle: KeyStyle?
+    /// A key drawn in this colour with a white symbol, whatever the style (the blue key that
+    /// ends an emoji search, as on iOS).
+    var accent: UIColor? {
+        didSet {
+            guard accent != oldValue, let lastStyle else { return }
+            apply(lastStyle)
+        }
     }
 
     override func layoutSubviews() {
@@ -2433,8 +2455,8 @@ private final class KeyPopupView: UIView {
     func showPreview(_ title: String, image: UIImage? = nil, on key: KeyView, style: KeyStyle) {
         let foot = key.faceFrame
         var width = foot.width + 2 * min(10, foot.width * 0.3)
-        let height = cardFrame(width: width, midX: foot.midX, foot: foot).height
-        let fontSize = min(34, height * 0.72)
+        // The same size on every row, the top one's lower card included.
+        let fontSize = min(34, max(foot.height * 1.2, 34) * 0.72)
         // Every letter at the same size: a wide one (ص ض س ش) widens the card instead of being
         // shrunk to fit it.
         if image == nil {
@@ -2538,8 +2560,10 @@ private final class KeyPopupView: UIView {
         let highest = min(foot.minX, bounds.maxX - 1 - width)
         let x = max(lowest, min(highest, midX - width / 2))
         let height = wanted ?? max(foot.height * 1.2, 34)
+        // Over the top row there is only the suggestion bar's height: the card is made lower
+        // to stay above the key rather than drop over it.
         let room = foot.minY - Self.gap - 1
-        if room >= foot.height {
+        if room >= min(foot.height, 30) {
             let cardHeight = min(height, room)
             return CGRect(x: x, y: foot.minY - Self.gap - cardHeight, width: width, height: cardHeight)
         }
@@ -3052,6 +3076,9 @@ private enum KeyIcons {
     }
 
     /// The space bar: a globe between arrows, for swiping between Persian and English.
+    static let spaceMic = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .medium))
+    static let searchDone = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .bold))
+
     static let space: UIImage = {
         let small = UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
         let globeConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .regular)

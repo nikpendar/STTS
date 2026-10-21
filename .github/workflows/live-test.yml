@@ -359,10 +359,9 @@ jobs:
           done
           sleep 0.6
           xcrun simctl io "$DEVICE" screenshot out/5p-emoji-search.png
-          read CX CY < <(python3 find.py "پایان جستجو" out/ui-18.json || echo "20 560")
+          # The blue key ends the search, back on the letters.
+          read CX CY < <(python3 find.py returnKey out/ui-18.json || echo "340 790")
           axe tap -x "$CX" -y "$CY" --udid "$DEVICE"; sleep 0.8
-          read LKX2 LKY2 < <(python3 find.py layerKey out/ui-17.json || echo "$LKX $LKY")
-          axe tap -x "$LKX2" -y "$LKY2" --udid "$DEVICE"; sleep 0.5
 
           # Held briefly in silence: nothing is typed.
           read SPX SPY < <(python3 find.py spaceKey out/ui-5b.json || echo "240 817")

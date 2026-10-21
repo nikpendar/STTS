@@ -38,7 +38,16 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
     var bottomHeight: CGFloat = 54
     var bottomInsets: (left: CGFloat, right: CGFloat) = (0, 0)
     var isEnglish = false {
-        didSet { searchField.placeholder = isEnglish ? "Search Emoji" : "جستجوی شکلک" }
+        didSet {
+            guard isEnglish != oldValue else { return }
+            searchField.placeholder = isEnglish ? "Search Emoji" : "جستجوی شکلک"
+            searchField.isEnglish = isEnglish
+            // English reads from the left: the recent emoji and the sections fill from there.
+            grid.semanticContentAttribute = isEnglish ? .forceLeftToRight : .forceRightToLeft
+            categoryScroll.semanticContentAttribute = grid.semanticContentAttribute
+            grid.reloadData()
+            setNeedsLayout()
+        }
     }
 
     private var categories: [Category] = EmojiPanel.standard
@@ -127,14 +136,14 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         let count = CGFloat(max(categoryButtons.count, 1))
         let buttonWidth = max(least, categoryScroll.bounds.width / count)
         for (index, button) in categoryButtons.enumerated() {
-            // Right to left: the first category at the right end.
-            let x = (count - 1 - CGFloat(index)) * buttonWidth
+            // The first category at the right end in Persian, the left end in English.
+            let x = (isEnglish ? CGFloat(index) : count - 1 - CGFloat(index)) * buttonWidth
             button.frame = CGRect(x: x, y: 0, width: buttonWidth, height: bottom)
         }
         let contentWidth = buttonWidth * count
         if categoryScroll.contentSize.width != contentWidth {
             categoryScroll.contentSize = CGSize(width: contentWidth, height: bottom)
-            categoryScroll.contentOffset = CGPoint(x: max(0, contentWidth - categoryScroll.bounds.width), y: 0)
+            categoryScroll.contentOffset = CGPoint(x: isEnglish ? 0 : max(0, contentWidth - categoryScroll.bounds.width), y: 0)
         }
         layout.invalidateLayout()
     }
@@ -417,26 +426,40 @@ private final class EmojiHeader: UICollectionReusableView {
 }
 
 /// The field at the top of the emoji panel, and of the search row while a search is typed:
-/// a magnifier, the query or a placeholder, on a rounded grey ground as in iOS.
+/// a magnifier, the query or a placeholder, on a grey capsule as in iOS. Persian reads from
+/// the right, English from the left. While a search is typed a caret blinks after the query.
 final class EmojiSearchField: UIControl {
     var placeholder = "" { didSet { update() } }
     /// The search typed so far; nil shows the placeholder.
     var query: String? { didSet { update() } }
     var textColor = UIColor.label { didSet { update() } }
+    var isEnglish = false { didSet { if isEnglish != oldValue { setNeedsLayout() } } }
+    /// The blinking caret of a search being typed.
+    var showsCaret = false {
+        didSet {
+            guard showsCaret != oldValue else { return }
+            caret.isHidden = !showsCaret
+            updateBlink()
+        }
+    }
     private let icon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
     private let label = UILabel()
+    private let caret = UIView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = UIColor.label.withAlphaComponent(0.08)
-        layer.cornerRadius = 9
         layer.cornerCurve = .continuous
         icon.contentMode = .center
         icon.isUserInteractionEnabled = false
         label.isUserInteractionEnabled = false
-        label.textAlignment = .natural
+        caret.backgroundColor = .systemBlue
+        caret.layer.cornerRadius = 1
+        caret.isHidden = true
+        caret.isUserInteractionEnabled = false
         addSubview(icon)
         addSubview(label)
+        addSubview(caret)
         isAccessibilityElement = true
         accessibilityTraits = .searchField
         update()
@@ -446,59 +469,88 @@ final class EmojiSearchField: UIControl {
         fatalError("init(coder:) has not been implemented")
     }
 
+    /// The blink runs only while the caret shows and the field is on screen.
+    private func updateBlink() {
+        caret.layer.removeAnimation(forKey: "blink")
+        guard showsCaret, window != nil else { return }
+        let blink = CABasicAnimation(keyPath: "opacity")
+        blink.fromValue = 1
+        blink.toValue = 0
+        blink.duration = 0.5
+        blink.autoreverses = true
+        blink.repeatCount = .infinity
+        blink.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        caret.layer.add(blink, forKey: "blink")
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        updateBlink()
+    }
+
     private func update() {
         let empty = (query ?? "").isEmpty
         label.text = empty ? placeholder : query
         label.textColor = empty ? textColor.withAlphaComponent(0.45) : textColor
-        label.font = AppFont.font(ofSize: min(16, max(12, bounds.height * 0.5)))
+        label.font = AppFont.font(ofSize: min(17, max(13, bounds.height * 0.45)))
         icon.tintColor = textColor.withAlphaComponent(0.45)
         accessibilityLabel = placeholder
         accessibilityValue = query
+        setNeedsLayout()
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // Right to left: the magnifier at the right end, as the field reads in Persian.
+        layer.cornerRadius = bounds.height / 2
         let side = bounds.height
-        icon.frame = CGRect(x: bounds.width - side - 2, y: 0, width: side, height: side)
-        label.frame = CGRect(x: 8, y: 0, width: max(0, bounds.width - side - 12), height: side)
-        label.textAlignment = .right
-        update()
+        let textRoom = max(0, bounds.width - side - 14)
+        let empty = (query ?? "").isEmpty
+        let textWidth = min(textRoom, ceil(label.intrinsicContentSize.width))
+        let caretHeight = min(bounds.height - 10, label.font.lineHeight)
+        if isEnglish {
+            // Magnifier on the left, text from the left, the caret after it.
+            icon.frame = CGRect(x: 4, y: 0, width: side, height: side)
+            label.textAlignment = .left
+            label.frame = CGRect(x: side + 4, y: 0, width: textRoom, height: side)
+            let x = side + 4 + (empty ? 0 : textWidth) + 1
+            caret.frame = CGRect(x: x, y: (side - caretHeight) / 2, width: 2, height: caretHeight)
+        } else {
+            icon.frame = CGRect(x: bounds.width - side - 4, y: 0, width: side, height: side)
+            label.textAlignment = .right
+            label.frame = CGRect(x: 10, y: 0, width: textRoom, height: side)
+            let x = 10 + textRoom - (empty ? 0 : textWidth) - 3
+            caret.frame = CGRect(x: x, y: (side - caretHeight) / 2, width: 2, height: caretHeight)
+        }
     }
 }
 
-/// While an emoji search is typed: the search field with a button that ends the search, and
-/// a row of the emoji found, which scrolls sideways.
+/// While an emoji search is typed: the search field, and under it a row of the emoji found,
+/// which scrolls sideways (from the right in Persian, from the left in English).
 final class EmojiSearchView: UIView {
     var onPick: ((String) -> Void)?
-    var onClose: (() -> Void)?
     var textColor = UIColor.label {
         didSet {
             field.textColor = textColor
-            close.tintColor = textColor.withAlphaComponent(0.6)
             empty.textColor = textColor.withAlphaComponent(0.45)
         }
     }
     var scale: CGFloat = 1 { didSet { if scale != oldValue { show(results) } } }
-    var fieldHeight: CGFloat = 38
+    var fieldHeight: CGFloat = 44
     let field = EmojiSearchField()
-    private let close = UIButton(type: .system)
     private let row = UIScrollView()
     private let empty = UILabel()
     private var buttons: [UIButton] = []
     private var results: [String] = []
+    private var isEnglish = false
+
+    /// The emoji in the row of results: smaller than in the grid.
+    static func resultSize(scale: CGFloat) -> CGFloat { (EmojiPanel.emojiSize(scale: scale) * 0.8).rounded() }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         field.isUserInteractionEnabled = false
         addSubview(field)
-        close.setImage(UIImage(systemName: "xmark.circle.fill",
-                               withConfiguration: UIImage.SymbolConfiguration(pointSize: 18)), for: .normal)
-        close.accessibilityLabel = "پایان جستجو"
-        close.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
-        addSubview(close)
         row.showsHorizontalScrollIndicator = false
-        row.semanticContentAttribute = .forceRightToLeft
         addSubview(row)
         empty.font = AppFont.font(ofSize: 13)
         empty.textAlignment = .center
@@ -510,10 +562,17 @@ final class EmojiSearchView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override var isHidden: Bool {
+        didSet { field.showsCaret = !isHidden }
+    }
+
     /// Shows the query and what it finds; with no query yet, the recently used emoji.
     func update(query: String, isEnglish: Bool) {
+        self.isEnglish = isEnglish
+        field.isEnglish = isEnglish
         field.placeholder = isEnglish ? "Search Emoji" : "جستجوی شکلک"
         field.query = query
+        field.showsCaret = !isHidden
         let found = query.isEmpty ? (EmojiPanel.recent.isEmpty ? EmojiPanel.starters : EmojiPanel.recent)
                                   : EmojiPanel.search(query)
         empty.text = found.isEmpty ? (isEnglish ? "No Emoji Found" : "شکلکی پیدا نشد") : nil
@@ -522,37 +581,44 @@ final class EmojiSearchView: UIView {
 
     private func show(_ found: [String]) {
         results = found
-        buttons.forEach { $0.removeFromSuperview() }
-        let size = EmojiPanel.emojiSize(scale: scale)
-        buttons = found.map { emoji in
+        // Buttons are kept and reused: a search changes with every letter typed.
+        let size = Self.resultSize(scale: scale)
+        while buttons.count < found.count {
             let button = UIButton(type: .custom)
-            button.setTitle(emoji, for: .normal)
-            button.titleLabel?.font = .systemFont(ofSize: size)
+            let index = buttons.count
             button.addAction(UIAction { [weak self] _ in
+                guard let self, index < self.results.count else { return }
+                let emoji = self.results[index]
                 UIDevice.current.playInputClick()
                 EmojiPanel.remember(emoji)
-                self?.onPick?(emoji)
+                self.onPick?(emoji)
             }, for: .touchUpInside)
             row.addSubview(button)
-            return button
+            buttons.append(button)
+        }
+        for (index, button) in buttons.enumerated() {
+            button.isHidden = index >= found.count
+            guard index < found.count else { continue }
+            button.setTitle(found[index], for: .normal)
+            if button.titleLabel?.font.pointSize != size { button.titleLabel?.font = .systemFont(ofSize: size) }
         }
         setNeedsLayout()
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let top = min(fieldHeight, bounds.height / 2)
-        close.frame = CGRect(x: 0, y: 0, width: top + 6, height: top)
-        field.frame = CGRect(x: top + 6, y: 4, width: max(0, bounds.width - top - 12), height: max(0, top - 8))
+        let top = min(fieldHeight, bounds.height * 0.6)
+        field.frame = CGRect(x: 6, y: 3, width: max(0, bounds.width - 12), height: max(0, top - 6))
         row.frame = CGRect(x: 0, y: top, width: bounds.width, height: bounds.height - top)
         empty.frame = row.frame
-        let side = EmojiPanel.emojiSize(scale: scale) * 1.45
-        let count = CGFloat(buttons.count)
-        for (index, button) in buttons.enumerated() {
-            // Right to left: the best match at the right end.
-            button.frame = CGRect(x: (count - 1 - CGFloat(index)) * side, y: 0, width: side, height: row.bounds.height)
+        let side = Self.resultSize(scale: scale) * 1.5
+        let count = CGFloat(results.count)
+        for (index, button) in buttons.enumerated() where index < results.count {
+            // The best match first: at the right end in Persian, the left end in English.
+            let slot = isEnglish ? CGFloat(index) : count - 1 - CGFloat(index)
+            button.frame = CGRect(x: slot * side, y: 0, width: side, height: row.bounds.height)
         }
         row.contentSize = CGSize(width: max(row.bounds.width, side * count), height: row.bounds.height)
-        row.contentOffset = CGPoint(x: max(0, row.contentSize.width - row.bounds.width), y: 0)
+        row.contentOffset = CGPoint(x: isEnglish ? 0 : max(0, row.contentSize.width - row.bounds.width), y: 0)
     }
 }
