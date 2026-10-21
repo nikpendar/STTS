@@ -19,7 +19,7 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         didSet {
             searchField.textColor = textColor
             highlightCategory()
-            grid.reloadData()
+            if !isHidden { grid.reloadData() }
         }
     }
     /// The size of the letters on the keys over the standard size: the emoji and the category
@@ -191,7 +191,12 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
 
     // MARK: - Grid
 
-    func numberOfSections(in collectionView: UICollectionView) -> Int { categories.count }
+    /// No cells are made while the panel is hidden (most of the time).
+    func numberOfSections(in collectionView: UICollectionView) -> Int { isHidden ? 0 : categories.count }
+
+    override var isHidden: Bool {
+        didSet { if isHidden != oldValue { grid.reloadData() } }
+    }
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         categories[section].emojis.count
