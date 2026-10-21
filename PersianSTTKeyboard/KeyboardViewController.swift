@@ -12,7 +12,12 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private var state = State.checking {
-        didSet { render() }
+        didSet {
+            render()
+            if (oldValue == .noSession || oldValue == .checking) != (state == .noSession || state == .checking) {
+                updateSpaceImage()
+            }
+        }
     }
 
     private let observer = DarwinObserver()
@@ -164,6 +169,11 @@ final class KeyboardViewController: UIInputViewController {
         buildUI()
         observer.observe(DictationBridge.alive) { [weak self] in
             MainActor.assumeIsolated { self?.sessionIsAlive() }
+        }
+        observer.observe(DictationBridge.ended) { [weak self] in
+            MainActor.assumeIsolated {
+                if self?.state == .ready { self?.state = .noSession }
+            }
         }
         observer.observe(DictationBridge.recording) { [weak self] in
             MainActor.assumeIsolated { self?.recordingStarted() }
@@ -1379,7 +1389,8 @@ final class KeyboardViewController: UIInputViewController {
         spaceKey.accessibilityLabel = isEnglish ? "space" : "فاصله"
         // The mic at the space bar's right end says that holding it dictates: Persian only, and
         // not while an emoji search is typed.
-        spaceKey.trailingImage = canDictateOnSpace ? KeyIcons.spaceMic : nil
+        let sessionOn = state != .noSession && state != .checking
+        spaceKey.trailingImage = canDictateOnSpace ? (sessionOn ? KeyIcons.spaceMic : KeyIcons.spaceMicOff) : nil
     }
 
     /// Holding the space bar dictates (Persian speech) on the Persian letters and symbols.
@@ -2311,8 +2322,7 @@ private final class KeyView: UIControl {
         didSet { face.isHidden = plain }
     }
 
-    /// A second image at the right end of the key (the space bar's mic), drawn as faintly as
-    /// the main one.
+    /// A second image at the right end of the key (the space bar's mic), in its own colours.
     var trailingImage: UIImage? {
         get { trailingImageView.image }
         set {
@@ -2326,7 +2336,6 @@ private final class KeyView: UIControl {
     var dimsImage = false {
         didSet {
             imageView.alpha = dimsImage ? 0.4 : 1
-            trailingImageView.alpha = imageView.alpha
         }
     }
 
@@ -3169,7 +3178,24 @@ private enum KeyIcons {
     }
 
     /// The space bar: a globe between arrows, for swiping between Persian and English.
-    static let spaceMic = UIImage(systemName: "mic.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .medium))
+    /// The space bar's mic in a plain ring: orange while the app's session is on, grey and
+    /// struck through once it has ended (holding space then opens the app).
+    static let spaceMic = ringedMic("mic.fill", color: .systemOrange)
+    static let spaceMicOff = ringedMic("mic.slash.fill", color: .systemGray)
+
+    private static func ringedMic(_ name: String, color: UIColor) -> UIImage {
+        let side: CGFloat = 22
+        let ring = UIColor(white: 0.56, alpha: 0.9)
+        guard let symbol = UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))?
+            .withTintColor(color, renderingMode: .alwaysOriginal) else { return UIImage() }
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
+            let circle = UIBezierPath(ovalIn: CGRect(x: 0.75, y: 0.75, width: side - 1.5, height: side - 1.5))
+            circle.lineWidth = 1.2
+            ring.setStroke()
+            circle.stroke()
+            symbol.draw(at: CGPoint(x: (side - symbol.size.width) / 2, y: (side - symbol.size.height) / 2))
+        }.withRenderingMode(.alwaysOriginal)
+    }
     static let searchDone = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .bold))
 
     static let space: UIImage = {
@@ -3342,38 +3368,42 @@ private final class SuggestionBar: UIView {
 
     private var flash: UILabel?
 
-    /// A word just corrected, on a yellow highlight, falls into the middle of the bar and stays
-    /// a moment; the host's text cannot be marked by a keyboard, so the bar shows it instead.
+    /// A word just corrected, on a solid yellow highlight, falls into the middle of the bar and
+    /// stays a moment while the suggestions step aside; the host's text cannot be marked by a
+    /// keyboard, so the bar shows it instead.
     func flashCorrection(_ word: String) {
         flash?.removeFromSuperview()
         let label = PaddedLabel()
         label.text = word
         label.font = keyFont(for: word, size: fontSize)
-        label.textColor = textColor
-        label.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.45)
-        label.layer.cornerRadius = 7
+        label.textColor = .black
+        label.backgroundColor = UIColor(red: 1, green: 0.84, blue: 0.24, alpha: 1)
+        label.layer.cornerRadius = 8
         label.layer.cornerCurve = .continuous
-        label.clipsToBounds = true
+        label.layer.masksToBounds = true
         label.textAlignment = .center
         let size = label.sizeThatFits(bounds.size)
         let width = min(bounds.width * 0.6, size.width)
-        let height = min(bounds.height - 6, size.height)
+        let height = min(bounds.height - 4, size.height)
         label.frame = CGRect(x: (bounds.width - width) / 2, y: (bounds.height - height) / 2, width: width, height: height)
         addSubview(label)
         flash = label
+        slots.forEach { $0.isHidden = true }
+        dividers.forEach { $0.alpha = 0 }
         label.alpha = 0
         label.transform = CGAffineTransform(translationX: 0, y: -bounds.height * 0.7).scaledBy(x: 1.15, y: 1.15)
-        UIView.animate(withDuration: 0.12) { self.slots.forEach { $0.alpha = 0 } }
         UIView.animate(withDuration: 0.45, delay: 0, usingSpringWithDamping: 0.55, initialSpringVelocity: 0.8) {
             label.alpha = 1
             label.transform = .identity
         }
-        UIView.animate(withDuration: 0.3, delay: 1.2, options: [.beginFromCurrentState, .allowUserInteraction]) {
+        UIView.animate(withDuration: 0.25, delay: 1.3, options: [.beginFromCurrentState, .allowUserInteraction]) {
             label.alpha = 0
-            if self.flash === label { self.slots.forEach { $0.alpha = 1 } }
         } completion: { _ in
             label.removeFromSuperview()
-            if self.flash === label { self.flash = nil }
+            guard self.flash === label else { return }
+            self.flash = nil
+            self.slots.forEach { $0.isHidden = false }
+            self.dividers.forEach { $0.alpha = 1 }
         }
     }
 

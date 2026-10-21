@@ -12,6 +12,8 @@ enum DictationBridge {
     /// Keyboard asks whether a session is running; the app answers with `alive`.
     static let ping = "com.persianstt.ping"
     static let alive = "com.persianstt.alive"
+    /// The app's session ended (timed out or stopped): the keyboard greys its mic.
+    static let ended = "com.persianstt.ended"
     /// Keyboard starts and stops a recording; the app confirms with `recording`.
     static let start = "com.persianstt.start"
     /// As `start`, while the space bar is held: no stop after a silence, the keyboard ends it.

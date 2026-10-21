@@ -23,12 +23,6 @@ final class KeyboardSession: ObservableObject {
         UserDefaults.standard.object(forKey: noiseSuppressionKey) as? Bool ?? true
     }
 
-    /// Seconds of silence after speech that end the recording by themselves; 0 never does.
-    static let autoStopKey = "autoStopSeconds"
-    static let defaultAutoStop = 2.0
-    static var autoStopSeconds: Double {
-        UserDefaults.standard.object(forKey: autoStopKey) as? Double ?? defaultAutoStop
-    }
     /// A recording in which nobody speaks for this long is dropped without transcribing it.
     static let noSpeechSeconds = 8.0
 
@@ -202,6 +196,7 @@ final class KeyboardSession: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if isActive {
             message = "جلسه‌ی کیبورد تمام شد."
+            DictationBridge.post(DictationBridge.ended)
         }
         isActive = false
     }
@@ -225,7 +220,7 @@ final class KeyboardSession: ObservableObject {
         dictationID += 1
         resetIdleTimer()
         DictationBridge.post(DictationBridge.recording)
-        log.info("recording started, \(held ? "held" : "auto stop \(Self.autoStopSeconds) s", privacy: .public)")
+        log.info("recording started\(held ? ", held" : "", privacy: .public)")
         startStreaming(id: dictationID)
         startMonitor(held: held)
         if let testAudio { feedTestAudio(testAudio) }
@@ -234,13 +229,12 @@ final class KeyboardSession: ObservableObject {
     /// Every 0.05 s while recording: sends the level of the latest 0.1 s of audio to the
     /// keyboard (as one of `DictationBridge.levels` notifications, only when it changes), so the
     /// orb keeps up with the voice; twice a second it drops a recording in which nobody has
-    /// spoken for `noSpeechSeconds`, and ends one after `autoStopSeconds` of silence following speech.
+    /// spoken for `noSpeechSeconds`. Silence never ends a recording: the keyboard does.
     /// The longest a held (or locked) recording runs.
     static let heldLimitSeconds = 300.0
 
     private func startMonitor(held: Bool) {
         monitorTask?.cancel()
-        let autoStop = Self.autoStopSeconds
         monitorTask = Task { [weak self] in
             var lastStep = -1
             var checked = 0
@@ -269,19 +263,9 @@ final class KeyboardSession: ObservableObject {
                 guard levels.count - checked >= 5 else { continue }
                 checked = levels.count
                 let seconds = Double(levels.count) / 10
-                guard let speech = Self.speechFrames(levels, from: 0) else {
-                    if seconds >= Self.noSpeechSeconds {
-                        log.info("no speech in \(seconds, format: .fixed(precision: 1)) s; recording dropped")
-                        self.dropRecording()
-                        break
-                    }
-                    continue
-                }
-                let silence = Double(levels.count - 1 - speech.upperBound) / 10
-                if autoStop > 0, silence >= autoStop {
-                    log.info("auto stop after \(silence, format: .fixed(precision: 1)) s of silence")
-                    DictationBridge.post(DictationBridge.stopped)
-                    self.finishCapture()
+                if Self.speechFrames(levels, from: 0) == nil, seconds >= Self.noSpeechSeconds {
+                    log.info("no speech in \(seconds, format: .fixed(precision: 1)) s; recording dropped")
+                    self.dropRecording()
                     break
                 }
             }

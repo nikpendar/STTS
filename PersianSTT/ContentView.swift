@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import AudioToolbox
 import PhotosUI
 import UIKit
 import UniformTypeIdentifiers
@@ -17,10 +18,13 @@ struct ContentView: View {
     @AppStorage(PersonalModel.autoUpdateKey) private var trainingAutoUpdate = false
     @AppStorage(KeyboardSession.idleMinutesKey) private var sessionMinutes = KeyboardSession.defaultIdleMinutes
     @AppStorage(KeyboardSession.noiseSuppressionKey) private var noiseSuppression = true
-    @AppStorage(KeyboardSession.autoStopKey) private var autoStop = KeyboardSession.defaultAutoStop
     @State private var style = KeyStyle.saved
     @State private var options = KeyboardOptions.saved
     @State private var photoItem: PhotosPickerItem?
+    /// Replaced to bring the app back to its first page, the session.
+    @State private var navigationID = UUID()
+    /// Raised when the keyboard opened the app to start the session: the mic shows a ripple.
+    @State private var sessionStarts = 0
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -78,6 +82,7 @@ struct ContentView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
         }
+        .id(navigationID)
         .fileImporter(isPresented: $pickingModel, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result { importer.importModel(from: url) }
         }
@@ -94,7 +99,13 @@ struct ContentView: View {
         }
         .onOpenURL { url in
             if url.host == "session" {
+                // Straight to the session, whatever page was open, and a sign that it started.
+                navigationID = UUID()
                 keyboard.start()
+                if keyboard.isActive {
+                    sessionStarts += 1
+                    if options.keySounds { AudioServicesPlaySystemSound(1113) }
+                }
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -119,22 +130,6 @@ struct ContentView: View {
 
     private var speechPage: some View {
         page("گفتار") {
-            Section {
-                Picker(selection: $autoStop) {
-                    Text("۱ ثانیه").tag(1.0)
-                    Text("۲ ثانیه").tag(2.0)
-                    Text("۳ ثانیه").tag(3.0)
-                    Text("۵ ثانیه").tag(5.0)
-                    Text("خاموش").tag(0.0)
-                } label: {
-                    SettingLabel("پایان خودکار بعد از سکوت", symbol: "stop.circle.fill", color: .red)
-                }
-            } header: {
-                Text("دیکته").font(.app(.footnote))
-            } footer: {
-                Text("وقتی بعد از صحبت به این اندازه سکوت شود، ضبط تمام و متن نوشته می‌شود. اگر ۸ ثانیه هیچ صحبتی نشود، ضبط بدون پردازش بسته می‌شود. متن همان وقت که صحبت می‌کنید در کیبورد نوشته می‌شود.").font(.app(.footnote))
-            }
-
             Section {
                 Toggle(isOn: $options.voicePunctuation) {
                     SettingLabel("نشانه‌گذاری با گفتن", symbol: "textformat.abc.dottedunderline", color: .orange)
@@ -374,6 +369,7 @@ struct ContentView: View {
             }
             .frame(width: 88, height: 88)
             .shadow(color: .purple.opacity(keyboard.isActive ? 0.4 : 0), radius: 14)
+            .background(SessionRipple(trigger: sessionStarts))
 
             Text("کیلس")
                 .font(.app(.title2))
@@ -600,6 +596,33 @@ private struct SliderLine<Control: View, Value: View>: View {
 }
 
 /// A settings row label with a white symbol on a coloured rounded square, as in iOS Settings.
+/// Rings that spread from the mic and fade, each time `trigger` changes.
+private struct SessionRipple: View {
+    let trigger: Int
+    @State private var spread = false
+
+    var body: some View {
+        ZStack {
+            ForEach(0..<3, id: \.self) { ring in
+                Circle()
+                    .stroke(AngularGradient(colors: [.pink, .purple, .blue, .teal, .pink], center: .center), lineWidth: 3)
+                    .scaleEffect(spread ? 2.1 : 1)
+                    .opacity(spread ? 0 : 0.9)
+                    .animation(.easeOut(duration: 1.1).delay(Double(ring) * 0.22), value: spread)
+            }
+        }
+        .opacity(trigger == 0 ? 0 : 1)
+        .onChange(of: trigger) { _, _ in
+            var reset = Transaction()
+            reset.disablesAnimations = true
+            withTransaction(reset) { spread = false }
+            // The next frame, so the rings start again from the mic.
+            DispatchQueue.main.async { spread = true }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 private struct SettingLabel: View {
     let title: String
     let symbol: String
