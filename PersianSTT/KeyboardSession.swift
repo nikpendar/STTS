@@ -341,6 +341,7 @@ final class KeyboardSession: ObservableObject {
             var latest = ""
             var shown = ""
             var shownAt = Date.distantPast
+            var failures = 0
             while let self, self.isCapturing, id == self.dictationID {
                 let piece = self.collector.snapshot(from: self.fedCount)
                 if !piece.isEmpty {
@@ -349,8 +350,18 @@ final class KeyboardSession: ObservableObject {
                         if let text = try await engine.feed(piece) { latest = text }
                     } catch {
                         log.error("stream failed: \(error.localizedDescription, privacy: .public)")
-                        self.streamFailed = true
-                        return
+                        // Once more from the start on the CPU, or (already there) on a fresh stream:
+                        // a recording without live text was the failure users saw.
+                        failures += 1
+                        guard failures <= 2 else {
+                            self.streamFailed = true
+                            return
+                        }
+                        if await !engine.fallBackToCPU() { await engine.begin() }
+                        guard id == self.dictationID else { return }
+                        self.fedCount = 0
+                        latest = ""
+                        continue
                     }
                 }
                 // A new word can come every 80 ms; the keyboard gets the text at most 4 times a second.

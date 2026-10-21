@@ -26,6 +26,8 @@ final class GlideTrailView: UIView {
     private var snapshotSize = CGSize.zero
     private var displayLink: CADisplayLink?
     private var isTracking = false
+    /// Touch points when the finger lifted; the tail then retracts into the head as it fades.
+    private var endCount = 0
     private var endTime: CFTimeInterval = 0
     private var glass: TrailGlass?
     private static let lifetime: CFTimeInterval = 0.32
@@ -107,6 +109,7 @@ final class GlideTrailView: UIView {
         guard isTracking else { return }
         isTracking = false
         endTime = CACurrentMediaTime()
+        endCount = points.count
     }
 
     /// The keys as they are now, without the trail, for the discs to enlarge.
@@ -143,10 +146,15 @@ final class GlideTrailView: UIView {
         let now = CACurrentMediaTime()
         // The head stays while the finger is down; the tail follows it.
         let headTime = isTracking ? points.last?.time : nil
-        // Once the finger lifts the line stops shortening and only fades.
         if isTracking { points.removeAll { now - $0.time > Self.lifetime && $0.time != headTime } }
         let fade = isTracking ? 1 : CGFloat(max(0, 1 - (now - endTime) / Self.fadeTime))
-        if fade <= 0 { points.removeAll() }
+        if fade <= 0 {
+            points.removeAll()
+        } else if !isTracking {
+            // After the lift the drop shrinks from its tail too, so no thin straight line is left.
+            let keep = max(1, Int((CGFloat(endCount) * fade * fade).rounded(.up)))
+            if points.count > keep { points.removeFirst(points.count - keep) }
+        }
         draw(fade: fade)
         if points.isEmpty && !isTracking {
             displayLink?.invalidate()

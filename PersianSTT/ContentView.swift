@@ -227,10 +227,13 @@ struct ContentView: View {
                 Toggle(isOn: $options.keySounds) {
                     SettingLabel("صدای کلیدها", symbol: "speaker.wave.2.fill", color: .pink)
                 }
+                Toggle(isOn: $options.haptics) {
+                    SettingLabel("لرزش (هپتیک)", symbol: "iphone.radiowaves.left.and.right", color: .red)
+                }
             } header: {
                 Text("کلیدها").font(.app(.footnote))
             } footer: {
-                Text("دو بار زدن پشت سر هم فاصله بعد از یک کلمه «. » تایپ می‌کند و بار سوم آن را «، » می‌کند (در انگلیسی «, »). تنوین و اعراب در صفحه‌ی ۱۲۳ هستند. ردیف اعداد کوتاه است و کیبورد را کمی بلندتر می‌کند. صدای کلیدها مثل کیبورد آیفون است و با سوییچ بی‌صدای گوشی قطع می‌شود.").font(.app(.footnote))
+                Text("دو بار زدن پشت سر هم فاصله بعد از یک کلمه «. » تایپ می‌کند و بار سوم آن را «، » می‌کند (در انگلیسی «, »). تنوین و اعراب در صفحه‌ی ۱۲۳ هستند. ردیف اعداد کوتاه است و کیبورد را کمی بلندتر می‌کند. صدای کلیدها مثل کیبورد آیفون است و با سوییچ بی‌صدای گوشی قطع می‌شود. لرزش برای کلیدها، اصلاح کلمه و رفتن به دسته‌ی دیگر شکلک‌ها فرق دارد.").font(.app(.footnote))
             }
             Section {
                 Toggle(isOn: $options.autoZWNJ) {

@@ -11,27 +11,34 @@ private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model"
 /// one block on that queue, so a recording fed in pieces and a whole file never interleave.
 final class SpeechEngine: @unchecked Sendable {
     /// The Neural Engine, or the CPU alone where Core ML could not run the model there.
-    let computeUnits: MLComputeUnits
+    private(set) var computeUnits: MLComputeUnits
     private let queue = DispatchQueue(label: "ir.nikpendar.PersianSTT.speech", qos: .userInitiated)
-    private let stream: ShenavaStream
+    /// Replaced (on `queue`) by a CPU-only stream when a prediction fails.
+    private var stream: ShenavaStream
+    private let model: URL
+    private let resources: URL
 
-    private init(stream: ShenavaStream, units: MLComputeUnits) {
+    private init(stream: ShenavaStream, units: MLComputeUnits, model: URL, resources: URL) {
         self.stream = stream
         computeUnits = units
+        self.model = model
+        self.resources = resources
     }
 
     /// Loads a compiled model (.mlmodelc). The first prediction prepares it for the hardware,
     /// so it runs here once on a second of silence rather than at the start of the first dictation.
+    /// No GPU: the keyboard dictates with the app in the background, where iOS refuses GPU work
+    /// and every prediction then failed, so no text came while the user spoke.
     static func load(model: URL, resources: URL) async throws -> SpeechEngine {
         try await Task.detached(priority: .userInitiated) {
             var lastError: Error?
-            for units in [MLComputeUnits.all, .cpuOnly] {
+            for units in [MLComputeUnits.cpuAndNeuralEngine, .cpuOnly] {
                 do {
                     let stream = try ShenavaStream(model: model, resources: resources, computeUnits: units)
                     try stream.accept([Float](repeating: 0, count: 16_000))
                     try stream.finish()
                     stream.reset()
-                    return SpeechEngine(stream: stream, units: units)
+                    return SpeechEngine(stream: stream, units: units, model: model, resources: resources)
                 } catch {
                     log.error("model failed with compute units \(units.rawValue): \(error.localizedDescription, privacy: .public)")
                     lastError = error
@@ -45,6 +52,22 @@ final class SpeechEngine: @unchecked Sendable {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 continuation.resume(with: Result { try work(self.stream) })
+            }
+        }
+    }
+
+    /// After a failed prediction: the same model on the CPU alone, with a new dictation started.
+    /// Returns false when it is already on the CPU or cannot be rebuilt.
+    func fallBackToCPU() async -> Bool {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                guard self.computeUnits != .cpuOnly,
+                      let stream = try? ShenavaStream(model: self.model, resources: self.resources, computeUnits: .cpuOnly)
+                else { return continuation.resume(returning: false) }
+                log.error("speech model moved to the CPU after a failed prediction")
+                self.stream = stream
+                self.computeUnits = .cpuOnly
+                continuation.resume(returning: true)
             }
         }
     }

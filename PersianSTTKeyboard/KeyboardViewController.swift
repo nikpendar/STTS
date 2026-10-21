@@ -109,7 +109,9 @@ final class KeyboardViewController: UIInputViewController {
     /// Dictations and voice edits that «برگردون» can undo, latest last.
     private var undoSteps: [UndoStep] = []
     /// Features turned on or off in the app.
-    private var options = KeyboardOptions.standard
+    private var options = KeyboardOptions.standard {
+        didSet { Haptics.isOn = options.haptics }
+    }
     /// Key width the typo search's neighbouring keys were taken at, for English and for Persian.
     private var neighboursWidths: [Bool: CGFloat] = [:]
     /// The last space typed, for two spaces typing a full stop and three a comma: 0 after the
@@ -280,6 +282,7 @@ final class KeyboardViewController: UIInputViewController {
         if name == "emoji" {
             layer = .emoji
             buildCharacterKeys()
+            emojiPanel.showFromStart()
             state = .ready
             return
         }
@@ -368,7 +371,7 @@ final class KeyboardViewController: UIInputViewController {
             guard canDictateOnSpace else { return }
             switch state {
             case .ready:
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                haptic(.impact(.medium))
                 hold = (startHeight: height, locked: false)
                 orb.recordingHint = Self.holdHint
                 startDictation(held: true)
@@ -380,7 +383,7 @@ final class KeyboardViewController: UIInputViewController {
         case .changed:
             guard let current = hold, !current.locked, height - current.startHeight > Self.lockDistance else { return }
             hold?.locked = true
-            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            haptic(.impact(.rigid))
             orb.recordingHint = Self.lockedHint
         case .ended, .cancelled, .failed:
             guard let current = hold else { return }
@@ -428,7 +431,7 @@ final class KeyboardViewController: UIInputViewController {
     /// The app ended the recording after the speaker stopped talking.
     private func recordingStoppedByApp() {
         guard state == .recording else { return }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        haptic(.impact(.light))
         beginTranscribing()
     }
 
@@ -879,6 +882,8 @@ final class KeyboardViewController: UIInputViewController {
     private let menuShield = UIControl()
     private let emojiPanel = EmojiPanel()
     private let emojiSearchView = EmojiSearchView()
+    /// On the emoji panel, beside backspace (Persian) or ABC (English): opens the search.
+    private let emojiSearchKey = KeyView(symbol: "magnifyingglass")
     private let layerKey = KeyView(title: "۱۲۳", fontSize: 16)
     /// English: #+= on the numbers layer and 123 behind it, where shift is on the letters.
     private let moreKey = KeyView(title: "#+=", fontSize: 16)
@@ -998,8 +1003,15 @@ final class KeyboardViewController: UIInputViewController {
 
         emojiPanel.isHidden = true
         emojiPanel.onPick = { [weak self] emoji in self?.insert(emoji) }
-        emojiPanel.onSearch = { [weak self] in self?.beginEmojiSearch() }
+        emojiPanel.onCategoryChange = { [weak self] in self?.haptic(.category) }
         keysView.addSubview(emojiPanel)
+        emojiSearchKey.accessibilityIdentifier = "emojiSearchKey"
+        emojiSearchKey.accessibilityLabel = "جستجوی شکلک"
+        emojiSearchKey.plain = true
+        emojiSearchKey.isHidden = true
+        emojiSearchKey.addAction(UIAction { [weak self] _ in self?.click(.modifier) }, for: .touchDown)
+        emojiSearchKey.addAction(UIAction { [weak self] _ in self?.beginEmojiSearch() }, for: .touchUpInside)
+        keysView.addSubview(emojiSearchKey)
         emojiSearchView.isHidden = true
         emojiSearchView.onPick = { [weak self] emoji in self?.insertFoundEmoji(emoji) }
         keysView.addSubview(emojiSearchView)
@@ -1123,6 +1135,7 @@ final class KeyboardViewController: UIInputViewController {
         updateSpaceImage()
         layerKey.plain = onEmoji
         backspaceKey.plain = onEmoji
+        emojiSearchKey.isHidden = !onEmoji
         emojiSearchView.isHidden = emojiSearch == nil
         characterKeys = rows.enumerated().map { rowIndex, row in
             row.enumerated().map { column, character in
@@ -1196,7 +1209,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         view.overrideUserInterfaceStyle = interface
-        let functionKeys = [backspaceKey, layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey]
+        let functionKeys = [backspaceKey, layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey, emojiSearchKey]
         for key in functionKeys + characterKeys.flatMap({ $0 }) + numberKeys {
             key.apply(style)
         }
@@ -1242,8 +1255,33 @@ final class KeyboardViewController: UIInputViewController {
     /// Plays on a key's touch down, as on iOS, when switched on in the app; the ring/silent
     /// switch silences it.
     private func click(_ sound: Click) {
+        haptic(.key)
         guard options.keySounds else { return }
         AudioServicesPlaySystemSound(sound.rawValue)
+    }
+
+    /// Feedback through the Taptic Engine, when switched on in the app: a light tap for a key,
+    /// a double tap for a corrected word, a tick for each emoji category the grid scrolls into,
+    /// and a firmer tap for holds and menus.
+    private enum Haptic {
+        case key, correction, category
+        case impact(UIImpactFeedbackGenerator.FeedbackStyle)
+    }
+
+    private lazy var keyHaptic = UIImpactFeedbackGenerator(style: .light)
+
+    private func haptic(_ kind: Haptic) {
+        guard Haptics.isOn else { return }
+        switch kind {
+        case .key:
+            keyHaptic.impactOccurred(intensity: 0.6)
+        case .correction:
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        case .category:
+            UISelectionFeedbackGenerator().selectionChanged()
+        case .impact(let style):
+            UIImpactFeedbackGenerator(style: style).impactOccurred()
+        }
     }
 
     /// English letter keys and their popups show capitals while shift or caps lock is on.
@@ -1356,7 +1394,7 @@ final class KeyboardViewController: UIInputViewController {
         updateSpaceImage()
         loadLexicon()
         buildCharacterKeys()
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        haptic(.impact(.light))
     }
 
     override func updateViewConstraints() {
@@ -1437,13 +1475,13 @@ final class KeyboardViewController: UIInputViewController {
         shiftKey.frame = CGRect(x: left, y: thirdY, width: 1.5 * unit, height: row)
         moreKey.frame = isPersianSymbols ? CGRect(x: left, y: thirdY, width: unit, height: row) : shiftKey.frame
 
-        // Emoji panel: the search field in the suggestion bar's place (at least 30 high), the
-        // grid over the three key rows, and the categories in the bottom row between الفبا on
-        // the left and backspace on the right.
+        // Emoji panel: the grid from the top (no search field over it) down to the bottom row,
+        // where the categories sit between الفبا with search on the left and backspace on the
+        // right; in Persian search sits beside backspace instead.
         let edgeKey = 1.6 * width / 11
-        emojiPanel.searchHeight = max(30, bar)
+        let searchKeyWidth = 1.2 * width / 11
         emojiPanel.bottomHeight = row
-        emojiPanel.bottomInsets = (edgeKey, edgeKey)
+        emojiPanel.bottomInsets = isEnglish ? (edgeKey + searchKeyWidth, edgeKey) : (edgeKey, edgeKey + searchKeyWidth)
         emojiPanel.frame = CGRect(x: left, y: 0, width: width, height: top + 4 * row)
 
         for (index, keys) in characterKeys.enumerated() {
@@ -1480,6 +1518,8 @@ final class KeyboardViewController: UIInputViewController {
         if layer == .emoji {
             layerKey.frame = CGRect(x: left, y: y, width: edgeKey, height: row)
             backspaceKey.frame = CGRect(x: left + width - edgeKey, y: y, width: edgeKey, height: row)
+            emojiSearchKey.frame = CGRect(x: isEnglish ? left + edgeKey : left + width - edgeKey - searchKeyWidth,
+                                          y: y, width: searchKeyWidth, height: row)
         } else {
             place(layerKey, 2 * eleventh)
             if emojiSearch == nil { place(emojiKey, 2 * eleventh) }
@@ -1517,6 +1557,7 @@ final class KeyboardViewController: UIInputViewController {
         endEmojiSearch(backToEmoji: false)
         layer = layer == .emoji ? .letters : .emoji
         buildCharacterKeys()
+        if layer == .emoji { emojiPanel.showFromStart() }
     }
 
     // MARK: - Emoji search
@@ -1541,6 +1582,7 @@ final class KeyboardViewController: UIInputViewController {
         if backToEmoji {
             layer = .emoji
             buildCharacterKeys()
+            emojiPanel.showFromStart()
         } else {
             updateSuggestions()
             view.setNeedsLayout()
@@ -1636,6 +1678,8 @@ final class KeyboardViewController: UIInputViewController {
         insert(new + " ")
         lexicon.learn(new, after: context)
         lastAutoZWNJ = (new + " ", old + " ")
+        haptic(.correction)
+        if !suggestionBar.isHidden { suggestionBar.flashCorrection(new) }
         return true
     }
 
@@ -1655,6 +1699,8 @@ final class KeyboardViewController: UIInputViewController {
         insert(new + " ")
         lexicon.learn(new, after: context)
         lastAutoZWNJ = (new + " ", word + " ")
+        haptic(.correction)
+        if !suggestionBar.isHidden { suggestionBar.flashCorrection(new) }
         return true
     }
 
@@ -1696,15 +1742,41 @@ final class KeyboardViewController: UIInputViewController {
         repeatTimer?.invalidate()
         repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
+                var repeats = 0
                 self?.repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
                     MainActor.assumeIsolated {
                         self?.click(.delete)
                         self?.touchDeleted(repeating: true)
                         self?.deleteBackward()
+                        repeats += 1
+                        // As on iOS: held longer, backspace goes a word at a time.
+                        if repeats == 14 { self?.repeatWords() }
                     }
                 }
             }
         }
+    }
+
+    private func repeatWords() {
+        repeatTimer?.invalidate()
+        repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.22, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.click(.delete)
+                self.deleteWordBackward()
+            }
+        }
+    }
+
+    /// The word before the cursor with the spaces after it, or one other character.
+    private func deleteWordBackward() {
+        let before = proxy.documentContextBeforeInput ?? ""
+        guard !before.isEmpty else { return deleteBackward() }
+        var rest = Substring(before)
+        while let last = rest.last, last == " " || last == "\u{00A0}" { rest.removeLast() }
+        let word = currentWord(before: String(rest))
+        let count = before.count - rest.count + (word.isEmpty ? 1 : word.count)
+        for _ in 0..<min(count, before.count) { deleteBackward() }
     }
 
     @objc private func backspaceUp() {
@@ -2076,7 +2148,7 @@ final class KeyboardViewController: UIInputViewController {
                                       anchor: anchored.flatMap { $0.forms.firstIndex(of: $0.anchor) })
             }
             keysView.bringSubviewToFront(keyPopup)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            haptic(.impact(.light))
         case .changed:
             keyPopup.select(at: press.location(in: keysView))
         case .ended:
@@ -2131,7 +2203,7 @@ final class KeyboardViewController: UIInputViewController {
             self.keyMenu.alpha = 1
             self.keyMenu.transform = .identity
         }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        haptic(.impact(.light))
     }
 
     /// Above the emoji key, inside the keyboard: an extension cannot draw outside its view.
@@ -2407,6 +2479,11 @@ private final class KeyView: UIControl {
 /// the finger in blue. From iOS 26 the balloon is Liquid Glass, through which the keys under it
 /// show. An extension cannot draw above its own view, so over the top row the card reaches only
 /// the top of the suggestion bar. The view covers the keys area and never takes touches.
+/// The app's haptics switch, for the popups and menus as well as the controller.
+private enum Haptics {
+    @MainActor static var isOn = true
+}
+
 private final class KeyPopupView: UIView {
     struct Item {
         /// What is typed.
@@ -2653,7 +2730,7 @@ private final class KeyPopupView: UIView {
             label.textColor = i == index ? .white : textColor
             images[i].tintColor = label.textColor
         }
-        if feedback, changed, index != nil { UISelectionFeedbackGenerator().selectionChanged() }
+        if feedback, changed, index != nil, Haptics.isOn { UISelectionFeedbackGenerator().selectionChanged() }
     }
 
     /// The card with rounded corners, joined to the foot (the key) by a curved neck: an S-curve
@@ -3204,6 +3281,14 @@ private enum KeyIcons {
 
 /// The row of word suggestions above the keys: three slots, read right to left, with thin
 /// dividers between them as on the system keyboard.
+/// A label with room around its text, for the highlight behind a corrected word.
+private final class PaddedLabel: UILabel {
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let fitted = super.sizeThatFits(size)
+        return CGSize(width: fitted.width + 16, height: fitted.height + 6)
+    }
+}
+
 private final class SuggestionBar: UIView {
     struct Item {
         let text: String
@@ -3253,6 +3338,43 @@ private final class SuggestionBar: UIView {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    private var flash: UILabel?
+
+    /// A word just corrected, on a yellow highlight, falls into the middle of the bar and stays
+    /// a moment; the host's text cannot be marked by a keyboard, so the bar shows it instead.
+    func flashCorrection(_ word: String) {
+        flash?.removeFromSuperview()
+        let label = PaddedLabel()
+        label.text = word
+        label.font = keyFont(for: word, size: fontSize)
+        label.textColor = textColor
+        label.backgroundColor = UIColor.systemYellow.withAlphaComponent(0.45)
+        label.layer.cornerRadius = 7
+        label.layer.cornerCurve = .continuous
+        label.clipsToBounds = true
+        label.textAlignment = .center
+        let size = label.sizeThatFits(bounds.size)
+        let width = min(bounds.width * 0.6, size.width)
+        let height = min(bounds.height - 6, size.height)
+        label.frame = CGRect(x: (bounds.width - width) / 2, y: (bounds.height - height) / 2, width: width, height: height)
+        addSubview(label)
+        flash = label
+        label.alpha = 0
+        label.transform = CGAffineTransform(translationX: 0, y: -bounds.height * 0.7).scaledBy(x: 1.15, y: 1.15)
+        UIView.animate(withDuration: 0.12) { self.slots.forEach { $0.alpha = 0 } }
+        UIView.animate(withDuration: 0.45, delay: 0, usingSpringWithDamping: 0.55, initialSpringVelocity: 0.8) {
+            label.alpha = 1
+            label.transform = .identity
+        }
+        UIView.animate(withDuration: 0.3, delay: 1.2, options: [.beginFromCurrentState, .allowUserInteraction]) {
+            label.alpha = 0
+            if self.flash === label { self.slots.forEach { $0.alpha = 1 } }
+        } completion: { _ in
+            label.removeFromSuperview()
+            if self.flash === label { self.flash = nil }
+        }
     }
 
     /// Items right to left; nil leaves a slot empty.
@@ -3441,7 +3563,7 @@ private final class KeyMenuView: UIView {
         for (i, row) in rows.enumerated() {
             row.backgroundColor = i == index ? UIColor.label.withAlphaComponent(0.12) : .clear
         }
-        if index != nil { UISelectionFeedbackGenerator().selectionChanged() }
+        if index != nil, Haptics.isOn { UISelectionFeedbackGenerator().selectionChanged() }
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

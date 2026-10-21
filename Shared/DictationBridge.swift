@@ -386,6 +386,8 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var touchResets = 0
     /// The system keyboard's clicks: one for characters, one for backspace, one for the other keys.
     var keySounds = true
+    /// Taptic feedback: keys, corrected words, emoji categories, holds and menus.
+    var haptics = true
 
     static let standard = KeyboardOptions()
     static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardOptions")
@@ -408,5 +410,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
         learnTouches = try container.decodeIfPresent(Bool.self, forKey: .learnTouches) ?? true
         touchResets = try container.decodeIfPresent(Int.self, forKey: .touchResets) ?? 0
         keySounds = try container.decodeIfPresent(Bool.self, forKey: .keySounds) ?? true
+        haptics = try container.decodeIfPresent(Bool.self, forKey: .haptics) ?? true
     }
 }

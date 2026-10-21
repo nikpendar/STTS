@@ -1,8 +1,8 @@
 import UIKit
 
-/// The emoji panel, laid out as the iOS emoji keyboard: a search field on top, a grid in
-/// sections that scrolls up and down, and a row of category buttons at the bottom (between
-/// الفبا and backspace, which the keyboard places), scrolling sideways when they do not fit.
+/// The emoji panel, laid out as the iOS emoji keyboard: a grid in sections that scrolls up and
+/// down, and a row of category buttons at the bottom (between الفبا, search and backspace, which
+/// the keyboard places), scrolling sideways when they do not fit.
 /// The first section mixes emoji for the words just typed (`EmojiPanel.suggestions`) with the
 /// recently used ones. Cells are reused, so the panel stays light however many emoji it lists.
 final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
@@ -13,11 +13,10 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
     }
 
     var onPick: ((String) -> Void)?
-    /// The search field was tapped: the keyboard shows its letters to type the search.
-    var onSearch: (() -> Void)?
+    /// The user scrolled the grid into another category.
+    var onCategoryChange: (() -> Void)?
     var textColor = UIColor.label {
         didSet {
-            searchField.textColor = textColor
             highlightCategory()
             if !isHidden { grid.reloadData() }
         }
@@ -32,16 +31,13 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
             grid.reloadData()
         }
     }
-    /// Heights of the search field and of the category row (a key row), and the room the
-    /// keyboard keeps beside the category row for الفبا on the left and backspace on the right.
-    var searchHeight: CGFloat = 38
+    /// Height of the category row (a key row), and the room the keyboard keeps beside it for
+    /// its keys on the left and on the right.
     var bottomHeight: CGFloat = 54
     var bottomInsets: (left: CGFloat, right: CGFloat) = (0, 0)
     var isEnglish = false {
         didSet {
             guard isEnglish != oldValue else { return }
-            searchField.placeholder = isEnglish ? "Search Emoji" : "جستجوی شکلک"
-            searchField.isEnglish = isEnglish
             // English reads from the left: the recent emoji and the sections fill from there.
             grid.semanticContentAttribute = isEnglish ? .forceLeftToRight : .forceRightToLeft
             categoryScroll.semanticContentAttribute = grid.semanticContentAttribute
@@ -51,7 +47,6 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
     }
 
     private var categories: [Category] = EmojiPanel.standard
-    private let searchField = EmojiSearchField()
     private let grid: UICollectionView
     private let layout = UICollectionViewFlowLayout()
     private let categoryScroll = UIScrollView()
@@ -70,9 +65,6 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         layout.headerReferenceSize = CGSize(width: 0, height: 22)
         grid = UICollectionView(frame: .zero, collectionViewLayout: layout)
         super.init(frame: frame)
-        searchField.placeholder = "جستجوی شکلک"
-        searchField.addAction(UIAction { [weak self] _ in self?.onSearch?() }, for: .touchUpInside)
-        addSubview(searchField)
         grid.backgroundColor = .clear
         grid.showsVerticalScrollIndicator = false
         grid.dataSource = self
@@ -125,10 +117,8 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let top = min(searchHeight, bounds.height / 4)
         let bottom = min(bottomHeight, bounds.height / 3)
-        searchField.frame = CGRect(x: 6, y: 4, width: bounds.width - 12, height: max(0, top - 8))
-        grid.frame = CGRect(x: 0, y: top, width: bounds.width, height: bounds.height - top - bottom)
+        grid.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height - bottom)
         categoryScroll.frame = CGRect(x: bottomInsets.left, y: bounds.height - bottom,
                                       width: max(0, bounds.width - bottomInsets.left - bottomInsets.right), height: bottom)
         // Equal shares of the row when they fit, else each a fixed width and the row scrolls.
@@ -152,6 +142,16 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         let wanted = Self.emojiSize(scale: scale) * 1.45
         let columns = max(6, floor(grid.bounds.width / wanted))
         return floor(grid.bounds.width / columns)
+    }
+
+    /// Each time the panel opens: the top of the grid, «اخیر» lit and the category row at its start.
+    func showFromStart() {
+        layoutIfNeeded()
+        grid.setContentOffset(.zero, animated: false)
+        current = 0
+        let contentWidth = categoryScroll.contentSize.width
+        categoryScroll.contentOffset = CGPoint(x: isEnglish ? 0 : max(0, contentWidth - categoryScroll.bounds.width), y: 0)
+        highlightCategory()
     }
 
     private func jump(to section: Int) {
@@ -244,6 +244,7 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         if section != current {
             current = section
             highlightCategory()
+            if scrollView.isDragging || scrollView.isDecelerating { onCategoryChange?() }
         }
     }
 
@@ -430,21 +431,20 @@ private final class EmojiHeader: UICollectionReusableView {
     }
 }
 
-/// The field at the top of the emoji panel, and of the search row while a search is typed:
+/// The field of the search row while an emoji search is typed:
 /// a magnifier, the query or a placeholder, on a grey capsule as in iOS. Persian reads from
-/// the right, English from the left. While a search is typed a caret blinks after the query.
+/// the right, English from the left. While a search is typed a steady caret follows the query.
 final class EmojiSearchField: UIControl {
     var placeholder = "" { didSet { update() } }
     /// The search typed so far; nil shows the placeholder.
     var query: String? { didSet { update() } }
     var textColor = UIColor.label { didSet { update() } }
     var isEnglish = false { didSet { if isEnglish != oldValue { setNeedsLayout() } } }
-    /// The blinking caret of a search being typed.
+    /// The caret of a search being typed; it stays lit, without blinking.
     var showsCaret = false {
         didSet {
             guard showsCaret != oldValue else { return }
             caret.isHidden = !showsCaret
-            updateBlink()
         }
     }
     private let icon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
@@ -472,25 +472,6 @@ final class EmojiSearchField: UIControl {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    /// The blink runs only while the caret shows and the field is on screen.
-    private func updateBlink() {
-        caret.layer.removeAnimation(forKey: "blink")
-        guard showsCaret, window != nil else { return }
-        let blink = CABasicAnimation(keyPath: "opacity")
-        blink.fromValue = 1
-        blink.toValue = 0
-        blink.duration = 0.5
-        blink.autoreverses = true
-        blink.repeatCount = .infinity
-        blink.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        caret.layer.add(blink, forKey: "blink")
-    }
-
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        updateBlink()
     }
 
     private func update() {
