@@ -1,0 +1,48 @@
+Tracing: <_UIInputViewControllerState 0x600000ded950> [48]
+
+Found 3 roots referencing: <_UIInputViewControllerState 0x600000ded950> [48]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    3 <_UIInputViewControllerState 0x600000ded950> [48]
+      3 <_UITextDocumentInterface 0x60000171a7c0> [64]    +40: __strong _controllerState 0x60000171a7e8
+        3 <NSMutableArray (Storage) 0x600000de70c0> [48]     +0: __strong  0x600000de70c0
+          2 0x60000027eae0 [32]     +8:  0x60000027eae8
+          + 2 <SVGPathCommand 0x6000017cee00> [64]    +56:  0x6000017cee38
+          +   2 0x600003e2ee00 [256]   +176:  0x600003e2eeb0
+          +     2 <SVGPath 0x60000302b4e0> [144]    +48:  0x60000302b510
+          +       2 <SVGAttribute 0x600002931340> [112]    +88:  0x600002931398
+          +         2 0x600000c8e490 [48]    +40:  0x600000c8e4b8
+          +           1 0x6000002bc080 [32]     +8:  0x6000002bc088
+          +           ! 1 <SVGPathCommand 0x60000180cb80> [64]    +56:  0x60000180cbb8
+          +           !   1 0x600003e30600 [256]     +8:  0x600003e30608
+          +           !     1 <SVGPath 0x600003011170> [144]    +48:  0x6000030111a0
+          +           !       1 <SVGAttribute 0x600002951b20> [112]    +88:  0x600002951b78
+          +           !         1 0x1018ae400 [4096]  +4024:  0x1018af3b8 --> offset 20
+          +           !           1 0x60000300d710 [144]    +16:  0x60000300d720
+          +           !             1 0x103015530 [32]    +24:  0x103015548
+          +           !               1 0x1017040e0 [128]   +120:  0x101704158
+          +           !                 1 0x101704080 [96]    +16:  0x101704090
+          +           !                   1 Region QuartzCore __DATA __bss: 'class_table' 0x1f2be23a0
+          +           1 0x600000c8de00 [48]     +8:  0x600000c8de08
+          +             1 <SVGAttributeMap 0x60000219b3e0> [80]    +48:  0x60000219b410
+          +               1 <SVGShapeNode 0x1015a5aa0> [336]    +56:  0x1015a5ad8
+          +                 1 0x600000018430 [16]     +0:  0x600000018430
+          +                   1 <SVGNode 0x6000039ce630> [208]    +88:  0x6000039ce688
+          +                     1 0x60000001a620 [16]     +0:  0x60000001a620
+          +                       1 <SVGRootNode 0x1015a4a70> [288]    +88:  0x1015a4ac8
+          +                         1 <SVGDocument 0x60000219b6b0> [80]    +48:  0x60000219b6e0
+          +                           1 <SVGDocument 0x6000002a2600> [32]    +16:  0x6000002a2610
+          +                             1 <_CUIThemeSVGRendition 0x1015995f0> [352]   +216: _svgDocument 0x1015996c8
+          +                               1 <NSMutableDictionary (Storage) 0x102848200> [2048]  +1304: __strong  0x102848718
+          +                                 1 <NSMutableDictionary 0x6000002c2640> [32]  item count: 53     +8: __strong storage 0x6000002c2648
+          +                                   1 <CUIStructuredThemeStore 0x600002607ea0> [96]     +8: _cache 0x600002607ea8
+          +                                     1 0x6000017e7840 [64]    +16:  0x6000017e7850
+          +                                       1 <CFBasicHash 0x60000171a040> [64]    +40:  0x60000171a068
+          +                                         1 <NSClassicMapTable 0x600002606d60> [96]    +80: _ht 0x600002606db0
+          +                                           1 Region CoreUI __DATA __bss: '__PerformBlockWithThemeRegistry.__themeRegistry' 0x1f2ec3268
+          1 <NSMutableArray 0x600000ca8930> [48]  item count: 6    +16: __strong storage 0x600000ca8940
+            1 <TUIKeyboardInputManagerMux 0x600001748080> [64]    +40: __strong _clients 0x6000017480a8
+              1 Region TextInputUI __DATA __bss: 'sharedInstance.__instance' 0x1f3860ca8
