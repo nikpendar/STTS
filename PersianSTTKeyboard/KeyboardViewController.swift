@@ -246,6 +246,17 @@ final class KeyboardViewController: UIInputViewController {
         super.viewWillDisappear(animated)
         finishEdits()
         if touchSaveScheduled { touchModel.save() }
+        // A recording the keyboard can no longer end (a locked one, or a finger still on the
+        // space bar) would keep the app's microphone and model running: it is cancelled.
+        if state == .starting || state == .recording {
+            DictationBridge.post(DictationBridge.cancel)
+            hold = nil
+            stopWhenRecording = false
+            state = .ready
+        }
+        for timer in [repeatTimer, previewTimer, messageTimer] { timer?.invalidate() }
+        repeatTimer = nil
+        previewTimer = nil
     }
 
     override func textDidChange(_ textInput: UITextInput?) {
@@ -906,7 +917,12 @@ final class KeyboardViewController: UIInputViewController {
         case .starting: orb.mode = .starting
         case .recording: orb.mode = .recording
         case .transcribing: orb.mode = .processing
-        default: break
+        default:
+            // Back on the keys (also straight from a recording nobody spoke in): the orb's
+            // per-frame motion and the rings stop, not to run on hidden.
+            orb.liveRing.reset()
+            orb.processingRing.reset()
+            orb.mode = .processing
         }
         setCompact(state == .starting || state == .recording || state == .transcribing)
     }

@@ -235,6 +235,9 @@ final class KeyboardSession: ObservableObject {
     /// keyboard (as one of `DictationBridge.levels` notifications, only when it changes), so the
     /// orb keeps up with the voice; twice a second it drops a recording in which nobody has
     /// spoken for `noSpeechSeconds`, and ends one after `autoStopSeconds` of silence following speech.
+    /// The longest a held (or locked) recording runs.
+    static let heldLimitSeconds = 300.0
+
     private func startMonitor(held: Bool) {
         monitorTask?.cancel()
         let autoStop = Self.autoStopSeconds
@@ -251,9 +254,18 @@ final class KeyboardSession: ObservableObject {
                     lastStep = step
                     DictationBridge.post(DictationBridge.level(step))
                 }
-                // Speech decisions twice a second are enough, and none while the space bar is held.
-                guard !held else { continue }
+                // Speech decisions twice a second are enough, and none while the space bar is held,
+                // except a limit on its length, should the keyboard never say it was let go.
                 let levels = self.collector.levels()
+                if held {
+                    if Double(levels.count) / 10 >= Self.heldLimitSeconds {
+                        log.info("held recording reached \(Self.heldLimitSeconds, format: .fixed(precision: 0)) s; stopped")
+                        DictationBridge.post(DictationBridge.stopped)
+                        self.finishCapture()
+                        break
+                    }
+                    continue
+                }
                 guard levels.count - checked >= 5 else { continue }
                 checked = levels.count
                 let seconds = Double(levels.count) / 10

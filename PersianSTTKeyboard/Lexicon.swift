@@ -747,14 +747,22 @@ final class Lexicon {
         if confirmed { count = max(count, 2) }
         // The list's own spelling is kept for listed words; new words keep the user's.
         userWords[key] = (index[key].map { entries[$0].word } ?? word, count)
-        if userWords.count > 5000, let rare = userWords.min(by: { $0.value.count < $1.value.count })?.key {
-            userWords.removeValue(forKey: rare)
+        // Over a cap, the rarest tenth goes at once, so the sorting is rare rather than per word.
+        if userWords.count > 5000 {
+            for (rare, _) in userWords.sorted(by: { $0.value.count < $1.value.count }).prefix(500) {
+                userWords.removeValue(forKey: rare)
+            }
         }
         if let previous = previousKey(context) {
             userPairs[previous, default: [:]][key, default: 0] += 1
-            if userPairs.count > 3000,
-               let rare = userPairs.min(by: { $0.value.values.reduce(0, +) < $1.value.values.reduce(0, +) })?.key {
-                userPairs.removeValue(forKey: rare)
+            // At most 60 words remembered after any one word (the sentence start included).
+            if let followers = userPairs[previous], followers.count > 60 {
+                userPairs[previous] = Dictionary(uniqueKeysWithValues: followers.sorted { $0.value > $1.value }.prefix(50).map { ($0.key, $0.value) })
+            }
+            if userPairs.count > 3000 {
+                for (rare, _) in userPairs.sorted(by: { $0.value.values.reduce(0, +) < $1.value.values.reduce(0, +) }).prefix(300) {
+                    userPairs.removeValue(forKey: rare)
+                }
             }
         }
         scheduleSave()

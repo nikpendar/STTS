@@ -151,6 +151,9 @@ final class GlideTrailView: UIView {
         if points.isEmpty && !isTracking {
             displayLink?.invalidate()
             displayLink = nil
+            // The keyboard's snapshot (a few MB) is let go until the next glide takes another.
+            for disc in discs { disc.contents = nil }
+            snapshotSize = .zero
         }
     }
 
