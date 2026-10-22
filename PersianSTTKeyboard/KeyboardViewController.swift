@@ -11,6 +11,9 @@ final class KeyboardViewController: UIInputViewController {
         case checking, noSession, ready, starting, recording, transcribing
     }
 
+    /// Live-text notifications from the app in this dictation, for the device log.
+    private var partialsHeard = 0
+
     private var state = State.checking {
         didSet {
             render()
@@ -179,7 +182,12 @@ final class KeyboardViewController: UIInputViewController {
             MainActor.assumeIsolated { self?.recordingStarted() }
         }
         observer.observe(DictationBridge.partial) { [weak self] in
-            MainActor.assumeIsolated { self?.fetchTranscript() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.partialsHeard += 1
+                if self.partialsHeard == 1 { log.info("live text: first update heard in state \(String(describing: self.state), privacy: .public)") }
+                self.fetchTranscript()
+            }
         }
         observer.observe(DictationBridge.progress) { [weak self] in
             MainActor.assumeIsolated { self?.fetchTranscript() }
@@ -462,6 +470,7 @@ final class KeyboardViewController: UIInputViewController {
         orb.liveRing.reset()
         orb.resetVoice()
         state = .recording
+        partialsHeard = 0
         liveText = ""
         livePrefix = spaceBeforeDictation()
         edits.dictationStarted(documentContext, prefix: livePrefix)
@@ -491,6 +500,7 @@ final class KeyboardViewController: UIInputViewController {
     private func fetchTranscript(final: Bool = false) {
         TranscriptClient.fetch { [weak self] batch in
             guard let self else { return }
+            if batch == nil { log.error("transcript fetch failed (\(final ? "final" : "update", privacy: .public))") }
             let messages = batch.map { $0.split(separator: DictationBridge.separator).map(String.init) } ?? []
             for message in messages { self.handle(message) }
             guard final, self.state == .transcribing else { return }
@@ -502,7 +512,10 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func handle(_ message: String) {
-        guard state == .recording || state == .transcribing, let kind = message.first.map(String.init) else { return }
+        guard state == .recording || state == .transcribing, let kind = message.first.map(String.init) else {
+            log.info("transcript message dropped in state \(String(describing: self.state), privacy: .public)")
+            return
+        }
         let body = String(message.dropFirst())
         switch kind {
         case DictationBridge.finalPrefix where !body.isEmpty:
@@ -525,6 +538,7 @@ final class KeyboardViewController: UIInputViewController {
             if !body.isEmpty {
                 let draft = VoiceCommands.draft(body, punctuation: options.voicePunctuation, commands: options.voiceCommands,
                                                 zwnj: options.autoZWNJ)
+                if liveText.isEmpty { log.info("live text: first shown, \(draft.count) characters") }
                 if !draft.isEmpty { replaceLiveText(with: draft) }
             }
         case DictationBridge.estimatePrefix:

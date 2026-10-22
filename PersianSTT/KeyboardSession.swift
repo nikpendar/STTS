@@ -326,10 +326,15 @@ final class KeyboardSession: ObservableObject {
             var shown = ""
             var shownAt = Date.distantPast
             var failures = 0
+            // For the device log: whether live text reached the keyboard is the question when it does not show.
+            var published = 0
+            var fed = 0
+            let started = Date()
             while let self, self.isCapturing, id == self.dictationID {
                 let piece = self.collector.snapshot(from: self.fedCount)
                 if !piece.isEmpty {
                     self.fedCount += piece.count
+                    fed += 1
                     do {
                         if let text = try await engine.feed(piece) { latest = text }
                     } catch {
@@ -353,9 +358,14 @@ final class KeyboardSession: ObservableObject {
                     shown = latest
                     shownAt = Date()
                     self.publishPartial(latest)
+                    published += 1
+                    if published == 1 {
+                        log.info("live text: first after \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s, \(latest.count) characters")
+                    }
                 }
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
+            log.info("live text: \(published) updates from \(fed) pieces in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s, last \(latest.count) characters, compute units \(engine.computeUnits.rawValue)")
         }
     }
 
