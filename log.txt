@@ -1,0 +1,48 @@
+getpwuid_r did not find a match for uid 501
+Filtering the log data using "subsystem == "ir.nikpendar.PersianSTT" OR process CONTAINS "PersianSTTKeyboard""
+Timestamp                       Thread     Type        Activity             PID    TTL  
+2026-10-22 15:48:40.339080+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] controller 6889 loaded
+2026-10-22 15:48:40.705377+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x254, asked 254, window 874
+2026-10-22 15:48:44.214461+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded Koochik.mlmodelc, compute units 3
+2026-10-22 15:49:28.953652+0000 0x8832     Info        0x35efe              9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x150, asked 254, window 874
+2026-10-22 15:49:28.976920+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, held
+2026-10-22 15:49:38.385059+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live text: first after 9.3 s, 31 characters
+2026-10-22 15:49:38.423321+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] live text: first update heard in state recording
+2026-10-22 15:49:38.442426+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] live text: first shown, 30 characters
+2026-10-22 15:51:48.620215+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live text: 5 updates from 9 pieces in 139.5 s, last 362 characters, compute units 3
+2026-10-22 15:52:11.066333+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: 12.70 s of audio left, done in 22.44 s
+2026-10-22 15:52:11.107424+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x254, asked 254, window 874
+2026-10-22 15:52:11.126618+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] following dictation A5C8FC4E-CE31-4106-B29B-1EB38C7008DA for edits
+2026-10-22 15:53:07.171973+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] edits finished
+2026-10-22 15:53:07.176404+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] sending correction for A5C8FC4E-CE31-4106-B29B-1EB38C7008DA
+2026-10-22 15:53:23.658560+0000 0x8832     Info        0x448b6              9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] glide: 3 readings
+2026-10-22 15:54:44.553770+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x295, asked 295, window 874
+2026-10-22 15:55:04.683309+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x254, asked 254, window 874
+2026-10-22 15:55:07.102247+0000 0x8832     Info        0x4fe63              9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x150, asked 254, window 874
+2026-10-22 15:55:07.105411+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, held
+2026-10-22 15:55:15.138880+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live text: 0 updates from 3 pieces in 8.0 s, last 0 characters, compute units 3
+2026-10-22 15:55:15.977504+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: 0.40 s of audio left, done in 0.84 s
+2026-10-22 15:55:15.977535+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: no speech
+2026-10-22 15:55:15.979423+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x254, asked 254, window 874
+2026-10-22 15:55:18.769631+0000 0x8832     Info        0x4fe67              9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x150, asked 254, window 874
+2026-10-22 15:55:18.772647+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, held
+2026-10-22 15:55:20.483243+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live text: 0 updates from 3 pieces in 1.7 s, last 0 characters, compute units 3
+2026-10-22 15:55:21.630730+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: 0.40 s of audio left, done in 1.15 s
+2026-10-22 15:55:21.630891+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: no speech
+2026-10-22 15:55:21.634884+0000 0x8832     Info        0x0                  9319   0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x254, asked 254, window 874
+2026-10-22 15:55:41.797432+0000 0x126c1    Info        0x0                  25536  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] controller 4971 loaded
+2026-10-22 15:55:42.101393+0000 0x126c1    Info        0x0                  25536  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 750x192, asked 192, window 402
+2026-10-22 15:55:43.454460+0000 0x126c1    Info        0x0                  25536  0    PersianSTT: [ir.nikpendar.PersianSTT:personal] repository has model v1, using v0
+2026-10-22 15:55:44.939547+0000 0x126c1    Info        0x0                  25536  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded Koochik.mlmodelc, compute units 3
+2026-10-22 15:55:49.295640+0000 0x126c1    Info        0x0                  25536  0    PersianSTT: [ir.nikpendar.PersianSTT:personal] installed personal model v1
+2026-10-22 15:55:51.418108+0000 0x126c1    Info        0x0                  25536  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3
+2026-10-22 15:56:02.830360+0000 0x13294    Info        0x0                  26765  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] controller 4511 loaded
+2026-10-22 15:56:03.073222+0000 0x13294    Info        0x0                  26765  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x298, asked 298, window 874
+2026-10-22 15:56:05.035784+0000 0x13294    Info        0x0                  26765  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3
+2026-10-22 15:56:30.471852+0000 0x13294    Info        0x5b9e5              26765  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] glide: 3 readings
+2026-10-22 15:56:34.732486+0000 0x141de    Info        0x0                  28319  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] controller 9643 loaded
+2026-10-22 15:56:34.842232+0000 0x141de    Info        0x0                  28319  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x219, asked 219, window 874
+2026-10-22 15:56:37.302538+0000 0x141de    Info        0x0                  28319  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3
+2026-10-22 15:56:53.818194+0000 0x1479d    Info        0x0                  28909  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3
+2026-10-22 15:57:12.757480+0000 0x14dc5    Info        0x0                  29530  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3
+Child process terminated with signal 15: Terminated
