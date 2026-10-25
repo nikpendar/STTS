@@ -28,6 +28,16 @@ final class KeyboardViewController: UIInputViewController {
     /// Holds every key; hidden while dictating, when the keyboard shrinks to `orb`.
     private let keysView = KeysView()
     private let orb = DictationOrbView()
+    /// The space bar held for dictation, turned into an orange capsule under the finger (as the
+    /// Action Button of an Apple Watch Ultra) while the other keys slide away.
+    private let holdCapsule = UIView()
+    /// The capsule's centre, from the keyboard's bottom, which stays put while it shrinks.
+    private var holdCapsuleBottom: CGFloat = 0
+    /// The space bar's colour, which the capsule turns back to.
+    private var holdCapsuleColor: UIColor = .systemGray
+    /// The recording was started by holding the space bar: the compact keyboard keeps room for
+    /// the capsule under the orb, until it is back on the keys.
+    private var holdLayout = false
     /// The picture chosen in the app (`KeyboardBackground`), behind everything.
     private let backgroundImageView = UIImageView()
     /// The preset drawn last and the size it was drawn at.
@@ -62,7 +72,9 @@ final class KeyboardViewController: UIInputViewController {
     }
     /// The letters' size over the standard one, for the emoji.
     private var emojiScale: CGFloat { letterFontSize / CGFloat(KeyStyle.standardLetterSize) }
-    private var compactHeight: CGFloat { isLandscape ? 120 : 150 }
+    private var compactHeight: CGFloat {
+        holdLayout ? (isLandscape ? 136 : 170) : (isLandscape ? 120 : 150)
+    }
     /// The orientation the keyboard was last given, from its own width (it is as wide as the
     /// screen) or from the size it turns to. The screen's bounds are only right when the keyboard
     /// loads: in an extension they keep that orientation after the phone turns (iOS 26 and 27),
@@ -392,7 +404,8 @@ final class KeyboardViewController: UIInputViewController {
             case .ready:
                 haptic(.impact(.medium))
                 hold = (startHeight: height, locked: false)
-                orb.recordingHint = Self.holdHint
+                showHoldCapsule()
+                orb.lock = .open
                 startDictation(held: true)
             case .noSession, .checking:
                 open(DictationBridge.sessionURL)
@@ -403,7 +416,7 @@ final class KeyboardViewController: UIInputViewController {
             guard let current = hold, !current.locked, height - current.startHeight > Self.lockDistance else { return }
             hold?.locked = true
             haptic(.impact(.rigid))
-            orb.recordingHint = Self.lockedHint
+            orb.lock = .closed
         case .ended, .cancelled, .failed:
             guard let current = hold else { return }
             if current.locked {
@@ -420,7 +433,6 @@ final class KeyboardViewController: UIInputViewController {
     /// app has not confirmed yet ends as soon as it does.
     private func releaseHold() {
         hold = nil
-        orb.recordingHint = nil
         switch state {
         case .recording:
             DictationBridge.post(DictationBridge.stop)
@@ -433,13 +445,54 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private static let lockDistance: CGFloat = 60
-    private static let holdHint = "برای پایان رها کنید، برای قفل به بالا بکشید"
-    private static let lockedHint = "قفل شد… برای پایان بزنید"
+
+    /// The space bar becomes the capsule in place: it takes the orange, grows a little and
+    /// lifts off the keyboard with a soft shadow, while the keys around it fade and slide down.
+    private func showHoldCapsule() {
+        guard let keys = spaceKey.superview else { return }
+        let face = keys.convert(spaceKey.faceFrame, to: view)
+        holdLayout = true
+        holdCapsuleBottom = view.bounds.height - face.midY
+        holdCapsuleColor = spaceKey.faceColor ?? .systemGray
+        holdCapsule.layer.removeAllAnimations()
+        holdCapsule.transform = .identity
+        holdCapsule.bounds = CGRect(origin: .zero, size: face.size)
+        holdCapsule.center = CGPoint(x: face.midX, y: face.midY)
+        holdCapsule.layer.cornerRadius = 6
+        holdCapsule.backgroundColor = holdCapsuleColor
+        holdCapsule.layer.shadowOpacity = 0
+        holdCapsule.alpha = 1
+        holdCapsule.isHidden = false
+        orb.reservedBottom = holdCapsuleBottom + face.height / 2 + 6
+        let animations = {
+            self.holdCapsule.backgroundColor = .systemOrange
+            self.holdCapsule.layer.cornerRadius = face.height / 2
+            self.holdCapsule.transform = CGAffineTransform(scaleX: 1.04, y: 1.08)
+        }
+        guard orb.animates else { return animations() }
+        let shadow = CABasicAnimation(keyPath: "shadowOpacity")
+        shadow.fromValue = 0
+        shadow.toValue = 0.28
+        shadow.duration = 0.25
+        holdCapsule.layer.add(shadow, forKey: "shadow")
+        holdCapsule.layer.shadowOpacity = 0.28
+        UIView.animate(withDuration: 0.32, delay: 0, usingSpringWithDamping: 0.62, initialSpringVelocity: 0,
+                       options: [.beginFromCurrentState, .allowUserInteraction], animations: animations)
+    }
+
+    /// Back on the keys: the capsule settles into the grey space bar again under them.
+    private func settleHoldCapsule() {
+        holdCapsule.backgroundColor = holdCapsuleColor
+        holdCapsule.layer.cornerRadius = 6
+        holdCapsule.transform = .identity
+        holdCapsule.layer.shadowOpacity = 0
+    }
 
     private func beginTranscribing() {
         state = .transcribing
         // A first guess, until the app's own estimate arrives.
         let recorded = Date().timeIntervalSince(recordingStart)
+        orb.lock = nil
         orb.liveRing.reset()
         orb.processingRing.begin(expected: min(15, max(2, recorded * 0.4)))
         schedule(after: 90) { [weak self] in
@@ -972,6 +1025,7 @@ final class KeyboardViewController: UIInputViewController {
     private func setCompact(_ compact: Bool) {
         guard isCompact != compact else { return }
         isCompact = compact
+        if !compact { holdLayout = false }
         heightConstraint?.constant = compact ? compactHeight : fullHeight
         isResizing = true
         if compact {
@@ -981,15 +1035,24 @@ final class KeyboardViewController: UIInputViewController {
         } else {
             keysView.alpha = 0
             keysView.isHidden = false
+            orb.lock = nil
         }
-        UIView.animate(withDuration: 0.22, animations: {
+        // The keys slide down as they fade, and come back up.
+        let away = CGAffineTransform(translationX: 0, y: 36)
+        UIView.animate(withDuration: compact ? 0.24 : 0.3, delay: 0, options: [.curveEaseInOut, .beginFromCurrentState], animations: {
             self.keysView.alpha = compact ? 0 : 1
+            self.keysView.transform = compact ? away : .identity
             self.orb.alpha = compact ? 1 : 0
+            if !compact { self.settleHoldCapsule() }
             self.view.superview?.layoutIfNeeded()
         }, completion: { _ in
             // A later state change may have reversed this one while it animated.
             self.keysView.isHidden = self.isCompact
             self.orb.isHidden = !self.isCompact
+            if !self.isCompact {
+                self.holdCapsule.isHidden = true
+                self.orb.reservedBottom = 0
+            }
             self.isResizing = false
             self.view.setNeedsLayout()
         })
@@ -1033,6 +1096,13 @@ final class KeyboardViewController: UIInputViewController {
         orb.isAccessibilityElement = true
         orb.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
         view.addSubview(orb)
+        holdCapsule.isHidden = true
+        holdCapsule.isUserInteractionEnabled = false
+        holdCapsule.layer.shadowColor = UIColor.black.cgColor
+        holdCapsule.layer.shadowOffset = CGSize(width: 0, height: 3)
+        holdCapsule.layer.shadowRadius = 8
+        holdCapsule.accessibilityIdentifier = "holdCapsule"
+        view.addSubview(holdCapsule)
 
         // Symbols keep the same direction on every device, whatever the host app's language.
         view.semanticContentAttribute = .forceRightToLeft
@@ -1472,7 +1542,12 @@ final class KeyboardViewController: UIInputViewController {
         if !isCompact, !isResizing, height < fullHeight - 0.5 {
             log.info("keyboard given \(Double(height), privacy: .public) of \(Double(self.fullHeight), privacy: .public) points")
         }
-        keysView.frame = CGRect(x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
+        // Not `frame`: the keys slide down with a transform while dictating.
+        keysView.bounds = CGRect(x: 0, y: 0, width: view.bounds.width, height: height)
+        keysView.center = CGPoint(x: view.bounds.midX, y: view.bounds.height - height / 2)
+        if !holdCapsule.isHidden {
+            holdCapsule.center = CGPoint(x: holdCapsule.center.x, y: view.bounds.height - holdCapsuleBottom)
+        }
         glideTrail.frame = keysView.bounds
         menuShield.frame = keysView.bounds
         if keyPopup.frame != keysView.bounds {
@@ -2417,6 +2492,8 @@ private final class KeyView: UIControl {
 
     /// The drawn key inside its touch area, in the superview's coordinates.
     var faceFrame: CGRect { frame.inset(by: faceInsets) }
+    /// The drawn key's colour.
+    var faceColor: UIColor? { face.backgroundColor }
 
     /// Where the last touch on the key went down, in the superview's coordinates (TapMap).
     private(set) var touchPoint: CGPoint?
@@ -2979,10 +3056,23 @@ private final class DictationOrbView: UIControl {
         didSet { if mode != oldValue { update() } }
     }
 
-    /// While the space bar is held: how the recording ends (lift the finger, or tap once locked).
-    var recordingHint: String? {
-        didSet { if mode == .recording, recordingHint != oldValue { caption.text = recordingHint ?? Self.listeningCaption } }
+    enum Lock { case open, closed }
+    /// While the space bar is held: an open lock with a bobbing arrow beside the orb says that
+    /// sliding up locks the recording; once locked, the lock closes and the arrow fades.
+    var lock: Lock? {
+        didSet { if lock != oldValue { updateLock() } }
     }
+    /// Room kept at the bottom for the space bar's capsule while it is held; the orb sits above
+    /// it and the caption is left out (the capsule and the lock say how it ends).
+    var reservedBottom: CGFloat = 0 {
+        didSet {
+            guard reservedBottom != oldValue else { return }
+            caption.isHidden = reservedBottom > 0
+            setNeedsLayout()
+        }
+    }
+    private let lockIcon = UIImageView()
+    private let lockArrow = UIImageView()
 
     private let pulse = CALayer()
     private let gradient = CAGradientLayer()
@@ -3036,6 +3126,16 @@ private final class DictationOrbView: UIControl {
         caption.adjustsFontSizeToFitWidth = true
         caption.minimumScaleFactor = 0.7
         addSubview(caption)
+
+        for view in [lockArrow, lockIcon] {
+            view.tintColor = .secondaryLabel
+            view.contentMode = .center
+            view.isUserInteractionEnabled = false
+            view.isHidden = true
+            addSubview(view)
+        }
+        lockArrow.image = UIImage(systemName: "chevron.up", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold))
+        lockIcon.image = Self.lockImage(.open)
         update()
     }
 
@@ -3046,8 +3146,11 @@ private final class DictationOrbView: UIControl {
     override func layoutSubviews() {
         super.layoutSubviews()
         // The size it had before the 2026-10-11 changes, with room for the voice to swell it.
-        let diameter = min(bounds.height - 64, 112)
-        let center = CGPoint(x: bounds.midX, y: (bounds.height - 30) / 2 + 2)
+        // Over a held space bar it takes the room above the capsule.
+        let room = bounds.height - reservedBottom
+        let diameter = reservedBottom > 0 ? max(40, min(room - 30, 112)) : min(bounds.height - 64, 112)
+        let center = reservedBottom > 0 ? CGPoint(x: bounds.midX, y: room / 2 + 2)
+            : CGPoint(x: bounds.midX, y: (bounds.height - 30) / 2 + 2)
         let ringRadius = diameter / 2 + Self.ringGap
         let orbFrame = CGRect(x: center.x - diameter / 2, y: center.y - diameter / 2, width: diameter, height: diameter)
         CATransaction.begin()
@@ -3073,6 +3176,51 @@ private final class DictationOrbView: UIControl {
         CATransaction.commit()
         icon.frame = orbFrame
         caption.frame = CGRect(x: 16, y: bounds.height - 30, width: bounds.width - 32, height: 22)
+        // Left of the orb, clear of it at full voice: the arrow over the lock.
+        let lockX = center.x - diameter / 2 * (1 + Self.voiceGrowth) - Self.ringGap - 30
+        lockIcon.frame = CGRect(x: lockX - 15, y: center.y - 2, width: 30, height: 26)
+        lockArrow.frame = CGRect(x: lockX - 15, y: center.y - 26, width: 30, height: 20)
+    }
+
+    private static func lockImage(_ lock: Lock) -> UIImage? {
+        UIImage(systemName: lock == .open ? "lock.open.fill" : "lock.fill",
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold))
+    }
+
+    private func updateLock() {
+        lockIcon.isHidden = lock == nil
+        lockArrow.isHidden = lock == nil
+        lockArrow.layer.removeAnimation(forKey: "bob")
+        guard let lock else { return }
+        let change = {
+            self.lockIcon.image = Self.lockImage(lock)
+            self.lockIcon.tintColor = lock == .closed ? .systemOrange : .secondaryLabel
+        }
+        if animates, lock == .closed {
+            UIView.transition(with: lockIcon, duration: 0.18, options: .transitionCrossDissolve, animations: change)
+            UIView.animate(withDuration: 0.2) { self.lockArrow.alpha = 0 }
+            lockIcon.transform = CGAffineTransform(scaleX: 1.25, y: 1.25)
+            UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0, options: []) {
+                self.lockIcon.transform = .identity
+            }
+        } else {
+            change()
+            lockArrow.alpha = lock == .open ? 1 : 0
+        }
+        bobArrow()
+    }
+
+    /// The arrow over the open lock rises and falls, pointing the way to lock (as in Telegram).
+    private func bobArrow() {
+        guard animates, lock == .open, window != nil else { return }
+        let bob = CABasicAnimation(keyPath: "transform.translation.y")
+        bob.fromValue = 0
+        bob.toValue = -6
+        bob.duration = 0.6
+        bob.autoreverses = true
+        bob.repeatCount = .infinity
+        bob.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        lockArrow.layer.add(bob, forKey: "bob")
     }
 
     /// Animations are dropped when the keyboard leaves the screen; restart them on return.
@@ -3086,6 +3234,7 @@ private final class DictationOrbView: UIControl {
         update()
         liveRing.resume()
         processingRing.resume()
+        bobArrow()
     }
 
     private func update() {
@@ -3108,7 +3257,7 @@ private final class DictationOrbView: UIControl {
             liveRing.track.isHidden = false
             liveRing.ring.isHidden = !liveRing.isRunning
             processingRing.isHidden = true
-            caption.text = recordingHint ?? Self.listeningCaption
+            caption.text = Self.listeningCaption
         case .processing:
             gradient.opacity = 0.35
             setLoading(false)
@@ -3202,7 +3351,7 @@ private final class DictationOrbView: UIControl {
         gradient.setAffineTransform(CGAffineTransform(rotationAngle: spin))
         CATransaction.commit()
         if mode == .recording {
-            let text = !heardVoice && now - motionStart > 3.5 ? "صدایی نمی‌شنوم…" : recordingHint ?? Self.listeningCaption
+            let text = !heardVoice && now - motionStart > 3.5 ? "صدایی نمی‌شنوم…" : Self.listeningCaption
             if caption.text != text { caption.text = text }
         }
     }
