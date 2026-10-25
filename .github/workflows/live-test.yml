@@ -418,6 +418,10 @@ jobs:
           read DX DY < <(python3 find.py letter-1-5 out/ui-13.json || echo "0 0")
           axe touch -x "$DX" -y "$DY" --down --udid "$DEVICE" && sleep 0.8 && \
             xcrun simctl io "$DEVICE" screenshot out/7b-background-variants.png; axe touch -x "$DX" -y "$DY" --up --udid "$DEVICE" || true
+          # A held digit offers its Latin form.
+          read NX NY < <(python3 find.py number-2 out/ui-13.json || echo "0 0")
+          axe touch -x "$NX" -y "$NY" --down --udid "$DEVICE" && sleep 0.8 && \
+            xcrun simctl io "$DEVICE" screenshot out/7e-number-forms.png; axe touch -x "$NX" -y "$NY" --up --udid "$DEVICE" || true
           # The glide lens over the picture and clear keys.
           read GX GY < <(python3 find.py letter-1-1 out/ui-13.json || echo "54 735")
           read HX HY < <(python3 find.py letter-1-8 out/ui-13.json || echo "300 735")
@@ -426,6 +430,16 @@ jobs:
           sleep 1.3
           xcrun simctl io "$DEVICE" screenshot out/7c-background-glide-lens.png
           wait $SWIPE || true
+          # Digits on the top row's letters; a held letter offers its digits.
+          xcrun simctl terminate "$DEVICE" "$ID" || true
+          OPTIONS='{"digitsOnLetters":true,"numberRow":true}'
+          xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav" \
+            -keyboardOptions "<$(printf '%s' "$OPTIONS" | xxd -p | tr -d '\n')>"
+          sleep 12
+          dump out/ui-19.json || true
+          read DX DY < <(python3 find.py letter-0-0 out/ui-19.json || echo "0 0")
+          axe touch -x "$DX" -y "$DY" --down --udid "$DEVICE" && sleep 0.8 && \
+            xcrun simctl io "$DEVICE" screenshot out/7f-digits-on-letters.png; axe touch -x "$DX" -y "$DY" --up --udid "$DEVICE" || true
           # The keys moved up under a thin margin with the suggestion row off.
           xcrun simctl terminate "$DEVICE" "$ID" || true
           OPTIONS='{"suggestionBar":false}'

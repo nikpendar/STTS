@@ -184,40 +184,79 @@ struct ContentView: View {
         }
     }
 
+    /// Where digits are: nowhere extra, a row above the letters, or small on the top row's letters.
+    private var numbersPlace: Binding<Int> {
+        Binding {
+            options.digitsOnLetters ? 2 : options.numberRow ? 1 : 0
+        } set: { place in
+            options.numberRow = place == 1
+            options.digitsOnLetters = place == 2
+        }
+    }
+
     private var typingPage: some View {
         page("تایپ و پیشنهاد کلمه") {
             Section {
                 Toggle(isOn: $options.suggestionBar.animation(.easeInOut(duration: 0.3))) {
                     SettingLabel("نمایش ردیف پیشنهاد", symbol: "rectangle.topthird.inset.filled", color: .cyan)
                 }
-                // Off, the bar's own options stay in view, greyed, so turning it back on finds them
-                // as they were.
+                // Off, the bar's own option stays in view, greyed, so turning it back on finds it
+                // as it was.
                 Toggle(isOn: $options.predictNextWord) {
                     SettingLabel("پیش‌بینی کلمه‌ی بعدی", symbol: "text.append", color: .blue)
                 }
                 .disabled(!options.suggestionBar)
                 .opacity(options.suggestionBar ? 1 : 0.45)
-                // Corrects on a space, with or without the row.
-                Toggle(isOn: $options.correctTypos) {
-                    SettingLabel("اصلاح غلط تایپی", symbol: "checkmark.seal.fill", color: .green)
-                }
             } header: {
                 Text("ردیف پیشنهاد").font(.app(.footnote))
             } footer: {
                 Text(options.suggestionBar
-                     ? "در فارسی و انگلیسی، بعد از هر فاصله کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند و کیبورد کلمه‌هایی را که خودتان پشت سر هم می‌نویسید هم یاد می‌گیرد. با اصلاح غلط تایپی، بعد از فاصله کلمه‌ای که به‌روشنی اشتباه تایپ شده با کلمه‌ی درست عوض می‌شود و اگر مطمئن نباشد دست نمی‌خورد؛ پاک کردن بلافاصله بعد از آن، کلمه‌ی تایپ‌شده را برمی‌گرداند."
+                     ? "کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند و کلمه‌های خودتان هم یاد گرفته می‌شوند."
                      : "ردیف بالای کلیدها پنهان است و کیبورد کوتاه‌تر می‌شود.")
                     .font(.app(.footnote))
             }
+
             Section {
-                Toggle(isOn: $options.keyPreview) {
-                    SettingLabel("بزرگ‌نمایی حرف هنگام تایپ", symbol: "character.magnify", color: .purple)
+                // Corrects on a space, with or without the row.
+                Toggle(isOn: $options.correctTypos) {
+                    SettingLabel("اصلاح غلط تایپی", symbol: "checkmark.seal.fill", color: .green)
+                }
+                Toggle(isOn: $options.autoZWNJ) {
+                    SettingLabel("نیم‌فاصله‌ی خودکار", symbol: "wand.and.stars", color: .indigo)
                 }
                 Toggle(isOn: $options.doubleSpacePunctuation) {
                     SettingLabel("دو فاصله: نقطه، سه فاصله: ویرگول", symbol: "space", color: .orange)
                 }
-                Toggle(isOn: $options.numberRow) {
-                    SettingLabel("ردیف اعداد بالای حروف", symbol: "number", color: .teal)
+            } header: {
+                Text("اصلاح خودکار").font(.app(.footnote))
+            } footer: {
+                Text("با زدن فاصله، کلمه‌ای که به‌روشنی غلط تایپ شده درست می‌شود و «میخوام» می‌شود «می‌خوام». پاک کردن بلافاصله بعد از آن، تایپ شما را برمی‌گرداند."
+                     + (options.autoZWNJ ? "" : " بدون نیم‌فاصله‌ی خودکار، دو بار زدن سریع یک حرف پیوندی نیم‌فاصله می‌گذارد: «م ی ی» ← «می‌»."))
+                    .font(.app(.footnote))
+            }
+
+            Section {
+                Picker(selection: numbersPlace) {
+                    Text("خاموش").tag(0)
+                    Text("ردیف جدا بالای حروف").tag(1)
+                    Text("روی حروف ردیف اول").tag(2)
+                } label: {
+                    SettingLabel("اعداد", symbol: "number", color: .teal)
+                }
+            } header: {
+                Text("اعداد").font(.app(.footnote))
+            } footer: {
+                Text(options.digitsOnLetters
+                     ? "عدد کوچک بالای هر حرف ردیف اول است (ض ۱ تا ج ۰). نگه داشتن کلید، حرف و عدد فارسی و انگلیسی را نشان می‌دهد."
+                     : options.numberRow
+                        ? "ردیف کوتاه اعداد کیبورد را کمی بلندتر می‌کند. نگه داشتن هر عدد، شکل فارسی و انگلیسی آن را نشان می‌دهد."
+                        : "اعداد در صفحه‌ی ۱۲۳ هستند.")
+                    .font(.app(.footnote))
+            }
+
+            Section {
+                Toggle(isOn: $options.keyPreview) {
+                    SettingLabel("بزرگ‌نمایی حرف هنگام تایپ", symbol: "character.magnify", color: .purple)
                 }
                 Toggle(isOn: $options.keySounds) {
                     SettingLabel("صدای کلیدها", symbol: "speaker.wave.2.fill", color: .pink)
@@ -226,22 +265,11 @@ struct ContentView: View {
                     SettingLabel("لرزش (هپتیک)", symbol: "iphone.radiowaves.left.and.right", color: .red)
                 }
             } header: {
-                Text("کلیدها").font(.app(.footnote))
+                Text("بازخورد کلیدها").font(.app(.footnote))
             } footer: {
-                Text("دو بار زدن پشت سر هم فاصله بعد از یک کلمه «. » تایپ می‌کند و بار سوم آن را «، » می‌کند (در انگلیسی «, »). تنوین و اعراب در صفحه‌ی ۱۲۳ هستند. ردیف اعداد کوتاه است و کیبورد را کمی بلندتر می‌کند. صدای کلیدها مثل کیبورد آیفون است و با سوییچ بی‌صدای گوشی قطع می‌شود. لرزش برای کلیدها، اصلاح کلمه و رفتن به دسته‌ی دیگر شکلک‌ها فرق دارد.").font(.app(.footnote))
+                Text("صدا با سوییچ بی‌صدای گوشی قطع می‌شود. لرزش برای کلیدها، اصلاح کلمه و دسته‌های شکلک فرق دارد.").font(.app(.footnote))
             }
-            Section {
-                Toggle(isOn: $options.autoZWNJ) {
-                    SettingLabel("نیم‌فاصله‌ی خودکار", symbol: "wand.and.stars", color: .indigo)
-                }
-            } header: {
-                Text("نیم‌فاصله").font(.app(.footnote))
-            } footer: {
-                Text(options.autoZWNJ
-                     ? "با زدن فاصله، «میخوام» می‌شود «می‌خوام» و «کتاب ها» می‌شود «کتاب‌ها». یک بار حذف، آن را برمی‌گرداند."
-                     : "با دو بار زدن سریع یک حرف پیوندی، خودتان نیم‌فاصله بگذارید: «م ی ی» می‌شود «می‌».")
-                    .font(.app(.footnote))
-            }
+
             Section {
                 Toggle(isOn: $options.learnTouches) {
                     SettingLabel("یادگیری محل لمس (TapMap)", symbol: "hand.point.up.left.fill", color: .orange)

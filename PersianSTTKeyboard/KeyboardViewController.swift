@@ -166,6 +166,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        updatePrimaryLanguage()
         log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) loaded")
         // Both orientations' sizes are worked out (and kept) on the first run after install.
         _ = (portraitMetrics, landscapeMetrics)
@@ -877,7 +878,18 @@ final class KeyboardViewController: UIInputViewController {
     /// English QWERTY instead of Persian; switched by swiping left or right on the space bar.
     private static let englishKey = "keyboardEnglish"
     private var isEnglish = UserDefaults.standard.bool(forKey: KeyboardViewController.englishKey) {
-        didSet { UserDefaults.standard.set(isEnglish, forKey: Self.englishKey) }
+        didSet {
+            UserDefaults.standard.set(isEnglish, forKey: Self.englishKey)
+            updatePrimaryLanguage()
+        }
+    }
+
+    /// Tells iOS which language is typed: text views that follow the keyboard's language put
+    /// the cursor of an empty line on the left, left to right, for English, and on the right for
+    /// Persian, as with the system keyboards. Apps that fix their own alignment ignore it.
+    private func updatePrimaryLanguage() {
+        let language = isEnglish ? "en-US" : "fa-IR"
+        if primaryLanguage != language { primaryLanguage = language }
     }
     /// One-shot capital letter in the English layout, also switched on at the start of a sentence.
     private var isShifted = false
@@ -895,7 +907,7 @@ final class KeyboardViewController: UIInputViewController {
     private var characterKeys: [[KeyView]] = []
     /// Digits above the letters, when switched on in the app (`KeyboardOptions.numberRow`).
     private var numberKeys: [KeyView] = []
-    private var showsNumberRow: Bool { options.numberRow && layer == .letters }
+    private var showsNumberRow: Bool { options.numberRow && !options.digitsOnLetters && layer == .letters }
     private let backspaceKey = KeyView(symbol: "delete.right")
     /// Emoji panel on a tap; a menu with the emoji panel and the app's settings on a long press.
     private let emojiKey = KeyView()
@@ -1135,6 +1147,7 @@ final class KeyboardViewController: UIInputViewController {
             key.addAction(UIAction { [weak self] _ in self?.insert(digit) }, for: .touchUpInside)
             key.addTarget(self, action: #selector(keyDown(_:)), for: .touchDown)
             key.addTarget(self, action: #selector(keyUp(_:)), for: [.touchUpInside, .touchUpOutside, .touchCancel])
+            key.addGestureRecognizer(variantsPress())
             key.apply(keyStyle)
             keysView.addSubview(key)
             return key
@@ -1170,7 +1183,11 @@ final class KeyboardViewController: UIInputViewController {
                 key.addAction(UIAction { [weak self, weak key] _ in self?.tapped(key, character) }, for: .touchUpInside)
                 key.addTarget(self, action: #selector(keyDown(_:)), for: .touchDown)
                 key.addTarget(self, action: #selector(keyUp(_:)), for: [.touchUpInside, .touchUpOutside, .touchCancel])
-                if !isEnglish, Self.variants[character] != nil {
+                // The top row's digits, when switched on: the tenth key has 0.
+                if options.digitsOnLetters, layer == .letters, rowIndex == 0, column < 10 {
+                    key.hint = isEnglish ? Self.latinDigits[(column + 1) % 10] : Self.persianDigits[(column + 1) % 10]
+                }
+                if key.hint != nil || Self.digitPair(character) != nil || (!isEnglish && Self.variants[character] != nil) {
                     key.addGestureRecognizer(variantsPress())
                 }
                 key.apply(keyStyle)
@@ -2166,7 +2183,7 @@ final class KeyboardViewController: UIInputViewController {
                                   anchor: Self.diacriticRows[0].firstIndex(of: character) ?? 0)
             } else {
                 let anchored = Self.anchoredForms[character]
-                let items = (anchored?.forms ?? Self.variants[character] ?? []).map(Self.popupItem)
+                let items = (anchored?.forms ?? forms(of: key)).map(Self.popupItem)
                 guard !items.isEmpty else { return }
                 keyPopup.showVariants(items, on: key, style: keyStyle,
                                       toTheRight: Self.formsToTheRight.contains(character),
@@ -2184,6 +2201,29 @@ final class KeyboardViewController: UIInputViewController {
         default:
             keyPopup.hide()
         }
+    }
+
+    private static let persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"]
+    private static let latinDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+
+    /// A digit in the other script: Persian and Latin digits each offer the other.
+    private static func digitPair(_ text: String) -> String? {
+        if let index = persianDigits.firstIndex(of: text) { return latinDigits[index] }
+        if let index = latinDigits.firstIndex(of: text) { return persianDigits[index] }
+        return nil
+    }
+
+    /// What holding a key offers, its own character first: a digit with the other script's;
+    /// a top-row letter with its digit in the layout's script, then in the other; then the
+    /// letter's other forms.
+    private func forms(of key: KeyView) -> [String] {
+        let character = key.character ?? ""
+        if let other = Self.digitPair(character) { return [character, other] }
+        let own = isEnglish ? (key.title ?? character) : character
+        var forms = [own]
+        if let hint = key.hint, let other = Self.digitPair(hint) { forms += [hint, other] }
+        if !isEnglish { forms += (Self.variants[character] ?? []).dropFirst() }
+        return forms.count > 1 ? forms : []
     }
 
     /// A form as the popup shows it: a mark on a dotted circle, anything else as text.
@@ -2336,6 +2376,16 @@ private final class KeyView: UIControl {
         didSet { face.isHidden = plain }
     }
 
+    /// A small digit in the key's top corner (the top row's digits, when switched on in the app).
+    var hint: String? {
+        didSet {
+            hintLabel.text = hint
+            hintLabel.isHidden = hint == nil
+            setNeedsLayout()
+        }
+    }
+    private let hintLabel = UILabel()
+
     /// A second image at the right end of the key (the space bar's mic), in its own colours.
     var trailingImage: UIImage? {
         get { trailingImageView.image }
@@ -2406,6 +2456,9 @@ private final class KeyView: UIControl {
         content.addSubview(imageView)
         trailingImageView.contentMode = .center
         content.addSubview(trailingImageView)
+        hintLabel.isHidden = true
+        hintLabel.textAlignment = .center
+        content.addSubview(hintLabel)
         self.symbol = symbol
         imageView.image = symbol.flatMap {
             UIImage(systemName: $0, withConfiguration: UIImage.SymbolConfiguration(pointSize: 19))
@@ -2424,6 +2477,7 @@ private final class KeyView: UIControl {
         textColor = style.textColor
         imageView.tintColor = accent == nil ? textColor : .white
         trailingImageView.tintColor = textColor
+        hintLabel.textColor = textColor.withAlphaComponent(0.55)
         updateLabel()
     }
 
@@ -2460,6 +2514,11 @@ private final class KeyView: UIControl {
             label.frame = room
         }
         imageView.frame = inner
+        if hint != nil {
+            let size = max(9, (inner.height * 0.24).rounded())
+            hintLabel.font = AppFont.font(ofSize: size)
+            hintLabel.frame = CGRect(x: inner.maxX - size - 3, y: inner.minY + 1, width: size + 2, height: size + 2)
+        }
         if let image = trailingImageView.image {
             let width = min(inner.width / 3, image.size.width + 20)
             trailingImageView.frame = CGRect(x: inner.maxX - width, y: inner.minY, width: width, height: inner.height)

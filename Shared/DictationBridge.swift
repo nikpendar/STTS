@@ -380,6 +380,8 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var doubleSpacePunctuation = true
     /// A row of digits above the letters.
     var numberRow = false
+    /// Small digits on the top row's letters (ض 1 … ج 0), held to type them; replaces the number row.
+    var digitsOnLetters = false
     /// A space after a word the list writes with ZWNJ puts it in (میخوام, کتاب ها).
     var autoZWNJ = true
     /// TapMap: touches between keys go to the key the user's habits and the word make likelier.
@@ -408,6 +410,7 @@ struct KeyboardOptions: SharedSetting, Equatable {
         keyPreview = try container.decodeIfPresent(Bool.self, forKey: .keyPreview) ?? true
         doubleSpacePunctuation = try container.decodeIfPresent(Bool.self, forKey: .doubleSpacePunctuation) ?? true
         numberRow = try container.decodeIfPresent(Bool.self, forKey: .numberRow) ?? false
+        digitsOnLetters = try container.decodeIfPresent(Bool.self, forKey: .digitsOnLetters) ?? false
         autoZWNJ = try container.decodeIfPresent(Bool.self, forKey: .autoZWNJ) ?? true
         learnTouches = try container.decodeIfPresent(Bool.self, forKey: .learnTouches) ?? true
         touchResets = try container.decodeIfPresent(Int.self, forKey: .touchResets) ?? 0
