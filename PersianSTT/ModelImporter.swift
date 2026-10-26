@@ -4,7 +4,7 @@ import os
 
 private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model")
 
-/// The speech model (Shenava Koochik, a 212 MB Core ML .mlmodel file) is not inside the app,
+/// The speech model (Shenava Koochik, a 108 MB Core ML .mlmodel file with 8-bit weights) is not inside the app,
 /// so each build stays a few MB, but imported once from Files and compiled on the phone into
 /// Application Support. Installing a new build over the app keeps it. A .mlmodel copied with
 /// Finder into the app's Documents folder (On My iPhone › کیلس) is imported at the next launch.
@@ -85,7 +85,7 @@ final class ModelImporter: ObservableObject {
         try fm.copyItem(at: compiled, to: staging)
         try? fm.removeItem(at: target)
         try fm.moveItem(at: staging, to: target)
-        // 200 MB that can be imported again does not belong in the iCloud backup.
+        // 100 MB that can be imported again does not belong in the iCloud backup.
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         var excluded = target

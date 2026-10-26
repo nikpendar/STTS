@@ -1,5 +1,5 @@
 """Exports a Shenava Koochik NeMo model as the app's streaming Core ML model: one cache-aware
-encoder step plus the CTC head, an iOS14-target NeuralNetwork with fp16 weights, the same
+encoder step plus the CTC head, an iOS14-target NeuralNetwork with 8-bit weights (as setup.sh makes the base model), the same
 interface as the published Koochik.mlmodel (ShenavaStream in the app):
 
     processed_signal [1,80,17] + cache_last_channel [17,1,70,512] + cache_last_time [17,1,512,8]
@@ -97,7 +97,7 @@ class StreamingCTCStep(torch.nn.Module):
 
 
 def export(model, out_path: Path, att_context=(70, 0)) -> dict:
-    """Writes the fp16 Core ML step model to `out_path`; returns its shapes. Changes the
+    """Writes the 8-bit Core ML step model to `out_path`; returns its shapes. Changes the
     model's attention setup, so export last."""
     import coremltools as ct
 
@@ -140,7 +140,8 @@ def export(model, out_path: Path, att_context=(70, 0)) -> dict:
     from coremltools.models.neural_network import quantization_utils
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    quantization_utils.quantize_weights(mlmodel, nbits=16).save(str(out_path))
+    # 8-bit linear weights: half of fp16, the same WER (.github/workflows/compress-eval.yml).
+    quantization_utils.quantize_weights(mlmodel, nbits=8, quantization_mode="linear").save(str(out_path))
     shapes = {
         "feature_frames": feature_frames,
         "processed_signal": list(x.shape),

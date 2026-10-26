@@ -405,7 +405,7 @@ jobs:
           xcrun simctl terminate "$DEVICE" "$ID" || true
           xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav" -testLandscape 1 \
             "${TRAIN_ARGS[@]}" -trainingAutoUpdate YES -personalModelLastCheck 0
-          # Downloading and compiling 212 MB takes a while.
+          # Downloading and compiling 108 MB takes a while.
           for i in $(seq 90); do grep -q "installed personal model\|loaded personal-v1" out/log.txt && break; sleep 2; done
           sleep 5
           xcrun simctl io "$DEVICE" screenshot out/6-landscape.png

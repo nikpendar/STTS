@@ -8,7 +8,7 @@ name: Model compression
 on:
   push:
     branches: [claude/project-thread-bcbcf5]
-    paths: [.github/workflows/compress-eval.yml, scripts/compress_model.py]
+    paths: [.github/workflows/compress-eval.yml, scripts/compress_model.py, setup.sh]
   workflow_dispatch:
     inputs:
       variants:
@@ -65,7 +65,7 @@ jobs:
           python-version: "3.12"
       - name: Base model
         run: |
-          bash ./setup.sh model
+          KOOCHIK_WEIGHTS=fp16 bash ./setup.sh model
           ls -l build-model/Koochik.mlmodel
       - name: Compress
         run: |
@@ -86,6 +86,25 @@ jobs:
           path: models
           retention-days: 7
           compression-level: 0
+
+  # setup.sh (as build.yml runs it, with the runner's own Python) must make the same 8-bit model.
+  setup:
+    needs: compress
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: models
+          path: models
+      - run: |
+          python3 --version
+          bash ./setup.sh model
+          if [ -f models/Koochik-linear8.mlmodel ]; then
+            cmp build-model/Koochik.mlmodel models/Koochik-linear8.mlmodel && echo "::notice::setup.sh makes the benchmarked linear8 model"
+          fi
+          xcrun coremlcompiler compile build-model/Koochik.mlmodel compiled --deployment-target 15.0 --platform ios
+          du -sh compiled/*.mlmodelc
 
   eval:
     needs: [clips, compress]
