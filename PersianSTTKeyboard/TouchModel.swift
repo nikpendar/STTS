@@ -1,6 +1,8 @@
 import CoreGraphics
 import Foundation
+#if canImport(UIKit)
 import UIKit
+#endif
 
 /// TapMap: where the user actually touches each letter key, learned from the letters of words
 /// they keep and from the letters they correct, together with how likely each letter is next.
@@ -114,10 +116,13 @@ struct TouchModel: Codable, Equatable {
     func save() {
         if let data = try? JSONEncoder().encode(self) {
             UserDefaults.standard.set(data, forKey: Self.defaultsKey)
+            #if canImport(UIKit)
             UIPasteboard(name: Self.pasteboardName, create: true)?.setData(data, forPasteboardType: "public.json")
+            #endif
         }
     }
 
+    #if canImport(UIKit)
     private static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.touchModel")
 
     /// App side: the keyboard's latest model, if it has saved one.
@@ -130,6 +135,7 @@ struct TouchModel: Codable, Equatable {
     static func clearFromKeyboard() {
         UIPasteboard.remove(withName: pasteboardName)
     }
+    #endif
 
     /// How many touches a key's own mean is built on.
     func touches(key: String, layout: String) -> Double { keys[layout + key]?.count ?? 0 }
