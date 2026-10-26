@@ -103,8 +103,8 @@ final class KeyboardViewController: UIInputViewController {
     /// The keys stand aside around the orb, and the ones moved.
     private var isMagnet = false
     private var magnetKeys: [KeyView] = []
-    /// While a recording is locked, the orange space bar splits in three: delete on the left,
-    /// the end of the dictation in the middle (wider), return on the right.
+    /// While a recording is locked, the orange space bar splits in three: return on the left,
+    /// the end of the dictation in the middle (wider), delete on the right.
     private let lockedReturnKey = KeyView()
     private let lockedDeleteKey = KeyView()
     private var lockedKeysShown = false
@@ -1134,7 +1134,7 @@ final class KeyboardViewController: UIInputViewController {
             self.lockedDeleteKey.isHidden = true
         })
         if on {
-            for (index, key) in [lockedDeleteKey, spaceKey, lockedReturnKey].enumerated() {
+            for (index, key) in [lockedReturnKey, spaceKey, lockedDeleteKey].enumerated() {
                 key.revealImage(delay: calm ? 0 : 0.12 + 0.06 * Double(index), animated: !calm)
             }
         }
@@ -1824,8 +1824,8 @@ final class KeyboardViewController: UIInputViewController {
                 let whole = CGRect(x: left + 2 * eleventh, y: y, width: 7 * eleventh, height: row)
                 let side = 1.5 * eleventh
                 let gap: CGFloat = 4
-                lockedDeleteKey.frame = CGRect(x: whole.minX, y: y, width: side, height: row)
-                lockedReturnKey.frame = CGRect(x: whole.maxX - side, y: y, width: side, height: row)
+                lockedReturnKey.frame = CGRect(x: whole.minX, y: y, width: side, height: row)
+                lockedDeleteKey.frame = CGRect(x: whole.maxX - side, y: y, width: side, height: row)
                 spaceKey.frame = lockedKeysShown ? whole.insetBy(dx: side + gap, dy: 0) : whole
             }
         }
@@ -2453,7 +2453,9 @@ final class KeyboardViewController: UIInputViewController {
                 guard !items.isEmpty else { return }
                 keyPopup.showVariants(items, on: key, style: keyStyle,
                                       toTheRight: Self.formsToTheRight.contains(character),
-                                      anchor: anchored.flatMap { $0.forms.firstIndex(of: $0.anchor) })
+                                      anchor: anchored.flatMap { $0.forms.firstIndex(of: $0.anchor) },
+                                      // ض keeps the digit where it is, but holding it offers the digit.
+                                      select: character == "ض" ? items.count - 1 : nil)
             }
             keysView.bringSubviewToFront(keyPopup)
             haptic(.impact(.light))
@@ -2487,7 +2489,7 @@ final class KeyboardViewController: UIInputViewController {
         if let other = Self.digitPair(character) { return [character, other] }
         let own = isEnglish ? (key.title ?? character) : character
         var forms = [own]
-        // ض, at the keyboard's edge, keeps its own letter under the finger and the digit beside it.
+        // ض sits at the keyboard's edge: its forms stay inside, the digit beside the letter.
         if let hint = key.hint { if character == "ض" { forms.append(hint) } else { forms.insert(hint, at: 0) } }
         if !isEnglish { forms += (Self.variants[character] ?? []).dropFirst() }
         return forms.count > 1 ? forms : []
@@ -3021,7 +3023,7 @@ private final class KeyPopupView: UIView {
     /// the right with `toTheRight`. With `anchor`, the items run left to right and the one at
     /// `anchor` starts over the key and is chosen first.
     func showVariants(_ items: [Item], on key: KeyView, style: KeyStyle,
-                      toTheRight: Bool = false, anchor: Int? = nil) {
+                      toTheRight: Bool = false, anchor: Int? = nil, select: Int? = nil) {
         let foot = key.faceFrame
         let pad: CGFloat = 3
         // Narrower cells when a long row would not fit the keyboard's width.
@@ -3044,7 +3046,7 @@ private final class KeyPopupView: UIView {
         isShowingVariants = true
         present(on: key, foot: foot, card: card, cells: cells, items: items,
                 style: style, fontSize: min(26, card.height * 0.62))
-        select(index: anchor ?? 0, feedback: false)
+        self.select(index: select ?? anchor ?? 0, feedback: false)
     }
 
     /// Forms in rows, `rows[0]` nearest the key, each left to right, with `rows[0][anchor]` over
@@ -3681,22 +3683,24 @@ private enum KeyIcons {
     /// in this right-to-left keyboard.
     static let returnKey = leftToRight("return")
     /// Return for Persian, mirrored: the arrow comes down on the left and points right.
-    static let returnKeyMirrored: UIImage = {
-        let image = returnKey
-        return UIGraphicsImageRenderer(size: image.size).image { context in
+    static let returnKeyMirrored = mirrored(returnKey)
+
+    /// The same image the other way round.
+    private static func mirrored(_ image: UIImage) -> UIImage {
+        UIGraphicsImageRenderer(size: image.size).image { context in
             context.cgContext.translateBy(x: image.size.width, y: 0)
             context.cgContext.scaleBy(x: -1, y: 1)
             image.withTintColor(.black).draw(at: .zero)
         }.withRenderingMode(.alwaysTemplate)
-    }()
+    }
     /// Backspace pointing left for English, and right as before for Persian.
     static let deleteLeft = leftToRight("delete.left")
     static let deleteRight = leftToRight("delete.right")
 
-    /// The split orange bar of a locked recording: fine return and delete, and a check mark for
-    /// ending the dictation.
-    static let lockedReturn = leftToRight("return", size: 17, weight: .light)
-    static let lockedDelete = leftToRight("delete.left", size: 17, weight: .light)
+    /// The split orange bar of a locked recording: fine return and delete as this right-to-left
+    /// keyboard draws them, and a check mark for ending the dictation.
+    static let lockedReturn = mirrored(leftToRight("return", size: 17, weight: .light))
+    static let lockedDelete = leftToRight("delete.right", size: 17, weight: .light)
     static let lockedEnd = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
     /// The emoji key's face, drawn once: always the outline.
     static let emojiKey = menuKey(symbol: "face.smiling")
