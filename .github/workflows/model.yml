@@ -67,15 +67,20 @@ jobs:
           ls -l Koochik.aar
           shasum -a 256 Koochik.aar
       # The app's import path: ModelArchive unpacks and compiles the .aar, ShenavaStream transcribes.
+      # Against the Hugging Face fp16 model on the same sentences: at most 1 point worse.
       - name: Check with the app's code on 40 FLEURS sentences
         run: |
           bash training/fleurs.sh
-          bash ./setup.sh sidecars
+          KOOCHIK_FORMAT=neuralnetwork bash ./setup.sh model
           xcrun swiftc -O -o shenava-check PersianSTT/ShenavaStream.swift Tests/ShenavaCheck/main.swift
-          ./shenava-check Koochik.aar PersianSTT/Models fleurs-general | tail -1
-          wer=$(python3 training/score.py fleurs-general/refs.tsv fleurs-general)
-          echo "::notice::Koochik.aar: FLEURS dev WER $wer"
-          python3 -c "import sys; sys.exit(0 if float('$wer') < 20 else 1)"
+          for m in Koochik.aar build-model/Koochik.mlmodel; do
+            rm -rf check && cp -R fleurs-general check
+            ./shenava-check "$m" PersianSTT/Models check | tail -1
+            python3 training/score.py fleurs-general/refs.tsv check > "wer-$(basename "$m")"
+          done
+          new=$(cat wer-Koochik.aar); old=$(cat wer-Koochik.mlmodel)
+          echo "::notice::FLEURS dev WER: Koochik.aar $new, Hugging Face fp16 $old"
+          python3 -c "import sys; sys.exit(0 if $new <= $old + 1 else 1)"
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
