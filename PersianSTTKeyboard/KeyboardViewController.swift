@@ -103,6 +103,11 @@ final class KeyboardViewController: UIInputViewController {
     /// The keys stand aside around the orb, and the ones moved.
     private var isMagnet = false
     private var magnetKeys: [KeyView] = []
+    /// While a recording is locked, the orange space bar splits in three: return on the left,
+    /// the end of the dictation in the middle (wider), delete on the right.
+    private let lockedReturnKey = KeyView()
+    private let lockedDeleteKey = KeyView()
+    private var lockedKeysShown = false
     /// The finger was lifted before the app confirmed the recording.
     private var stopWhenRecording = false
     private var recordingStart = Date()
@@ -120,6 +125,13 @@ final class KeyboardViewController: UIInputViewController {
     private var liveText = ""
     /// A space put before dictated text that would otherwise join the word before the cursor.
     private var livePrefix = ""
+    /// The latest provisional text of the whole recording, and how many of its words a return or
+    /// delete tapped during a locked recording settled in the document: later results type only
+    /// the words after them.
+    private var liveDraft = ""
+    private var settledWords = 0
+    /// The user edited the text while dictating, so the dictation is not followed for corrections.
+    private var dictationEdited = false
     /// Follows the user's edits of dictated text, to report them as corrections for training.
     private var edits = EditTracker()
     /// Spoken punctuation of the dictations being followed, by dictation id: put back into
@@ -418,6 +430,7 @@ final class KeyboardViewController: UIInputViewController {
             isLocked = true
             haptic(.impact(.rigid))
             orb.lock = .closed
+            setLockedKeys(true)
         case .ended, .cancelled, .failed:
             if isLocked {
                 isHeld = false
@@ -451,6 +464,7 @@ final class KeyboardViewController: UIInputViewController {
         let recorded = Date().timeIntervalSince(recordingStart)
         isLocked = false
         orb.lock = nil
+        setLockedKeys(false)
         orb.liveRing.reset()
         orb.processingRing.begin(expected: min(15, max(2, recorded * 0.4)))
         schedule(after: 90) { [weak self] in
@@ -484,6 +498,9 @@ final class KeyboardViewController: UIInputViewController {
         state = .recording
         partialsHeard = 0
         liveText = ""
+        liveDraft = ""
+        settledWords = 0
+        dictationEdited = false
         livePrefix = spaceBeforeDictation()
         edits.dictationStarted(documentContext, prefix: livePrefix)
         if stopWhenRecording {
@@ -542,7 +559,7 @@ final class KeyboardViewController: UIInputViewController {
             cancelTimeout()
             state = .ready
             // Corrections of a dictation that also edited the text could not be matched to its recording.
-            if parts.count == 2, !result.hasEdits, case .text(let text)? = result.steps.first {
+            if parts.count == 2, !result.hasEdits, !dictationEdited, case .text(let text)? = result.steps.first {
                 let id = String(parts[0])
                 if !result.spoken.isEmpty { spokenForms[id] = (text, result.spoken) }
                 report(edits.dictationFinished(id: id, text: text))
@@ -554,7 +571,9 @@ final class KeyboardViewController: UIInputViewController {
                 let draft = VoiceCommands.draft(body, punctuation: options.voicePunctuation, commands: options.voiceCommands,
                                                 zwnj: options.autoZWNJ)
                 if liveText.isEmpty { log.info("live text: first shown, \(draft.count) characters") }
-                if !draft.isEmpty { replaceLiveText(with: draft) }
+                liveDraft = draft
+                let shown = afterSettled(draft)
+                if !shown.isEmpty { replaceLiveText(with: shown) }
             }
         case DictationBridge.estimatePrefix:
             guard state == .transcribing, let seconds = Double(body) else { return }
@@ -566,6 +585,39 @@ final class KeyboardViewController: UIInputViewController {
         default:
             break
         }
+    }
+
+    /// A dictation's text without the words a return or delete already settled.
+    private func afterSettled(_ text: String) -> String {
+        guard settledWords > 0 else { return text }
+        return text.split(separator: " ").dropFirst(settledWords).joined(separator: " ")
+    }
+
+    /// Return on the split orange bar of a locked recording: what was said so far stays, and
+    /// the dictation goes on on the next line.
+    @objc private func lockedReturnTapped() {
+        guard state == .recording, isLocked else { return }
+        click(.modifier)
+        settleLiveText()
+        insert("\n", dictated: true)
+        livePrefix = ""
+    }
+
+    /// Delete on the split orange bar: the last word goes (the line break, right after a return),
+    /// and the dictation goes on from there.
+    @objc private func lockedDeleteTapped() {
+        guard state == .recording, isLocked else { return }
+        click(.delete)
+        settleLiveText()
+        if proxy.documentContextBeforeInput?.last == "\n" { deleteBackward() } else { deleteWordBackward() }
+        livePrefix = spaceBeforeDictation()
+    }
+
+    /// Keeps the provisional text typed so far as it is: later results add only what follows.
+    private func settleLiveText() {
+        settledWords = liveDraft.split(separator: " ").count
+        liveText = ""
+        dictationEdited = true
     }
 
     /// Swaps the provisional text for `text`, deleting only the part that changed.
@@ -595,7 +647,7 @@ final class KeyboardViewController: UIInputViewController {
             switch step {
             case .text(let text):
                 if first {
-                    replaceLiveText(with: text)
+                    replaceLiveText(with: afterSettled(text))
                     remember(.inserted(liveText))
                 } else {
                     let joins = text.first.map { $0 == "\n" || ".،؟!:؛)»,?".contains($0) } ?? true
@@ -1018,6 +1070,7 @@ final class KeyboardViewController: UIInputViewController {
         } else {
             isLocked = false
             orb.lock = nil
+            setLockedKeys(false)
             spaceKey.accent = nil
             spaceKey.knurled = false
             for key in magnetKeys {
@@ -1041,6 +1094,50 @@ final class KeyboardViewController: UIInputViewController {
             self.orb.spotlight = nil
             self.orb.isHidden = !self.isCompact
         })
+    }
+
+    /// Splits the orange bar for a locked recording, or joins it again; the symbols on the
+    /// three parts spring in.
+    private func setLockedKeys(_ on: Bool) {
+        guard lockedKeysShown != on else { return }
+        lockedKeysShown = on
+        let calm = !orb.animates || UIAccessibility.isReduceMotionEnabled
+        if on {
+            for key in [lockedReturnKey, lockedDeleteKey] {
+                key.apply(keyStyle)
+                key.accent = .systemOrange
+                key.knurled = true
+                key.imageOnGrip = true
+                key.alpha = 0
+                key.isHidden = false
+            }
+            lockedReturnKey.image = KeyIcons.lockedReturn
+            lockedDeleteKey.image = KeyIcons.lockedDelete
+            spaceKey.dimsImage = false
+            spaceKey.imageOnGrip = true
+            spaceKey.image = KeyIcons.lockedEnd
+            spaceKey.accessibilityLabel = "پایان"
+        } else {
+            spaceKey.imageOnGrip = false
+            spaceKey.dimsImage = true
+            updateSpaceImage()
+        }
+        view.setNeedsLayout()
+        UIView.animate(withDuration: calm ? 0.15 : 0.45, delay: 0, usingSpringWithDamping: calm ? 1 : 0.72,
+                       initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: {
+            self.lockedReturnKey.alpha = on ? 1 : 0
+            self.lockedDeleteKey.alpha = on ? 1 : 0
+            self.view.layoutIfNeeded()
+        }, completion: { _ in
+            guard !self.lockedKeysShown else { return }
+            self.lockedReturnKey.isHidden = true
+            self.lockedDeleteKey.isHidden = true
+        })
+        if on {
+            for (index, key) in [lockedReturnKey, spaceKey, lockedDeleteKey].enumerated() {
+                key.revealImage(delay: calm ? 0 : 0.12 + 0.06 * Double(index), animated: !calm)
+            }
+        }
     }
 
     /// Where the orb sits among the keys (in the keys' coordinates): level with the middle
@@ -1068,7 +1165,8 @@ final class KeyboardViewController: UIInputViewController {
             } else if dy < radius {
                 half = (radius * radius - dy * dy).squareRoot() + 4
             } else {
-                continue
+                // Above the orb (the number row): aside from the lock.
+                half = 30
             }
             let left = row.filter { $0.frame.midX < center.x }.sorted { $0.frame.midX > $1.frame.midX }
             let right = row.filter { $0.frame.midX >= center.x }.sorted { $0.frame.midX < $1.frame.midX }
@@ -1220,9 +1318,17 @@ final class KeyboardViewController: UIInputViewController {
         returnKey.accessibilityLabel = "return"
         returnKey.accessibilityIdentifier = "returnKey"
         returnKey.addTarget(self, action: #selector(insertReturn), for: .touchUpInside)
-        for key in [backspaceKey, layerKey, emojiKey, spaceKey, returnKey] {
+        for key in [backspaceKey, layerKey, emojiKey, lockedReturnKey, lockedDeleteKey, spaceKey, returnKey] {
             keysView.addSubview(key)
         }
+        lockedReturnKey.isHidden = true
+        lockedReturnKey.accessibilityIdentifier = "lockedReturnKey"
+        lockedReturnKey.accessibilityLabel = "خط بعد"
+        lockedReturnKey.addTarget(self, action: #selector(lockedReturnTapped), for: .touchUpInside)
+        lockedDeleteKey.isHidden = true
+        lockedDeleteKey.accessibilityIdentifier = "lockedDeleteKey"
+        lockedDeleteKey.accessibilityLabel = "پاک کردن کلمه"
+        lockedDeleteKey.addTarget(self, action: #selector(lockedDeleteTapped), for: .touchUpInside)
         for key in [layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey] {
             key.addAction(UIAction { [weak self] _ in self?.click(.modifier) }, for: .touchDown)
         }
@@ -1342,7 +1448,9 @@ final class KeyboardViewController: UIInputViewController {
         isCapsLock = false
         setShifted(false)
         updateAutoShift()
-        emojiKey.image = KeyIcons.menuKey(symbol: layer == .emoji ? "keyboard" : "face.smiling")
+        emojiKey.image = layer == .emoji ? KeyIcons.menuKey(symbol: "keyboard") : KeyIcons.emojiKey
+        // A key hidden while it was pressed (emoji, 123) comes back unpressed.
+        for key in [emojiKey, layerKey, moreKey, shiftKey, returnKey, spaceKey] { key.isHighlighted = false }
         emojiKey.accessibilityLabel = layer == .emoji ? "حروف" : "شکلک"
         lastGlide = nil
         wordTouches.removeAll()
@@ -1710,8 +1818,16 @@ final class KeyboardViewController: UIInputViewController {
             if emojiSearch == nil { place(emojiKey, 2 * eleventh) }
             place(spaceKey, (emojiSearch == nil ? 5 : 7) * eleventh)
             place(returnKey, 2 * eleventh)
-            // Dictating: the space bar reaches over the emoji key to the middle of the keyboard.
-            if isMagnet { spaceKey.frame = CGRect(x: left + 2 * eleventh, y: y, width: 7 * eleventh, height: row) }
+            // Dictating: the space bar reaches over the emoji key to the middle of the keyboard;
+            // locked, it splits into return, end (wider) and delete.
+            if isMagnet {
+                let whole = CGRect(x: left + 2 * eleventh, y: y, width: 7 * eleventh, height: row)
+                let side = 1.5 * eleventh
+                let gap: CGFloat = 4
+                lockedReturnKey.frame = CGRect(x: whole.minX, y: y, width: side, height: row)
+                lockedDeleteKey.frame = CGRect(x: whole.maxX - side, y: y, width: side, height: row)
+                spaceKey.frame = lockedKeysShown ? whole.insetBy(dx: side + gap, dy: 0) : whole
+            }
         }
         let returnImage = emojiSearch != nil ? KeyIcons.searchDone : isEnglish ? KeyIcons.returnKey : KeyIcons.returnKeyMirrored
         if returnKey.image !== returnImage { returnKey.image = returnImage }
@@ -2502,7 +2618,7 @@ private final class KeyView: UIControl {
             label.font = keyFont(for: storedTitle, size: fontSize)
             label.textColor = textColor
         }
-        imageView.isHidden = message != nil || knurled
+        imageView.isHidden = message != nil || (knurled && !imageOnGrip)
         trailingImageView.isHidden = message != nil || knurled
         labelClip.isHidden = knurled
         if message != nil || storedTitle != nil { accessibilityLabel = message ?? storedTitle }
@@ -2554,6 +2670,28 @@ private final class KeyView: UIControl {
         }
     }
     private let grip = UIImageView()
+    /// The image stays over the grip (the parts of the split orange bar).
+    var imageOnGrip = false {
+        didSet { if imageOnGrip != oldValue { updateLabel() } }
+    }
+
+    /// The image springs in: from small, turned and faint to its place.
+    func revealImage(delay: TimeInterval, animated: Bool) {
+        let alpha: CGFloat = dimsImage ? 0.4 : 1
+        imageView.layer.removeAllAnimations()
+        guard animated else {
+            imageView.alpha = alpha
+            imageView.transform = .identity
+            return
+        }
+        imageView.alpha = 0
+        imageView.transform = CGAffineTransform(scaleX: 0.3, y: 0.3).rotated(by: -0.5)
+        UIView.animate(withDuration: 0.55, delay: delay, usingSpringWithDamping: 0.55, initialSpringVelocity: 0.4,
+                       options: [.allowUserInteraction]) {
+            self.imageView.alpha = alpha
+            self.imageView.transform = .identity
+        }
+    }
 
     /// Moves and turns what is drawn (not the touch area): the keys standing aside around the
     /// dictation orb. Springs there unless `animated` is false.
@@ -2577,15 +2715,23 @@ private final class KeyView: UIControl {
     /// app, so it costs no work here.
     func jiggle(_ on: Bool) {
         content.layer.removeAnimation(forKey: "jiggle")
+        content.layer.removeAnimation(forKey: "jiggleBob")
         guard on else { return }
-        let angle = 1.1 * Double.pi / 180
+        let angle = 2.4 * Double.pi / 180
         let wobble = CAKeyframeAnimation(keyPath: "transform.rotation.z")
         wobble.values = [0, angle, 0, -angle, 0]
-        wobble.duration = Double.random(in: 0.5...0.7)
+        wobble.duration = Double.random(in: 0.32...0.42)
         wobble.timeOffset = Double.random(in: 0...wobble.duration)
         wobble.repeatCount = .infinity
         wobble.isAdditive = true
         content.layer.add(wobble, forKey: "jiggle")
+        let bob = CAKeyframeAnimation(keyPath: "transform.translation.y")
+        bob.values = [0, -0.8, 0, 0.8, 0]
+        bob.duration = wobble.duration * 1.3
+        bob.timeOffset = Double.random(in: 0...bob.duration)
+        bob.repeatCount = .infinity
+        bob.isAdditive = true
+        content.layer.add(bob, forKey: "jiggleBob")
     }
 
     /// A second image at the right end of the key (the space bar's mic), in its own colours.
@@ -2727,7 +2873,9 @@ private final class KeyView: UIControl {
         } else {
             label.frame = room
         }
-        imageView.frame = inner
+        // Not `frame`: the image springs in with a transform.
+        imageView.bounds = CGRect(origin: .zero, size: inner.size)
+        imageView.center = CGPoint(x: inner.midX, y: inner.midY)
         if hint != nil {
             let size = max(9, (inner.height * 0.24).rounded())
             hintLabel.font = AppFont.font(ofSize: size)
@@ -3544,11 +3692,19 @@ private enum KeyIcons {
     static let deleteLeft = leftToRight("delete.left")
     static let deleteRight = leftToRight("delete.right")
 
+    /// The split orange bar of a locked recording: fine return and delete, and a check mark for
+    /// ending the dictation.
+    static let lockedReturn = leftToRight("return", size: 17, weight: .light)
+    static let lockedDelete = leftToRight("delete.left", size: 17, weight: .light)
+    static let lockedEnd = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
+    /// The emoji key's face, drawn once: always the outline.
+    static let emojiKey = menuKey(symbol: "face.smiling")
+
     /// An SF Symbol as drawn left to right, as a template that no layout direction flips.
-    private static func leftToRight(_ name: String) -> UIImage {
+    private static func leftToRight(_ name: String, size: CGFloat = 19, weight: UIImage.SymbolWeight = .regular) -> UIImage {
         let traits = UITraitCollection(layoutDirection: .leftToRight)
         guard let symbol = UIImage(systemName: name, compatibleWith: traits)?
-            .applyingSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: 19)) else {
+            .applyingSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: size, weight: weight)) else {
             return UIImage()
         }
         return UIGraphicsImageRenderer(size: symbol.size).image { _ in
