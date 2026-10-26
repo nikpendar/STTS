@@ -1,22 +1,30 @@
 # Smaller speech model: compresses the weights of Shenava Koochik (212 MB, fp16) with Core ML weight
-# quantization (8-bit linear, k-means palettes of 8, 6 and 4 bits) and measures each version with the
-# app's own ShenavaStream on the same 80 FLEURS and 80 Common Voice 17 clips as the earlier Shenava
-# benchmark: size (.mlmodel, zipped download, compiled), WER, CER, speed and memory. Nothing here
-# changes the app or its build.
+# quantization (8-bit linear, k-means palettes) and measures each version with the app's own
+# ShenavaStream on the same 80 FLEURS and 80 Common Voice 17 clips as the earlier Shenava benchmark:
+# size (model, zipped download, compiled), WER, CER, speed and peak memory (CPU only and all units).
+# VARIANTS compress the published NeuralNetwork .mlmodel; PROGRAMS export the .nemo checkpoint again
+# as iOS17 ML programs (.mlpackage, training/export_variants.py), which can keep compressed weights
+# compressed in memory. Nothing here changes the app or its build.
 name: Model compression
 
 on:
   push:
     branches: [claude/project-thread-bcbcf5]
-    paths: [.github/workflows/compress-eval.yml, scripts/compress_model.py, setup.sh]
+    paths: [.github/workflows/compress-eval.yml, scripts/compress_model.py, training/export_coreml.py, training/export_variants.py]
   workflow_dispatch:
     inputs:
       variants:
-        description: Space-separated versions (fp16 linear8 paletteN)
-        default: fp16 linear8 palette8 palette6 palette4
+        description: Space-separated versions of the published model (fp16 linear8 paletteN)
+        default: fp16 linear8
+      programs:
+        description: Space-separated ML program exports (mlp-fp16 mlp-int8 mlp-palN), empty for none
+        default: mlp-fp16 mlp-int8 mlp-pal6
 
 env:
-  VARIANTS: ${{ github.event.inputs.variants || 'fp16 linear8 palette8 palette6 palette4' }}
+  VARIANTS: ${{ github.event.inputs.variants || 'fp16 linear8' }}
+  PROGRAMS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.programs || 'mlp-fp16 mlp-int8 mlp-pal6' }}
+  NEMO_URL: https://huggingface.co/Reza2kn/Shenava-Koochik-v1.0/resolve/main/shenava-koochik-v1.0.nemo
+  NEMO_SHA256: f7b5124a9fd2d50c15bf070abdc0f80ec2449d64948c5657adb79a7e91dd1d16
 
 jobs:
   clips:
@@ -79,7 +87,7 @@ jobs:
             rm "models/Koochik-$v.zip"
           done
       - id: list
-        run: echo "variants=$(python3 -c 'import json, os; print(json.dumps(os.environ["VARIANTS"].split()))')" >> "$GITHUB_OUTPUT"
+        run: echo "variants=$(python3 -c 'import json, os; print(json.dumps((os.environ["VARIANTS"] + " " + os.environ["PROGRAMS"]).split()))')" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v5
         with:
           name: models
@@ -87,27 +95,50 @@ jobs:
           retention-days: 7
           compression-level: 0
 
-  # setup.sh (as build.yml runs it, with the runner's own Python) must make the same 8-bit model.
-  setup:
-    needs: compress
-    runs-on: macos-15
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
+      - uses: actions/setup-python@v6
         with:
-          name: models
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: training/requirements.txt
+      - name: Install NeMo
+        if: env.PROGRAMS != ''
+        run: pip install -q --extra-index-url https://download.pytorch.org/whl/cpu -r training/requirements.txt
+      - uses: actions/cache@v4
+        if: env.PROGRAMS != ''
+        with:
+          path: base.nemo
+          key: koochik-nemo-${{ env.NEMO_SHA256 }}
+      - name: Export
+        env:
+          TQDM_DISABLE: "1"
+        run: |
+          mkdir -p models
+          [ -n "$PROGRAMS" ] || exit 0
+          [ -s base.nemo ] || curl -fsSL --retry 3 "$NEMO_URL" -o base.nemo
+          echo "$NEMO_SHA256  base.nemo" | sha256sum -c -
+          python training/export_variants.py base.nemo models $PROGRAMS 2>&1 | grep -E "^(mlp|nn)-|Error|error" || true
+          for v in $PROGRAMS; do
+            m=models/Koochik-$v.mlpackage
+            [ -d "$m" ] || { echo "::error::$v was not exported"; exit 1; }
+            (cd models && zip -qr "Koochik-$v.zip" "Koochik-$v.mlpackage")
+            echo "$v $(du -sb "$m" | cut -f1) $(stat -c %s models/Koochik-$v.zip)" | tee -a models/sizes-programs.txt
+            rm "models/Koochik-$v.zip"
+          done
+      - uses: actions/upload-artifact@v5
+        with:
+          name: programs
           path: models
-      - run: |
-          python3 --version
-          bash ./setup.sh model
-          if [ -f models/Koochik-linear8.mlmodel ]; then
-            cmp build-model/Koochik.mlmodel models/Koochik-linear8.mlmodel && echo "::notice::setup.sh makes the benchmarked linear8 model"
-          fi
-          xcrun coremlcompiler compile build-model/Koochik.mlmodel compiled --deployment-target 15.0 --platform ios
-          du -sh compiled/*.mlmodelc
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: ignore
 
   eval:
-    needs: [clips, compress]
+    needs: [clips, compress, export]
     runs-on: macos-15
     strategy:
       fail-fast: false
@@ -125,10 +156,16 @@ jobs:
         with:
           name: models
           path: models
+      - uses: actions/download-artifact@v5
+        if: startsWith(matrix.variant, 'mlp-')
+        with:
+          name: programs
+          path: models
       - name: Compile the model and the app's recognizer
         run: |
           bash ./setup.sh sidecars
-          xcrun coremlcompiler compile "models/Koochik-${{ matrix.variant }}.mlmodel" compiled --deployment-target 15.0 --platform ios
+          m=$(ls -d "models/Koochik-${{ matrix.variant }}".ml* | head -1)
+          xcrun coremlcompiler compile "$m" compiled --deployment-target 17.0 --platform ios
           du -sk compiled/*.mlmodelc | awk '{ print $1 * 1024 }' > compiled_bytes
           xcrun swiftc -O -o shenava-check PersianSTT/ShenavaStream.swift Tests/ShenavaCheck/main.swift
           sysctl -n machdep.cpu.brand_string hw.ncpu
@@ -136,23 +173,30 @@ jobs:
         run: |
           v=${{ matrix.variant }}
           mkdir -p result
-          read -r _ mlmodel zipped < <(grep "^$v " models/sizes.txt)
+          read -r _ mlmodel zipped < <(cat models/sizes*.txt | grep "^$v ")
+          # Memory with all compute units (GPU in this VM; the iPhone also has the Neural Engine).
+          mkdir -p fleurs10 && ls fleurs/*.wav | head -10 | xargs -I{} cp {} fleurs10/
+          ./shenava-check compiled/*.mlmodelc PersianSTT/Models fleurs10 all | tee result/run-all.log
+          all_peak=$(sed -nE 's/.*footprint_peak_mb=([0-9.]+).*/\1/p' result/run-all.log)
+          all_ms=$(sed -nE 's/.*mean_step_ms=([0-9.]+).*/\1/p' result/run-all.log)
           for ds in fleurs cv17; do
             /usr/bin/time -l ./shenava-check compiled/*.mlmodelc PersianSTT/Models "$ds" cpu > "result/run-$ds.log" 2> "result/time-$ds.log"
             cat "result/run-$ds.log"
             secs=$(sed -nE 's/.*compute_s=([0-9.]+).*/\1/p' "result/run-$ds.log")
             step_ms=$(sed -nE 's/.*mean_step_ms=([0-9.]+).*/\1/p' "result/run-$ds.log")
+            peak=$(sed -nE 's/.*footprint_peak_mb=([0-9.]+).*/\1/p' "result/run-$ds.log")
             rss=$(awk '/maximum resident set size/ { print $1 }' "result/time-$ds.log")
             python3 scripts/wer.py "$ds/refs.tsv" "$ds" "$v" "$secs" "$mlmodel" "$(cat $ds/audio_seconds)" "result/$ds.json"
-            python3 - "result/$ds.json" "$zipped" "$(cat compiled_bytes)" "$step_ms" "$rss" <<'PY'
+            python3 - "result/$ds.json" "$zipped" "$(cat compiled_bytes)" "$step_ms" "$rss" "$peak" "$all_peak" "$all_ms" <<'PY'
           import json, sys
-          path, zipped, compiled, step_ms, rss = sys.argv[1:]
+          path, zipped, compiled, step_ms, rss, peak, all_peak, all_ms = sys.argv[1:]
           r = json.load(open(path, encoding="utf-8"))
           r.update(zip_mb=round(int(zipped) / 1e6), compiled_mb=round(int(compiled) / 1e6),
-                   step_ms=float(step_ms), peak_rss_mb=round(int(rss) / 1e6))
+                   step_ms=float(step_ms), peak_rss_mb=round(int(rss) / 1e6), footprint_mb=float(peak),
+                   footprint_all_mb=float(all_peak), step_ms_all=float(all_ms))
           json.dump(r, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
           PY
-            echo "RESULT $ds $(python3 -c 'import json, sys; r = json.load(open(sys.argv[1])); print({k: r[k] for k in ("wer", "cer", "size_mb", "zip_mb", "compiled_mb", "step_ms", "rtf", "peak_rss_mb")})' "result/$ds.json")"
+            echo "RESULT $ds $(python3 -c 'import json, sys; r = json.load(open(sys.argv[1])); print({k: r[k] for k in ("wer", "cer", "size_mb", "zip_mb", "compiled_mb", "step_ms", "footprint_mb", "footprint_all_mb", "peak_rss_mb")})' "result/$ds.json")"
             mkdir -p "result/hyp-$ds" && cp "$ds"/*.txt "result/hyp-$ds/" && rm "$ds"/*.txt
           done
       - uses: actions/upload-artifact@v5
@@ -172,21 +216,13 @@ jobs:
         run: |
           python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
           import json, os
-          print("| version | .mlmodel MB | zip MB | compiled MB | FLEURS WER | CV WER | FLEURS CER | CV CER | ms/step | peak RSS MB |")
-          print("|---|---|---|---|---|---|---|---|---|---|")
-          for v in os.environ["VARIANTS"].split():
+          print("| version | model MB | zip MB | compiled MB | FLEURS WER | CV WER | FLEURS CER | CV CER | ms/step cpu | ms/step all | footprint MB cpu | footprint MB all | peak RSS MB |")
+          print("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+          for v in (os.environ["VARIANTS"] + " " + os.environ["PROGRAMS"]).split():
               try:
                   f = json.load(open(f"result-{v}/fleurs.json")); c = json.load(open(f"result-{v}/cv17.json"))
               except FileNotFoundError:
                   print(f"| {v} | failed |"); continue
-              print(f"| {v} | {f['size_mb']} | {f['zip_mb']} | {f['compiled_mb']} | {f['wer']} | {c['wer']} | {f['cer']} | {c['cer']} | {f['step_ms']} | {max(f['peak_rss_mb'], c['peak_rss_mb'])} |")
-          PY
-          python3 - <<'PY'
-          import json, os
-          for v in os.environ["VARIANTS"].split():
-              try:
-                  f = json.load(open(f"result-{v}/fleurs.json")); c = json.load(open(f"result-{v}/cv17.json"))
-                  print(f"::notice::{v}: {f['size_mb']} MB (zip {f['zip_mb']}), FLEURS {f['wer']} / CV {c['wer']}, {f['step_ms']} ms/step, RSS {max(f['peak_rss_mb'], c['peak_rss_mb'])} MB")
-              except FileNotFoundError:
-                  print(f"::warning::{v}: no result")
+              print(f"| {v} | {f['size_mb']} | {f['zip_mb']} | {f['compiled_mb']} | {f['wer']} | {c['wer']} | {f['cer']} | {c['cer']} | {f['step_ms']} | {f['step_ms_all']} "
+                    f"| {max(f['footprint_mb'], c['footprint_mb']):.0f} | {f['footprint_all_mb']:.0f} | {max(f['peak_rss_mb'], c['peak_rss_mb'])} |")
           PY

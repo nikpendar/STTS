@@ -35,5 +35,12 @@ for url in files {
         .joined(separator: " ")
     try text.write(to: URL(fileURLWithPath: url.path + ".txt"), atomically: true, encoding: .utf8)
 }
-print(String(format: "TIMING clips=%d steps=%d mean_step_ms=%.1f audio_s=%.1f compute_s=%.1f", files.count, stream.steps,
-             stream.computeSeconds * 1000 / Double(max(stream.steps, 1)), audioSeconds, stream.computeSeconds))
+// The memory iOS counts against an app (and ends it for): the physical footprint, now and at its peak.
+var vm = task_vm_info_data_t()
+var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+_ = withUnsafeMutablePointer(to: &vm) {
+    $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count) }
+}
+print(String(format: "TIMING clips=%d steps=%d mean_step_ms=%.1f audio_s=%.1f compute_s=%.1f footprint_mb=%.0f footprint_peak_mb=%.0f",
+             files.count, stream.steps, stream.computeSeconds * 1000 / Double(max(stream.steps, 1)), audioSeconds,
+             stream.computeSeconds, Double(vm.phys_footprint) / 1e6, Double(vm.ledger_phys_footprint_peak) / 1e6))
