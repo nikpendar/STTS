@@ -90,6 +90,8 @@ final class SpeechEngine: @unchecked Sendable {
         try await run { stream in
             try stream.accept(samples)
             try stream.finish()
+            let memory = MemoryFootprint.megabytes
+            log.info("dictation done, memory \(Int(memory.now)) MB (peak \(Int(memory.peak)) MB)")
             return stream.text
         }
     }
@@ -196,7 +198,8 @@ final class Transcriber: ObservableObject {
             let engine = try await SpeechEngine.load(model: url, resources: resources)
             self.engine = engine
             hasModel = true
-            log.info("loaded \(url.lastPathComponent, privacy: .public), compute units \(engine.computeUnits.rawValue)")
+            let memory = MemoryFootprint.megabytes
+            log.info("loaded \(url.lastPathComponent, privacy: .public), compute units \(engine.computeUnits.rawValue), memory \(Int(memory.now)) MB (peak \(Int(memory.peak)) MB)")
             if !isRecording {
                 status = engine.computeUnits == .cpuOnly ? "آماده (CPU)" : "آماده"
             }

@@ -1,7 +1,8 @@
 # Builds an unsigned KeylessShenava.ipa on a GitHub macOS runner (no local Mac/Xcode needed).
 # Install the resulting .ipa with AltServer (Option-click > Sideload .ipa). With a free Apple ID,
 # Sideloadly signs the keyboard extension with the app's profile and iOS kills it at launch.
-# The speech model, Shenava Koochik (Core ML, 212 MB), is the separate ShenavaModel artifact,
+# The speech model, Shenava Koochik (Koochik.aar, a Core ML ML program with 8-bit weights, 107 MB,
+# from the release koochik-mlp-int8 that model.yml publishes), is the separate ShenavaModel artifact,
 # imported once in the app; KeylessShenavaEmbedded.ipa is the same app with the model inside
 # (no import, no model page). The Whisper version is archived on branch archive/whisper.
 name: Build unsigned IPA
@@ -10,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       bundle_model:
-        description: "Put the model inside the IPA (200+ MB) instead of the separate ShenavaModel artifact"
+        description: "Put the model inside the IPA (about 110 MB) instead of the separate ShenavaModel artifact"
         type: boolean
         default: false
   push:
@@ -53,7 +54,7 @@ jobs:
       - uses: actions/upload-artifact@v5
         with:
           name: ShenavaModel
-          path: build-model/Koochik.mlmodel
+          path: build-model/Koochik.aar
           retention-days: 90
           compression-level: 0
 
@@ -112,8 +113,10 @@ jobs:
           # Only when config.env asks for it (BUILD_EMBEDDED=1).
           BUILD_EMBEDDED="$(sed -n 's/^BUILD_EMBEDDED=//p' config.env)"
           if [ "$BUILD_EMBEDDED" = 1 ] && [ ! -d PersianSTT/Models/Koochik.mlmodelc ]; then
-            xcrun coremlcompiler compile build-model/Koochik.mlmodel "$RUNNER_TEMP/compiled" \
-              --deployment-target 15.0 --platform ios
+            mkdir -p "$RUNNER_TEMP/Koochik.mlpackage"
+            aa extract -d "$RUNNER_TEMP/Koochik.mlpackage" -i build-model/Koochik.aar
+            xcrun coremlcompiler compile "$RUNNER_TEMP/Koochik.mlpackage" "$RUNNER_TEMP/compiled" \
+              --deployment-target 17.0 --platform ios
             cp -R "$RUNNER_TEMP/compiled/Koochik.mlmodelc" "$APP/Models/"
             codesign --force --sign - Payload/PersianSTT.app
             zip -qry KeylessShenavaEmbedded.ipa Payload

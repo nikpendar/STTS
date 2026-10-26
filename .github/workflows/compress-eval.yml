@@ -73,7 +73,7 @@ jobs:
           python-version: "3.12"
       - name: Base model
         run: |
-          KOOCHIK_WEIGHTS=fp16 bash ./setup.sh model
+          KOOCHIK_FORMAT=neuralnetwork bash ./setup.sh model
           ls -l build-model/Koochik.mlmodel
       - name: Compress
         run: |

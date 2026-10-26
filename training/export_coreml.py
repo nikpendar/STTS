@@ -1,5 +1,7 @@
 """Exports a Shenava Koochik NeMo model as the app's streaming Core ML model: one cache-aware
-encoder step plus the CTC head, an iOS14-target NeuralNetwork with fp16 weights or an iOS17 ML program (export_variants.py), the same interface as the published Koochik.mlmodel (ShenavaStream in the app):
+encoder step plus the CTC head, as an iOS17 ML program with 8-bit weights (the app's model since
+model.yml) or an iOS14 NeuralNetwork, with the interface of the published Koochik.mlmodel
+(ShenavaStream in the app):
 
     processed_signal [1,80,17] + cache_last_channel [17,1,70,512] + cache_last_time [17,1,512,8]
         -> logits [1,1,1025] + the next caches
@@ -99,7 +101,7 @@ def export(model, out_path: Path, att_context=(70, 0), fmt: str = "neuralnetwork
     """Writes the Core ML step model to `out_path`; returns its shapes. Changes the model's
     attention setup, so export last.
 
-    fmt "neuralnetwork": an iOS14 .mlmodel, the format the app imports; weights int8 (8-bit linear)
+    fmt "neuralnetwork": an iOS14 .mlmodel (the Hugging Face model's format); weights int8 (8-bit linear)
     or fp16. fmt "mlprogram": an iOS17 .mlpackage with fp16 compute; weights fp16, int8 (8-bit
     linear, per channel) or pal<N> (an N-bit palette per tensor). An ML program keeps compressed
     weights compressed in memory where the hardware allows, a NeuralNetwork expands them at load."""

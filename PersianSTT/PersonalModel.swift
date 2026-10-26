@@ -44,8 +44,9 @@ final class PersonalModel: ObservableObject {
         let werBefore: Double?
         let werAfter: Double?
         let samples: Int?
-        /// The asset's API address, filled in from the release.
+        /// The asset's API address and its file's extension (mlmodel or aar), filled in from the release.
         var asset: URL?
+        var assetKind = "mlmodel"
 
         enum CodingKeys: String, CodingKey {
             case version, size, sha256, samples
@@ -291,11 +292,12 @@ final class PersonalModel: ObservableObject {
             }
             let latest = try JSONDecoder().decode(GitHubRelease.self, from: data)
             guard var release = latest.body.flatMap({ try? JSONDecoder().decode(Release.self, from: Data($0.utf8)) }),
-                  let asset = latest.assets.first(where: { $0.name.hasSuffix(".mlmodel") }) else {
+                  let asset = latest.assets.first(where: { ModelArchive.extensions.contains(($0.name as NSString).pathExtension) }) else {
                 available = nil
                 return
             }
             release.asset = asset.url
+            release.assetKind = (asset.name as NSString).pathExtension
             available = release.version > version ? release : nil
             log.info("repository has model v\(release.version), using v\(self.version)")
             if available != nil, UserDefaults.standard.bool(forKey: Self.autoUpdateKey) {
@@ -316,7 +318,7 @@ final class PersonalModel: ObservableObject {
             // The temporary file is deleted when this handler returns, so it is moved first.
             var moved: URL?
             if let url, (response as? HTTPURLResponse)?.statusCode == 200 {
-                let target = FileManager.default.temporaryDirectory.appendingPathComponent("personal-\(release.version).mlmodel")
+                let target = FileManager.default.temporaryDirectory.appendingPathComponent("personal-\(release.version).\(release.assetKind)")
                 try? FileManager.default.removeItem(at: target)
                 if (try? FileManager.default.moveItem(at: url, to: target)) != nil { moved = target }
             }
@@ -353,7 +355,7 @@ final class PersonalModel: ObservableObject {
             }
             let target = modelsDir.appendingPathComponent("personal-v\(release.version).mlmodelc", isDirectory: true)
             do {
-                let compiled = try await MLModel.compileModel(at: file)
+                let compiled = try await ModelArchive.compile(file)
                 try? FileManager.default.removeItem(at: target)
                 try FileManager.default.copyItem(at: compiled, to: target)
                 try? FileManager.default.removeItem(at: compiled)

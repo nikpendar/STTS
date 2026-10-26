@@ -4,10 +4,11 @@ import os
 
 private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model")
 
-/// The speech model (Shenava Koochik, a 212 MB Core ML .mlmodel file) is not inside the app,
-/// so each build stays a few MB, but imported once from Files and compiled on the phone into
-/// Application Support. Installing a new build over the app keeps it. A .mlmodel copied with
-/// Finder into the app's Documents folder (On My iPhone › کیلس) is imported at the next launch.
+/// The speech model (Shenava Koochik: Koochik.aar, a 107 MB ML program with 8-bit weights, or the
+/// older 212 MB Koochik.mlmodel) is not inside the app, so each build stays a few MB, but imported
+/// once from Files and compiled on the phone into Application Support. Installing a new build over
+/// the app keeps it. A model file copied with Finder into the app's Documents folder
+/// (On My iPhone › کیلس) is imported at the next launch.
 @MainActor
 final class ModelImporter: ObservableObject {
     static let shared = ModelImporter()
@@ -20,7 +21,7 @@ final class ModelImporter: ObservableObject {
         case notModel
 
         var errorDescription: String? {
-            "این فایل مدل گفتار نیست. فایل Koochik.mlmodel را انتخاب کنید (اگر zip است، اول در Files بازش کنید)."
+            "این فایل مدل گفتار نیست. فایل Koochik.aar را انتخاب کنید (اگر zip است، اول در Files بازش کنید)."
         }
     }
 
@@ -39,13 +40,13 @@ final class ModelImporter: ObservableObject {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
-    /// A .mlmodel put into Documents with Finder, not imported yet.
+    /// A model file put into Documents with Finder, not imported yet.
     nonisolated static var waitingModel: URL? {
         let files = (try? FileManager.default.contentsOfDirectory(at: documents, includingPropertiesForKeys: nil)) ?? []
-        return files.first { $0.pathExtension.lowercased() == "mlmodel" }
+        return files.first { ModelArchive.extensions.contains($0.pathExtension.lowercased()) }
     }
 
-    /// Compiles the picked .mlmodel into Application Support (replacing the model there) and loads it.
+    /// Compiles the picked model file into Application Support (replacing the model there) and loads it.
     func importModel(from source: URL) {
         guard progress == nil else { return }
         progress = 0
@@ -74,8 +75,8 @@ final class ModelImporter: ObservableObject {
     nonisolated private static func install(_ source: URL) async throws {
         let scoped = source.startAccessingSecurityScopedResource()
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
-        guard source.pathExtension.lowercased() == "mlmodel" else { throw ImportError.notModel }
-        let compiled = try await MLModel.compileModel(at: source)
+        guard ModelArchive.extensions.contains(source.pathExtension.lowercased()) else { throw ImportError.notModel }
+        let compiled = try await ModelArchive.compile(source)
         defer { try? FileManager.default.removeItem(at: compiled) }
         let fm = FileManager.default
         try fm.createDirectory(at: modelsDir, withIntermediateDirectories: true)
@@ -85,12 +86,12 @@ final class ModelImporter: ObservableObject {
         try fm.copyItem(at: compiled, to: staging)
         try? fm.removeItem(at: target)
         try fm.moveItem(at: staging, to: target)
-        // 200 MB that can be imported again does not belong in the iCloud backup.
+        // 100-200 MB that can be imported again does not belong in the iCloud backup.
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         var excluded = target
         try? excluded.setResourceValues(values)
-        // The .mlmodel itself, if it was in the app's folder, and the Whisper model of earlier
+        // The model file itself, if it was in the app's folder, and the Whisper model of earlier
         // versions (ggml-*.bin, 444 MB) are no longer needed.
         let documentsFiles = (try? fm.contentsOfDirectory(at: documents, includingPropertiesForKeys: nil)) ?? []
         for file in documentsFiles where ["bin", "part"].contains(file.pathExtension.lowercased())

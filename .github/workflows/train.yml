@@ -176,8 +176,9 @@ jobs:
         id: check
         run: |
           bash ./setup.sh model
-          xcrun coremlcompiler compile build-model/Koochik.mlmodel compiled-base --deployment-target 15.0 --platform ios
-          xcrun coremlcompiler compile out/Koochik-personal.mlmodel compiled-personal --deployment-target 15.0 --platform ios
+          cp build-model/Koochik.aar base.aar
+          # The personal model travels as the base one does: its .mlpackage folder packed into one file.
+          aa archive -d out/Koochik-personal.mlpackage -o personal.aar
           xcrun swiftc -O -o shenava-check PersianSTT/ShenavaStream.swift Tests/ShenavaCheck/main.swift
           samples=data/samples
           [ "$SOURCE" = fleurs ] && samples=fleurs-samples
@@ -186,7 +187,7 @@ jobs:
             cut -f1 out/heldout.tsv | while read -r name; do cp "$samples/$name" "held-$model/"; done
             cp fleurs-general/*.wav "general-$model/"
             for set in held general; do
-              ./shenava-check compiled-$model/*.mlmodelc PersianSTT/Models "$set-$model" | tail -1
+              ./shenava-check "$model.aar" PersianSTT/Models "$set-$model" | tail -1
             done
           done
           held_base=$(python3 training/score.py out/heldout.tsv held-base)
@@ -214,8 +215,8 @@ jobs:
           if [ "$BETTER" = true ] || [ "$FORCE" = true ]; then
             last=$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null | tr -dc 0-9 || true)
             version=$(( ${last:-0} + 1 ))
-            file="Koochik-personal-v$version.mlmodel"
-            mv out/Koochik-personal.mlmodel "$file"
+            file="Koochik-personal-v$version.aar"
+            mv personal.aar "$file"
             body=$(python3 -c "import json, os, hashlib; print(json.dumps({'version': $version, 'size': os.path.getsize('$file'),
               'sha256': hashlib.sha256(open('$file', 'rb').read()).hexdigest(), 'wer_before': $HELD_BASE,
               'wer_after': $HELD_PERSONAL, 'samples': $samples}))")
