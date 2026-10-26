@@ -1,0 +1,9 @@
+GitHub stand-in on port 8765
+127.0.0.1 - - [26/Oct/2026 21:35:53] "GET /repos/stub/repo/contents/status.json HTTP/1.1" 404 -
+127.0.0.1 - - [26/Oct/2026 21:35:53] "GET /repos/stub/repo/releases/latest HTTP/1.1" 404 -
+127.0.0.1 - - [26/Oct/2026 21:35:53] "GET /repos/stub/repo HTTP/1.1" 404 -
+127.0.0.1 - - [26/Oct/2026 21:40:09] "GET /repos/stub/repo/contents/status.json HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 21:40:09] "GET /repos/stub/repo/releases/latest HTTP/1.1" 200 -
+127.0.0.1 - - [26/Oct/2026 21:40:09] "GET /repos/stub/repo/releases/assets/1 HTTP/1.1" 302 -
+asset downloaded 96974611 bytes
+127.0.0.1 - - [26/Oct/2026 21:40:10] "GET /download/1 HTTP/1.1" 200 -
