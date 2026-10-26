@@ -1,0 +1,63 @@
+Tracing: <UIInputView 0x102eec130> [624]
+
+Found 7 roots referencing: <UIInputView 0x102eec130> [624]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    7 <UIInputView 0x102eec130> [624]
+      6 <NSLayoutConstraint 0x600002159770> [80]     +8: _container 0x600002159778
+      + 6 0x103870400 [2048]  +1120:  0x103870860
+      +   6 <CGPath 0x60000301a1c0> [144]    +48:  0x60000301a1f0
+      +     6 <CUIVectorGlyphPath 0x600002141540> [80]    +56: _path 0x600002141578
+      +       6 <CUIVectorGlyphLayer 0x60000301b060> [144]   +128: _referencePath 0x60000301b0e0
+      +         6 <NSMutableArray (Storage) 0x600000018e50> [16]     +0: __strong  0x600000018e50
+      +           6 <NSMutableArray 0x600000e6abe0> [48]  item count: 2    +16: __strong storage 0x600000e6abf0
+      +             6 <CUIVectorGlyphLayer 0x6000030193b0> [144]     +8: _sublayers 0x6000030193b8
+      +               6 <CUINamedVectorGlyph 0x600003e34400> [256]   +152: _monochromeLayerGroup 0x600003e34498
+      +                 5 <_UIImageCUIVectorGlyphContent 0x600002c60180> [128]    +40: __strong _vectorGlyph 0x600002c601a8
+      +                 ! 5 <UIImage 0x60000301a0a0> [144]    +16: __strong _content 0x60000301a0b0
+      +                 !   5 <NSMutableDictionary (Storage) 0x10491be00> [2048]  +1176: __strong  0x10491c298
+      +                 !     5 <NSMutableDictionary 0x600000233c20> [32]  item count: 50     +8: __strong storage 0x600000233c28
+      +                 !       3 <__NSMallocBlock__ 0x600000c12b50> [48]  UIFoundation  __50-[_UICache setClearsCacheOnApplicationBackground:]_block_invoke  0x1851205b0    +40: __strong [capture] 0x600000c12b78
+      +                 !       : 3 0x105354000 [49152]  +6008:  0x105355778
+      +                 !       :   3 <CFXNotificationRegistrar 0x600003500000> [176]   +144:  0x600003500090
+      +                 !       :     3 <CFNotificationCenter 0x600000203f60> [32]    +16:  0x600000203f70
+      +                 !       :       2 <NSNotificationCenter 0x600000203de0> [32]     +8: _impl 0x600000203de8
+      +                 !       :       | 1 <__NSObserver 0x60000021a800> [32]     +8: nc 0x60000021a808
+      +                 !       :       | + 1 <_UICache 0x600000c34360> [48]    +40: _noteObserver 0x600000c34388
+      +                 !       :       | +   1 Region UIFoundation __DATA __bss: '_sharedFontCache.__sharedFontCache' 0x1f2877e58
+      +                 !       :       | 1 Region Foundation __DATA __bss: '_MergedGlobals.9' + 40 0x1f278de28
+      +                 !       :       1 Region CoreFoundation __DATA __bss: '__taskCenter' 0x1f26f9378
+      +                 !       1 <_UICache 0x600000c11fb0> [48]    +16: _cache 0x600000c11fc0
+      +                 !       : 1 <_UIAssetManager 0x600003000d80> [144]     +8: __strong _imageCache 0x600003000d88
+      +                 !       :   1 Region UIKitCore __DATA __common: '__UIKitCoreGlyphsManager' 0x1f2998958
+      +                 !       1 <__NSMallocBlock__ 0x600000c129d0> [48]  UIFoundation  __16-[_UICache init]_block_invoke  0x185120128    +40: __strong [capture] 0x600000c129f8
+      +                 !         1 0x60000171f880 [64]    +40:  0x60000171f8a8
+      +                 !           1 0x600002112df0 [80]    +40:  0x600002112e18
+      +                 !             1 Kernel Pointers Into User Space 
+      +                 1 <SVGPath 0x60000301a010> [144]    +64:  0x60000301a050
+      +                   1 <SVGAttribute 0x6000029bd6c0> [112]    +88:  0x6000029bd718
+      +                     1 0x600000e6b030 [48]    +40:  0x600000e6b058
+      +                       1 0x600000e6b1b0 [48]     +8:  0x600000e6b1b8
+      +                         1 <SVGAttributeMap 0x600002143520> [80]    +48:  0x600002143550
+      +                           1 <SVGShapeNode 0x102e361b0> [336]    +56:  0x102e361e8
+      +                             1 0x600000018cf0 [16]     +0:  0x600000018cf0
+      +                               1 <SVGNode 0x60000391ba80> [208]    +88:  0x60000391bad8
+      +                                 1 0x600000018c50 [16]     +0:  0x600000018c50
+      +                                   1 <SVGRootNode 0x102e3c810> [288]    +88:  0x102e3c868
+      +                                     1 <SVGDocument 0x6000021430c0> [80]    +48:  0x6000021430f0
+      +                                       1 <SVGDocument 0x600000344c60> [32]    +16:  0x600000344c70
+      +                                         1 <_CUIThemeSVGRendition 0x102e5a6f0> [352]   +216: _svgDocument 0x102e5a7c8
+      +                                           1 <NSMutableDictionary (Storage) 0x1048bb800> [2048]  +1208: __strong  0x1048bbcb8
+      +                                             1 <NSMutableDictionary 0x6000003408c0> [32]  item count: 56     +8: __strong storage 0x6000003408c8
+      +                                               1 <CUIStructuredThemeStore 0x600002609a40> [96]     +8: _cache 0x600002609a48
+      +                                                 1 0x6000017d3100 [64]    +16:  0x6000017d3110
+      +                                                   1 <CFBasicHash 0x600001736640> [64]    +40:  0x600001736668
+      +                                                     1 <NSClassicMapTable 0x600002602100> [96]    +80: _ht 0x600002602150
+      +                                                       1 Region CoreUI __DATA __bss: '__PerformBlockWithThemeRegistry.__themeRegistry' 0x1f2ec3268
+      1 <NSLayoutDimension 0x600001764580> [64]     +8: _referenceItem 0x600001764588
+        1 0x102efa590 [384]   +208:  0x102efa660
+          1 0x104524000 [65536] +36104:  0x10452cd08
+            1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f26c94c8

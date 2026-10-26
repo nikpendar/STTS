@@ -1,0 +1,37 @@
+======================================================================
+PersianSTTKeyboard [15359]: 64-bit    Footprint: 56 MB (16384 bytes per page)
+======================================================================
+
+  Dirty      Clean  Reclaimable    Regions    Category
+    ---        ---          ---        ---    ---
+  14 MB        0 B          0 B         70    dyld private memory
+9680 KB        0 B       896 KB          1    MALLOC_NANO
+7755 KB      16 KB          0 B        924    __DATA
+6272 KB        0 B          0 B          6    MALLOC_SMALL
+4944 KB        0 B          0 B         16    MALLOC_LARGE
+4576 KB        0 B      2048 KB         12    MALLOC_TINY
+3965 KB        0 B          0 B        953    __DATA_CONST
+2024 KB        0 B          0 B          1    page table
+1306 KB        0 B          0 B       1408    unused dyld shared cache area
+1232 KB        0 B          0 B         40    CoreAnimation
+ 240 KB        0 B          0 B          9    CG raster data
+ 240 KB        0 B          0 B         27    MALLOC metadata
+ 208 KB        0 B          0 B          8    stack
+ 107 KB        0 B          0 B         14    __DATA_DIRTY
+  80 KB        0 B          0 B          4    untagged (VM_ALLOCATE)
+  68 KB        0 B          0 B          3    __TPRO_CONST
+  32 KB        0 B          0 B          1    Activity Tracing
+  16 KB      12 MB          0 B         16    mapped file
+  16 KB        0 B          0 B          1    Foundation
+  16 KB        0 B          0 B          1    ColorSync
+  16 KB        0 B          0 B          1    os_alloc_once
+    0 B    1712 KB          0 B        966    __TEXT
+    0 B     176 KB          0 B          9    __LINKEDIT
+    0 B        0 B          0 B          1    __FONT_DATA
+    ---        ---          ---        ---    ---
+  56 MB      14 MB      2944 KB       4494    TOTAL
+
+Auxiliary data:
+    phys_footprint: 56 MB
+    phys_footprint_peak: 60 MB
+
