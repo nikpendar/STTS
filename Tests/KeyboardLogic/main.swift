@@ -1,4 +1,4 @@
-// Checks the keyboard's word logic (Lexicon, VoiceCommands, TouchModel, GlideDecoder) without a simulator:
+// Checks the keyboard's word logic (Lexicon, VoiceCommands, PersonalDictionary, TouchModel, GlideDecoder) without a simulator:
 // .github/workflows/logic-test.yml compiles these files with this one on a Mac and runs them.
 import Foundation
 
@@ -52,6 +52,25 @@ check("delete inside a sentence", text("اینو پاک کن که بد است"),
 check("delete all", VoiceCommands.process("همه رو پاک کن", punctuation: true, commands: true).steps == [.deleteAll], true)
 check("undo", VoiceCommands.process("برگردون", punctuation: true, commands: true).steps == [.undo], true)
 check("commands off", text("پاک کن", commands: false), "پاک کن")
+
+// Personal dictionary.
+let ownWords = PersonalDictionary(entries: [.init(heard: "روز ساعد", written: "Rooz Saad"),
+                                         .init(heard: "کی لس", written: "Keyless"),
+                                         .init(heard: "شنوا", written: "شنوا کوچیک"),
+                                         .init(heard: "علیرضا", written: "علی‌رضا")])
+check("dictionary phrase", ownWords.applied(to: "سلام روز ساعد خوبی"), "سلام Rooz Saad خوبی")
+check("dictionary joined by the model", ownWords.applied(to: "برنامه‌ی کیلس."), "برنامه‌ی Keyless.")
+check("dictionary split by the model", ownWords.applied(to: "علی رضا آمد"), "علی‌رضا آمد")
+check("dictionary Arabic ye and ZWNJ", ownWords.applied(to: "علي‌رضا"), "علی‌رضا")
+check("dictionary whole words only", ownWords.applied(to: "شنوایی"), "شنوایی")
+check("dictionary not across punctuation", ownWords.applied(to: "روز، ساعد"), "روز، ساعد")
+check("dictionary empty", PersonalDictionary().applied(to: "روز ساعد"), "روز ساعد")
+check("dictionary in a dictation", VoiceCommands.process("سلام روز ساعد نقطه", punctuation: true, commands: true,
+                                                         dictionary: ownWords).text, "سلام Rooz Saad.")
+check("replacements", PersonalDictionary.replacements(original: "با روز ساعد صحبت کردم.", corrected: "با Rooz Saad صحبت کردم.")
+        .map { "\($0.heard)>\($0.written)" }.joined(separator: ","), "روز ساعد>Rooz Saad")
+check("replacements skip ZWNJ", PersonalDictionary.replacements(original: "می خوام", corrected: "می‌خوام").count, 0)
+check("replacements skip numbers", PersonalDictionary.replacements(original: "۲۳ تا", corrected: "بیست و سه تا").count, 0)
 
 // Training text gets the spoken words back.
 let dictated = VoiceCommands.process("سلام نقطه خوبی علامت سوال", punctuation: true, commands: true)

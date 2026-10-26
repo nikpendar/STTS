@@ -362,6 +362,12 @@ struct KeyStyle: SharedSetting, Equatable {
     static let defaultsKey = "keyStyle"
 }
 
+/// The personal dictionary is edited in the app and read by the keyboard like the settings.
+extension PersonalDictionary: SharedSetting {
+    static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.personalDictionary")
+    static let defaultsKey = "personalDictionary"
+}
+
 /// Keyboard features that can be turned off in the app.
 struct KeyboardOptions: SharedSetting, Equatable {
     /// The row of suggestions above the keys; off, the keys move up under a thin margin.
