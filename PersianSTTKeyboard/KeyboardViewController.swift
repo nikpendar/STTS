@@ -103,8 +103,8 @@ final class KeyboardViewController: UIInputViewController {
     /// The keys stand aside around the orb, and the ones moved.
     private var isMagnet = false
     private var magnetKeys: [KeyView] = []
-    /// While a recording is locked, the orange space bar splits in three: return on the left,
-    /// the end of the dictation in the middle (wider), delete on the right.
+    /// While a recording is locked, the orange space bar splits in three: delete on the left,
+    /// the end of the dictation in the middle (wider), return on the right.
     private let lockedReturnKey = KeyView()
     private let lockedDeleteKey = KeyView()
     private var lockedKeysShown = false
@@ -1134,7 +1134,7 @@ final class KeyboardViewController: UIInputViewController {
             self.lockedDeleteKey.isHidden = true
         })
         if on {
-            for (index, key) in [lockedReturnKey, spaceKey, lockedDeleteKey].enumerated() {
+            for (index, key) in [lockedDeleteKey, spaceKey, lockedReturnKey].enumerated() {
                 key.revealImage(delay: calm ? 0 : 0.12 + 0.06 * Double(index), animated: !calm)
             }
         }
@@ -1824,8 +1824,8 @@ final class KeyboardViewController: UIInputViewController {
                 let whole = CGRect(x: left + 2 * eleventh, y: y, width: 7 * eleventh, height: row)
                 let side = 1.5 * eleventh
                 let gap: CGFloat = 4
-                lockedReturnKey.frame = CGRect(x: whole.minX, y: y, width: side, height: row)
-                lockedDeleteKey.frame = CGRect(x: whole.maxX - side, y: y, width: side, height: row)
+                lockedDeleteKey.frame = CGRect(x: whole.minX, y: y, width: side, height: row)
+                lockedReturnKey.frame = CGRect(x: whole.maxX - side, y: y, width: side, height: row)
                 spaceKey.frame = lockedKeysShown ? whole.insetBy(dx: side + gap, dy: 0) : whole
             }
         }
@@ -2487,7 +2487,8 @@ final class KeyboardViewController: UIInputViewController {
         if let other = Self.digitPair(character) { return [character, other] }
         let own = isEnglish ? (key.title ?? character) : character
         var forms = [own]
-        if let hint = key.hint { forms.insert(hint, at: 0) }
+        // ض, at the keyboard's edge, keeps its own letter under the finger and the digit beside it.
+        if let hint = key.hint { if character == "ض" { forms.append(hint) } else { forms.insert(hint, at: 0) } }
         if !isEnglish { forms += (Self.variants[character] ?? []).dropFirst() }
         return forms.count > 1 ? forms : []
     }
