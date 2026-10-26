@@ -1436,7 +1436,7 @@ final class KeyboardViewController: UIInputViewController {
         isCapsLock = false
         setShifted(false)
         updateAutoShift()
-        emojiKey.image = layer == .emoji ? KeyIcons.menuKey(symbol: "keyboard") : KeyIcons.emojiKey
+        emojiKey.image = layer == .emoji ? KeyIcons.plainKey(symbol: "keyboard") : KeyIcons.emojiKey
         // A key hidden while it was pressed (emoji, 123) comes back unpressed.
         for key in [emojiKey, globeKey, layerKey, moreKey, shiftKey, returnKey, spaceKey] { key.isHighlighted = false }
         emojiKey.accessibilityLabel = layer == .emoji ? "حروف" : "شکلک"
@@ -3696,7 +3696,7 @@ private enum KeyIcons {
     static let lockedDelete = leftToRight("delete.right", size: 17, weight: .light)
     static let lockedEnd = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
     /// The emoji key's face, drawn once: always the outline.
-    static let emojiKey = menuKey(symbol: "face.smiling")
+    static let emojiKey = plainKey(symbol: "face.smiling")
 
     /// An SF Symbol as drawn left to right, as a template that no layout direction flips.
     private static func leftToRight(_ name: String, size: CGFloat = 19, weight: UIImage.SymbolWeight = .regular) -> UIImage {
@@ -3860,22 +3860,9 @@ private enum KeyIcons {
     }
     private static var marks: [String: UIImage] = [:]
 
-    /// A symbol with three dots under it, for a key that also does something on a long press.
-    static func menuKey(symbol: String) -> UIImage? {
-        guard let icon = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16)) else {
-            return nil
-        }
-        let dot: CGFloat = 2.4, gap: CGFloat = 2.6
-        let size = CGSize(width: max(icon.size.width, 3 * dot + 2 * gap), height: icon.size.height + 2 + dot)
-        return UIGraphicsImageRenderer(size: size).image { _ in
-            icon.withTintColor(.black).draw(at: CGPoint(x: (size.width - icon.size.width) / 2, y: 0))
-            UIColor.black.setFill()
-            let left = (size.width - (3 * dot + 2 * gap)) / 2
-            for i in 0..<3 {
-                UIBezierPath(ovalIn: CGRect(x: left + CGFloat(i) * (dot + gap), y: size.height - dot,
-                                            width: dot, height: dot)).fill()
-            }
-        }.withRenderingMode(.alwaysTemplate)
+    /// A symbol alone, for a key with no long press.
+    static func plainKey(symbol: String) -> UIImage? {
+        UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16))
     }
 }
 
