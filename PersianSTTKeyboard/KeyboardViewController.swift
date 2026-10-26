@@ -259,9 +259,12 @@ final class KeyboardViewController: UIInputViewController {
         }
         applyKeyStyle(KeyStyle.load())
         let hadNumberRow = options.numberRow
+        let hadDigits = options.digitsOnLetters
         let hadBar = options.suggestionBar
         options = KeyboardOptions.load()
-        if options.numberRow != hadNumberRow { buildCharacterKeys() }
+        // The keys were built with the standard options (the digits on the letters off) before
+        // the app's were read here.
+        if options.numberRow != hadNumberRow || options.digitsOnLetters != hadDigits { buildCharacterKeys() }
         if options.suggestionBar != hadBar {
             view.setNeedsLayout()
             updateSuggestions()
@@ -1794,6 +1797,11 @@ final class KeyboardViewController: UIInputViewController {
     /// Two spaces in quick succession after a word type a full stop and a space, a third turns
     /// it into a comma (، in Persian), when switched on in the app.
     @objc private func insertSpace() {
+        // While dictating, the orange space bar types nothing; a tap on it ends a locked recording.
+        if isMagnet {
+            if state == .recording, !isHeld { micTapped() }
+            return
+        }
         if emojiSearch != nil {
             editEmojiSearch(adding: " ")
             return
@@ -2567,7 +2575,7 @@ private final class KeyView: UIControl {
     func jiggle(_ on: Bool) {
         content.layer.removeAnimation(forKey: "jiggle")
         guard on else { return }
-        let angle = 0.6 * Double.pi / 180
+        let angle = 1.1 * Double.pi / 180
         let wobble = CAKeyframeAnimation(keyPath: "transform.rotation.z")
         wobble.values = [0, angle, 0, -angle, 0]
         wobble.duration = Double.random(in: 0.5...0.7)
@@ -2630,7 +2638,7 @@ private final class KeyView: UIControl {
         content.addSubview(face)
         grip.isHidden = true
         grip.isUserInteractionEnabled = false
-        // Raised: a soft shadow under it.
+        // Raised: a soft shadow under the button.
         grip.layer.shadowColor = UIColor(red: 0.45, green: 0.2, blue: 0, alpha: 1).cgColor
         grip.layer.shadowOpacity = 0.35
         grip.layer.shadowRadius = 1
@@ -2731,10 +2739,10 @@ private final class KeyView: UIControl {
         }
         trailingImageView.isHidden = message != nil || knurled
         if knurled {
-            let frame = inner.insetBy(dx: max(inner.height * 0.9, inner.width * 0.22), dy: max(7, inner.height * 0.27)).integral
-            grip.frame = frame
-            if grip.image?.size != frame.size { grip.image = KeyIcons.knurl(size: frame.size) }
-            grip.layer.shadowPath = UIBezierPath(roundedRect: grip.bounds, cornerRadius: KeyIcons.knurlCorner).cgPath
+            // The grip covers the whole capsule.
+            grip.frame = inner
+            if grip.image?.size != inner.size { grip.image = KeyIcons.knurl(size: inner.size, corner: corner) }
+            grip.layer.shadowPath = UIBezierPath(roundedRect: grip.bounds, cornerRadius: corner).cgPath
         }
         // Low landscape rows: a tall image shrinks instead of spilling out of the key.
         let size = imageView.image?.size ?? .zero
@@ -3552,11 +3560,10 @@ private enum KeyIcons {
         UIImage.SymbolConfiguration(pointSize: 25, weight: .regular)
             .applying(UIImage.SymbolConfiguration(paletteColors: [.white, .systemOrange])))?.withRenderingMode(.alwaysOriginal)
     static let spaceMicOff = UIImage(systemName: "mic", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .regular))
-    /// The dictating space bar's grip: rows of tiny diamond pyramids, as knurled on a metal
-    /// button, lit from above, each with a bright upper facet and a shaded lower one; the
-    /// pattern fades at the rounded edges so it looks pressed into the orange.
-    static let knurlCorner: CGFloat = 4
-    static func knurl(size: CGSize) -> UIImage? {
+    /// The dictating space bar's face: rows of tiny diamond pyramids, as knurled on a metal
+    /// button, lit from above, each with a bright upper facet and a shaded lower one, inside a
+    /// shape rounded by `corner`.
+    static func knurl(size: CGSize, corner knurlCorner: CGFloat) -> UIImage? {
         guard size.width > 4, size.height > 4 else { return nil }
         let pitch: CGFloat = 3.2
         let half = pitch / 2
@@ -3603,7 +3610,7 @@ private enum KeyIcons {
             }
             context.setStrokeColor(UIColor(red: 0.5, green: 0.2, blue: 0, alpha: 0.35).cgColor)
             context.setLineWidth(1)
-            UIBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), cornerRadius: knurlCorner - 0.5).stroke()
+            UIBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), cornerRadius: max(0, knurlCorner - 0.5)).stroke()
         }
     }
     static let searchDone = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .bold))
