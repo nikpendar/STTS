@@ -20,6 +20,7 @@ struct ContentView: View {
     @AppStorage(KeyboardSession.noiseSuppressionKey) private var noiseSuppression = true
     @State private var style = KeyStyle.saved
     @State private var options = KeyboardOptions.saved
+    @State private var dictionary = PersonalDictionary.saved
     @State private var photoItem: PhotosPickerItem?
     /// Replaced to bring the app back to its first page, the session.
     @State private var navigationID = UUID()
@@ -48,6 +49,13 @@ struct ContentView: View {
                 Section {
                     NavigationLink { speechPage } label: {
                         SettingLabel("گفتار", symbol: "waveform", color: .red)
+                    }
+                    NavigationLink { page("واژه‌نامه‌ی شخصی") { DictionaryPage(dictionary: $dictionary) } } label: {
+                        LabeledContent {
+                            Text(dictionary.entries.isEmpty ? "" : "\(dictionary.entries.count)")
+                        } label: {
+                            SettingLabel("واژه‌نامه‌ی شخصی", symbol: "character.book.closed.fill", color: .teal)
+                        }
                     }
                     NavigationLink { typingPage } label: {
                         SettingLabel("تایپ و پیشنهاد کلمه", symbol: "character.cursor.ibeam", color: .blue)
@@ -90,10 +98,12 @@ struct ContentView: View {
         .font(.app(.body))
         .onChange(of: style) { _, new in new.save() }
         .onChange(of: options) { _, new in new.save() }
+        .onChange(of: dictionary) { _, new in new.save() }
         // Rewrites the shared pasteboard copies, which a reinstall or reboot can clear.
         .onAppear {
             style.save()
             options.save()
+            dictionary.save()
             KeyboardBackground.handToKeyboard(style.backgroundImage)
             syncTraining()
         }
@@ -701,6 +711,113 @@ private struct SetupStep: View {
             Text(text)
                 .font(.app(.subheadline))
         }
+    }
+}
+
+/// The personal dictionary: what the model writes and how it should be written, each pair
+/// editable in place, and pairs the user keeps correcting in dictations offered to add.
+private struct DictionaryPage: View {
+    @Binding var dictionary: PersonalDictionary
+    @State private var heard = ""
+    @State private var written = ""
+    @State private var suggestions: [DictionarySuggestions.Suggestion] = []
+
+    private var canAdd: Bool {
+        !PersonalDictionary.key(heard).isEmpty && !written.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        Group { sections }
+            .onAppear(perform: refresh)
+    }
+
+    @ViewBuilder private var sections: some View {
+        Section {
+            TextField("آنچه مدل می‌نویسد", text: $heard)
+            TextField("درستش", text: $written)
+            Button {
+                add(heard: heard, written: written)
+                heard = ""
+                written = ""
+            } label: {
+                Label("افزودن", systemImage: "plus.circle.fill")
+            }
+            .disabled(!canAdd)
+        } header: {
+            Text("واژه‌ی تازه").font(.app(.footnote))
+        } footer: {
+            Text("نام‌ها و اصطلاح‌هایی که مدل اشتباه می‌نویسد، بعد از تشخیص با نوشته‌ی درست جایگزین می‌شوند. فاصله و نیم‌فاصله و ی و ک عربی در مقایسه مهم نیستند و فقط کلمه‌ی کامل جایگزین می‌شود.")
+                .font(.app(.footnote))
+        }
+
+        if !dictionary.entries.isEmpty {
+            Section {
+                ForEach($dictionary.entries) { $entry in
+                    HStack(spacing: 8) {
+                        TextField("آنچه مدل می‌نویسد", text: $entry.heard)
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "arrow.left")
+                            .font(.footnote)
+                            .foregroundStyle(.tertiary)
+                        TextField("درستش", text: $entry.written)
+                    }
+                }
+                .onDelete { dictionary.entries.remove(atOffsets: $0) }
+            } header: {
+                Text("واژه‌های شما").font(.app(.footnote))
+            } footer: {
+                Text("برای پاک کردن، ردیف را به کنار بکشید.").font(.app(.footnote))
+            }
+        }
+
+        if !suggestions.isEmpty {
+            Section {
+                ForEach(suggestions) { suggestion in
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(suggestion.heard) ← \(suggestion.written)")
+                            Text("\(suggestion.count) بار اصلاح شده")
+                                .font(.app(.caption))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            add(heard: suggestion.heard, written: suggestion.written)
+                        } label: {
+                            Image(systemName: "plus.circle.fill").font(.title3)
+                        }
+                        .buttonStyle(.borderless)
+                        Button {
+                            DictionarySuggestions.dismiss(suggestion)
+                            refresh()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            } header: {
+                Text("پیشنهاد از اصلاح‌های شما").font(.app(.footnote))
+            } footer: {
+                Text("کلمه‌هایی که در متن دیکته‌شده \(DictionarySuggestions.minimum) بار یا بیشتر به یک شکل اصلاح کرده‌اید. برای این کار جلسه باید باز و دسترسی کامل کیبورد روشن باشد.")
+                    .font(.app(.footnote))
+            }
+        }
+    }
+
+    private func add(heard: String, written: String) {
+        let key = PersonalDictionary.key(heard)
+        let written = written.trimmingCharacters(in: .whitespaces)
+        if let index = dictionary.entries.firstIndex(where: { PersonalDictionary.key($0.heard) == key }) {
+            dictionary.entries[index].written = written
+        } else {
+            dictionary.entries.insert(.init(heard: heard.trimmingCharacters(in: .whitespaces), written: written), at: 0)
+        }
+        refresh()
+    }
+
+    private func refresh() {
+        suggestions = DictionarySuggestions.list(excluding: dictionary)
     }
 }
 

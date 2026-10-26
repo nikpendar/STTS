@@ -489,6 +489,7 @@ final class KeyboardSession: ObservableObject {
     }
 
     private func received(_ correction: Correction) {
+        DictionarySuggestions.learn(original: correction.original, corrected: correction.corrected)
         guard let dictation = recent.first(where: { $0.id == correction.id }) else { return }
         log.info("correction for \(correction.id, privacy: .public)")
         PersonalModel.shared.add(id: correction.id, samples: dictation.samples,
@@ -595,5 +596,56 @@ private final class SampleCollector: @unchecked Sendable {
             }
         }
         lock.unlock()
+    }
+}
+
+/// Words the user keeps replacing in dictations, offered in the app as personal dictionary
+/// entries once seen `minimum` times. Kept whether or not corrections are uploaded.
+enum DictionarySuggestions {
+    struct Suggestion: Identifiable, Equatable {
+        let heard: String
+        let written: String
+        let count: Int
+        var id: String { heard + "\t" + written }
+    }
+
+    static let minimum = 2
+    private static let countsKey = "dictionarySuggestions"
+    private static let dismissedKey = "dictionaryDismissed"
+
+    private static var counts: [String: Int] {
+        get { UserDefaults.standard.dictionary(forKey: countsKey) as? [String: Int] ?? [:] }
+        set { UserDefaults.standard.set(newValue, forKey: countsKey) }
+    }
+
+    static func learn(original: String, corrected: String) {
+        let found = PersonalDictionary.replacements(original: original, corrected: corrected)
+        guard !found.isEmpty else { return }
+        var counts = counts
+        for pair in found { counts[pair.heard + "\t" + pair.written, default: 0] += 1 }
+        // Pairs seen once go first when the list grows.
+        if counts.count > 300 {
+            for (key, _) in counts.sorted(by: { $0.value < $1.value }).prefix(counts.count - 300) { counts[key] = nil }
+        }
+        self.counts = counts
+    }
+
+    /// Suggestions not yet in `dictionary` nor dismissed, the most frequent first.
+    static func list(excluding dictionary: PersonalDictionary) -> [Suggestion] {
+        let dismissed = Set(UserDefaults.standard.stringArray(forKey: dismissedKey) ?? [])
+        let known = Set(dictionary.entries.map { PersonalDictionary.key($0.heard) })
+        return counts.compactMap { key, count -> Suggestion? in
+            let parts = key.components(separatedBy: "\t")
+            guard count >= minimum, parts.count == 2, !dismissed.contains(key),
+                  !known.contains(PersonalDictionary.key(parts[0])) else { return nil }
+            return Suggestion(heard: parts[0], written: parts[1], count: count)
+        }
+        .sorted { ($0.count, $1.heard) > ($1.count, $0.heard) }
+    }
+
+    static func dismiss(_ suggestion: Suggestion) {
+        var dismissed = UserDefaults.standard.stringArray(forKey: dismissedKey) ?? []
+        dismissed.append(suggestion.id)
+        UserDefaults.standard.set(Array(dismissed.suffix(300)), forKey: dismissedKey)
     }
 }

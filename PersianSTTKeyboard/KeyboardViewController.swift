@@ -143,6 +143,8 @@ final class KeyboardViewController: UIInputViewController {
     private var options = KeyboardOptions.standard {
         didSet { Haptics.isOn = options.haptics }
     }
+    /// The user's own words, put into each dictation (set in the app).
+    private var dictionary = PersonalDictionary.standard
     /// Key width the typo search's neighbouring keys were taken at, for English and for Persian.
     private var neighboursWidths: [Bool: CGFloat] = [:]
     /// The last space typed, for two spaces typing a full stop and three a comma: 0 after the
@@ -274,6 +276,7 @@ final class KeyboardViewController: UIInputViewController {
         let hadDigits = options.digitsOnLetters
         let hadBar = options.suggestionBar
         options = KeyboardOptions.load()
+        dictionary = PersonalDictionary.load()
         // The keys were built with the standard options (the digits on the letters off) before
         // the app's were read here.
         if options.numberRow != hadNumberRow || options.digitsOnLetters != hadDigits { buildCharacterKeys() }
@@ -554,7 +557,8 @@ final class KeyboardViewController: UIInputViewController {
             // Dictation id + newline + text.
             let parts = body.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
             let result = VoiceCommands.process(String(parts.last ?? ""), punctuation: options.voicePunctuation,
-                                               commands: options.voiceCommands, zwnj: options.autoZWNJ)
+                                               commands: options.voiceCommands, zwnj: options.autoZWNJ,
+                                               dictionary: dictionary)
             perform(result)
             cancelTimeout()
             state = .ready
@@ -569,7 +573,7 @@ final class KeyboardViewController: UIInputViewController {
             // Empty after a live pass that found nothing new.
             if !body.isEmpty {
                 let draft = VoiceCommands.draft(body, punctuation: options.voicePunctuation, commands: options.voiceCommands,
-                                                zwnj: options.autoZWNJ)
+                                                zwnj: options.autoZWNJ, dictionary: dictionary)
                 if liveText.isEmpty { log.info("live text: first shown, \(draft.count) characters") }
                 liveDraft = draft
                 let shown = afterSettled(draft)
