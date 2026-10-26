@@ -18,7 +18,8 @@ permissions:
 
 jobs:
   keyboard:
-    runs-on: macos-15
+    # iOS 17 simulators come with the macOS 14 runner image only.
+    runs-on: ${{ inputs.ios == '17' && 'macos-14' || 'macos-15' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -28,6 +29,15 @@ jobs:
           XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
           if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
           xcodebuild -version
+
+      # Older simulators: the newest Xcode 16 (iOS 18 SDK), as the oldest Xcode that builds the app.
+      - name: Select Xcode 16
+        if: inputs.ios == '17' || inputs.ios == '18'
+        run: |
+          XC="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
+          xcrun simctl list runtimes
 
       - name: Download the speech model's sidecars
         run: bash ./setup.sh sidecars
