@@ -510,6 +510,9 @@ final class KeyboardViewController: UIInputViewController {
     /// previous one, the final one completes the dictation, estimates drive the rings. `final`
     /// marks the fetch started by `done`.
     private func fetchTranscript(final: Bool = false) {
+        // The app hands each message out once. A keyboard iOS has not freed yet hears the same
+        // notifications; were it to fetch, it would take this dictation's text and drop it.
+        guard state == .recording || state == .transcribing else { return }
         TranscriptClient.fetch { [weak self] batch in
             guard let self else { return }
             if batch == nil { log.error("transcript fetch failed (\(final ? "final" : "update", privacy: .public))") }
