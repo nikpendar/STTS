@@ -382,7 +382,7 @@ final class KeyboardViewController: UIInputViewController {
             DictationBridge.post(DictationBridge.stop)
             beginTranscribing()
         case .noSession, .checking:
-            open(DictationBridge.sessionURL)
+            askForSession()
         case .transcribing:
             // Stop the transcription; the app discards it.
             cancelTimeout()
@@ -421,7 +421,7 @@ final class KeyboardViewController: UIInputViewController {
                 holdLayout = true
                 startDictation(held: true)
             case .noSession, .checking:
-                open(DictationBridge.sessionURL)
+                askForSession()
             default:
                 break
             }
@@ -801,24 +801,10 @@ final class KeyboardViewController: UIInputViewController {
         showStatus("متنی تشخیص داده نشد", transient: true)
     }
 
-    /// Extensions cannot call UIApplication.open, so the host's UIApplication is found
-    /// through the responder chain and its open method is called dynamically.
-    private func open(_ url: URL) {
-        guard hasFullAccess else { return }
-        typealias OpenURL = @convention(c) (
-            AnyObject, Selector, NSURL, NSDictionary, (@convention(block) (Bool) -> Void)?) -> Void
-        let selector = NSSelectorFromString("openURL:options:completionHandler:")
-        var responder: UIResponder? = self
-        while let current = responder {
-            if NSStringFromClass(type(of: current)).contains("UIApplication"),
-               current.responds(to: selector) {
-                let open = unsafeBitCast(current.method(for: selector), to: OpenURL.self)
-                open(current, selector, url as NSURL, NSDictionary(), nil)
-                return
-            }
-            responder = current.next
-        }
-        showStatus("اپ را باز کنید و جلسه را شروع کنید")
+    /// No session: the user opens the app and starts one. A keyboard may open no app but
+    /// Settings (App Store guideline 4.4.1), so it only says so.
+    private func askForSession() {
+        showStatus("کیلس را باز کنید و «شروع جلسه» را بزنید", transient: true)
     }
 
     /// Messages show on the space bar, so the keyboard needs no status row. A transient one
@@ -975,7 +961,8 @@ final class KeyboardViewController: UIInputViewController {
     private var numberKeys: [KeyView] = []
     private var showsNumberRow: Bool { options.numberRow && !options.digitsOnLetters && layer == .letters }
     private let backspaceKey = KeyView(symbol: "delete.right")
-    /// Emoji panel on a tap; a menu with the emoji panel and the app's settings on a long press.
+    /// The emoji panel. Its long-press menu went with the settings item, as the keyboard opens
+    /// no app (`askForSession`); `keyMenu` stays for items that need no app.
     private let emojiKey = KeyView()
     private let keyMenu = KeyMenuView()
     /// The enlarged letter over a pressed key, or the row of a letter's other forms.
@@ -987,6 +974,9 @@ final class KeyboardViewController: UIInputViewController {
     /// On the emoji panel, beside backspace (Persian) or ABC (English): opens the search.
     private let emojiSearchKey = KeyView(symbol: "magnifyingglass")
     private let layerKey = KeyView(title: "۱۲۳", fontSize: 16)
+    /// The next keyboard, where iOS draws no globe under the keys (Home button iPhones, iPad):
+    /// App Store guideline 4.4.1 asks every keyboard for one.
+    private let globeKey = KeyView(symbol: "globe")
     /// English: #+= on the numbers layer and 123 behind it, where shift is on the letters.
     private let moreKey = KeyView(title: "#+=", fontSize: 16)
     /// No label: arrows around a globe show that swiping it changes the language, until the
@@ -1293,11 +1283,12 @@ final class KeyboardViewController: UIInputViewController {
         backspaceKey.addTarget(self, action: #selector(backspaceUp), for: [.touchUpInside, .touchUpOutside, .touchCancel])
         layerKey.accessibilityIdentifier = "layerKey"
         layerKey.addTarget(self, action: #selector(toggleLayer), for: .touchUpInside)
+        globeKey.accessibilityIdentifier = "globeKey"
+        globeKey.accessibilityLabel = "کیبورد بعدی"
+        globeKey.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
+        globeKey.isHidden = true
         emojiKey.accessibilityIdentifier = "emojiKey"
         emojiKey.addTarget(self, action: #selector(toggleEmoji), for: .touchUpInside)
-        let press = UILongPressGestureRecognizer(target: self, action: #selector(emojiPressed(_:)))
-        press.minimumPressDuration = 0.35
-        emojiKey.addGestureRecognizer(press)
         updateSpaceImage()
         spaceKey.dimsImage = true
         spaceKey.accessibilityIdentifier = "spaceKey"
@@ -1318,7 +1309,7 @@ final class KeyboardViewController: UIInputViewController {
         returnKey.accessibilityLabel = "return"
         returnKey.accessibilityIdentifier = "returnKey"
         returnKey.addTarget(self, action: #selector(insertReturn), for: .touchUpInside)
-        for key in [backspaceKey, layerKey, emojiKey, lockedReturnKey, lockedDeleteKey, spaceKey, returnKey] {
+        for key in [backspaceKey, layerKey, globeKey, emojiKey, lockedReturnKey, lockedDeleteKey, spaceKey, returnKey] {
             keysView.addSubview(key)
         }
         lockedReturnKey.isHidden = true
@@ -1329,7 +1320,7 @@ final class KeyboardViewController: UIInputViewController {
         lockedDeleteKey.accessibilityIdentifier = "lockedDeleteKey"
         lockedDeleteKey.accessibilityLabel = "پاک کردن کلمه"
         lockedDeleteKey.addTarget(self, action: #selector(lockedDeleteTapped), for: .touchUpInside)
-        for key in [layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey] {
+        for key in [layerKey, moreKey, globeKey, emojiKey, spaceKey, returnKey, shiftKey] {
             key.addAction(UIAction { [weak self] _ in self?.click(.modifier) }, for: .touchDown)
         }
         suggestionBar.onPick = { [weak self] item in self?.pick(item) }
@@ -1345,9 +1336,6 @@ final class KeyboardViewController: UIInputViewController {
 
         keyMenu.items = [
             KeyMenuView.Item(title: "شکلک", symbol: "face.smiling") { [weak self] in self?.toggleEmoji() },
-            KeyMenuView.Item(title: "تنظیمات", symbol: "gearshape") { [weak self] in
-                self?.open(DictationBridge.settingsURL)
-            },
         ]
         keyMenu.onSelect = { [weak self] item in
             self?.closeMenu()
@@ -1450,7 +1438,7 @@ final class KeyboardViewController: UIInputViewController {
         updateAutoShift()
         emojiKey.image = layer == .emoji ? KeyIcons.menuKey(symbol: "keyboard") : KeyIcons.emojiKey
         // A key hidden while it was pressed (emoji, 123) comes back unpressed.
-        for key in [emojiKey, layerKey, moreKey, shiftKey, returnKey, spaceKey] { key.isHighlighted = false }
+        for key in [emojiKey, globeKey, layerKey, moreKey, shiftKey, returnKey, spaceKey] { key.isHighlighted = false }
         emojiKey.accessibilityLabel = layer == .emoji ? "حروف" : "شکلک"
         lastGlide = nil
         wordTouches.removeAll()
@@ -1496,7 +1484,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         view.overrideUserInterfaceStyle = interface
-        let functionKeys = [backspaceKey, layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey, emojiSearchKey]
+        let functionKeys = [backspaceKey, layerKey, moreKey, globeKey, emojiKey, spaceKey, returnKey, shiftKey, emojiSearchKey]
         for key in functionKeys + characterKeys.flatMap({ $0 }) + numberKeys {
             key.apply(style)
         }
@@ -1798,10 +1786,14 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
 
-        // Bottom row, left to right, in elevenths of the width: 123 two, emoji (and settings)
-        // two, space five (held, it dictates), return two at the right edge, its arrow mirrored
-        // in Persian.
+        // Bottom row, left to right, in elevenths of the width: 123 two, emoji two, space five
+        // (held, it dictates), return two at the right edge, its arrow mirrored in Persian.
+        // Where iOS draws no globe, the next-keyboard key takes one and a half of the emoji's
+        // and the space bar's cells.
         let eleventh = width / 11
+        let showsGlobe = needsInputModeSwitchKey && layer != .emoji
+        globeKey.isHidden = !showsGlobe
+        let globeWidth = showsGlobe ? 1.5 * eleventh : 0
         let y = top + 3 * row + bottomGap
         var x = left
         func place(_ view: UIView, _ keyWidth: CGFloat) {
@@ -1815,8 +1807,9 @@ final class KeyboardViewController: UIInputViewController {
                                           y: y, width: searchKeyWidth, height: row)
         } else {
             place(layerKey, 2 * eleventh)
-            if emojiSearch == nil { place(emojiKey, 2 * eleventh) }
-            place(spaceKey, (emojiSearch == nil ? 5 : 7) * eleventh)
+            if showsGlobe { place(globeKey, globeWidth) }
+            if emojiSearch == nil { place(emojiKey, 2 * eleventh - globeWidth / 2) }
+            place(spaceKey, (emojiSearch == nil ? 5 : 7) * eleventh - (emojiSearch == nil ? globeWidth / 2 : globeWidth))
             place(returnKey, 2 * eleventh)
             // Dictating: the space bar reaches over the emoji key to the middle of the keyboard;
             // locked, it splits into return, end (wider) and delete.

@@ -78,6 +78,7 @@ struct ContentView: View {
                     NavigationLink { page("راه‌اندازی کیبورد") { setupSection } } label: {
                         SettingLabel("راه‌اندازی کیبورد", symbol: "keyboard", color: .gray)
                     }
+                    privacyLink
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -428,6 +429,16 @@ struct ContentView: View {
         .padding(.vertical, 8)
     }
 
+    /// The privacy policy, published from docs/privacy.html of the repository by GitHub Pages.
+    static let privacyPolicyURL = URL(string: "https://nikpendar.github.io/STTS/privacy.html")!
+
+    private var privacyLink: some View {
+        Link(destination: Self.privacyPolicyURL) {
+            SettingLabel("سیاست حریم خصوصی", symbol: "hand.raised.fill", color: .blue)
+        }
+        .foregroundStyle(.primary)
+    }
+
     /// Learning from corrections: uploading them to the user's private GitHub repository and
     /// installing the models the training workflow publishes there.
     private var trainingSection: some View {
@@ -490,6 +501,7 @@ struct ContentView: View {
                     personal.useBaseModel()
                 }
             }
+            privacyLink
         } footer: {
             Text((personal.status.isEmpty ? "" : personal.status + "\n\n")
                  + "وقتی متن دیکته‌شده را با تایپ یا دیکته‌ی دوباره اصلاح کنید، صدای آن دیکته و متن درست به مخزن خصوصی خودتان در GitHub فرستاده می‌شود و جای دیگری نمی‌رود. "
