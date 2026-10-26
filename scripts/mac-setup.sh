@@ -10,21 +10,13 @@ set -euo pipefail
 
 MODE="${1:-model}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BACKUP="https://github.com/nikpendar/STTS/releases/download/backup-2026-10-26"
-MODELS="$ROOT/PersianSTT/Models"
 
 xcodebuild -version || { echo "Xcode is missing: install Xcode 26 or newer from the App Store." >&2; exit 1; }
 
-# Hugging Face first; the copy in the backup release when that fails.
-if ! bash "$ROOT/setup.sh" model; then
-  echo "Hugging Face failed; using the backup release."
-  mkdir -p "$MODELS" "$ROOT/build-model"
-  for name in tokens.json preprocessor.json mel_filters_slaney_80x257.json manifest.json; do
-    [ -s "$MODELS/$name" ] || curl -fL --retry 3 "$BACKUP/$name" -o "$MODELS/$name"
-  done
-  [ -s "$ROOT/build-model/Koochik.mlmodel" ] || \
-    curl -fL --retry 3 --progress-bar "$BACKUP/Koochik.mlmodel" -o "$ROOT/build-model/Koochik.mlmodel"
-fi
+# From Hugging Face. Without it: copy Koochik.mlmodel into build-model/ and the four sidecar
+# .json files (from any built KeylessShenava.ipa: Payload/PersianSTT.app/Models/) into
+# PersianSTT/Models/ first; setup.sh skips files already there.
+bash "$ROOT/setup.sh" model
 # setup.sh skips files already there, so this only compiles.
 [ "$MODE" = bundle ] && bash "$ROOT/setup.sh" bundle
 

@@ -7,8 +7,7 @@
 | چیز | کجا |
 |---|---|
 | کل کد و تاریخچه، همه‌ی شاخه‌ها | `STTS.bundle` (یک git bundle) |
-| مدل گفتار Koochik (۲۱۲ مگابایت) و چهار فایل کنارش (`tokens.json`، `preprocessor.json`، `mel_filters_slaney_80x257.json`، `manifest.json`) | release با برچسب `backup-2026-10-26` در github.com/nikpendar/STTS، و روی Hugging Face ([Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16](https://huggingface.co/Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16)) |
-| آخرین IPA ساخته‌شده (run 40342285504) | همان release |
+| مدل گفتار Koochik (۲۱۲ مگابایت) و چهار فایل کنارش (`tokens.json`، `preprocessor.json`، `mel_filters_slaney_80x257.json`، `manifest.json`) | روی Hugging Face ([Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16](https://huggingface.co/Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16))؛ مدل در artifact «ShenavaModel» بیلدها هم هست (تا ۹۰ روز). یک نسخه از `Koochik.mlmodel` را کنار بکاپ نگه دار. فایل‌های کنار مدل داخل هر IPA هم هستند: `Payload/PersianSTT.app/Models/` |
 | فونت IRANYekanX | فقط رمزشده: `fonts/AppFont.ttf.enc` |
 
 **کلید فونت (`FONT_KEY`) در بکاپ نیست.** GitHub رازها را پس نمی‌دهد. اگر کلید را جایی نگه نداشته‌ای، فونت فقط از فایل اصلی فونت برمی‌گردد. بدون کلید، برنامه با فونت سیستم ساخته می‌شود و بقیه‌اش فرقی نمی‌کند.
@@ -34,7 +33,7 @@
    FONT_KEY='کلید فونت' ./scripts/mac-setup.sh          # مدل جدا؛ یک بار در برنامه از Files وارد می‌شود
    FONT_KEY='کلید فونت' ./scripts/mac-setup.sh bundle   # مدل داخل برنامه؛ بدون وارد کردن، ۲۰۰ مگابایت بیشتر
    ```
-   اگر Hugging Face در دسترس نباشد، اسکریپت فایل‌ها را از release بکاپ می‌گیرد.
+   اگر Hugging Face در دسترس نباشد: `Koochik.mlmodel` را در `build-model/` و چهار فایل json را در `PersianSTT/Models/` بگذار، بعد اسکریپت را اجرا کن.
 3. `PersianSTT.xcodeproj` را با Xcode باز کن.
 4. برای هر دو target، یعنی `PersianSTT` و `PersianSTTKeyboard`، در Signing & Capabilities:
    - گزینه‌ی Automatically manage signing روشن باشد؛
