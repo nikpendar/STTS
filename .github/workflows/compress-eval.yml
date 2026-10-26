@@ -65,7 +65,7 @@ jobs:
           python-version: "3.12"
       - name: Base model
         run: |
-          ./setup.sh model
+          bash ./setup.sh model
           ls -l build-model/Koochik.mlmodel
       - name: Compress
         run: |
@@ -108,7 +108,7 @@ jobs:
           path: models
       - name: Compile the model and the app's recognizer
         run: |
-          ./setup.sh sidecars
+          bash ./setup.sh sidecars
           xcrun coremlcompiler compile "models/Koochik-${{ matrix.variant }}.mlmodel" compiled --deployment-target 15.0 --platform ios
           du -sk compiled/*.mlmodelc | awk '{ print $1 * 1024 }' > compiled_bytes
           xcrun swiftc -O -o shenava-check PersianSTT/ShenavaStream.swift Tests/ShenavaCheck/main.swift
