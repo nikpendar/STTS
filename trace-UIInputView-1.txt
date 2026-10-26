@@ -1,0 +1,27 @@
+Tracing: <UIInputView 0x1026527f0> [624]
+
+Found 6 roots referencing: <UIInputView 0x1026527f0> [624]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    6 <UIInputView 0x1026527f0> [624]
+      6 <NSLayoutYAxisAnchor 0x600001750d80> [64]     +8: _referenceItem 0x600001750d88
+        6 0x1030cc380 [384]   +280:  0x1030cc498
+          6 0x1032f0000 [65536] +36072:  0x1032f8ce8
+            5 Region dyld private memory  region + 88 0x1032d0058 --> offset 2
+            + 4 Region dyld private memory  region + 24 0x102734018 --> offset 16
+            + ! 4 Region dyld private memory  region + 130936 0x102733f78 --> offset 2
+            + !   2 Region dyld private memory  region + 45704 0x10247f288 --> offset 96
+            + !   : 1 Region dyld_sim __DATA __bss: 'lsl::sPoolBytes' + 19416 0x1025653a8 --> offset 96
+            + !   : 1 Region dyld_sim __DATA __bss: 'lsl::sPoolBytes' + 8432 0x1025628c0 --> offset 96
+            + !   1 <Swift._ContiguousArrayStorage<Swift.UInt16> 0x111674000> [655360]  item count: 313739 +309842:  0x1116bfa52 --> offset 114728
+            + !   : 1 <Lexicon 0x600002c5e680> [128]    +64: __strong followerRanks 0x600002c5e6c0
+            + !   :   1 Region PersianSTTKeyboard __DATA __common: 'static Lexicon.shared' 0x1021acfa8
+            + !   1 Region dyld private memory  region + 24 0x102794018 --> offset 16
+            + !     1 Region __DATA_DIRTY /usr/lib/dyld __DATA_DIRTY __all_image_info: 'dyld_all_image_infos' + 8 0x102340008 --> offset 96
+            + 1 Region dyld private memory  region + 0 0x1027d4000 --> offset 17
+            +   1 Region dyld private memory  region + 0 0x103510000 --> offset 17
+            +     1 Region AttributeGraph __DATA __common: 'AG::data::_shared_table_bytes' 0x1f4d758c8 --> offset 146944
+            1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f26c94c8
