@@ -72,13 +72,17 @@ jobs:
 
       - name: Dictate in the simulator
         shell: bash
+        # Inputs come in through the environment: an expression in the script would make the
+        # whole script one expression, which may not exceed 21000 characters.
+        env:
+          IOS: ${{ inputs.ios }}
         run: |
           set -x
           APP=build/Release-iphonesimulator/PersianSTT.app
           ID=ir.nikpendar.PersianSTT
           KB=ir.nikpendar.PersianSTT.Keyboard
-          if [ -n "${{ inputs.ios }}" ]; then
-            RUNTIME="$(xcrun simctl list runtimes -j | jq -r --arg v "${{ inputs.ios }}." '[.runtimes[] | select(.isAvailable and .platform == "iOS" and (.version | startswith($v)))] | sort_by(.version | split(".") | map(tonumber)) | last | .identifier')"
+          if [ -n "$IOS" ]; then
+            RUNTIME="$(xcrun simctl list runtimes -j | jq -r --arg v "$IOS." '[.runtimes[] | select(.isAvailable and .platform == "iOS" and (.version | startswith($v)))] | sort_by(.version | split(".") | map(tonumber)) | last | .identifier')"
             DEVICE="$(xcrun simctl create live-test "iPhone 16 Pro" "$RUNTIME")"
           else
             DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
