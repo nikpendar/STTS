@@ -6,13 +6,13 @@
 #                        # PersianSTT/Models, and the model itself into build-model/Koochik.mlmodel,
 #                        # which the app imports from Files (ModelImporter)
 #   ./setup.sh bundle    # also compiles the model into the app (PersianSTT/Models/Koochik.mlmodelc,
-#                        # 115 MB more in the IPA); needs Xcode
+#                        # 200 MB more in the IPA); needs Xcode
 #   ./setup.sh sidecars  # the sidecars only
 #
-# The published model has fp16 weights (212 MB). By default they are quantized to 8 bits
-# (scripts/compress_model.py linear8, 108 MB): the same WER on FLEURS and Common Voice
-# (.github/workflows/compress-eval.yml). That needs Python 3.9 or later; it installs coremltools
-# into build-model/venv. KOOCHIK_WEIGHTS=fp16 keeps the published weights.
+# The published model has fp16 weights (212 MB). KOOCHIK_WEIGHTS=linear8 quantizes them to 8 bits
+# (scripts/compress_model.py, 108 MB, the same WER) but a NeuralNetwork expands them again at load
+# and needs more memory than fp16 (.github/workflows/compress-eval.yml), so fp16 stays the default.
+# linear8 needs Python 3.9 or later; it installs coremltools into build-model/venv.
 set -euo pipefail
 
 MODE="${1:-model}"
@@ -37,7 +37,7 @@ fetch mel_filters_slaney_80x257.json "$MODELS/mel_filters_slaney_80x257.json"
 fetch "${NAME}_manifest.json" "$MODELS/manifest.json"
 [ "$MODE" = sidecars ] && exit 0
 
-WEIGHTS="${KOOCHIK_WEIGHTS:-linear8}"
+WEIGHTS="${KOOCHIK_WEIGHTS:-fp16}"
 mkdir -p "$ROOT/build-model"
 fetch "$NAME.mlmodel" "$ROOT/build-model/Koochik-fp16.mlmodel"
 if [ "$WEIGHTS" = fp16 ]; then

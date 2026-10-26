@@ -1,6 +1,5 @@
 """Exports a Shenava Koochik NeMo model as the app's streaming Core ML model: one cache-aware
-encoder step plus the CTC head, an iOS14-target NeuralNetwork with 8-bit weights (as setup.sh makes
-the base model) or an iOS17 ML program (export_variants.py), the same interface as the published Koochik.mlmodel (ShenavaStream in the app):
+encoder step plus the CTC head, an iOS14-target NeuralNetwork with fp16 weights or an iOS17 ML program (export_variants.py), the same interface as the published Koochik.mlmodel (ShenavaStream in the app):
 
     processed_signal [1,80,17] + cache_last_channel [17,1,70,512] + cache_last_time [17,1,512,8]
         -> logits [1,1,1025] + the next caches
@@ -96,7 +95,7 @@ class StreamingCTCStep(torch.nn.Module):
         return logits, next_channel, next_time
 
 
-def export(model, out_path: Path, att_context=(70, 0), fmt: str = "neuralnetwork", weights: str = "int8") -> dict:
+def export(model, out_path: Path, att_context=(70, 0), fmt: str = "neuralnetwork", weights: str = "fp16") -> dict:
     """Writes the Core ML step model to `out_path`; returns its shapes. Changes the model's
     attention setup, so export last.
 
@@ -157,7 +156,7 @@ def export(model, out_path: Path, att_context=(70, 0), fmt: str = "neuralnetwork
         mlmodel.save(str(out_path))
     else:
         from coremltools.models.neural_network import quantization_utils
-        # 8-bit linear weights: half of fp16, the same WER (.github/workflows/compress-eval.yml).
+        # 8-bit weights halve the file but a NeuralNetwork expands them at load and needs more memory.
         quantization_utils.quantize_weights(mlmodel, nbits=8 if weights == "int8" else 16,
                                             quantization_mode="linear").save(str(out_path))
     shapes = {
