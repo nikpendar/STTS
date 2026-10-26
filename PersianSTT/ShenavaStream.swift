@@ -59,6 +59,11 @@ final class ShenavaStream {
     private let input: MLMultiArray
     private var cacheChannel: MLMultiArray
     private var cacheTime: MLMultiArray
+    /// The empty caches a new utterance starts from. The model's own output arrays are fed back as
+    /// the next caches, and those can be fp16 or padded (an ML program), so they are replaced, not
+    /// cleared in place.
+    private let emptyChannel: MLMultiArray
+    private let emptyTime: MLMultiArray
     private var previous: Int
     private var lastTokenStep = 0
 
@@ -123,8 +128,10 @@ final class ShenavaStream {
             return array
         }
         input = try zeros("processed_signal")
-        cacheChannel = try zeros("cache_last_channel")
-        cacheTime = try zeros("cache_last_time")
+        emptyChannel = try zeros("cache_last_channel")
+        emptyTime = try zeros("cache_last_time")
+        cacheChannel = emptyChannel
+        cacheTime = emptyTime
         previous = blank
         reset()
     }
@@ -137,9 +144,8 @@ final class ShenavaStream {
         lastRaw = 0
         firstSample = true
         features = [Float](repeating: padValue, count: keep * nMels)
-        for array in [cacheChannel, cacheTime] {
-            memset(array.dataPointer, 0, array.count * MemoryLayout<Float>.size)
-        }
+        cacheChannel = emptyChannel
+        cacheTime = emptyTime
         previous = blank
         lastTokenStep = steps
         text = ""
