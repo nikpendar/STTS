@@ -90,8 +90,13 @@ final class KeyboardViewController: UIInputViewController {
         view.setNeedsLayout()
     }
     private var messageTimer: Timer?
-    /// A finger holds the space bar for dictation.
+    /// A finger holds the space bar for dictation, from this height in the keyboard; sliding it
+    /// up `lockDistance` locks the recording, which then goes on after the finger is lifted
+    /// until the orb is tapped (as voice messages in Telegram).
     private var isHeld = false
+    private var holdStartY: CGFloat = 0
+    private var isLocked = false
+    private static let lockDistance: CGFloat = 60
     /// The recording was started by holding the space bar: the keyboard keeps its height and the
     /// keys move aside around the orb (`setMagnet`) instead of giving way to the compact orb.
     private var holdLayout = false
@@ -396,6 +401,8 @@ final class KeyboardViewController: UIInputViewController {
             case .ready:
                 haptic(.impact(.medium))
                 isHeld = true
+                isLocked = false
+                holdStartY = press.location(in: view).y
                 holdLayout = true
                 startDictation(held: true)
             case .noSession, .checking:
@@ -403,8 +410,17 @@ final class KeyboardViewController: UIInputViewController {
             default:
                 break
             }
+        case .changed:
+            guard isHeld, !isLocked, isMagnet, holdStartY - press.location(in: view).y > Self.lockDistance else { return }
+            isLocked = true
+            haptic(.impact(.rigid))
+            orb.lock = .closed
         case .ended, .cancelled, .failed:
-            if isHeld { releaseHold() }
+            if isLocked {
+                isHeld = false
+            } else if isHeld {
+                releaseHold()
+            }
         default:
             break
         }
@@ -430,6 +446,8 @@ final class KeyboardViewController: UIInputViewController {
         state = .transcribing
         // A first guess, until the app's own estimate arrives.
         let recorded = Date().timeIntervalSince(recordingStart)
+        isLocked = false
+        orb.lock = nil
         orb.liveRing.reset()
         orb.processingRing.begin(expected: min(15, max(2, recorded * 0.4)))
         schedule(after: 90) { [weak self] in
@@ -967,36 +985,45 @@ final class KeyboardViewController: UIInputViewController {
         if !on { holdLayout = false }
         guard isMagnet != on else { return }
         isMagnet = on
+        // With Reduce Motion on, only the end of the move shows, as a quick fade.
+        let calm = !orb.animates || UIAccessibility.isReduceMotionEnabled
         if on {
             keyPopup.hide()
             spaceKey.accent = .systemOrange
             spaceKey.knurled = true
             let spot = magnetSpot()
             orb.spotlight = (center: keysView.convert(spot.center, to: view), diameter: spot.diameter)
-            let offset = CGPoint(x: orb.spotlight!.center.x - view.bounds.midX, y: orb.spotlight!.center.y - view.bounds.midY)
-            orb.transform = CGAffineTransform(translationX: offset.x, y: offset.y).scaledBy(x: 0.3, y: 0.3)
-                .translatedBy(x: -offset.x, y: -offset.y)
+            orb.lock = .open
+            if !calm, let center = orb.spotlight?.center {
+                let offset = CGPoint(x: center.x - view.bounds.midX, y: center.y - view.bounds.midY)
+                orb.transform = CGAffineTransform(translationX: offset.x, y: offset.y).scaledBy(x: 0.3, y: 0.3)
+                    .translatedBy(x: -offset.x, y: -offset.y)
+            }
             orb.alpha = 0
             orb.isHidden = false
             let moves = magnetMoves(around: spot.center, radius: spot.diameter / 2 * 1.1 + 10)
             magnetKeys = moves.map(\.key)
             for move in moves {
                 move.key.isUserInteractionEnabled = false
-                move.key.displace(move.transform, animated: orb.animates)
+                move.key.displace(move.transform, animated: !calm)
+                if !calm { move.key.jiggle(true) }
             }
             suggestionBar.isUserInteractionEnabled = false
         } else {
+            isLocked = false
+            orb.lock = nil
             spaceKey.accent = nil
             spaceKey.knurled = false
             for key in magnetKeys {
                 key.isUserInteractionEnabled = true
-                key.displace(CATransform3DIdentity, animated: orb.animates)
+                key.jiggle(false)
+                key.displace(CATransform3DIdentity, animated: !calm)
             }
             magnetKeys = []
             suggestionBar.isUserInteractionEnabled = true
         }
         view.setNeedsLayout()
-        UIView.animate(withDuration: 0.42, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0,
+        UIView.animate(withDuration: calm ? 0.15 : 0.42, delay: 0, usingSpringWithDamping: calm ? 1 : 0.85, initialSpringVelocity: 0,
                        options: [.beginFromCurrentState], animations: {
             self.suggestionBar.alpha = on ? 0 : 1
             self.orb.alpha = on ? 1 : 0
@@ -1010,12 +1037,12 @@ final class KeyboardViewController: UIInputViewController {
         })
     }
 
-    /// Where the orb sits among the keys (in the keys' coordinates): in the middle of the rows
-    /// above the space bar, as large as they leave room for.
+    /// Where the orb sits among the keys (in the keys' coordinates): level with the middle
+    /// letter row, leaving room above it for the lock.
     private func magnetSpot() -> (center: CGPoint, diameter: CGFloat) {
         let top = characterKeys.first?.first?.frame.minY ?? suggestionBar.frame.maxY
-        let bottom = spaceKey.frame.minY
-        return (CGPoint(x: keysView.bounds.midX, y: (top + bottom) / 2), max(60, min(bottom - top - 18, 124)))
+        let bottom = characterKeys.last?.first?.frame.maxY ?? spaceKey.frame.minY
+        return (CGPoint(x: keysView.bounds.midX, y: (top + bottom) / 2), max(56, min(bottom - top - 40, 100)))
     }
 
     /// Each row's keys leave the circle sideways, staying in their row, spread out toward the
@@ -1059,7 +1086,8 @@ final class KeyboardViewController: UIInputViewController {
                     var lean = atan2(x - center.x, center.y - y) * 180 / .pi
                     if lean > 90 { lean -= 180 }
                     if lean < -90 { lean += 180 }
-                    lean = -max(-16, min(16, lean * 0.22))
+                    // The row level with the orb only turns; the others lean along its field.
+                    lean = abs(y - center.y) < rowHeight / 2 ? 0 : -max(-16, min(16, lean * 0.22))
                     var transform = CATransform3DIdentity
                     transform.m34 = -1 / 420
                     transform = CATransform3DTranslate(transform, x - key.frame.midX, 0, 0)
@@ -1168,7 +1196,6 @@ final class KeyboardViewController: UIInputViewController {
         emojiKey.addGestureRecognizer(press)
         updateSpaceImage()
         spaceKey.dimsImage = true
-        spaceKey.trailingHole = true
         spaceKey.accessibilityIdentifier = "spaceKey"
         spaceKey.addTarget(self, action: #selector(insertSpace), for: .touchUpInside)
         spacePan.delegate = self
@@ -1598,7 +1625,10 @@ final class KeyboardViewController: UIInputViewController {
         let bar = max(leastBar, height - keysNeeded)
         let scale = min(1, (height - bar) / keysNeeded)
         let numbers = showsNumberRow ? numberRowHeight * scale : 0
-        let row = (keysNeeded * scale - numbers) / 4
+        // The bottom row stands a little apart from the letters (not under the emoji grid): the
+        // keys give up a little height for it.
+        let bottomGap = layer == .emoji ? 0 : (isLandscape ? 6 : 10) * scale
+        let row = (keysNeeded * scale - numbers - bottomGap) / 4
         suggestionBar.frame = CGRect(x: left, y: 0, width: width, height: bar)
         suggestionBar.isHidden = !options.suggestionBar || emojiSearch != nil || layer == .emoji
         emojiSearchView.frame = CGRect(x: left, y: 0, width: width, height: bar)
@@ -1658,7 +1688,7 @@ final class KeyboardViewController: UIInputViewController {
         // two, space five (held, it dictates), return two at the right edge, its arrow mirrored
         // in Persian.
         let eleventh = width / 11
-        let y = top + 3 * row
+        let y = top + 3 * row + bottomGap
         var x = left
         func place(_ view: UIView, _ keyWidth: CGFloat) {
             view.frame = CGRect(x: x, y: y, width: keyWidth, height: row)
@@ -2322,15 +2352,15 @@ final class KeyboardViewController: UIInputViewController {
         return nil
     }
 
-    /// What holding a key offers, its own character first: a digit with the other script's;
-    /// a top-row letter with its digit in the layout's script, then in the other; then the
-    /// letter's other forms.
+    /// What holding a key offers, the one over the key first: a digit with the other script's;
+    /// a top-row letter its digit (in the layout's script only) over it, then the letter; then
+    /// the letter's other forms.
     private func forms(of key: KeyView) -> [String] {
         let character = key.character ?? ""
         if let other = Self.digitPair(character) { return [character, other] }
         let own = isEnglish ? (key.title ?? character) : character
         var forms = [own]
-        if let hint = key.hint, let other = Self.digitPair(hint) { forms += [hint, other] }
+        if let hint = key.hint { forms.insert(hint, at: 0) }
         if !isEnglish { forms += (Self.variants[character] ?? []).dropFirst() }
         return forms.count > 1 ? forms : []
     }
@@ -2465,6 +2495,9 @@ private final class KeyView: UIControl {
         trailingImageView.isHidden = message != nil || knurled
         labelClip.isHidden = knurled
         if message != nil || storedTitle != nil { accessibilityLabel = message ?? storedTitle }
+        // A new letter or size moves a wide letter against the key's right edge (`layoutSubviews`):
+        // without this, it stayed where the old size put it until the key was next pressed.
+        setNeedsLayout()
     }
 
     var symbol: String? {
@@ -2495,6 +2528,9 @@ private final class KeyView: UIControl {
         }
     }
     private let hintLabel = UILabel()
+    private static func isPersianDigit(_ text: String) -> Bool {
+        text.unicodeScalars.allSatisfy { (0x06F0...0x06F9).contains($0.value) }
+    }
 
     /// The orange space bar while it dictates: its words and images give way to a fine diamond
     /// grip in a rounded rectangle in its middle, raised like a knurled metal button.
@@ -2506,15 +2542,7 @@ private final class KeyView: UIControl {
             setNeedsLayout()
         }
     }
-    private let grip = UIView()
-    private let gripLight = UIView()
-
-    /// The trailing image sits in a ring cut out of the key, through which the keyboard's
-    /// background shows (the space bar's mic).
-    var trailingHole = false {
-        didSet { if trailingHole != oldValue { setNeedsLayout() } }
-    }
-    private let holeMask = CAShapeLayer()
+    private let grip = UIImageView()
 
     /// Moves and turns what is drawn (not the touch area): the keys standing aside around the
     /// dictation orb. Springs there unless `animated` is false.
@@ -2531,6 +2559,22 @@ private final class KeyView: UIControl {
         spring.mass = 1
         spring.duration = spring.settlingDuration
         layer.add(spring, forKey: "displace")
+    }
+
+    /// A faint wobble in place, like app icons about to be removed on the Home Screen but
+    /// subtler, while the keys stand aside for dictation. Core Animation runs it outside the
+    /// app, so it costs no work here.
+    func jiggle(_ on: Bool) {
+        content.layer.removeAnimation(forKey: "jiggle")
+        guard on else { return }
+        let angle = 0.6 * Double.pi / 180
+        let wobble = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        wobble.values = [0, angle, 0, -angle, 0]
+        wobble.duration = Double.random(in: 0.5...0.7)
+        wobble.timeOffset = Double.random(in: 0...wobble.duration)
+        wobble.repeatCount = .infinity
+        wobble.isAdditive = true
+        content.layer.add(wobble, forKey: "jiggle")
     }
 
     /// A second image at the right end of the key (the space bar's mic), in its own colours.
@@ -2586,17 +2630,11 @@ private final class KeyView: UIControl {
         content.addSubview(face)
         grip.isHidden = true
         grip.isUserInteractionEnabled = false
-        grip.backgroundColor = UIColor(patternImage: KeyIcons.knurl)
-        grip.layer.cornerRadius = 5
-        grip.layer.borderWidth = 0.5
-        grip.layer.borderColor = UIColor(red: 0.62, green: 0.31, blue: 0, alpha: 0.55).cgColor
-        // Raised: a soft shadow under it and a lit edge above.
-        grip.layer.shadowColor = UIColor.black.cgColor
-        grip.layer.shadowOpacity = 0.22
-        grip.layer.shadowRadius = 1.2
-        grip.layer.shadowOffset = CGSize(width: 0, height: 1)
-        gripLight.backgroundColor = UIColor.white.withAlphaComponent(0.45)
-        grip.addSubview(gripLight)
+        // Raised: a soft shadow under it.
+        grip.layer.shadowColor = UIColor(red: 0.45, green: 0.2, blue: 0, alpha: 1).cgColor
+        grip.layer.shadowOpacity = 0.35
+        grip.layer.shadowRadius = 1
+        grip.layer.shadowOffset = CGSize(width: 0, height: 0.8)
         content.addSubview(grip)
         highlight.backgroundColor = UIColor.label.withAlphaComponent(0.12)
         highlight.layer.cornerRadius = 6
@@ -2660,6 +2698,10 @@ private final class KeyView: UIControl {
         let inner = bounds.inset(by: faceInsets)
         highlight.frame = inner
         face.frame = inner
+        // The dictating space bar is a capsule.
+        let corner = knurled ? inner.height / 2 : 6
+        face.layer.cornerRadius = corner
+        highlight.layer.cornerRadius = corner
         labelClip.frame = inner
         // Words (ABC, 123, status messages) keep off the edges and shrink to fit. Letters all
         // keep the chosen size: one wider than the key (ص ض س ش when large) sits against the
@@ -2678,7 +2720,10 @@ private final class KeyView: UIControl {
         if hint != nil {
             let size = max(9, (inner.height * 0.24).rounded())
             hintLabel.font = AppFont.font(ofSize: size)
-            hintLabel.frame = CGRect(x: inner.maxX - size - 3, y: inner.minY + 1, width: size + 2, height: size + 2)
+            // In the top corner where the script starts (left for Persian digits), a little in.
+            let persian = hint.map { Self.isPersianDigit($0) } ?? false
+            hintLabel.frame = CGRect(x: persian ? inner.minX + 3 : inner.maxX - size - 3, y: inner.minY + 3,
+                                     width: size + 2, height: size + 2)
         }
         if let image = trailingImageView.image {
             let width = min(inner.width / 3, image.size.width + 20)
@@ -2686,21 +2731,10 @@ private final class KeyView: UIControl {
         }
         trailingImageView.isHidden = message != nil || knurled
         if knurled {
-            grip.frame = inner.insetBy(dx: inner.width * 0.2, dy: max(6, inner.height * 0.24))
-            gripLight.frame = CGRect(x: 4, y: 0, width: grip.bounds.width - 8, height: 0.5)
-            grip.layer.shadowPath = UIBezierPath(roundedRect: grip.bounds, cornerRadius: grip.layer.cornerRadius).cgPath
-        }
-        if trailingHole, !knurled, message == nil, trailingImageView.image != nil {
-            // An even-odd ring: the face, minus a ring around the image, plus the disc inside it.
-            let middle = CGPoint(x: trailingImageView.center.x - face.frame.minX, y: trailingImageView.center.y - face.frame.minY)
-            let path = UIBezierPath(roundedRect: face.bounds, cornerRadius: face.layer.cornerRadius)
-            path.append(UIBezierPath(arcCenter: middle, radius: 12.5, startAngle: 0, endAngle: 2 * .pi, clockwise: true))
-            path.append(UIBezierPath(arcCenter: middle, radius: 9.5, startAngle: 0, endAngle: 2 * .pi, clockwise: true))
-            holeMask.fillRule = .evenOdd
-            holeMask.path = path.cgPath
-            face.layer.mask = holeMask
-        } else if face.layer.mask != nil {
-            face.layer.mask = nil
+            let frame = inner.insetBy(dx: max(inner.height * 0.9, inner.width * 0.22), dy: max(7, inner.height * 0.27)).integral
+            grip.frame = frame
+            if grip.image?.size != frame.size { grip.image = KeyIcons.knurl(size: frame.size) }
+            grip.layer.shadowPath = UIBezierPath(roundedRect: grip.bounds, cornerRadius: KeyIcons.knurlCorner).cgPath
         }
         // Low landscape rows: a tall image shrinks instead of spilling out of the key.
         let size = imageView.image?.size ?? .zero
@@ -3166,6 +3200,16 @@ private final class DictationOrbView: UIControl {
         }
     }
 
+    enum Lock { case open, closed }
+    /// Over a held space bar: an open lock floats above the orb with an arrow bobbing over it,
+    /// for sliding up to lock; once locked, the lock closes in orange and the arrow fades.
+    var lock: Lock? {
+        didSet { if lock != oldValue { updateLock() } }
+    }
+    private let lockGroup = UIView()
+    private let lockIcon = UIImageView()
+    private let lockArrow = UIImageView()
+
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         guard let spotlight else { return super.point(inside: point, with: event) }
         return hypot(point.x - spotlight.center.x, point.y - spotlight.center.y) <= spotlight.diameter / 2 + 12
@@ -3223,6 +3267,16 @@ private final class DictationOrbView: UIControl {
         caption.adjustsFontSizeToFitWidth = true
         caption.minimumScaleFactor = 0.7
         addSubview(caption)
+
+        lockGroup.isUserInteractionEnabled = false
+        lockGroup.isHidden = true
+        for view in [lockArrow, lockIcon] {
+            view.tintColor = .secondaryLabel
+            view.contentMode = .center
+            lockGroup.addSubview(view)
+        }
+        lockArrow.image = UIImage(systemName: "chevron.up", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .bold))
+        addSubview(lockGroup)
         update()
     }
 
@@ -3260,6 +3314,59 @@ private final class DictationOrbView: UIControl {
         CATransaction.commit()
         icon.frame = orbFrame
         caption.frame = CGRect(x: 16, y: bounds.height - 30, width: bounds.width - 32, height: 22)
+        // Above the orb, clear of it at full voice: the arrow over the lock.
+        let lockBottom = max(34, center.y - diameter / 2 * (1 + Self.voiceGrowth) - Self.ringGap - 2)
+        lockGroup.bounds = CGRect(x: 0, y: 0, width: 30, height: 34)
+        lockGroup.center = CGPoint(x: center.x, y: lockBottom - 17)
+        lockArrow.frame = CGRect(x: 0, y: 0, width: 30, height: 12)
+        lockIcon.frame = CGRect(x: 0, y: 12, width: 30, height: 22)
+    }
+
+    private func updateLock() {
+        lockGroup.isHidden = lock == nil
+        lockGroup.layer.removeAnimation(forKey: "float")
+        lockArrow.layer.removeAnimation(forKey: "bob")
+        guard let lock else { return }
+        let image = UIImage(systemName: lock == .open ? "lock.open.fill" : "lock.fill",
+                            withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold))
+        let calm = !animates || UIAccessibility.isReduceMotionEnabled
+        let change = {
+            self.lockIcon.image = image
+            self.lockIcon.tintColor = lock == .closed ? .systemOrange : .secondaryLabel
+            self.lockArrow.alpha = lock == .open ? 1 : 0
+        }
+        if lock == .closed, !calm {
+            UIView.transition(with: lockIcon, duration: 0.18, options: .transitionCrossDissolve, animations: change)
+            lockIcon.transform = CGAffineTransform(scaleX: 1.3, y: 1.3)
+            UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0, options: []) {
+                self.lockIcon.transform = .identity
+            }
+        } else {
+            change()
+        }
+        startFloating()
+    }
+
+    /// The lock hovers gently; the arrow over the open lock rises and falls.
+    private func startFloating() {
+        guard lock != nil, animates, !UIAccessibility.isReduceMotionEnabled, window != nil else { return }
+        let float = CABasicAnimation(keyPath: "transform.translation.y")
+        float.fromValue = 2.5
+        float.toValue = -2.5
+        float.duration = 1.6
+        float.autoreverses = true
+        float.repeatCount = .infinity
+        float.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        lockGroup.layer.add(float, forKey: "float")
+        guard lock == .open else { return }
+        let bob = CABasicAnimation(keyPath: "transform.translation.y")
+        bob.fromValue = 0
+        bob.toValue = -4
+        bob.duration = 0.55
+        bob.autoreverses = true
+        bob.repeatCount = .infinity
+        bob.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        lockArrow.layer.add(bob, forKey: "bob")
     }
 
     /// Animations are dropped when the keyboard leaves the screen; restart them on return.
@@ -3273,6 +3380,7 @@ private final class DictationOrbView: UIControl {
         update()
         liveRing.resume()
         processingRing.resume()
+        startFloating()
     }
 
     private func update() {
@@ -3438,44 +3546,66 @@ private enum KeyIcons {
     }
 
     /// The space bar: a globe between arrows, for swiping between Persian and English.
-    /// The space bar's mic, in a ring cut out of the key (`KeyView.trailingHole`): orange while
-    /// the app's session is on, grey and struck through once it has ended (holding space then
-    /// opens the app).
-    static let spaceMic = ringedMic("mic.fill", color: .systemOrange)
-    static let spaceMicOff = ringedMic("mic.slash.fill", color: .systemGray)
-
-    private static func ringedMic(_ name: String, color: UIColor) -> UIImage {
-        let side: CGFloat = 22
-        guard let symbol = UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold))?
-            .withTintColor(color, renderingMode: .alwaysOriginal) else { return UIImage() }
-        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { _ in
-            symbol.draw(at: CGPoint(x: (side - symbol.size.width) / 2, y: (side - symbol.size.height) / 2))
-        }.withRenderingMode(.alwaysOriginal)
-    }
-    /// One tile of the knurled grip: a small diamond pyramid, lit from the top left, between
-    /// darker grooves.
-    static let knurl: UIImage = {
-        let side: CGFloat = 5
-        let h = side / 2
-        let inset: CGFloat = 0.45
-        func color(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat) -> UIColor { UIColor(red: r / 255, green: g / 255, blue: b / 255, alpha: 1) }
-        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side)).image { context in
-            color(196, 98, 0).setFill()
-            context.fill(CGRect(x: 0, y: 0, width: side, height: side))
-            let top = CGPoint(x: h, y: inset), right = CGPoint(x: side - inset, y: h)
-            let bottom = CGPoint(x: h, y: side - inset), left = CGPoint(x: inset, y: h), mid = CGPoint(x: h, y: h)
-            for (a, b, fill) in [(top, left, color(255, 200, 112)), (top, right, color(255, 172, 64)),
-                                 (right, bottom, color(222, 118, 0)), (bottom, left, color(240, 140, 20))] {
-                let facet = UIBezierPath()
-                facet.move(to: a)
-                facet.addLine(to: b)
-                facet.addLine(to: mid)
-                facet.close()
-                fill.setFill()
-                facet.fill()
-            }
+    /// The space bar's mic, as on iOS: in a filled orange circle while the app's session is on,
+    /// an outline in the key's colour once it has ended (holding space then opens the app).
+    static let spaceMic = UIImage(systemName: "mic.circle.fill", withConfiguration:
+        UIImage.SymbolConfiguration(pointSize: 25, weight: .regular)
+            .applying(UIImage.SymbolConfiguration(paletteColors: [.white, .systemOrange])))?.withRenderingMode(.alwaysOriginal)
+    static let spaceMicOff = UIImage(systemName: "mic", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .regular))
+    /// The dictating space bar's grip: rows of tiny diamond pyramids, as knurled on a metal
+    /// button, lit from above, each with a bright upper facet and a shaded lower one; the
+    /// pattern fades at the rounded edges so it looks pressed into the orange.
+    static let knurlCorner: CGFloat = 4
+    static func knurl(size: CGSize) -> UIImage? {
+        guard size.width > 4, size.height > 4 else { return nil }
+        let pitch: CGFloat = 3.2
+        let half = pitch / 2
+        let rect = CGRect(origin: .zero, size: size)
+        func orange(_ light: CGFloat) -> CGColor {
+            // 0 = deep groove, 1 = lit facet.
+            UIColor(red: 0.78 + 0.22 * light, green: 0.36 + 0.42 * light, blue: 0.02 + 0.38 * light * light, alpha: 1).cgColor
         }
-    }()
+        return UIGraphicsImageRenderer(size: size).image { renderer in
+            let context = renderer.cgContext
+            UIBezierPath(roundedRect: rect, cornerRadius: knurlCorner).addClip()
+            context.setFillColor(orange(0.05))
+            context.fill(rect)
+            var row = 0
+            var y: CGFloat = -half
+            while y < size.height + half {
+                var x: CGFloat = row % 2 == 0 ? 0 : half
+                x -= pitch
+                while x < size.width + pitch {
+                    let c = CGPoint(x: x, y: y)
+                    let r = half * 0.86
+                    let top = CGPoint(x: c.x, y: c.y - r), right = CGPoint(x: c.x + r, y: c.y)
+                    let bottom = CGPoint(x: c.x, y: c.y + r), left = CGPoint(x: c.x - r, y: c.y)
+                    for (a, b, light) in [(left, top, 1.0), (top, right, 0.78), (right, bottom, 0.3), (bottom, left, 0.5)] as [(CGPoint, CGPoint, CGFloat)] {
+                        context.move(to: a)
+                        context.addLine(to: b)
+                        context.addLine(to: c)
+                        context.closePath()
+                        context.setFillColor(orange(light))
+                        context.fillPath()
+                    }
+                    x += pitch
+                }
+                y += half
+                row += 1
+            }
+            // Light from above across the whole grip, and a soft shade inside the edge.
+            let space = CGColorSpaceCreateDeviceRGB()
+            if let sheen = CGGradient(colorsSpace: space, colors: [UIColor(white: 1, alpha: 0.22).cgColor,
+                                                                   UIColor(white: 1, alpha: 0).cgColor,
+                                                                   UIColor(red: 0.4, green: 0.15, blue: 0, alpha: 0.18).cgColor] as CFArray,
+                                      locations: [0, 0.5, 1]) {
+                context.drawLinearGradient(sheen, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
+            }
+            context.setStrokeColor(UIColor(red: 0.5, green: 0.2, blue: 0, alpha: 0.35).cgColor)
+            context.setLineWidth(1)
+            UIBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), cornerRadius: knurlCorner - 0.5).stroke()
+        }
+    }
     static let searchDone = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .bold))
 
     static let space: UIImage = {

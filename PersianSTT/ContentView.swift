@@ -274,8 +274,14 @@ struct ContentView: View {
                 Toggle(isOn: $options.learnTouches) {
                     SettingLabel("یادگیری محل لمس (TapMap)", symbol: "hand.point.up.left.fill", color: .orange)
                 }
+                NavigationLink {
+                    page("نقشه‌ی لمس شما") { TapMapPage() }
+                } label: {
+                    SettingLabel("نقشه‌ی لمس شما", symbol: "scope", color: .blue)
+                }
                 Button(role: .destructive) {
                     options.touchResets += 1
+                    TouchModel.clearFromKeyboard()
                 } label: {
                     SettingLabel("پاک کردن یادگرفته‌های لمس", symbol: "arrow.counterclockwise", color: .red)
                 }
@@ -699,6 +705,77 @@ private struct SetupStep: View {
 }
 
 /// A row of keys drawn with the chosen style, on a keyboard-like background.
+/// TapMap as the keyboard learned it: on each key, a dot where the user's touches for it
+/// centre (larger and darker the more touches it has seen), with a line from the key's middle.
+private struct TapMapPage: View {
+    @State private var model = TouchModel.fromKeyboard()
+    @State private var english = false
+
+    private static let persian = [["ض", "ص", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"],
+                                  ["ش", "س", "ی", "ب", "ل", "ا", "ت", "ن", "م", "ک", "گ"],
+                                  ["ظ", "ط", "ز", "ر", "ذ", "د", "پ", "و", "ث"]]
+    private static let latin = [["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+                                ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+                                ["z", "x", "c", "v", "b", "n", "m"]]
+
+    var body: some View {
+        Section {
+            Picker("", selection: $english) {
+                Text("فارسی").tag(false)
+                Text("English").tag(true)
+            }
+            .pickerStyle(.segmented)
+            if let model, !model.isEmpty {
+                map(model)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
+            } else {
+                Text("هنوز چیزی یاد گرفته نشده. با کیبورد تایپ کنید و دوباره اینجا را باز کنید.")
+                    .font(.app(.footnote))
+                    .foregroundStyle(.secondary)
+            }
+        } footer: {
+            Text("نقطه‌ی آبی جایی است که معمولاً هر کلید را می‌زنید؛ هرچه پررنگ‌تر، لمس بیشتری دیده شده. کیبورد لمس نزدیک مرز کلیدها را با همین نقشه به حرف درست می‌دهد.")
+                .font(.app(.footnote))
+        }
+        .onAppear { model = TouchModel.fromKeyboard() }
+    }
+
+    private func map(_ model: TouchModel) -> some View {
+        let rows = english ? Self.latin : Self.persian
+        let layout = english ? "en.p" : "fa.p"
+        return Canvas { context, size in
+            let columns: CGFloat = english ? 10 : 11
+            let unit = size.width / columns
+            let rowHeight = size.height / 3
+            for (index, row) in rows.enumerated() {
+                // Persian rows start at the left as on the keyboard; English rows are centred.
+                let start = english ? (size.width - CGFloat(row.count) * unit) / 2 : 0
+                for (column, key) in row.enumerated() {
+                    let cell = CGRect(x: start + CGFloat(column) * unit, y: CGFloat(index) * rowHeight, width: unit, height: rowHeight)
+                    let face = cell.insetBy(dx: 2, dy: 4)
+                    context.fill(Path(roundedRect: face, cornerRadius: 5), with: .color(Color(.secondarySystemFill)))
+                    context.draw(Text(english ? key.uppercased() : key).font(.custom(AppFont.name ?? "", size: 15))
+                        .foregroundStyle(.secondary), at: CGPoint(x: face.midX, y: face.minY + 11))
+                    let offset = model.offset(key: key, layout: layout)
+                    let middle = CGPoint(x: cell.midX, y: cell.midY + 4)
+                    let point = CGPoint(x: middle.x + offset.x * cell.width, y: middle.y + offset.y * cell.height)
+                    let seen = min(1, model.touches(key: key, layout: layout) / TouchModel.keyLimit)
+                    var line = Path()
+                    line.move(to: middle)
+                    line.addLine(to: point)
+                    context.stroke(line, with: .color(.blue.opacity(0.35 + 0.4 * seen)), lineWidth: 1)
+                    let radius = 2.5 + 2.5 * seen
+                    context.fill(Path(ellipseIn: CGRect(x: point.x - radius, y: point.y - radius, width: 2 * radius, height: 2 * radius)),
+                                 with: .color(.blue.opacity(0.35 + 0.65 * seen)))
+                    context.fill(Path(ellipseIn: CGRect(x: middle.x - 1, y: middle.y - 1, width: 2, height: 2)), with: .color(.secondary))
+                }
+            }
+        }
+        .frame(height: 170)
+        .environment(\.layoutDirection, .leftToRight)
+    }
+}
+
 private struct KeyPreview: View {
     let style: KeyStyle
 

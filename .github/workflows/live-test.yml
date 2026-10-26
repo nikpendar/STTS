@@ -486,6 +486,13 @@ jobs:
           read PX PY_ < <(python3 pick.py "نمایش ردیف پیشنهاد" out/ui-16.json switch || echo "60 200")
           axe tap -x "$PX" -y "$PY_" --udid "$DEVICE"; sleep 1.5
           xcrun simctl io "$DEVICE" screenshot out/8c-settings-no-suggestion-row.png
+          # The TapMap page, at the bottom of the typing settings.
+          axe swipe --start-x 200 --start-y 700 --end-x 200 --end-y 150 --udid "$DEVICE" || true
+          sleep 1
+          dump out/ui-19.json || true
+          read PX PY_ < <(python3 pick.py "نقشه‌ی لمس شما" out/ui-19.json || echo "200 600")
+          axe tap -x "$PX" -y "$PY_" --udid "$DEVICE"; sleep 2
+          xcrun simctl io "$DEVICE" screenshot out/8d-settings-tapmap.png
           kill $LOG || true
           echo "===== log"
           grep -E "final text|stream|recording started|test audio|correction|personal|loaded|model|edits|dictation |auto stop|no speech|glide|keyboard given" out/log.txt | cut -c1-300 || true
