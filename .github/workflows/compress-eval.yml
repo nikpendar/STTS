@@ -1,0 +1,173 @@
+# Smaller speech model: compresses the weights of Shenava Koochik (212 MB, fp16) with Core ML weight
+# quantization (8-bit linear, k-means palettes of 8, 6 and 4 bits) and measures each version with the
+# app's own ShenavaStream on the same 80 FLEURS and 80 Common Voice 17 clips as the earlier Shenava
+# benchmark: size (.mlmodel, zipped download, compiled), WER, CER, speed and memory. Nothing here
+# changes the app or its build.
+name: Model compression
+
+on:
+  push:
+    branches: [claude/project-thread-bcbcf5]
+    paths: [.github/workflows/compress-eval.yml, scripts/compress_model.py]
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: Space-separated versions (fp16 linear8 paletteN)
+        default: fp16 linear8 palette8 palette6 palette4
+
+env:
+  VARIANTS: ${{ github.event.inputs.variants || 'fp16 linear8 palette8 palette6 palette4' }}
+
+jobs:
+  clips:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: FLEURS fa_ir test, first 80
+        run: |
+          base=https://huggingface.co/datasets/google/fleurs/resolve/main/data/fa_ir
+          curl -fsSL --retry 3 -o test.tsv "$base/test.tsv"
+          curl -fsSL --retry 3 -o test.tar.gz "$base/audio/test.tar.gz"
+          tar xzf test.tar.gz
+          mkdir -p fleurs
+          head -n 80 test.tsv | while IFS=$'\t' read -r id file raw norm rest; do
+            src=$(find test -name "$file" | head -1)
+            [ -n "$src" ] || continue
+            python3 scripts/to_pcm16.py "$src" "fleurs/$file" >> durations
+            printf '%s\t%s\n' "$file" "$raw" >> fleurs/refs.tsv
+          done
+          awk '{ s += $1 } END { printf "%.1f", s }' durations > fleurs/audio_seconds
+          echo "fleurs: $(wc -l < fleurs/refs.tsv) clips, $(cat fleurs/audio_seconds) s"
+      - name: Common Voice 17 fa test, 80 spread
+        run: |
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          base=https://huggingface.co/datasets/fsicoli/common_voice_17_0/resolve/main
+          curl -fsSL --retry 3 -o cv.tsv "$base/transcript/fa/test.tsv"
+          curl -fsSL --retry 3 -o cv.tar "$base/audio/fa/test/fa_test_0.tar"
+          python3 scripts/prepare_cv.py cv.tsv cv.tar 80 cv17
+          ls cv17/*.wav | wc -l
+      - uses: actions/upload-artifact@v5
+        with:
+          name: clips
+          path: |
+            fleurs
+            cv17
+          retention-days: 3
+
+  compress:
+    runs-on: ubuntu-latest
+    outputs:
+      variants: ${{ steps.list.outputs.variants }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Base model
+        run: |
+          ./setup.sh model
+          ls -l build-model/Koochik.mlmodel
+      - name: Compress
+        run: |
+          pip install -q coremltools numpy kmeans1d
+          mkdir -p models
+          for v in $VARIANTS; do
+            echo "== $v"
+            python scripts/compress_model.py build-model/Koochik.mlmodel "models/Koochik-$v.mlmodel" "$v" 2>&1 | grep -vE "^(Quantizing layer|Failed to load|scikit-learn)"
+            (cd models && zip -q "Koochik-$v.zip" "Koochik-$v.mlmodel")
+            echo "$v $(stat -c %s models/Koochik-$v.mlmodel) $(stat -c %s models/Koochik-$v.zip)" | tee -a models/sizes.txt
+            rm "models/Koochik-$v.zip"
+          done
+      - id: list
+        run: echo "variants=$(python3 -c 'import json, os; print(json.dumps(os.environ["VARIANTS"].split()))')" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v5
+        with:
+          name: models
+          path: models
+          retention-days: 7
+          compression-level: 0
+
+  eval:
+    needs: [clips, compress]
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      # Leaves macOS runners free for the app's other workflows.
+      max-parallel: 3
+      matrix:
+        variant: ${{ fromJSON(needs.compress.outputs.variants) }}
+    name: ${{ matrix.variant }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: clips
+      - uses: actions/download-artifact@v5
+        with:
+          name: models
+          path: models
+      - name: Compile the model and the app's recognizer
+        run: |
+          ./setup.sh sidecars
+          xcrun coremlcompiler compile "models/Koochik-${{ matrix.variant }}.mlmodel" compiled --deployment-target 15.0 --platform ios
+          du -sk compiled/*.mlmodelc | awk '{ print $1 * 1024 }' > compiled_bytes
+          xcrun swiftc -O -o shenava-check PersianSTT/ShenavaStream.swift Tests/ShenavaCheck/main.swift
+          sysctl -n machdep.cpu.brand_string hw.ncpu
+      - name: Transcribe and score
+        run: |
+          v=${{ matrix.variant }}
+          mkdir -p result
+          read -r _ mlmodel zipped < <(grep "^$v " models/sizes.txt)
+          for ds in fleurs cv17; do
+            /usr/bin/time -l ./shenava-check compiled/*.mlmodelc PersianSTT/Models "$ds" cpu > "result/run-$ds.log" 2> "result/time-$ds.log"
+            cat "result/run-$ds.log"
+            secs=$(sed -nE 's/.*compute_s=([0-9.]+).*/\1/p' "result/run-$ds.log")
+            step_ms=$(sed -nE 's/.*mean_step_ms=([0-9.]+).*/\1/p' "result/run-$ds.log")
+            rss=$(awk '/maximum resident set size/ { print $1 }' "result/time-$ds.log")
+            python3 scripts/wer.py "$ds/refs.tsv" "$ds" "$v" "$secs" "$mlmodel" "$(cat $ds/audio_seconds)" "result/$ds.json"
+            python3 - "result/$ds.json" "$zipped" "$(cat compiled_bytes)" "$step_ms" "$rss" <<'PY'
+          import json, sys
+          path, zipped, compiled, step_ms, rss = sys.argv[1:]
+          r = json.load(open(path, encoding="utf-8"))
+          r.update(zip_mb=round(int(zipped) / 1e6), compiled_mb=round(int(compiled) / 1e6),
+                   step_ms=float(step_ms), peak_rss_mb=round(int(rss) / 1e6))
+          json.dump(r, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+          PY
+            echo "RESULT $ds $(python3 -c 'import json, sys; r = json.load(open(sys.argv[1])); print({k: r[k] for k in ("wer", "cer", "size_mb", "zip_mb", "compiled_mb", "step_ms", "rtf", "peak_rss_mb")})' "result/$ds.json")"
+            mkdir -p "result/hyp-$ds" && cp "$ds"/*.txt "result/hyp-$ds/" && rm "$ds"/*.txt
+          done
+      - uses: actions/upload-artifact@v5
+        with:
+          name: result-${{ matrix.variant }}
+          path: result
+
+  summary:
+    needs: eval
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: result-*
+      - name: Table
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json, os
+          print("| version | .mlmodel MB | zip MB | compiled MB | FLEURS WER | CV WER | FLEURS CER | CV CER | ms/step | peak RSS MB |")
+          print("|---|---|---|---|---|---|---|---|---|---|")
+          for v in os.environ["VARIANTS"].split():
+              try:
+                  f = json.load(open(f"result-{v}/fleurs.json")); c = json.load(open(f"result-{v}/cv17.json"))
+              except FileNotFoundError:
+                  print(f"| {v} | failed |"); continue
+              print(f"| {v} | {f['size_mb']} | {f['zip_mb']} | {f['compiled_mb']} | {f['wer']} | {c['wer']} | {f['cer']} | {c['cer']} | {f['step_ms']} | {max(f['peak_rss_mb'], c['peak_rss_mb'])} |")
+          PY
+          python3 - <<'PY'
+          import json, os
+          for v in os.environ["VARIANTS"].split():
+              try:
+                  f = json.load(open(f"result-{v}/fleurs.json")); c = json.load(open(f"result-{v}/cv17.json"))
+                  print(f"::notice::{v}: {f['size_mb']} MB (zip {f['zip_mb']}), FLEURS {f['wer']} / CV {c['wer']}, {f['step_ms']} ms/step, RSS {max(f['peak_rss_mb'], c['peak_rss_mb'])} MB")
+              except FileNotFoundError:
+                  print(f"::warning::{v}: no result")
+          PY
