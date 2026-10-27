@@ -1,40 +1,66 @@
 # Persian TTS groundwork: runs the Homo-GE2PE grapheme-to-phoneme model (MIT) on test sentences
-# next to eSpeak, and lists SadeghK's FastPitch + HiFi-GAN Persian model files. Nothing here
-# changes the app.
+# next to eSpeak and synthesizes them with the Mana Piper voice (scripts/tts_g2p_probe.py), and
+# inspects SadeghK's FastPitch + HiFi-GAN Persian model. Samples are committed to tts-samples/g2p.
+# Nothing here changes the app.
 name: TTS explore
 
 on:
   push:
     branches: [claude/project-thread-xaj97f]
-    paths: [.github/workflows/tts-explore.yml]
+    paths: [.github/workflows/tts-explore.yml, scripts/tts_g2p_probe.py]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   g2p:
     runs-on: ubuntu-latest
     steps:
-      - name: Repo files
+      - uses: actions/checkout@v5
+      - name: Install
         run: |
-          for r in MahtaFetrat/Homo-GE2PE-Persian SadeghK/tts_fa_fastpitch_hifigan-v2.0; do
-            echo "===== $r"
-            curl -fsSL "https://huggingface.co/api/models/$r?blobs=true" | python3 -c '
-          import json, sys
-          d = json.load(sys.stdin)
-          print("license", (d.get("cardData") or {}).get("license"))
-          for s in d.get("siblings", []):
-              print("  FILE", s["rfilename"], round((s.get("size") or 0) / 1e6, 1), "MB")'
-          done
-          echo "===== SadeghK README"
-          curl -fsSL https://huggingface.co/SadeghK/tts_fa_fastpitch_hifigan-v2.0/raw/main/README.md | head -c 9000
-      - name: Homo-GE2PE
+          sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng >/dev/null
+          pip install -q --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -q transformers sentencepiece onnxruntime numpy nltk
+      - name: Models
         run: |
           base=https://huggingface.co/MahtaFetrat/Homo-GE2PE-Persian/resolve/main
-          mkdir g2p && cd g2p
-          curl -fsSL --retry 3 -o model.zip "$base/model-weights/homo-ge2pe.zip"
-          ls -l model.zip && unzip -q model.zip -d homo-ge2pe && find homo-ge2pe -maxdepth 3 | head -30
-          du -sh homo-ge2pe
-          curl -fsSL -o GE2PE.py "$base/assets/GE2PE.py" || true
-          echo "===== GE2PE.py"; cat GE2PE.py | head -c 12000
-          echo; echo "===== assets"
-          curl -fsSL "https://huggingface.co/api/models/MahtaFetrat/Homo-GE2PE-Persian/tree/main/assets" | head -c 3000
-          find homo-ge2pe -name config.json -exec cat {} \;
+          mkdir -p g2p/assets && cd g2p
+          curl -fsSL --retry 3 -o model.zip "$base/model-weights/homo-ge2pe.zip" && unzip -q model.zip -d homo-ge2pe
+          ls -l homo-ge2pe
+          curl -fsSL --retry 3 -o assets/GE2PE.py "$base/assets/GE2PE.py"
+          curl -fsSL --retry 3 -o parsivar.zip "$base/assets/Parsivar.zip" && unzip -q parsivar.zip -d assets
+          ls assets assets/* | head -30
+          cd .. && mkdir voices
+          m=https://huggingface.co/MahtaFetrat/Mana-Persian-Piper/resolve/main/fa_IR-mana-medium.onnx
+          curl -fsSL --retry 3 -o voices/mana.onnx "$m" && curl -fsSL --retry 3 -o voices/mana.onnx.json "$m.json"
+      - name: Probe
+        run: python3 scripts/tts_g2p_probe.py g2p voices/mana.onnx voices/mana.onnx.json tts-samples/g2p
+      - name: Commit samples
+        run: |
+          git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git add tts-samples && git commit -qm "TTS samples: Mana with Homo-GE2PE" && git pull -q --rebase && git push
+
+  fastpitch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inference notes
+        run: |
+          base=https://huggingface.co/SadeghK/tts_fa_fastpitch_hifigan-v2.0/resolve/main
+          for nb in tts_nemo_fastpitch_hifigan_convert_to_onnx.ipynb tts-nemo-fastpitch-hifigan-inference-only.ipynb; do
+            echo "===== $nb"
+            curl -fsSL "$base/$nb" | python3 -c '
+          import json, sys
+          for c in json.load(sys.stdin)["cells"]:
+              src = "".join(c["source"])
+              print("---", c["cell_type"]); print(src[:3000])
+              for o in c.get("outputs", [])[:2]:
+                  t = "".join(o.get("text", []))[:800]
+                  if t: print(">>>", t)'
+          done
+          echo "===== dict head"
+          curl -fsSL "$base/persian-dict/persian-v5.0.dict" | head -40
+          curl -fsSL "$base/persian-dict/persian-v5.0.dict" | wc -l
+          echo "===== fastpitch config"
+          curl -fsSL "$base/config/fastpitch/fastpitch_align_22050_grapheme.yaml" | head -120
