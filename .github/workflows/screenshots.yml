@@ -52,7 +52,7 @@ jobs:
 
           # The first-run guide, each page in Persian and English.
           for lang in fa en; do
-            for p in 0 1 2 3 4 5; do
+            for p in 0 1 2 3 4 5 6; do
               xcrun simctl terminate "$DEVICE" "$ID" || true
               xcrun simctl launch "$DEVICE" "$ID" -onboardingDone 0 -onboardingPage "$p" -onboardingLanguage "$lang" -AppleLanguages "($lang)"
               sleep 4

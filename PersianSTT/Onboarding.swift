@@ -13,6 +13,10 @@ struct Onboarding: View {
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage(Onboarding.doneKey) private var done = false
+    /// Off until the user agrees on the training page; skipping the guide leaves it off.
+    @AppStorage(PersonalModel.uploadKey) private var trainingUpload = false
+    /// The answer given on the training page in this run of the guide.
+    @State private var trainingAnswered = false
     @ObservedObject private var model = Transcriber.shared
     @ObservedObject private var keyboard = KeyboardSession.shared
     @ObservedObject private var importer = ModelImporter.shared
@@ -29,13 +33,13 @@ struct Onboarding: View {
         Locale.preferredLanguages.first.map { $0.hasPrefix("fa") } ?? true
     }
 
-    private enum Step { case language, welcome, keyboard, fullAccess, model, session }
+    private enum Step { case language, welcome, keyboard, fullAccess, model, training, session }
 
     /// A build with the model inside has nothing to import.
     private var steps: [Step] {
         Transcriber.bundledModel == nil
-            ? [.language, .welcome, .keyboard, .fullAccess, .model, .session]
-            : [.language, .welcome, .keyboard, .fullAccess, .session]
+            ? [.language, .welcome, .keyboard, .fullAccess, .model, .training, .session]
+            : [.language, .welcome, .keyboard, .fullAccess, .training, .session]
     }
 
     var body: some View {
@@ -95,6 +99,12 @@ struct Onboarding: View {
             if case .success(let url) = result { importer.importModel(from: url) }
         }
         .onAppear { page = min(max(page, 0), steps.count - 1) }
+    }
+
+    private func answerTraining(_ send: Bool) {
+        trainingUpload = send
+        trainingAnswered = true
+        withAnimation { page = min(page + 1, steps.count - 1) }
     }
 
     private func finish() {
@@ -157,6 +167,31 @@ struct Onboarding: View {
                     .buttonBorderShape(.capsule)
                     .disabled(importer.progress != nil || model.isRecording)
                     modelStatus
+                }
+            }
+
+        case .training:
+            // The consent the upload needs (App Store guideline 5.1.1): asked once, either answer
+            // moves on, and the settings page turns it off again.
+            StepPage(symbol: "brain.head.profile", color: .green, font: font,
+                     title: fa ? "بهتر شدن تشخیص فارسی" : "Better Persian recognition",
+                     text: fa ? "وقتی متن دیکته‌شده را اصلاح می‌کنید، صدای همان دیکته و متن درست می‌تواند برای آموزش مدل گفتار فرستاده شود تا تشخیص فارسی بهتر شود. هیچ چیز دیگری، از جمله آنچه تایپ می‌کنید، فرستاده نمی‌شود.\n\nصدای دیکته‌هایی که اصلاح می‌کنید برای بهتر شدن تشخیص فارسی فرستاده شود؟ هر وقت بخواهید می‌توانید آن را در تنظیمات › یادگیری از اصلاح‌ها خاموش کنید."
+                              : "When you correct dictated text, the recording of that dictation and the corrected text can be sent to train the speech model, so Persian recognition gets better. Nothing else is sent, including what you type.\n\nSend the recordings of dictations you correct to improve Persian recognition? You can turn this off any time in Settings › Learning from corrections.") {
+                VStack(spacing: 12) {
+                    Button { answerTraining(true) } label: {
+                        wideLabel(fa ? "بله، بفرست" : "Yes, send them",
+                                  symbol: trainingAnswered && trainingUpload ? "checkmark.circle.fill" : "arrow.up.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                    Button { answerTraining(false) } label: {
+                        wideLabel(fa ? "نه، فقط روی آیفون" : "No, keep them on this iPhone",
+                                  symbol: trainingAnswered && !trainingUpload ? "checkmark.circle.fill" : "iphone")
+                    }
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                    Link(fa ? "سیاست حریم خصوصی" : "Privacy Policy", destination: ContentView.privacyPolicyURL)
+                        .font(font(.footnote))
                 }
             }
 
