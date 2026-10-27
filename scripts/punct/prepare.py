@@ -1,9 +1,10 @@
 """Builds training and test sets for Persian punctuation restoration.
 
-Sources (all fetched from Hugging Face's parquet API, not gated):
+Sources (none gated):
   - Persian Wikipedia (wikimedia/wikipedia 20231101.fa): prose paragraphs cut into 1..4 sentence chunks;
     articles under 1500 characters (bot village stubs) are skipped, as in make_bigrams.py.
-  - Questions (SajjadAyoubi/persian_qa): question sentences, since Wikipedia has almost none.
+  - Questions: PersianQA questions (github.com/sajjjadayobi/PersianQA) and Wikipedia sentences ending in ؟,
+    since Wikipedia prose has almost none.
   - FLEURS fa_ir test transcripts (raw, punctuated): an unseen test set close to dictated speech.
 Writes jsonl lines {"words": [...], "labels": [...]} to OUT/{train,dev,test_wiki,test_fleurs}.jsonl.
 """
@@ -53,7 +54,8 @@ def write(name, rows):
     print(name, len(rows))
 
 
-wiki = []
+wiki, wiki_questions = [], []
+QUESTION = re.compile(r"(?:^|(?<=[.؟?!]\s))([^.؟?!\n]{10,200}؟)")
 for url in parquet_urls("wikimedia/wikipedia", "20231101.fa", "train")[:2]:
     table = pq.read_table(io.BytesIO(get(url)), columns=["text"])
     for text in table.column("text").to_pylist():
@@ -61,27 +63,28 @@ for url in parquet_urls("wikimedia/wikipedia", "20231101.fa", "train")[:2]:
             continue
         for par in text.split("\n"):
             par = par.strip()
+            if "؟" in par:
+                wiki_questions.extend(QUESTION.findall(par))
             if prose(par):
                 wiki.extend(chunks(par))
-    print("wiki chunks so far", len(wiki))
+    print("wiki chunks so far", len(wiki), "questions in wiki", len(wiki_questions))
     if len(wiki) > TRAIN_TARGET + 6000:
         break
 random.shuffle(wiki)
 
-questions = []
-for split in ("train", "validation"):
+questions, texts = [], set(wiki_questions)
+for split in ("train", "test"):
     try:
-        for url in parquet_urls("SajjadAyoubi/persian_qa", "default", split):
-            table = pq.read_table(io.BytesIO(get(url)), columns=["question"])
-            for q in set(table.column("question").to_pylist()):
-                q = q.strip()
-                if q and q[-1] not in "؟?.":
-                    q += "؟"
-                words, labels = label_text(q)
-                if 3 <= len(words) <= 40 and labels[-1] == 3:
-                    questions.append((words, labels))
+        squad = json.loads(get(f"https://raw.githubusercontent.com/sajjjadayobi/PersianQA/main/dataset/pqa_{split}.json"))
+        texts.update(qa["question"].strip() for art in squad["data"] for p in art["paragraphs"] for qa in p["qas"])
     except Exception as e:  # questions are a bonus; Wikipedia alone still trains comma and period
-        print("questions unavailable:", e)
+        print("PersianQA unavailable:", e)
+for q in texts:
+    if q and q[-1] not in "؟?.!":
+        q += "؟"
+    words, labels = label_text(q)
+    if 3 <= len(words) <= 40 and labels[-1] == 3:
+        questions.append((words, labels))
 random.shuffle(questions)
 print("questions", len(questions))
 

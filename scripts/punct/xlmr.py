@@ -7,6 +7,16 @@ sys.path.insert(0, os.path.dirname(__file__))
 from common import f1_line, label_text, score
 
 data, result = sys.argv[1:3]
+
+
+def split_zwnj(words, labels):
+    out = []
+    for w, l in zip(words, labels):
+        parts = [x for x in w.replace("\u200c", " ").split() if x]
+        out += [(x, 0) for x in parts[:-1]] + [(parts[-1], l)]
+    return out
+
+
 res = {"name": "xlmr-47lang"}
 for test in ("test_wiki", "test_fleurs"):
     rows = [json.loads(l) for l in open(f"{data}/{test}.jsonl", encoding="utf-8")]
@@ -23,10 +33,12 @@ for test in ("test_wiki", "test_fleurs"):
     res[f"ms_per_sentence_{test}"] = round(1000 * (time.perf_counter() - start) / len(rows), 1)
     pairs, skipped = [], 0
     for r, o in zip(rows, outs):
-        words, labels = label_text(" ".join(o))
-        if len(words) != len(r["words"]):
+        # The model writes ZWNJ as a space, so both sides are compared with ZWNJ parts as separate words.
+        gold = split_zwnj(r["words"], r["labels"])
+        pred = split_zwnj(*label_text(" ".join(o)))
+        if [w for w, _ in gold] != [w for w, _ in pred]:
             skipped += 1; continue
-        pairs.append((r["labels"], labels))
+        pairs.append(([l for _, l in gold], [l for _, l in pred]))
     s = score(pairs); s["skipped"] = skipped
     res[test] = s
     print(f1_line(f"xlmr {test}", s), "skipped", skipped)
