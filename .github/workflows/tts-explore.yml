@@ -1,0 +1,40 @@
+# Persian TTS groundwork: runs the Homo-GE2PE grapheme-to-phoneme model (MIT) on test sentences
+# next to eSpeak, and lists SadeghK's FastPitch + HiFi-GAN Persian model files. Nothing here
+# changes the app.
+name: TTS explore
+
+on:
+  push:
+    branches: [claude/project-thread-xaj97f]
+    paths: [.github/workflows/tts-explore.yml]
+  workflow_dispatch:
+
+jobs:
+  g2p:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repo files
+        run: |
+          for r in MahtaFetrat/Homo-GE2PE-Persian SadeghK/tts_fa_fastpitch_hifigan-v2.0; do
+            echo "===== $r"
+            curl -fsSL "https://huggingface.co/api/models/$r?blobs=true" | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)
+          print("license", (d.get("cardData") or {}).get("license"))
+          for s in d.get("siblings", []):
+              print("  FILE", s["rfilename"], round((s.get("size") or 0) / 1e6, 1), "MB")'
+          done
+          echo "===== SadeghK README"
+          curl -fsSL https://huggingface.co/SadeghK/tts_fa_fastpitch_hifigan-v2.0/raw/main/README.md | head -c 9000
+      - name: Homo-GE2PE
+        run: |
+          base=https://huggingface.co/MahtaFetrat/Homo-GE2PE-Persian/resolve/main
+          mkdir g2p && cd g2p
+          curl -fsSL --retry 3 -o model.zip "$base/model-weights/homo-ge2pe.zip"
+          ls -l model.zip && unzip -q model.zip -d homo-ge2pe && find homo-ge2pe -maxdepth 3 | head -30
+          du -sh homo-ge2pe
+          curl -fsSL -o GE2PE.py "$base/assets/GE2PE.py" || true
+          echo "===== GE2PE.py"; cat GE2PE.py | head -c 12000
+          echo; echo "===== assets"
+          curl -fsSL "https://huggingface.co/api/models/MahtaFetrat/Homo-GE2PE-Persian/tree/main/assets" | head -c 3000
+          find homo-ge2pe -name config.json -exec cat {} \;
