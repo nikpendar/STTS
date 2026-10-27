@@ -1,0 +1,165 @@
+# Automatic Persian punctuation: looks for small punctuation-restoration models and measures size, speed,
+# memory and quality (F1 for ، . ؟) on held-out Wikipedia + questions and on FLEURS transcripts.
+# Candidates: Persian encoders fine-tuned here on CPU (scripts/punct/train.py), a ready 47-language model
+# (scripts/punct/xlmr.py) and a period-at-end baseline. Research only; nothing here changes the app or its build.
+name: Punctuation research
+
+on:
+  push:
+    branches: [claude/project-thread-juda5i]
+    paths: [.github/workflows/punct-eval.yml, scripts/punct/**]
+
+env:
+  PIP_DEPS: >-
+    transformers==4.56.2 sentencepiece protobuf onnx onnxruntime==1.22.1 coremltools==9.0 pyarrow numpy
+  TORCH: torch==2.7.1
+  TRAIN_MINUTES: "150"
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Candidate models
+        run: |
+          for m in MohammadJRanjbar/parsbert-persian-punctuation 1-800-BAD-CODE/xlm-roberta_punctuation_fullstop_truecase \
+                   HooshvareLab/albert-fa-zwnj-base-v2 HooshvareLab/distilbert-fa-zwnj-base HooshvareLab/bert-fa-zwnj-base \
+                   datasets/SajjadAyoubi/persian_qa datasets/MohammadJRanjbar/persian-punctuation-restoration; do
+            echo "===== $m"
+            case $m in datasets/*) url="https://huggingface.co/api/$m?blobs=true";; *) url="https://huggingface.co/api/models/$m?blobs=true";; esac
+            curl -fsSL "$url" | python3 -c '
+          import json, sys
+          d = json.load(sys.stdin)
+          print("gated:", d.get("gated"), "license:", (d.get("cardData") or {}).get("license"), "tags:", d.get("tags", [])[:25])
+          for s in d.get("siblings", []):
+              print("  ", s["rfilename"], s.get("size"))' || echo failed
+          done
+          echo "===== 1-800-BAD-CODE config"
+          curl -fsSL https://huggingface.co/1-800-BAD-CODE/xlm-roberta_punctuation_fullstop_truecase/raw/main/config.yaml | head -c 6000 || true
+          echo; echo "===== search"
+          for q in "search=punctuation&filter=fa" "search=punctuation+persian" "search=punctuation+farsi" "search=persian+punc" "search=punctuat&filter=multilingual"; do
+            echo "-- $q"
+            curl -fsSL "https://huggingface.co/api/models?$q&limit=50" | python3 -c '
+          import json, sys
+          for m in json.load(sys.stdin): print(m["id"], m.get("downloads"))' || true
+          done
+
+  data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q pyarrow
+      - run: mkdir -p punct-data && python3 scripts/punct/prepare.py punct-data 400000
+      - name: Samples
+        run: |
+          cd scripts/punct
+          python3 -c '
+          import json, sys
+          from common import render
+          for f in ("train", "test_wiki", "test_fleurs"):
+              print("==", f)
+              for l in list(open(f"../../punct-data/{f}.jsonl", encoding="utf-8"))[:6]:
+                  r = json.loads(l); print(render(r["words"], r["labels"]))'
+      - uses: actions/upload-artifact@v5
+        with:
+          name: punct-data
+          path: punct-data
+          retention-days: 7
+
+  train:
+    needs: data
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { id: albert-l12, model: HooshvareLab/albert-fa-zwnj-base-v2, layers: 0 }
+          - { id: albert-l6, model: HooshvareLab/albert-fa-zwnj-base-v2, layers: 6 }
+          - { id: distilbert, model: HooshvareLab/distilbert-fa-zwnj-base, layers: 0 }
+    name: train ${{ matrix.id }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q --extra-index-url https://download.pytorch.org/whl/cpu "$TORCH" $PIP_DEPS
+      - uses: actions/download-artifact@v5
+        with:
+          name: punct-data
+          path: punct-data
+      - name: Fine-tune and export
+        env:
+          TOKENIZERS_PARALLELISM: "false"
+        run: python3 scripts/punct/train.py ${{ matrix.model }} ${{ matrix.layers }} "$TRAIN_MINUTES" punct-data out 2>&1 | grep -vE "Warning|warn\("
+      - name: Score, speed, memory (ONNX fp32 and int8)
+        run: |
+          mkdir -p result
+          python3 scripts/punct/evaluate.py ${{ matrix.id }}-fp32 out/model.onnx out/hf punct-data result/${{ matrix.id }}-fp32.json
+          python3 scripts/punct/evaluate.py ${{ matrix.id }}-int8 out/model.int8.onnx out/hf punct-data result/${{ matrix.id }}-int8.json
+      - name: Core ML conversion
+        continue-on-error: true
+        run: python3 scripts/punct/coreml.py convert out 2>&1 | grep -E "^coreml|Error|error" | tee result/coreml-sizes.txt
+      - uses: actions/upload-artifact@v5
+        with:
+          name: model-${{ matrix.id }}
+          path: |
+            out/hf
+            out/model.int8.onnx
+            out/Punct-*.mlpackage
+            result
+          retention-days: 7
+
+  xlmr:
+    needs: data
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install -q punctuators
+      - uses: actions/download-artifact@v5
+        with:
+          name: punct-data
+          path: punct-data
+      - run: mkdir -p result && python3 scripts/punct/xlmr.py punct-data result/xlmr.json
+      - uses: actions/upload-artifact@v5
+        with:
+          name: result-xlmr
+          path: result
+
+  coreml:
+    needs: train
+    if: always()
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        id: [albert-l12, albert-l6, distilbert]
+    name: coreml ${{ matrix.id }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q transformers==4.56.2 sentencepiece protobuf coremltools==9.0 numpy
+      - uses: actions/download-artifact@v5
+        with:
+          name: model-${{ matrix.id }}
+          path: out
+      - uses: actions/download-artifact@v5
+        with:
+          name: punct-data
+          path: punct-data
+      - name: Core ML speed and memory
+        run: |
+          sysctl -n machdep.cpu.brand_string
+          for v in int8 fp16; do
+            for u in cpu all; do
+              python3 scripts/punct/coreml.py run ${{ matrix.id }}-$v out/out/Punct-$v.mlpackage out/out/hf punct-data $u 2>&1 | grep -vE "Warning|warn" || true
+            done
+          done
