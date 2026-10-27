@@ -122,10 +122,11 @@ def main():
         t = time.perf_counter()
         phon = onnx_greedy(enc, dec, text)
         ms.append(1000 * (time.perf_counter() - t))
-        ref = torch_greedy(norma.normalize(s).replace("ك", "ک"))
-        same_norm += torch_greedy(text) == ref
-        same_quant += phon == ref
-        print(f"{s}\n  int8 {phon}\n  fp32 {ref}")
+        fp32 = torch_greedy(text)
+        parsivar = torch_greedy(norma.normalize(s).replace("ك", "ک"))
+        same_norm += fp32 == parsivar
+        same_quant += phon == fp32
+        print(f"{s}\n  int8     {phon}\n  fp32     {fp32}\n  parsivar {parsivar}")
         reference.append({"text": s, "phonemes": phon, "ipa": " ".join(ipa_word(w, "rules") for w in phon.split())})
     print(f"app text = Parsivar: {same_norm}/{len(SENTENCES)}; int8 ONNX = fp32 torch: {same_quant}/{len(SENTENCES)}; "
           f"ONNX greedy {np.mean(ms):.0f} ms/sentence")
