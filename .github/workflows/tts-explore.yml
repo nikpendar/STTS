@@ -22,7 +22,7 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng >/dev/null
           pip install -q --index-url https://download.pytorch.org/whl/cpu torch
-          pip install -q transformers sentencepiece onnxruntime numpy nltk
+          pip install -q transformers sentencepiece onnxruntime numpy nltk unidecode
       - name: Models
         run: |
           base=https://huggingface.co/MahtaFetrat/Homo-GE2PE-Persian/resolve/main
@@ -45,22 +45,24 @@ jobs:
   fastpitch:
     runs-on: ubuntu-latest
     steps:
-      - name: Inference notes
+      - uses: actions/checkout@v5
+      - name: Install
+        run: |
+          pip install -q --index-url https://download.pytorch.org/whl/cpu torch
+          git clone -q --depth 1 https://github.com/SadeghKrmi/NeMo.git nemo-fork
+          ls nemo-fork/nemo/collections/tts/g2p/models/fa_ir_persian
+          pip install -q -e nemo-fork onnxruntime onnx numpy num2fawords hydra-core omegaconf lightning || true
+      - name: Models
         run: |
           base=https://huggingface.co/SadeghK/tts_fa_fastpitch_hifigan-v2.0/resolve/main
-          for nb in tts_nemo_fastpitch_hifigan_convert_to_onnx.ipynb tts-nemo-fastpitch-hifigan-inference-only.ipynb; do
-            echo "===== $nb"
-            curl -fsSL "$base/$nb" | python3 -c '
-          import json, sys
-          for c in json.load(sys.stdin)["cells"]:
-              src = "".join(c["source"])
-              print("---", c["cell_type"]); print(src[:3000])
-              for o in c.get("outputs", [])[:2]:
-                  t = "".join(o.get("text", []))[:800]
-                  if t: print(">>>", t)'
-          done
-          echo "===== dict head"
-          curl -fsSL "$base/persian-dict/persian-v5.0.dict" | head -40
-          curl -fsSL "$base/persian-dict/persian-v5.0.dict" | wc -l
-          echo "===== fastpitch config"
-          curl -fsSL "$base/config/fastpitch/fastpitch_align_22050_grapheme.yaml" | head -120
+          mkdir fp
+          curl -fsSL --retry 3 -o fp/fastpitch.onnx "$base/models/onnx-models/fastpitch.onnx"
+          curl -fsSL --retry 3 -o fp/hifigan.onnx "$base/models/onnx-models/hifigan.onnx"
+          curl -fsSL --retry 3 -o fp/persian.dict "$base/persian-dict/persian-v5.0.dict"
+      - name: Probe
+        run: python3 scripts/tts_fastpitch_probe.py fp/fastpitch.onnx fp/hifigan.onnx fp/persian.dict tts-samples/fastpitch
+      - name: Commit samples
+        if: always()
+        run: |
+          git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git add tts-samples && git commit -qm "TTS samples: SadeghK FastPitch" && git pull -q --rebase && git push || true
