@@ -137,7 +137,8 @@ final class PersianSpeech: ObservableObject {
 
     /// Playback without touching a running keyboard session, which already plays and records.
     private func claimAudioSession() throws {
-        guard !KeyboardSession.shared.isActive else { return }
+        // Called on the main queue only.
+        guard !MainActor.assumeIsolated({ KeyboardSession.shared.isActive }) else { return }
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
         try session.setActive(true)

@@ -45,7 +45,7 @@ jobs:
           if ! xcrun swiftc -O -o tts-check -import-objc-header PersianSTT/OnnxRuntime-Bridging-Header.h -Iort/include \
             -Lort/lib -lonnxruntime -Xlinker -rpath -Xlinker "$PWD/ort/lib" \
             PersianSTT/OnnxModel.swift PersianSTT/PersianPhonemizer.swift PersianSTTKeyboard/SpokenNumbers.swift \
-            Tests/TTSCheck/main.swift 2> build.txt; then
+            Tests/TTSCheck/LexiconStub.swift Tests/TTSCheck/main.swift 2> build.txt; then
             cat build.txt | head -60
             grep "error:" build.txt | head -20 | sed 's/^/::error::/'
             exit 1

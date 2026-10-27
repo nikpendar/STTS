@@ -14,7 +14,7 @@ final class OnnxModel {
         case float([Float], [Int64])
     }
 
-    private static let api: OrtApi = OrtGetApiBase().pointee.GetApi(UInt32(ORT_API_VERSION)).pointee
+    private static let api: OrtApi = unwrapped(unwrapped(OrtGetApiBase()).pointee.GetApi(UInt32(ORT_API_VERSION))).pointee
     private static let env: OpaquePointer? = {
         var env: OpaquePointer?
         try? check(api.CreateEnv(ORT_LOGGING_LEVEL_WARNING, "keyless", &env))
@@ -121,8 +121,11 @@ final class OnnxModel {
 
     private static func check(_ status: OpaquePointer?) throws {
         guard let status else { return }
-        let message = String(cString: api.GetErrorMessage(status))
+        let message = String(cString: unwrapped(api.GetErrorMessage(status)))
         api.ReleaseStatus(status)
         throw Failure(message: message)
     }
 }
+
+/// The C API's pointers are optional in the iOS headers and not in the macOS ones; this takes both.
+private func unwrapped<T>(_ value: T?) -> T { value! }
