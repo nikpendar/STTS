@@ -1,0 +1,27 @@
+Invalid connection: com.apple.coresymbolicationd
+Process:         PersianSTTKeyboard [21901]
+Path:            /Users/runner/Library/Developer/CoreSimulator/Devices/D62B6BCF-F895-433F-A796-480D4B376866/data/Containers/Bundle/Application/1042E0CF-2FD9-468B-BFEF-D62FD7E2DCCD/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard
+Load Address:    0x102080000
+Identifier:      PersianSTTKeyboard
+Version:         ???
+Code Type:       ARM64
+Platform:        iOS Simulator
+Parent Process:  launchd_sim [10600]
+Target Type:     corpse
+
+Date/Time:       2026-10-27 09:21:31.927 +0000
+Launch Time:     2026-10-27 09:18:27.660 +0000
+OS Version:      macOS 15.7.9 (24G830)
+Report Version:  7
+Analysis Tool:   /Library/Developer/CoreSimulator/Volumes/iOS_22G86/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 18.6.simruntime/Contents/Resources/RuntimeRoot/usr/bin/leaks
+Analysis Tool Version:  iOS Simulator 18.6 (22G86)
+
+Physical footprint:         47.9M
+Physical footprint (peak):  51.3M
+Idle exit:                  untracked
+----
+
+leaks Report Version: 4.0
+Process 21901: 128567 nodes malloced for 17753 KB
+Process 21901: 0 leaks for 0 total leaked bytes.
+

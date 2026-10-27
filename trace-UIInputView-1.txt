@@ -1,0 +1,57 @@
+Invalid connection: com.apple.coresymbolicationd
+Tracing: <UIInputView 0x1027d6000> [608]
+
+Found 3 roots referencing: <UIInputView 0x1027d6000> [608]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+This reverse reference tree can be imported into Instruments using Import Sample Data to allow data mining.
+
+    3 <UIInputView 0x1027d6000> [608]
+      2 <NSISEngine 0x104e258b0> [448]    +56: _delegate 0x104e258e8
+      + 2 <NSISRestrictedToZeroMarkerVariable 0x60000176d440> [64]    +24: _engines 0x60000176d458
+      +   2 0x600000288ba0 [32]     +8:  0x600000288ba8
+      +     2 <SVGPathCommand 0x60000176d140> [64]    +56:  0x60000176d178
+      +       2 0x1031b3d50 [512]   +152:  0x1031b3de8
+      +         1 <SVGPath 0x600003014990> [144]    +64:  0x6000030149d0
+      +         ! 1 <SVGAttribute 0x60000294be20> [112]    +88:  0x60000294be78
+      +         !   1 0x600000d0cdb0 [48]    +40:  0x600000d0cdd8
+      +         !     1 0x600000d0f8d0 [48]     +8:  0x600000d0f8d8
+      +         !       1 <SVGAttributeMap 0x600002163340> [80]    +48:  0x600002163370
+      +         !         1 <SVGShapeNode 0x103168ae0> [336]    +56:  0x103168b18
+      +         !           1 0x60000001c3b0 [16]     +0:  0x60000001c3b0
+      +         !             1 <SVGNode 0x6000039bba80> [208]    +88:  0x6000039bbad8
+      +         !               1 0x60000001f060 [16]     +0:  0x60000001f060
+      +         !                 1 <SVGRootNode 0x103168410> [288]    +88:  0x103168468
+      +         !                   1 <SVGDocument 0x6000021636b0> [80]    +48:  0x6000021636e0
+      +         !                     1 <SVGDocument 0x600000262840> [32]    +16:  0x600000262850
+      +         !                       1 <_CUIThemeSVGRendition 0x1031ee3f0> [352]   +216: _svgDocument 0x1031ee4c8
+      +         !                         1 <NSMutableDictionary (Storage) 0x104036200> [2048]  +1280: __strong  0x104036700
+      +         !                           1 <NSMutableDictionary 0x6000003107c0> [32]  item count: 56     +8: __strong storage 0x6000003107c8
+      +         !                             1 <CUIStructuredThemeStore 0x600002614e40> [96]     +8: _cache 0x600002614e48
+      +         !                               1 0x600001710d40 [64]    +16:  0x600001710d50
+      +         !                                 1 <CFBasicHash 0x60000178fac0> [64]    +40:  0x60000178fae8
+      +         !                                   1 <NSClassicMapTable 0x600002614420> [96]    +80: _ht 0x600002614470
+      +         !                                     1 Region CoreUI __DATA __bss: '__PerformBlockWithThemeRegistry.__themeRegistry' 0x1f34eac90
+      +         1 <SVGPath 0x600003017690> [144]    +48:  0x6000030176c0
+      +           1 0x600000288c40 [32]     +8:  0x600000288c48
+      +             1 <SVGPathCommand 0x600001771200> [64]    +56:  0x600001771238
+      +               1 0x104066800 [1024]   +328:  0x104066948
+      +                 1 <SVGPath 0x600003014240> [144]    +48:  0x600003014270
+      +                   1 <SVGAttribute 0x60000292ea00> [112]    +88:  0x60000292ea58
+      +                     1 0x600000d0bc60 [48]    +40:  0x600000d0bc88
+      +                       1 0x600000d0b870 [48]     +8:  0x600000d0b878
+      +                         1 <SVGAttributeMap 0x6000021552c0> [80]    +48:  0x6000021552f0
+      +                           1 <SVGShapeNode 0x1031d88b0> [336]    +56:  0x1031d88e8
+      +                             1 0x60000001c750 [16]     +0:  0x60000001c750
+      +                               1 <SVGNode 0x6000039b92b0> [208]    +88:  0x6000039b9308
+      +                                 1 <SVGAttributeMap 0x600002155540> [80]    +72:  0x600002155588
+      +                                   1 <SVGAttributeMap 0x60000027c0a0> [32]    +16:  0x60000027c0b0
+      +                                     1 <Swift._ContiguousArrayStorage<Swift.String> 0x103830000> [3072]  item count: 131  +2520:  0x1038309d8
+      +                                       1 <Swift._ContiguousArrayStorage<PersianSTTKeyboard.EmojiPanel.Category> 0x10278e490> [432]  item count: 10   +104:  0x10278e4f8
+      +                                         1 Region PersianSTTKeyboard __DATA __data: 'static EmojiPanel.all' 0x102131280
+      1 <NSLayoutYAxisAnchor 0x600001741f00> [64]     +8: _referenceItem 0x600001741f08
+        1 0x104e45f30 [384]   +208:  0x104e46000
+          1 0x10374c000 [65536]  +9128:  0x10374e3a8
+            1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f2df68c8
