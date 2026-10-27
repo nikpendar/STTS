@@ -799,10 +799,33 @@ final class KeyboardViewController: UIInputViewController {
         showStatus("متنی تشخیص داده نشد", transient: true)
     }
 
-    /// No session: the user opens the app and starts one. A keyboard may open no app but
-    /// Settings (App Store guideline 4.4.1), so it only says so.
+    /// No session: the app opens and starts one (`DictationBridge.keyboardOpensApp`), else
+    /// the space bar says to.
     private func askForSession() {
-        showStatus("کیلس را باز کنید و «شروع جلسه» را بزنید", transient: true)
+        if !DictationBridge.keyboardOpensApp || !open(DictationBridge.sessionURL) {
+            showStatus("کیلس را باز کنید و «شروع جلسه» را بزنید", transient: true)
+        }
+    }
+
+    /// Extensions cannot call UIApplication.open, so the host's UIApplication is found
+    /// through the responder chain and its open method is called dynamically.
+    @discardableResult
+    private func open(_ url: URL) -> Bool {
+        guard hasFullAccess else { return false }
+        typealias OpenURL = @convention(c) (
+            AnyObject, Selector, NSURL, NSDictionary, (@convention(block) (Bool) -> Void)?) -> Void
+        let selector = NSSelectorFromString("openURL:options:completionHandler:")
+        var responder: UIResponder? = self
+        while let current = responder {
+            if NSStringFromClass(type(of: current)).contains("UIApplication"),
+               current.responds(to: selector) {
+                let open = unsafeBitCast(current.method(for: selector), to: OpenURL.self)
+                open(current, selector, url as NSURL, NSDictionary(), nil)
+                return true
+            }
+            responder = current.next
+        }
+        return false
     }
 
     /// Messages show on the space bar, so the keyboard needs no status row. A transient one
@@ -2583,6 +2606,12 @@ final class KeyboardViewController: UIInputViewController {
                 self.applyOptions(new)
             }
             panel.onClose = { [weak self] in self?.hideSettings() }
+            panel.onOpenApp = { [weak self] in
+                guard let self else { return }
+                if !self.open(DictationBridge.settingsURL) {
+                    self.showStatus("برای بقیه‌ی تنظیمات کیلس را باز کنید", transient: true)
+                }
+            }
         }
         panel.textColor = keyStyle.textColor
         panel.options = options
@@ -4255,6 +4284,8 @@ private final class KeyboardSettingsPanel: UIView {
     }
     var onChange: ((KeyboardOptions) -> Void)?
     var onClose: (() -> Void)?
+    /// «بقیه‌ی تنظیمات در کیلس», shown when the keyboard may open the app.
+    var onOpenApp: (() -> Void)?
     var textColor = UIColor.label {
         didSet { applyColours() }
     }
@@ -4285,6 +4316,7 @@ private final class KeyboardSettingsPanel: UIView {
     private let scroll = UIScrollView()
     private let stack = UIStackView()
     private let numbers = UISegmentedControl(items: ["خاموش", "ردیف جدا", "روی حروف"])
+    private let appButton = UIButton(type: .system)
     private var switches: [(UISwitch, WritableKeyPath<KeyboardOptions, Bool>)] = []
     private var labels: [UILabel] = []
 
@@ -4321,6 +4353,21 @@ private final class KeyboardSettingsPanel: UIView {
         let note = makeLabel("رنگ‌ها، تصویر زمینه و واژه‌نامه در برنامه‌ی کیلس.", size: 13, secondary: true)
         note.numberOfLines = 0
         stack.addArrangedSubview(note)
+        if DictationBridge.keyboardOpensApp {
+            var config = UIButton.Configuration.bordered()
+            config.cornerStyle = .capsule
+            config.image = UIImage(systemName: "gearshape", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14))
+            config.imagePadding = 6
+            config.attributedTitle = AttributedString("بقیه‌ی تنظیمات در کیلس",
+                                                      attributes: AttributeContainer([.font: AppFont.font(ofSize: 15)]))
+            appButton.configuration = config
+            appButton.semanticContentAttribute = .forceRightToLeft
+            appButton.accessibilityIdentifier = "settingsOpenApp"
+            appButton.addAction(UIAction { [weak self] _ in self?.onOpenApp?() }, for: .touchUpInside)
+            appButton.heightAnchor.constraint(equalToConstant: 40).isActive = true
+            stack.setCustomSpacing(10, after: note)
+            stack.addArrangedSubview(appButton)
+        }
         refresh()
         applyColours()
     }
@@ -4410,6 +4457,7 @@ private final class KeyboardSettingsPanel: UIView {
         }
         titleLabel.textColor = textColor
         closeButton.tintColor = textColor
+        appButton.tintColor = textColor
         let light = KeyboardBackground.luminance(textColor.resolvedColor(with: traitCollection)) > 0.5
         backdrop.effect = UIBlurEffect(style: light ? .systemThickMaterialDark : .systemThickMaterialLight)
     }

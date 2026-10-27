@@ -65,6 +65,15 @@ enum DictationBridge {
     /// Loopback port the keyboard sends corrections to.
     static let correctionPort: NWEndpoint.Port = 47_862
 
+    /// The keyboard opens the app: to start a session, and from its settings panel. Guideline
+    /// 4.4.1 lets a keyboard open only Settings; on Rooz's decision (2026-10-27) it stays on in
+    /// the App Store build too, and goes off here if App Review rejects it.
+    static let keyboardOpensApp = true
+    /// Opens the app and starts a keyboard session.
+    static let sessionURL = URL(string: "persianstt://session")!
+    /// Opens the app's settings from the keyboard's settings panel.
+    static let settingsURL = URL(string: "persianstt://settings")!
+
     static func post(_ name: String) {
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),
