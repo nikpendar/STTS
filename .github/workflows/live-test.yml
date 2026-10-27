@@ -404,10 +404,10 @@ jobs:
           axe tap -x "$LKX" -y "$LKY" --udid "$DEVICE"; sleep 0.5
           # The repository gets a model (here a copy of the bundled one) for the next launch.
           mkdir -p srv/release
-          cp build-model/Koochik.mlmodel srv/release/model.mlmodel
+          cp build-model/Koochik.aar srv/release/model.aar
           python3 - <<'PY'
           import hashlib, json, os
-          path = "srv/release/model.mlmodel"
+          path = "srv/release/model.aar"
           json.dump({"version": 1, "size": os.path.getsize(path),
                      "sha256": hashlib.sha256(open(path, "rb").read()).hexdigest(),
                      "wer_before": 20.0, "wer_after": 15.0, "samples": 1}, open("srv/release/release.json", "w"))
@@ -417,7 +417,7 @@ jobs:
           xcrun simctl terminate "$DEVICE" "$ID" || true
           xcrun simctl launch "$DEVICE" "$ID" -keyboardTest 1 -testAudio "$PWD/speech.wav" -testLandscape 1 \
             "${TRAIN_ARGS[@]}" -trainingAutoUpdate YES -personalModelLastCheck 0
-          # Downloading and compiling 212 MB takes a while.
+          # Downloading and compiling 107 MB takes a while.
           for i in $(seq 90); do grep -q "installed personal model\|loaded personal-v1" out/log.txt && break; sleep 2; done
           sleep 5
           xcrun simctl io "$DEVICE" screenshot out/6-landscape.png

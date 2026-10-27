@@ -7,7 +7,7 @@ rejects the token there as GitHub's storage does.
     github_stub.py <data dir> [--port 8765] [--token test-token]
 
 Files the app creates land in <data dir>/<path>. To publish a model, put <data dir>/release/
-model.mlmodel and <data dir>/release/release.json (the JSON the training workflow writes into a
+model.aar and <data dir>/release/release.json (the JSON the training workflow writes into a
 release's description).
 """
 import argparse
@@ -66,7 +66,7 @@ class Handler(BaseHTTPRequestHandler):
             # GitHub's storage host: a token here is an error.
             if self.headers.get("Authorization"):
                 return self.reply(400, b"Only one auth mechanism allowed")
-            with open(os.path.join(DATA, "release", "model.mlmodel"), "rb") as f:
+            with open(os.path.join(DATA, "release", "model.aar"), "rb") as f:
                 data = f.read()
             print("asset downloaded", len(data), "bytes", flush=True)
             return self.reply(200, data, "application/octet-stream")
@@ -86,7 +86,7 @@ class Handler(BaseHTTPRequestHandler):
             release = {
                 "tag_name": "v1",
                 "body": open(path, encoding="utf-8").read(),
-                "assets": [{"name": "Koochik-personal.mlmodel",
+                "assets": [{"name": "Koochik-personal.aar",
                             "url": f"http://127.0.0.1:{port}/repos/stub/repo/releases/assets/1"}],
             }
             return self.reply(200, json.dumps(release).encode())

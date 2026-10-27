@@ -7,7 +7,7 @@ model. Run by .github/workflows/train.yml on a GitHub runner (CPU).
 <samples> holds <id>.wav (16 kHz mono) and <id>.json ({"id", "corrected", ...}), as the app
 uploads them. A fixed tenth of them (by id) is held out to score the result; --fleurs adds
 general Persian sentences (refs.tsv and WAVs) to check that the model did not get worse at
-everything else. Writes <out>/Koochik-personal.mlmodel, <out>/heldout.tsv (held-out WAV and
+everything else. Writes <out>/Koochik-personal.mlpackage (an ML program with 8-bit weights, as the base model), <out>/heldout.tsv (held-out WAV and
 reference) and <out>/summary.json. Every run starts again from the base model and trains on all
 samples so far, so mistakes do not pile up from one version to the next.
 
@@ -234,7 +234,7 @@ def main():
     with open(args.out / "heldout.tsv", "w", encoding="utf-8") as f:
         for s in held_out:
             f.write(f"{s['wav'].name}\t{s['text']}\n")
-    shapes = export(model, args.out / "Koochik-personal.mlmodel")
+    shapes = export(model, args.out / "Koochik-personal.mlpackage", fmt="mlprogram", weights="int8")
     log(f"exported: {shapes}")
     summary = {"samples": len(samples), "training": len(training), "held_out": len(held_out), "steps": steps,
                "nemo_wer_before": before, "nemo_wer_after": after, "export": shapes,

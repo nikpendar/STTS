@@ -1,13 +1,17 @@
 import Accelerate
+import AppleArchive
 import CoreML
 import Foundation
+import System
 
 enum ShenavaError: LocalizedError {
     case missing(String)
+    case unreadable(String)
 
     var errorDescription: String? {
         switch self {
         case .missing(let what): return "فایل مدل پیدا نشد: \(what)"
+        case .unreadable(let what): return "فایل مدل باز نشد: \(what)"
         }
     }
 }
@@ -59,6 +63,11 @@ final class ShenavaStream {
     private let input: MLMultiArray
     private var cacheChannel: MLMultiArray
     private var cacheTime: MLMultiArray
+    /// The empty caches a new utterance starts from. The model's own output arrays are fed back as
+    /// the next caches, and those can be fp16 or padded (an ML program), so they are replaced, not
+    /// cleared in place.
+    private let emptyChannel: MLMultiArray
+    private let emptyTime: MLMultiArray
     private var previous: Int
     private var lastTokenStep = 0
 
@@ -123,8 +132,10 @@ final class ShenavaStream {
             return array
         }
         input = try zeros("processed_signal")
-        cacheChannel = try zeros("cache_last_channel")
-        cacheTime = try zeros("cache_last_time")
+        emptyChannel = try zeros("cache_last_channel")
+        emptyTime = try zeros("cache_last_time")
+        cacheChannel = emptyChannel
+        cacheTime = emptyTime
         previous = blank
         reset()
     }
@@ -137,9 +148,8 @@ final class ShenavaStream {
         lastRaw = 0
         firstSample = true
         features = [Float](repeating: padValue, count: keep * nMels)
-        for array in [cacheChannel, cacheTime] {
-            memset(array.dataPointer, 0, array.count * MemoryLayout<Float>.size)
-        }
+        cacheChannel = emptyChannel
+        cacheTime = emptyTime
         previous = blank
         lastTokenStep = steps
         text = ""
@@ -275,5 +285,58 @@ final class ShenavaStream {
             }
         }
         return best
+    }
+}
+
+/// Speech model files: a .mlmodel (the NeuralNetwork version, one file) or an Apple Archive
+/// (.aar) of an ML program's .mlpackage folder, so that Files and a release asset carry one file.
+enum ModelArchive {
+    static let extensions = ["mlmodel", "aar"]
+
+    /// Compiles a model file (kind: its extension, if the file's name lacks it) into a temporary
+    /// .mlmodelc, which the caller moves or deletes.
+    static func compile(_ file: URL, kind: String? = nil) async throws -> URL {
+        guard (kind ?? file.pathExtension).lowercased() == "aar" else { return try await MLModel.compileModel(at: file) }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let package = folder.appendingPathComponent("Koochik.mlpackage", isDirectory: true)
+        try FileManager.default.createDirectory(at: package, withIntermediateDirectories: true)
+        try extract(file, to: package)
+        return try await MLModel.compileModel(at: package)
+    }
+
+    /// Unpacks an archive made with `aa archive -d Koochik.mlpackage -o Koochik.aar`.
+    static func extract(_ archive: URL, to folder: URL) throws {
+        let name = archive.lastPathComponent
+        guard let file = ArchiveByteStream.fileStream(path: FilePath(archive.path), mode: .readOnly, options: [],
+                                                      permissions: FilePermissions(rawValue: 0o644)) else {
+            throw ShenavaError.unreadable(name)
+        }
+        defer { try? file.close() }
+        guard let decompressed = ArchiveByteStream.decompressionStream(readingFrom: file) else { throw ShenavaError.unreadable(name) }
+        defer { try? decompressed.close() }
+        guard let decoded = ArchiveStream.decodeStream(readingFrom: decompressed) else { throw ShenavaError.unreadable(name) }
+        defer { try? decoded.close() }
+        guard let extracted = ArchiveStream.extractStream(extractingTo: FilePath(folder.path),
+                                                          flags: [.ignoreOperationNotPermitted]) else {
+            throw ShenavaError.unreadable(name)
+        }
+        defer { try? extracted.close() }
+        _ = try ArchiveStream.process(readingFrom: decoded, writingTo: extracted)
+    }
+}
+
+/// The memory iOS counts against the app (and ends it for): physical footprint now and at its peak, in MB.
+enum MemoryFootprint {
+    static var megabytes: (now: Double, peak: Double) {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return (0, 0) }
+        return (Double(info.phys_footprint) / 1e6, Double(info.ledger_phys_footprint_peak) / 1e6)
     }
 }

@@ -1,6 +1,7 @@
 """Exports a Shenava Koochik NeMo model as the app's streaming Core ML model: one cache-aware
-encoder step plus the CTC head, an iOS14-target NeuralNetwork with fp16 weights, the same
-interface as the published Koochik.mlmodel (ShenavaStream in the app):
+encoder step plus the CTC head, as an iOS17 ML program with 8-bit weights (the app's model since
+model.yml) or an iOS14 NeuralNetwork, with the interface of the published Koochik.mlmodel
+(ShenavaStream in the app):
 
     processed_signal [1,80,17] + cache_last_channel [17,1,70,512] + cache_last_time [17,1,512,8]
         -> logits [1,1,1025] + the next caches
@@ -96,9 +97,14 @@ class StreamingCTCStep(torch.nn.Module):
         return logits, next_channel, next_time
 
 
-def export(model, out_path: Path, att_context=(70, 0)) -> dict:
-    """Writes the fp16 Core ML step model to `out_path`; returns its shapes. Changes the
-    model's attention setup, so export last."""
+def export(model, out_path: Path, att_context=(70, 0), fmt: str = "neuralnetwork", weights: str = "fp16") -> dict:
+    """Writes the Core ML step model to `out_path`; returns its shapes. Changes the model's
+    attention setup, so export last.
+
+    fmt "neuralnetwork": an iOS14 .mlmodel (the Hugging Face model's format); weights int8 (8-bit linear)
+    or fp16. fmt "mlprogram": an iOS17 .mlpackage with fp16 compute; weights fp16, int8 (8-bit
+    linear, per channel) or pal<N> (an N-bit palette per tensor). An ML program keeps compressed
+    weights compressed in memory where the hardware allows, a NeuralNetwork expands them at load."""
     import coremltools as ct
 
     patch_coremltools_cast()
@@ -121,11 +127,13 @@ def export(model, out_path: Path, att_context=(70, 0)) -> dict:
     with torch.no_grad():
         logits, next_channel, next_time = step(x, cache_channel, cache_time)
         traced = torch.jit.trace(step, (x, cache_channel, cache_time), strict=False, check_trace=False).eval()
+    program = fmt == "mlprogram"
     mlmodel = ct.convert(
         traced,
         source="pytorch",
-        convert_to="neuralnetwork",
-        minimum_deployment_target=ct.target.iOS14,
+        convert_to=fmt,
+        minimum_deployment_target=ct.target.iOS17 if program else ct.target.iOS14,
+        **({"compute_precision": ct.precision.FLOAT16} if program else {}),
         inputs=[
             ct.TensorType(name="processed_signal", shape=x.shape, dtype=np.float32),
             ct.TensorType(name="cache_last_channel", shape=cache_channel.shape, dtype=np.float32),
@@ -137,17 +145,30 @@ def export(model, out_path: Path, att_context=(70, 0)) -> dict:
             ct.TensorType(name="cache_last_time_next"),
         ],
     )
-    from coremltools.models.neural_network import quantization_utils
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    quantization_utils.quantize_weights(mlmodel, nbits=16).save(str(out_path))
+    if program:
+        from coremltools.optimize import coreml as cto
+        if weights == "int8":
+            op = cto.OpLinearQuantizerConfig(mode="linear_symmetric", dtype="int8", granularity="per_channel")
+            mlmodel = cto.linear_quantize_weights(mlmodel, cto.OptimizationConfig(global_config=op))
+        elif weights.startswith("pal"):
+            op = cto.OpPalettizerConfig(mode="kmeans", nbits=int(weights[3:]), granularity="per_tensor")
+            mlmodel = cto.palettize_weights(mlmodel, cto.OptimizationConfig(global_config=op))
+        mlmodel.save(str(out_path))
+    else:
+        from coremltools.models.neural_network import quantization_utils
+        # 8-bit weights halve the file but a NeuralNetwork expands them at load and needs more memory.
+        quantization_utils.quantize_weights(mlmodel, nbits=8 if weights == "int8" else 16,
+                                            quantization_mode="linear").save(str(out_path))
     shapes = {
         "feature_frames": feature_frames,
         "processed_signal": list(x.shape),
         "cache_last_channel": list(cache_channel.shape),
         "cache_last_time": list(cache_time.shape),
         "logits": list(logits.shape),
-        "bytes": out_path.stat().st_size,
+        "bytes": sum(f.stat().st_size for f in out_path.rglob("*") if f.is_file()) if out_path.is_dir()
+                 else out_path.stat().st_size,
     }
     if sys.platform == "darwin":
         prediction = ct.models.MLModel(str(out_path)).predict({

@@ -5,7 +5,10 @@
 
 ## مدل گفتار
 [Shenava Koochik 1.0](https://huggingface.co/Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16) (Apache-2.0، ۱۱۵ میلیون
-پارامتر، Core ML با وزن fp16، ۲۱۲ مگابایت): مدل CTC جریانی که هر ۸۰ میلی‌ثانیه صدا را می‌گیرد، پس با پایان ضبط فقط کسری از
+پارامتر). برنامه آن را به‌صورت ML program در Core ML با وزن ۸ بیتی به کار می‌برد (`Koochik.aar`، ۱۰۷ مگابایت؛ نسخه‌ی
+Hugging Face در قالب NeuralNetwork با وزن fp16 و ۲۱۲ مگابایت است). `.github/workflows/model.yml` آن را از فایل .nemo
+می‌سازد و در release به نام `koochik-mlp-int8` منتشر می‌کند. در سنجش، WER آن با نسخه‌ی fp16 برابر است، روی CPU حدود ۴۰٪
+حافظه‌ی کمتری می‌گیرد و دو برابر سریع‌تر است (`.github/workflows/compress-eval.yml`). این یک مدل CTC جریانی است که هر ۸۰ میلی‌ثانیه صدا را می‌گیرد، پس با پایان ضبط فقط کسری از
 ثانیه برای تبدیل می‌ماند. خطای کلمه روی FLEURS فارسی ۱۰٫۸٪ و روی Common Voice ۱۲٫۸٪. مدل اعداد را با حروف و بدون نشانه و
 نیم‌فاصله می‌نویسد؛ کیبورد اعداد را رقم می‌کند (`SpokenNumbers.swift`) و نیم‌فاصله را از فهرست کلمات برمی‌گرداند. مکث‌های
 ۰٫۶۴ ثانیه‌ای بین کلمه‌ها برای فرمان‌های صوتی علامت‌گذاری می‌شوند.
@@ -18,7 +21,7 @@
 نیازی به Xcode نیست. هر push به `main` در GitHub Actions یک `KeylessShenava.ipa` امضانشده (artifact به نام
 `KeylessShenava`) می‌سازد (`.github/workflows/build.yml`). فایل را از بخش Artifacts همان اجرا دانلود و از zip خارج کنید.
 
-فایل مدل artifact جداگانه‌ای به نام `ShenavaModel` (فایل `Koochik.mlmodel`) است (۹۰ روز نگه داشته می‌شود) و فقط یک بار
+فایل مدل artifact جداگانه‌ای به نام `ShenavaModel` (فایل `Koochik.aar`، همان فایل release به نام `koochik-mlp-int8`) است (۹۰ روز نگه داشته می‌شود) و فقط یک بار
 لازم است. در برنامه با «وارد کردن مدل از Files»، یا با کشیدن فایل در Finder روی برنامه در بخش Files آیفون، وارد و روی گوشی
 کامپایل می‌شود و با نصب نسخه‌های بعدی می‌ماند. `setup.sh` فایل‌های همراه مدل (توکن‌ها و تنظیمات ویژگی صدا) را در
 `PersianSTT/Models` و خود مدل را در `build-model/` دانلود می‌کند.
@@ -103,7 +106,7 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 - `KeyboardSession.swift`: جلسه‌ی میکروفون پس‌زمینه برای کیبورد، تشخیص گفتار و سکوت، فرستادن صدا به مدل هم‌زمان با ضبط
 - `ShenavaStream.swift`: ویژگی‌های صدا (log-mel مثل NeMo)، اجرای گام‌به‌گام مدل Core ML با cacheها، CTC حریصانه و علامت مکث
 - `Transcriber.swift`: بارگذاری مدل (شخصی، وارد‌شده یا داخلی) روی Neural Engine یا CPU و صف اجرای آن؛ ضبط میان‌بر دیکته (`DictateIntent.swift`)
-- `ModelImporter.swift`: وارد کردن `Koochik.mlmodel` از Files و کامپایل آن روی گوشی
+- `ModelImporter.swift`: وارد کردن `Koochik.aar` (یا `Koochik.mlmodel` قدیمی) از Files و کامپایل آن روی گوشی
 - `PersonalModel.swift`: صف و ارسال اصلاح‌ها به مخزن خصوصی GitHub، دانلود و نصب مدل شخصی
 - `AudioLoader.swift`: خواندن فایل صوتی به نمونه‌های ۱۶ کیلوهرتز
 - `KeyboardPreview.swift` و `KeyboardTestView.swift`: نمایش کیبورد داخل برنامه برای آزمون‌های شبیه‌ساز
