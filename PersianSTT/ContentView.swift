@@ -86,6 +86,9 @@ struct ContentView: View {
                     NavigationLink { page("راه‌اندازی کیبورد") { setupSection } } label: {
                         SettingLabel("راه‌اندازی کیبورد", symbol: "keyboard", color: .gray)
                     }
+                    NavigationLink { page("گزارش خرابی‌ها") { CrashReportsPage() } } label: {
+                        SettingLabel("گزارش خرابی‌ها", symbol: "ladybug.fill", color: .orange)
+                    }
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -124,6 +127,7 @@ struct ContentView: View {
                 model.loadNewModelIfNeeded()
                 importer.importWaitingModel()
                 syncTraining()
+                CrashReports.shared.collectFromKeyboard()
             }
         }
     }
@@ -692,6 +696,45 @@ private struct SettingLabel: View {
                 .foregroundStyle(.white)
                 .frame(width: 29, height: 29)
                 .background(RoundedRectangle(cornerRadius: 7).fill(isEnabled ? color : Color(uiColor: .systemGray3)))
+        }
+    }
+}
+
+/// The crash, hang and abnormal-exit reports iOS gave the app and the keyboard (`CrashReports`),
+/// newest first, each to share as its JSON file.
+private struct CrashReportsPage: View {
+    @State private var reports = CrashReports.all()
+
+    var body: some View {
+        Section {
+            if reports.isEmpty {
+                Text("گزارشی نیست.")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(reports) { report in
+                ShareLink(item: report.url) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(report.source) · \(report.date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(Locale(identifier: "fa_IR"))))")
+                            .font(.app(.subheadline))
+                            .foregroundStyle(.secondary)
+                        Text(report.summary)
+                            .foregroundStyle(.primary)
+                    }
+                }
+            }
+        } footer: {
+            Text("iOS خرابی‌ها، گیرکردن‌ها و بسته شدن‌های ناگهانی برنامه و کیبورد را ثبت می‌کند و حداکثر یک روز بعد به برنامه می‌دهد. چیزی خودکار فرستاده نمی‌شود؛ برای فرستادن، روی گزارش بزنید.")
+        }
+        if !reports.isEmpty {
+            Section {
+                ShareLink(items: reports.map(\.url)) {
+                    Text("فرستادن همه")
+                }
+                Button("پاک کردن همه", role: .destructive) {
+                    CrashReports.removeAll()
+                    reports = []
+                }
+            }
         }
     }
 }

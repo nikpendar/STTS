@@ -191,6 +191,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        CrashReports.shared.start()
         updatePrimaryLanguage()
         log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) loaded")
         // Both orientations' sizes are worked out (and kept) on the first run after install.

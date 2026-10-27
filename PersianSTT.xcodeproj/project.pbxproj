@@ -51,6 +51,8 @@
 		A1000000000000000000003E /* KeyboardBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003A /* KeyboardBackground.swift */; };
 		A1000000000000000000004A /* PersonalDictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* PersonalDictionary.swift */; };
 		A1000000000000000000004B /* PersonalDictionary.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* PersonalDictionary.swift */; };
+		A100000000000000000000C0 /* CrashReports.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000000000000000000C0 /* CrashReports.swift */; };
+		A100000000000000000000C1 /* CrashReports.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000000000000000000C0 /* CrashReports.swift */; };
 		A1000000000000000000003F /* KeyboardBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003A /* KeyboardBackground.swift */; };
 /* End PBXBuildFile section */
 
@@ -108,6 +110,7 @@
 		A2000000000000000000003B /* SpokenNumbers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpokenNumbers.swift; sourceTree = "<group>"; };
 		A20000000000000000000039 /* TouchModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchModel.swift; sourceTree = "<group>"; };
 		A2000000000000000000003D /* KeyboardMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardMetrics.swift; sourceTree = "<group>"; };
+		A200000000000000000000C0 /* CrashReports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReports.swift; sourceTree = "<group>"; };
 		A20000000000000000000041 /* PersonalDictionary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalDictionary.swift; sourceTree = "<group>"; };
 		A2000000000000000000003A /* KeyboardBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardBackground.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* fa_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = fa_bigrams.bin; sourceTree = "<group>"; };
@@ -203,6 +206,7 @@
 				A2000000000000000000000B /* DictationBridge.swift */,
 				A2000000000000000000003A /* KeyboardBackground.swift */,
 				A20000000000000000000041 /* PersonalDictionary.swift */,
+				A200000000000000000000C0 /* CrashReports.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -382,6 +386,7 @@
 				A1000000000000000000003C /* TouchModel.swift in Sources */,
 				A1000000000000000000003E /* KeyboardBackground.swift in Sources */,
 				A1000000000000000000004A /* PersonalDictionary.swift in Sources */,
+				A100000000000000000000C0 /* CrashReports.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -402,6 +407,7 @@
 				A1000000000000000000003D /* TouchModel.swift in Sources */,
 				A1000000000000000000003F /* KeyboardBackground.swift in Sources */,
 				A1000000000000000000004B /* PersonalDictionary.swift in Sources */,
+				A100000000000000000000C1 /* CrashReports.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

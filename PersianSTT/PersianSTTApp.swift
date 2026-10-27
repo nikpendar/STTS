@@ -20,9 +20,15 @@ struct PersianSTTApp: App {
     }
 }
 
-/// The app is portrait only; the simulator test (`-testLandscape 1`) also allows landscape
-/// to check the keyboard's landscape layout.
+/// Starts collecting crash reports (`CrashReports`). The app is portrait only; the simulator
+/// test (`-testLandscape 1`) also allows landscape to check the keyboard's landscape layout.
 final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        CrashReports.shared.start()
+        return true
+    }
+
     func application(_ application: UIApplication,
                      supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         UserDefaults.standard.bool(forKey: "testLandscape") ? .landscapeRight : .portrait
