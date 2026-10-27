@@ -110,6 +110,8 @@ struct ContentView: View {
         // Rewrites the shared pasteboard copies, which a reinstall or reboot can clear.
         .onAppear {
             style.save()
+            // The keyboard's own settings panel may have changed them since.
+            options = KeyboardOptions.load()
             options.save()
             dictionary.save()
             KeyboardBackground.handToKeyboard(style.backgroundImage)
@@ -134,6 +136,8 @@ struct ContentView: View {
                 importer.importWaitingModel()
                 syncTraining()
                 CrashReports.shared.collectFromKeyboard()
+                let latest = KeyboardOptions.load()
+                if latest != options { options = latest }
             }
         }
     }

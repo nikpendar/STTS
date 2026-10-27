@@ -273,18 +273,10 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         applyKeyStyle(KeyStyle.load())
-        let hadNumberRow = options.numberRow
-        let hadDigits = options.digitsOnLetters
-        let hadBar = options.suggestionBar
-        options = KeyboardOptions.load()
-        dictionary = PersonalDictionary.load()
         // The keys were built with the standard options (the digits on the letters off) before
         // the app's were read here.
-        if options.numberRow != hadNumberRow || options.digitsOnLetters != hadDigits { buildCharacterKeys() }
-        if options.suggestionBar != hadBar {
-            view.setNeedsLayout()
-            updateSuggestions()
-        }
+        applyOptions(KeyboardOptions.load())
+        dictionary = PersonalDictionary.load()
         if options.touchResets != UserDefaults.standard.integer(forKey: "touchResets") {
             UserDefaults.standard.set(options.touchResets, forKey: "touchResets")
             touchModel = TouchModel()
@@ -296,6 +288,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         finishEdits()
+        settingsPanel?.removeFromSuperview()
         if touchSaveScheduled { touchModel.save() }
         // A recording the keyboard can no longer end (a locked one, or a finger still on the
         // space bar) would keep the app's microphone and model running: it is cancelled.
@@ -966,10 +959,17 @@ final class KeyboardViewController: UIInputViewController {
     private var numberKeys: [KeyView] = []
     private var showsNumberRow: Bool { options.numberRow && !options.digitsOnLetters && layer == .letters }
     private let backspaceKey = KeyView(symbol: "delete.right")
-    /// The emoji panel.
+    /// The emoji panel on a tap; a menu with the emoji panel and the keyboard's settings on a
+    /// long press. The settings open inside the keyboard, as a keyboard may open no app but
+    /// Settings (App Store guideline 4.4.1).
     private let emojiKey = KeyView()
+    private let keyMenu = KeyMenuView()
     /// The enlarged letter over a pressed key, or the row of a letter's other forms.
     private let keyPopup = KeyPopupView()
+    /// Covers the keys while the menu stays open, and closes it when touched.
+    private let menuShield = UIControl()
+    /// The keyboard's own settings over the keys (`KeyboardSettingsPanel`), made when first opened.
+    private var settingsPanel: KeyboardSettingsPanel?
     private let emojiPanel = EmojiPanel()
     private let emojiSearchView = EmojiSearchView()
     /// On the emoji panel, beside backspace (Persian) or ABC (English): opens the search.
@@ -1290,6 +1290,9 @@ final class KeyboardViewController: UIInputViewController {
         globeKey.isHidden = true
         emojiKey.accessibilityIdentifier = "emojiKey"
         emojiKey.addTarget(self, action: #selector(toggleEmoji), for: .touchUpInside)
+        let press = UILongPressGestureRecognizer(target: self, action: #selector(emojiPressed(_:)))
+        press.minimumPressDuration = 0.35
+        emojiKey.addGestureRecognizer(press)
         updateSpaceImage()
         spaceKey.dimsImage = true
         spaceKey.accessibilityIdentifier = "spaceKey"
@@ -1330,11 +1333,24 @@ final class KeyboardViewController: UIInputViewController {
 
         keysView.addSubview(glideTrail)
         glideTrail.snapshotSource = view
-        glideTrail.snapshotExcluded = [keyPopup]
+        glideTrail.snapshotExcluded = [keyPopup, keyMenu, menuShield]
         glidePan.maximumNumberOfTouches = 1
         glidePan.delegate = self
         keysView.addGestureRecognizer(glidePan)
 
+        keyMenu.items = [
+            KeyMenuView.Item(title: "شکلک", symbol: "face.smiling") { [weak self] in self?.toggleEmoji() },
+            KeyMenuView.Item(title: "تنظیمات", symbol: "gearshape") { [weak self] in self?.showSettings() },
+        ]
+        keyMenu.onSelect = { [weak self] item in
+            self?.closeMenu()
+            item.action()
+        }
+        keyMenu.isHidden = true
+        menuShield.isHidden = true
+        menuShield.addTarget(self, action: #selector(closeMenu), for: .touchDown)
+        keysView.addSubview(menuShield)
+        keysView.addSubview(keyMenu)
         keysView.addSubview(keyPopup)
 
         // Just under required, as Apple's guide for keyboard heights has it: a lower priority lost
@@ -1425,7 +1441,7 @@ final class KeyboardViewController: UIInputViewController {
         isCapsLock = false
         setShifted(false)
         updateAutoShift()
-        emojiKey.image = layer == .emoji ? KeyIcons.plainKey(symbol: "keyboard") : KeyIcons.emojiKey
+        emojiKey.image = layer == .emoji ? KeyIcons.menuKey(symbol: "keyboard") : KeyIcons.emojiKey
         // A key hidden while it was pressed (emoji, 123) comes back unpressed.
         for key in [emojiKey, globeKey, layerKey, moreKey, shiftKey, returnKey, spaceKey] { key.isHighlighted = false }
         emojiKey.accessibilityLabel = layer == .emoji ? "حروف" : "شکلک"
@@ -1699,6 +1715,8 @@ final class KeyboardViewController: UIInputViewController {
         }
         keysView.frame = CGRect(x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
         glideTrail.frame = keysView.bounds
+        menuShield.frame = keysView.bounds
+        settingsPanel?.frame = keysView.bounds
         if keyPopup.frame != keysView.bounds {
             keyPopup.hide()
             keyPopup.frame = keysView.bounds
@@ -1812,6 +1830,7 @@ final class KeyboardViewController: UIInputViewController {
         }
         let returnImage = emojiSearch != nil ? KeyIcons.searchDone : isEnglish ? KeyIcons.returnKey : KeyIcons.returnKeyMirrored
         if returnKey.image !== returnImage { returnKey.image = returnImage }
+        if !keyMenu.isHidden { placeMenu() }
     }
 
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -2480,6 +2499,106 @@ final class KeyboardViewController: UIInputViewController {
         isMark(text) ? KeyPopupView.Item(text: text, label: "", image: KeyIcons.mark(text, size: 30))
             : KeyPopupView.Item(text: text, label: text)
     }
+
+    // MARK: - Emoji key menu
+
+    @objc private func emojiPressed(_ press: UILongPressGestureRecognizer) {
+        switch press.state {
+        case .began:
+            showMenu()
+        case .changed:
+            keyMenu.highlight(at: press.location(in: keyMenu))
+        case .ended:
+            keyMenu.highlight(at: press.location(in: keyMenu))
+            // Released on an item: that item. Elsewhere: the menu stays open for a tap.
+            if let item = keyMenu.highlightedItem {
+                closeMenu()
+                item.action()
+            }
+        case .cancelled, .failed:
+            closeMenu()
+        default:
+            break
+        }
+    }
+
+    private func showMenu() {
+        keyMenu.highlight(at: nil)
+        keyMenu.textColor = keyStyle.textColor
+        placeMenu()
+        keysView.bringSubviewToFront(menuShield)
+        keysView.bringSubviewToFront(keyMenu)
+        menuShield.isHidden = false
+        keyMenu.isHidden = false
+        keyMenu.alpha = 0
+        keyMenu.transform = CGAffineTransform(scaleX: 0.9, y: 0.9)
+        UIView.animate(withDuration: 0.15) {
+            self.keyMenu.alpha = 1
+            self.keyMenu.transform = .identity
+        }
+        haptic(.impact(.light))
+    }
+
+    /// Above the emoji key, inside the keyboard: an extension cannot draw outside its view.
+    private func placeMenu() {
+        let size = keyMenu.preferredSize
+        let key = emojiKey.frame
+        let x = min(max(4, key.minX), keysView.bounds.width - size.width - 4)
+        let y = max(2, key.minY - size.height - 2)
+        keyMenu.bounds = CGRect(origin: .zero, size: size)
+        keyMenu.center = CGPoint(x: x + size.width / 2, y: y + size.height / 2)
+    }
+
+    @objc private func closeMenu() {
+        menuShield.isHidden = true
+        keyMenu.isHidden = true
+    }
+
+    // MARK: - Settings panel
+
+    /// Takes new options: the app's when the keyboard appears, or the settings panel's.
+    private func applyOptions(_ new: KeyboardOptions) {
+        let old = options
+        options = new
+        if new.numberRow != old.numberRow || new.digitsOnLetters != old.digitsOnLetters { buildCharacterKeys() }
+        if new.suggestionBar != old.suggestionBar {
+            view.setNeedsLayout()
+            updateSuggestions()
+        }
+    }
+
+    private func showSettings() {
+        endEmojiSearch(backToEmoji: false)
+        if layer == .emoji {
+            layer = .letters
+            buildCharacterKeys()
+        }
+        let panel = settingsPanel ?? KeyboardSettingsPanel()
+        if settingsPanel == nil {
+            settingsPanel = panel
+            panel.onChange = { [weak self] new in
+                guard let self else { return }
+                // Saved like the app's settings page: the app reads it back when it opens.
+                new.save()
+                self.applyOptions(new)
+            }
+            panel.onClose = { [weak self] in self?.hideSettings() }
+        }
+        panel.textColor = keyStyle.textColor
+        panel.options = options
+        panel.frame = keysView.bounds
+        keysView.addSubview(panel)
+        keysView.bringSubviewToFront(panel)
+        panel.alpha = 0
+        UIView.animate(withDuration: 0.2) { panel.alpha = 1 }
+    }
+
+    private func hideSettings() {
+        guard let panel = settingsPanel else { return }
+        UIView.animate(withDuration: 0.15, animations: { panel.alpha = 0 }) { _ in
+            panel.removeFromSuperview()
+        }
+    }
 }
 
 extension KeyboardViewController: UIGestureRecognizerDelegate {
@@ -2488,7 +2607,8 @@ extension KeyboardViewController: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === spacePan { return !keyPopup.isShowingVariants }
         guard gestureRecognizer === glidePan else { return true }
-        guard layer == .letters, emojiSearch == nil, !isCompact, !keyPopup.isShowingVariants,
+        guard layer == .letters, emojiSearch == nil, !isCompact, keyMenu.isHidden, settingsPanel?.superview == nil,
+              !keyPopup.isShowingVariants,
               lexicon.isLoaded else { return false }
         let point = glidePan.location(in: keysView)
         let moved = glidePan.translation(in: keysView)
@@ -3629,7 +3749,8 @@ private enum KeyIcons {
     static let lockedDelete = leftToRight("delete.right", size: 17, weight: .light)
     static let lockedEnd = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
     /// The emoji key's face, drawn once: always the outline.
-    static let emojiKey = plainKey(symbol: "face.smiling")
+    /// Three dots under the face: a long press opens the menu (emoji, settings).
+    static let emojiKey = menuKey(symbol: "face.smiling")
 
     /// An SF Symbol as drawn left to right, as a template that no layout direction flips.
     private static func leftToRight(_ name: String, size: CGFloat = 19, weight: UIImage.SymbolWeight = .regular) -> UIImage {
@@ -3797,6 +3918,24 @@ private enum KeyIcons {
     static func plainKey(symbol: String) -> UIImage? {
         UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16))
     }
+
+    /// A symbol with three dots under it, for a key with a long-press menu.
+    static func menuKey(symbol: String) -> UIImage? {
+        guard let icon = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16)) else {
+            return nil
+        }
+        let dot: CGFloat = 2.4, gap: CGFloat = 2.6
+        let size = CGSize(width: max(icon.size.width, 3 * dot + 2 * gap), height: icon.size.height + 2 + dot)
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            icon.withTintColor(.black).draw(at: CGPoint(x: (size.width - icon.size.width) / 2, y: 0))
+            UIColor.black.setFill()
+            let left = (size.width - (3 * dot + 2 * gap)) / 2
+            for i in 0..<3 {
+                UIBezierPath(ovalIn: CGRect(x: left + CGFloat(i) * (dot + gap), y: size.height - dot,
+                                            width: dot, height: dot)).fill()
+            }
+        }.withRenderingMode(.alwaysTemplate)
+    }
 }
 
 /// The row of word suggestions above the keys: three slots, read right to left, with thin
@@ -3925,5 +4064,369 @@ private final class SuggestionBar: UIView {
             divider.frame = CGRect(x: CGFloat(index + 1) * width - 0.5, y: bounds.height * 0.25,
                                    width: 1, height: bounds.height * 0.5)
         }
+    }
+}
+
+/// The emoji key's long-press menu: rows with an icon and a label on a blurred card. While the
+/// finger is still down the keyboard moves the highlight (`highlight(at:)`); once it is open,
+/// a row is chosen with a tap.
+private final class KeyMenuView: UIView {
+    struct Item {
+        let title: String
+        let symbol: String
+        let action: () -> Void
+    }
+
+    var items: [Item] = [] {
+        didSet { buildRows() }
+    }
+    var onSelect: ((Item) -> Void)?
+    var textColor = UIColor.label {
+        didSet {
+            buildRows()
+            updateGlass()
+        }
+    }
+    private(set) var highlighted: Int?
+    var highlightedItem: Item? { highlighted.map { items[$0] } }
+    private let card = UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))
+    /// Under the rows: a faint wash of the app icon's colours, a shine along the top and a fine
+    /// grain, like frosted glass.
+    private let texture = UIView()
+    private let wash = CAGradientLayer()
+    private let shine = CAGradientLayer()
+    private var rows: [UIView] = []
+    private static let rowHeight: CGFloat = 40
+    private static let padding: CGFloat = 4
+
+    var preferredSize: CGSize {
+        CGSize(width: 150, height: CGFloat(items.count) * Self.rowHeight + 2 * Self.padding)
+    }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOpacity = 0.18
+        layer.shadowRadius = 10
+        layer.shadowOffset = CGSize(width: 0, height: 3)
+        card.layer.cornerRadius = 14
+        card.layer.cornerCurve = .continuous
+        card.clipsToBounds = true
+        addSubview(card)
+        texture.isUserInteractionEnabled = false
+        texture.backgroundColor = UIColor(patternImage: Self.grain)
+        wash.startPoint = CGPoint(x: 0, y: 0)
+        wash.endPoint = CGPoint(x: 1, y: 1)
+        shine.colors = [UIColor(white: 1, alpha: 0.5).cgColor, UIColor(white: 1, alpha: 0).cgColor]
+        shine.endPoint = CGPoint(x: 0.5, y: 0.45)
+        shine.startPoint = CGPoint(x: 0.35, y: 0)
+        texture.layer.insertSublayer(wash, at: 0)
+        texture.layer.addSublayer(shine)
+        card.contentView.addSubview(texture)
+        updateGlass()
+    }
+
+    /// Frosted: the keys behind are blurred out of the way of the words. From iOS 26 that is
+    /// Liquid Glass, as on the key popups, with a veil for the words' colour.
+    private func updateGlass() {
+        let lightText = KeyboardBackground.luminance(textColor.resolvedColor(with: traitCollection)) > 0.5
+        let colours: [UIColor] = [.systemPink, .systemPurple, .systemBlue, .systemTeal]
+        wash.colors = colours.map { $0.withAlphaComponent(lightText ? 0.22 : 0.13).cgColor }
+        shine.opacity = lightText ? 0.35 : 1
+        card.effect = UIBlurEffect(style: lightText ? .systemThickMaterialDark : .systemThickMaterialLight)
+        card.layer.borderWidth = 0.5
+        card.layer.borderColor = UIColor(white: 1, alpha: lightText ? 0.2 : 0.6).cgColor
+        #if compiler(>=6.2)
+        if #available(iOS 26.0, *) {
+            let glass = UIGlassEffect(style: .regular)
+            glass.tintColor = lightText ? UIColor(white: 0.08, alpha: 0.55) : UIColor(white: 1, alpha: 0.6)
+            card.effect = glass
+            card.layer.borderWidth = 0
+            layer.shadowOpacity = 0
+        }
+        #endif
+    }
+
+    /// Specks of light and shade, half a point each, few enough to feel rather than see.
+    private static let grain: UIImage = {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 2
+        format.opaque = false
+        let side = 64
+        var random = SystemRandomNumberGenerator()
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image { context in
+            for y in 0..<(2 * side) {
+                for x in 0..<(2 * side) {
+                    let speck = Double.random(in: 0..<1, using: &random)
+                    guard speck < 0.35 else { continue }
+                    UIColor(white: speck < 0.15 ? 0 : 1, alpha: speck < 0.15 ? 0.05 : 0.09).setFill()
+                    context.fill(CGRect(x: CGFloat(x) / 2, y: CGFloat(y) / 2, width: 0.5, height: 0.5))
+                }
+            }
+        }
+    }()
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func buildRows() {
+        rows.forEach { $0.removeFromSuperview() }
+        rows = items.map { item in
+            let row = UIView()
+            row.layer.cornerRadius = 8
+            let icon = UIImageView(image: UIImage(systemName: item.symbol,
+                                                  withConfiguration: UIImage.SymbolConfiguration(pointSize: 16)))
+            icon.tintColor = textColor
+            icon.contentMode = .center
+            icon.tag = 1
+            let label = UILabel()
+            label.text = item.title
+            label.font = AppFont.font(ofSize: 16)
+            label.textColor = textColor
+            label.textAlignment = .right
+            label.tag = 2
+            row.addSubview(icon)
+            row.addSubview(label)
+            row.isAccessibilityElement = true
+            row.accessibilityLabel = item.title
+            row.accessibilityTraits = .button
+            card.contentView.addSubview(row)
+            return row
+        }
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        card.frame = bounds
+        texture.frame = card.contentView.bounds
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        wash.frame = texture.bounds
+        shine.frame = texture.bounds
+        CATransaction.commit()
+        for (index, row) in rows.enumerated() {
+            row.frame = CGRect(x: Self.padding, y: Self.padding + CGFloat(index) * Self.rowHeight,
+                               width: bounds.width - 2 * Self.padding, height: Self.rowHeight)
+            // Right to left: icon on the right, label before it.
+            row.viewWithTag(1)?.frame = CGRect(x: row.bounds.width - 36, y: 0, width: 32, height: row.bounds.height)
+            row.viewWithTag(2)?.frame = CGRect(x: 8, y: 0, width: row.bounds.width - 48, height: row.bounds.height)
+        }
+    }
+
+    /// Highlights the row under `point` (in this view), or none.
+    func highlight(at point: CGPoint?) {
+        let index = point.flatMap { point in
+            bounds.insetBy(dx: -12, dy: 0).contains(point)
+                ? rows.firstIndex { $0.frame.insetBy(dx: -12, dy: 0).contains(point) } : nil
+        }
+        guard index != highlighted else { return }
+        highlighted = index
+        for (i, row) in rows.enumerated() {
+            row.backgroundColor = i == index ? UIColor.label.withAlphaComponent(0.12) : .clear
+        }
+        if index != nil, Haptics.isOn { UISelectionFeedbackGenerator().selectionChanged() }
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        highlight(at: touches.first?.location(in: self))
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        highlight(at: touches.first?.location(in: self))
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        highlight(at: touches.first?.location(in: self))
+        if let item = highlightedItem { onSelect?(item) }
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        highlight(at: nil)
+    }
+}
+
+/// The keyboard's settings, opened from the emoji key's menu over the keys: the switches of the
+/// app's keyboard page. Colours, the background picture and the dictionary stay in the app.
+private final class KeyboardSettingsPanel: UIView {
+    var options = KeyboardOptions.standard {
+        didSet { if options != oldValue { refresh() } }
+    }
+    var onChange: ((KeyboardOptions) -> Void)?
+    var onClose: (() -> Void)?
+    var textColor = UIColor.label {
+        didSet { applyColours() }
+    }
+
+    private struct Row {
+        let title: String
+        let key: WritableKeyPath<KeyboardOptions, Bool>
+    }
+
+    private static let sections: [(title: String, rows: [Row])] = [
+        ("ردیف پیشنهاد", [Row(title: "نمایش ردیف پیشنهاد", key: \.suggestionBar),
+                          Row(title: "پیش‌بینی کلمه‌ی بعدی", key: \.predictNextWord)]),
+        ("اصلاح خودکار", [Row(title: "اصلاح غلط تایپی", key: \.correctTypos),
+                          Row(title: "نیم‌فاصله‌ی خودکار", key: \.autoZWNJ),
+                          Row(title: "دو فاصله: نقطه، سه فاصله: ویرگول", key: \.doubleSpacePunctuation)]),
+        ("فرمان‌های صوتی", [Row(title: "نشانه‌گذاری با گفتن", key: \.voicePunctuation),
+                            Row(title: "فرمان‌های ویرایش", key: \.voiceCommands)]),
+        ("بازخورد کلیدها", [Row(title: "بزرگ‌نمایی حرف هنگام تایپ", key: \.keyPreview),
+                            Row(title: "صدای کلیدها", key: \.keySounds),
+                            Row(title: "لرزش (هپتیک)", key: \.haptics)]),
+        ("لمس", [Row(title: "یادگیری محل لمس", key: \.learnTouches)]),
+    ]
+
+    private let backdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))
+    private let header = UIView()
+    private let titleLabel = UILabel()
+    private let closeButton = UIButton(type: .system)
+    private let scroll = UIScrollView()
+    private let stack = UIStackView()
+    private let numbers = UISegmentedControl(items: ["خاموش", "ردیف جدا", "روی حروف"])
+    private var switches: [(UISwitch, WritableKeyPath<KeyboardOptions, Bool>)] = []
+    private var labels: [UILabel] = []
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        semanticContentAttribute = .forceRightToLeft
+        addSubview(backdrop)
+
+        titleLabel.text = "تنظیمات کیبورد"
+        titleLabel.font = AppFont.font(ofSize: 17)
+        titleLabel.textAlignment = .right
+        closeButton.setImage(UIImage(systemName: "keyboard.chevron.compact.down",
+                                     withConfiguration: UIImage.SymbolConfiguration(pointSize: 18)), for: .normal)
+        closeButton.accessibilityLabel = "بستن تنظیمات"
+        closeButton.accessibilityIdentifier = "settingsClose"
+        closeButton.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
+        header.addSubview(titleLabel)
+        header.addSubview(closeButton)
+        addSubview(header)
+
+        stack.axis = .vertical
+        stack.spacing = 2
+        stack.semanticContentAttribute = .forceRightToLeft
+        scroll.addSubview(stack)
+        scroll.alwaysBounceVertical = true
+        scroll.showsVerticalScrollIndicator = true
+        addSubview(scroll)
+
+        for section in Self.sections {
+            addSectionTitle(section.title)
+            for row in section.rows { addSwitch(row) }
+            if section.title == "ردیف پیشنهاد" { addNumbers() }
+        }
+        let note = makeLabel("رنگ‌ها، تصویر زمینه و واژه‌نامه در برنامه‌ی کیلس.", size: 13, secondary: true)
+        note.numberOfLines = 0
+        stack.addArrangedSubview(note)
+        refresh()
+        applyColours()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func makeLabel(_ text: String, size: CGFloat, secondary: Bool = false) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.font = AppFont.font(ofSize: size)
+        label.textAlignment = .right
+        label.tag = secondary ? 1 : 0
+        labels.append(label)
+        return label
+    }
+
+    private func addSectionTitle(_ text: String) {
+        let label = makeLabel(text, size: 13, secondary: true)
+        let box = UIView()
+        box.addSubview(label)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: box.leadingAnchor),
+            label.trailingAnchor.constraint(equalTo: box.trailingAnchor),
+            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 10),
+            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -2),
+        ])
+        stack.addArrangedSubview(box)
+    }
+
+    private func row(_ label: UILabel, _ control: UIView) -> UIStackView {
+        let row = UIStackView(arrangedSubviews: [label, control])
+        row.axis = .horizontal
+        row.alignment = .center
+        row.spacing = 12
+        row.semanticContentAttribute = .forceRightToLeft
+        row.heightAnchor.constraint(greaterThanOrEqualToConstant: 40).isActive = true
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.8
+        control.setContentHuggingPriority(.required, for: .horizontal)
+        control.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return row
+    }
+
+    private func addSwitch(_ item: Row) {
+        let toggle = UISwitch()
+        toggle.accessibilityLabel = item.title
+        let key = item.key
+        toggle.addAction(UIAction { [weak self, weak toggle] _ in
+            guard let self, let toggle else { return }
+            self.options[keyPath: key] = toggle.isOn
+            self.onChange?(self.options)
+        }, for: .valueChanged)
+        switches.append((toggle, key))
+        stack.addArrangedSubview(row(makeLabel(item.title, size: 16), toggle))
+    }
+
+    /// The number row's three places, as the app's picker.
+    private func addNumbers() {
+        numbers.semanticContentAttribute = .forceRightToLeft
+        numbers.setTitleTextAttributes([.font: AppFont.font(ofSize: 13)], for: .normal)
+        numbers.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            let place = self.numbers.selectedSegmentIndex
+            self.options.numberRow = place == 1
+            self.options.digitsOnLetters = place == 2
+            self.onChange?(self.options)
+        }, for: .valueChanged)
+        addSectionTitle("اعداد")
+        stack.addArrangedSubview(numbers)
+    }
+
+    private func refresh() {
+        for (toggle, key) in switches { toggle.isOn = options[keyPath: key] }
+        numbers.selectedSegmentIndex = options.digitsOnLetters ? 2 : options.numberRow ? 1 : 0
+        if let predict = switches.first(where: { $0.1 == \KeyboardOptions.predictNextWord })?.0 {
+            predict.isEnabled = options.suggestionBar
+        }
+    }
+
+    private func applyColours() {
+        for label in labels {
+            label.textColor = label.tag == 1 ? textColor.withAlphaComponent(0.6) : textColor
+        }
+        titleLabel.textColor = textColor
+        closeButton.tintColor = textColor
+        let light = KeyboardBackground.luminance(textColor.resolvedColor(with: traitCollection)) > 0.5
+        backdrop.effect = UIBlurEffect(style: light ? .systemThickMaterialDark : .systemThickMaterialLight)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        backdrop.frame = bounds
+        let side: CGFloat = 16 + max(safeAreaInsets.left, safeAreaInsets.right)
+        header.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 40)
+        closeButton.frame = CGRect(x: side - 8, y: 0, width: 44, height: 40)
+        titleLabel.frame = CGRect(x: side + 40, y: 0, width: bounds.width - 2 * side - 40, height: 40)
+        scroll.frame = CGRect(x: 0, y: 40, width: bounds.width, height: bounds.height - 40)
+        let width = bounds.width - 2 * side
+        let height = stack.systemLayoutSizeFitting(CGSize(width: width, height: 0),
+                                                   withHorizontalFittingPriority: .required,
+                                                   verticalFittingPriority: .fittingSizeLevel).height
+        stack.frame = CGRect(x: side, y: 0, width: width, height: height)
+        scroll.contentSize = CGSize(width: bounds.width, height: height + 12)
     }
 }

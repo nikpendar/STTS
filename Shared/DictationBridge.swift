@@ -299,14 +299,15 @@ protocol SharedSetting: Codable {
 extension SharedSetting {
     private static var pasteboardType: String { "public.json" }
 
-    /// App side: saves the setting and hands it to the keyboard.
+    /// Saves the setting and hands it to the other side: the app's settings pages, or the
+    /// keyboard's settings panel (`KeyboardOptions`), which the app reads back with `load()`.
     func save() {
         guard let data = try? JSONEncoder().encode(self) else { return }
         UserDefaults.standard.set(data, forKey: Self.defaultsKey)
         UIPasteboard(name: Self.pasteboardName, create: true)?.setData(data, forPasteboardType: Self.pasteboardType)
     }
 
-    /// Keyboard side: the app's latest setting, else the last one seen, else the standard one.
+    /// The latest setting on the pasteboard, else the last one seen, else the standard one.
     static func load() -> Self {
         if let data = UIPasteboard(name: pasteboardName, create: false)?.data(forPasteboardType: pasteboardType),
            let value = try? JSONDecoder().decode(Self.self, from: data) {
