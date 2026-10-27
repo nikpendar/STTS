@@ -39,11 +39,20 @@ def g2p(text):
             continue
         if out:
             out.append(" ")
-        out.extend(pron)
+        out.extend(pron.split("/")[0])
     return out
 
 
-tokenizer = PersianPhonemesTokenizer(g2p=g2p, use_emotion_tokens=True, use_pause_tokens=True, use_speed_tokens=True)
+# The published ONNX model has 94 token embeddings: take the tokenizer options that give 94.
+import itertools  # noqa: E402
+
+emb = next(i for i in __import__("onnx").load(FP).graph.initializer if "word_emb" in i.name).dims[0]
+for flags in itertools.product((False, True), repeat=3):
+    tokenizer = PersianPhonemesTokenizer(g2p=g2p, use_emotion_tokens=flags[0], use_pause_tokens=flags[1], use_speed_tokens=flags[2])
+    print("tokenizer", flags, len(tokenizer.tokens))
+    if len(tokenizer.tokens) == emb:
+        break
+print("embeddings", emb, "tokens", tokenizer.tokens)
 
 variants = {"fp32": (FP, HG)}
 for name, path in (("fp", FP), ("hg", HG)):
