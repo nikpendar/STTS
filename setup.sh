@@ -12,6 +12,8 @@
 #                        # about 110 MB more in the IPA); needs Xcode
 #   ./setup.sh sidecars  # the sidecars only
 #
+# Every mode also downloads the Persian voice and ONNX Runtime (see below).
+#
 # KOOCHIK_FORMAT=neuralnetwork takes the Hugging Face model instead (build-model/Koochik.mlmodel,
 # 212 MB). There KOOCHIK_WEIGHTS=linear8 quantizes its weights to 8 bits (scripts/compress_model.py,
 # 108 MB, the same WER), but a NeuralNetwork expands them again at load and needs more memory than
@@ -39,6 +41,28 @@ fetch tokens.json "$MODELS/tokens.json"
 fetch preprocessor.json "$MODELS/preprocessor.json"
 fetch mel_filters_slaney_80x257.json "$MODELS/mel_filters_slaney_80x257.json"
 fetch "${NAME}_manifest.json" "$MODELS/manifest.json"
+
+# The Persian voice (release tts-fa-mana, from .github/workflows/tts-model.yml): the Mana Piper voice
+# and the Homo-GE2PE phonemizer, both MahtaFetrat (MIT), 28 MB in the app (Models/Voice); and ONNX
+# Runtime (MIT), which runs them, as Frameworks/onnxruntime.xcframework.
+VOICE_RELEASE="${VOICE_RELEASE:-https://github.com/nikpendar/STTS/releases/download/tts-fa-mana}"
+mkdir -p "$MODELS/Voice" "$ROOT/build-model" "$ROOT/Frameworks"
+for f in g2p-encoder.onnx g2p-decoder.onnx mana.onnx mana.onnx.json; do
+  if [ ! -s "$MODELS/Voice/$f" ]; then
+    echo "Downloading $f"
+    curl -fL --retry 3 --progress-bar "$VOICE_RELEASE/$f" -o "$MODELS/Voice/$f.part"
+    mv "$MODELS/Voice/$f.part" "$MODELS/Voice/$f"
+  fi
+done
+ORT_VERSION="${ORT_VERSION:-1.20.0}"
+if [ ! -d "$ROOT/Frameworks/onnxruntime.xcframework" ]; then
+  echo "Downloading ONNX Runtime $ORT_VERSION"
+  curl -fL --retry 3 --progress-bar "https://download.onnxruntime.ai/pod-archive-onnxruntime-c-$ORT_VERSION.zip" \
+    -o "$ROOT/build-model/onnxruntime.zip"
+  rm -rf "$ROOT/build-model/onnxruntime" && unzip -q "$ROOT/build-model/onnxruntime.zip" -d "$ROOT/build-model/onnxruntime"
+  mv "$(find "$ROOT/build-model/onnxruntime" -name onnxruntime.xcframework -type d | head -n1)" "$ROOT/Frameworks/"
+fi
+
 [ "$MODE" = sidecars ] && exit 0
 
 FORMAT="${KOOCHIK_FORMAT:-mlprogram}"

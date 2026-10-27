@@ -50,6 +50,9 @@ struct ContentView: View {
                     NavigationLink { speechPage } label: {
                         SettingLabel("گفتار", symbol: "waveform", color: .red)
                     }
+                    NavigationLink { ReadAloudPage() } label: {
+                        SettingLabel("خواندن متن", symbol: "speaker.wave.2.fill", color: .mint)
+                    }
                     NavigationLink { page("واژه‌نامه‌ی شخصی") { DictionaryPage(dictionary: $dictionary) } } label: {
                         LabeledContent {
                             Text(dictionary.entries.isEmpty ? "" : "\(dictionary.entries.count)")

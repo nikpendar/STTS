@@ -31,8 +31,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           curl -fsSL --retry 3 -o ort.tgz "https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/onnxruntime-osx-arm64-$ORT_VERSION.tgz"
-          mkdir ort && tar xzf ort.tgz -C ort --strip-components 1 && ls ort/include ort/lib
+          mkdir ort-x && tar xzf ort.tgz -C ort-x
+          ln -s "$(dirname "$(dirname "$(find ort-x -name onnxruntime_c_api.h | head -n1)")")" ort && ls ort/include ort/lib
           mkdir voice && gh release download tts-fa-mana --dir voice && ls -l voice
+      - name: iOS framework for the app
+        run: |
+          # setup.sh takes ONNX Runtime for iOS from the CocoaPods archive: check it and its slices.
+          curl -fsSL --retry 3 -o pod.zip "https://download.onnxruntime.ai/pod-archive-onnxruntime-c-$ORT_VERSION.zip"
+          unzip -q pod.zip -d pod && find pod -maxdepth 3 | head -30 && du -sh pod/*
+          find pod -name Info.plist -path "*xcframework*" -maxdepth 3 -exec plutil -p {} \; | head -40
       - name: Build and run
         run: |
           if ! xcrun swiftc -O -o tts-check -import-objc-header PersianSTT/OnnxRuntime-Bridging-Header.h -Iort/include \
