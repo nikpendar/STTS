@@ -1,0 +1,40 @@
+# Compiles the app with the Persian voice (ONNX Runtime, Models/Voice) for iPhone on this branch, as
+# build.yml does, and prints the sizes; no IPA is kept. Builds for Rooz stay with build.yml on main.
+name: Persian voice app check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-xaj97f]
+    paths:
+      - PersianSTT/**
+      - PersianSTT.xcodeproj/**
+      - setup.sh
+      - .github/workflows/tts-app-check.yml
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select Xcode
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
+      - name: Sidecars, voice, ONNX Runtime
+        run: |
+          bash ./setup.sh sidecars
+          ls -l PersianSTT/Models/Voice && du -sh Frameworks/onnxruntime.xcframework
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild -project PersianSTT.xcodeproj -target PersianSTT -configuration Release -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee build.log | tail -40 \
+            || { grep -E "error:" build.log | head -30 | sed 's/^/::error::/'; exit 1; }
+      - name: Sizes
+        run: |
+          APP=build/Release-iphoneos/PersianSTT.app
+          du -sh "$APP" "$APP/Models/Voice"
+          ls -l "$APP/PersianSTT"
+          mkdir Payload && cp -R "$APP" Payload/ && zip -qry check.ipa Payload && ls -lh check.ipa
