@@ -125,6 +125,17 @@ final class PersianPhonemizer {
     private static let vowels: Set<Character> = ["ɑ", "a", "e", "o", "i", "u"]
     private static let verbPrefixes = ["mi", "nemi", "ne", "be", "na"]
 
+    /// A verb with mi-, nemi-, be-, ne- or na- (stressed there): a personal or past ending
+    /// (می‌رسم، نکرد), or a short imperative (بگو، بزن). Not میلیون، بهترین، نمونه، بدون.
+    private static func isPrefixedVerb(_ body: [Character], vowels count: Int) -> Bool {
+        let text = String(body)
+        guard verbPrefixes.contains(where: { text.hasPrefix($0) && body.count > $0.count && !vowels.contains(body[$0.count]) }) else {
+            return false
+        }
+        if ["am", "i", "im", "d", "t"].contains(where: { text.hasSuffix($0) }) { return true }
+        return count <= 2 && !["in", "un", "e", "ɑ"].contains(where: { text.hasSuffix($0) })
+    }
+
     /// One word: the Ezafe (a 1 after the word's e or ye) after the stress, no glottal stop at the
     /// start (eSpeak, which the voice learned from, writes none there).
     static func ipa(word: Substring, stress: Stress) -> String {
@@ -145,13 +156,13 @@ final class PersianPhonemizer {
         if stress != .none {
             let vowelAt = body.indices.filter { vowels.contains(body[$0]) }
             if var target = vowelAt.last {
-                let text = String(body)
-                if stress == .rules, vowelAt.count > 1,
-                   verbPrefixes.contains(where: { text.hasPrefix($0) && body.count > $0.count && !vowels.contains(body[$0.count]) }) {
+                if stress == .rules, vowelAt.count > 1, isPrefixedVerb(body, vowels: vowelAt.count) {
                     target = vowelAt[0]
                 }
-                // The mark goes before the syllable's first consonant, as eSpeak writes it.
-                let start = target > 0 && !vowels.contains(body[target - 1]) ? target - 1 : target
+                // The mark goes before the syllable's first consonant, as eSpeak writes it, and
+                // before the whole of tʃ and dʒ.
+                var start = target > 0 && !vowels.contains(body[target - 1]) ? target - 1 : target
+                if start > 0, ["tʃ", "dʒ"].contains(String(body[start - 1...start])) { start -= 1 }
                 body.insert("ˈ", at: start)
             }
         }
