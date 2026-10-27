@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
       - name: Install
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng >/dev/null
@@ -31,6 +34,7 @@ jobs:
           ls -l homo-ge2pe
           curl -fsSL --retry 3 -o assets/GE2PE.py "$base/assets/GE2PE.py"
           curl -fsSL --retry 3 -o parsivar.zip "$base/assets/Parsivar.zip" && unzip -q parsivar.zip -d assets
+          sed -i 's/from collections import Iterable/from collections.abc import Iterable/' assets/Parsivar/*.py
           ls assets assets/* | head -30
           cd .. && mkdir voices
           m=https://huggingface.co/MahtaFetrat/Mana-Persian-Piper/resolve/main/fa_IR-mana-medium.onnx
@@ -46,12 +50,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
       - name: Install
         run: |
-          pip install -q --index-url https://download.pytorch.org/whl/cpu torch
+          sudo apt-get update -qq && sudo apt-get install -y -qq libsndfile1 >/dev/null
+          pip install -q --index-url https://download.pytorch.org/whl/cpu torch torchaudio
           git clone -q --depth 1 https://github.com/SadeghKrmi/NeMo.git nemo-fork
           ls nemo-fork/nemo/collections/tts/g2p/models/fa_ir_persian
-          pip install -q -e nemo-fork onnxruntime onnx numpy num2fawords hydra-core omegaconf lightning || true
+          pip install -q Cython packaging
+          pip install -q -e "nemo-fork[tts]" onnxruntime onnx num2fawords
       - name: Models
         run: |
           base=https://huggingface.co/SadeghK/tts_fa_fastpitch_hifigan-v2.0/resolve/main
