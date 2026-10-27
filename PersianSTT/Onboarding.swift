@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 /// The first-run guide: a few short pages from adding the keyboard to the first dictation, in
-/// Persian (right to left) or English after the phone's language. Shown once on first launch and
+/// Persian (right to left) or English, chosen on its first page (the phone's language at first). Shown once on first launch and
 /// again from the settings page (`ContentView`), where the short keyboard setup steps link to it.
 struct Onboarding: View {
     /// Set when the guide is finished or skipped; launch argument `-onboardingDone 1` skips it
@@ -20,20 +20,22 @@ struct Onboarding: View {
     /// CI only: launch argument `-onboardingPage <n>` opens the guide on that page for screenshots.
     @State private var page = UserDefaults.standard.integer(forKey: "onboardingPage")
 
-    private let fa = Onboarding.persian
+    /// "fa" or "en", chosen on the first page; launch argument `-onboardingLanguage en` sets it in CI.
+    @AppStorage("onboardingLanguage") private var language = Onboarding.persian ? "fa" : "en"
+    private var fa: Bool { language == "fa" }
 
     /// Persian when it is the phone's (or the app's) first language, otherwise English.
     static var persian: Bool {
         Locale.preferredLanguages.first.map { $0.hasPrefix("fa") } ?? true
     }
 
-    private enum Step { case welcome, keyboard, fullAccess, model, session }
+    private enum Step { case language, welcome, keyboard, fullAccess, model, session }
 
     /// A build with the model inside has nothing to import.
     private var steps: [Step] {
         Transcriber.bundledModel == nil
-            ? [.welcome, .keyboard, .fullAccess, .model, .session]
-            : [.welcome, .keyboard, .fullAccess, .session]
+            ? [.language, .welcome, .keyboard, .fullAccess, .model, .session]
+            : [.language, .welcome, .keyboard, .fullAccess, .session]
     }
 
     var body: some View {
@@ -103,6 +105,16 @@ struct Onboarding: View {
     @ViewBuilder
     private func content(_ step: Step) -> some View {
         switch step {
+        case .language:
+            StepPage(symbol: "globe", color: .teal, font: font,
+                     title: fa ? "زبان راهنما" : "Guide language",
+                     text: fa ? "راهنما به کدام زبان باشد؟" : "Which language should the guide use?") {
+                VStack(spacing: 12) {
+                    languageButton("fa", title: "فارسی")
+                    languageButton("en", title: "English")
+                }
+            }
+
         case .welcome:
             StepPage(symbol: "mic.fill", color: .purple, font: font,
                      title: fa ? "به کیلس خوش آمدید" : "Welcome to Keyless",
@@ -164,6 +176,27 @@ struct Onboarding: View {
                 .tint(keyboard.isActive ? .red : .accentColor)
             }
         }
+    }
+
+    /// Chooses the guide's language and moves on to the welcome page.
+    private func languageButton(_ code: String, title: String) -> some View {
+        Button {
+            language = code
+            withAnimation { page = 1 }
+        } label: {
+            HStack {
+                Text(title)
+                    .font(code == "fa" ? .app(.headline) : .system(.headline))
+                Spacer()
+                if language == code { Image(systemName: "checkmark") }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.capsule)
+        .tint(language == code ? .accentColor : .secondary)
     }
 
     /// Opens the app's own page in Settings, which lists its keyboard and Full Access.
