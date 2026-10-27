@@ -4,7 +4,7 @@
 #
 #   ./scripts/mac-setup.sh           # sidecars into PersianSTT/Models, model into build-model/
 #                                    # (imported once in the app from Files)
-#   ./scripts/mac-setup.sh bundle    # also compiles the model into the app (no import, +200 MB)
+#   ./scripts/mac-setup.sh bundle    # also compiles the model into the app (no import, about +110 MB)
 #   FONT_KEY='…' ./scripts/mac-setup.sh
 set -euo pipefail
 
@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 xcodebuild -version || { echo "Xcode is missing: install Xcode 26 or newer from the App Store." >&2; exit 1; }
 
-# From Hugging Face. Without it: copy Koochik.mlmodel into build-model/ and the four sidecar
+# From the koochik-mlp-int8 release and Hugging Face. Without them: copy Koochik.aar into build-model/ and the four sidecar
 # .json files (from any built KeylessShenava.ipa: Payload/PersianSTT.app/Models/) into
 # PersianSTT/Models/ first; setup.sh skips files already there.
 bash "$ROOT/setup.sh" model

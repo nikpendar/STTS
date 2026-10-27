@@ -7,7 +7,7 @@
 | چیز | کجا |
 |---|---|
 | کل کد و تاریخچه، همه‌ی شاخه‌ها | `STTS.bundle` (یک git bundle) |
-| مدل گفتار Koochik (۲۱۲ مگابایت) و چهار فایل کنارش (`tokens.json`، `preprocessor.json`، `mel_filters_slaney_80x257.json`، `manifest.json`) | روی Hugging Face ([Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16](https://huggingface.co/Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16))؛ مدل در artifact «ShenavaModel» بیلدها هم هست (تا ۹۰ روز). یک نسخه از `Koochik.mlmodel` را کنار بکاپ نگه دار. فایل‌های کنار مدل داخل هر IPA هم هستند: `Payload/PersianSTT.app/Models/` |
+| مدل گفتار Koochik.aar (۸ بیتی، ۱۰۷ مگابایت) و چهار فایل کنارش (`tokens.json`، `preprocessor.json`، `mel_filters_slaney_80x257.json`، `manifest.json`) | مدل در release `koochik-mlp-int8` در github.com/nikpendar/STTS؛ فایل‌های کنار روی Hugging Face ([Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16](https://huggingface.co/Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16)). یک نسخه از `Koochik.aar` را کنار بکاپ نگه دار. فایل‌های کنار مدل داخل هر IPA هم هستند: `Payload/PersianSTT.app/Models/` |
 | فونت IRANYekanX | فقط رمزشده: `fonts/AppFont.ttf.enc` |
 
 **کلید فونت (`FONT_KEY`) در بکاپ نیست.** GitHub رازها را پس نمی‌دهد. اگر کلید را جایی نگه نداشته‌ای، فونت فقط از فایل اصلی فونت برمی‌گردد. بدون کلید، برنامه با فونت سیستم ساخته می‌شود و بقیه‌اش فرقی نمی‌کند.
@@ -31,9 +31,9 @@
 2. آماده‌سازی مدل و فونت:
    ```sh
    FONT_KEY='کلید فونت' ./scripts/mac-setup.sh          # مدل جدا؛ یک بار در برنامه از Files وارد می‌شود
-   FONT_KEY='کلید فونت' ./scripts/mac-setup.sh bundle   # مدل داخل برنامه؛ بدون وارد کردن، ۲۰۰ مگابایت بیشتر
+   FONT_KEY='کلید فونت' ./scripts/mac-setup.sh bundle   # مدل داخل برنامه؛ بدون وارد کردن، حدود ۱۱۰ مگابایت بیشتر
    ```
-   اگر Hugging Face در دسترس نباشد: `Koochik.mlmodel` را در `build-model/` و چهار فایل json را در `PersianSTT/Models/` بگذار، بعد اسکریپت را اجرا کن.
+   اگر دانلود ممکن نباشد: `Koochik.aar` را در `build-model/` و چهار فایل json را در `PersianSTT/Models/` بگذار، بعد اسکریپت را اجرا کن.
 3. `PersianSTT.xcodeproj` را با Xcode باز کن.
 4. برای هر دو target، یعنی `PersianSTT` و `PersianSTTKeyboard`، در Signing & Capabilities:
    - گزینه‌ی Automatically manage signing روشن باشد؛
@@ -43,7 +43,7 @@
 7. بالای پنجره، scheme `PersianSTT` و آیفون وصل‌شده را انتخاب کن، سپس Run (⌘R).
 8. روی آیفون، بار اول: Settings > General > VPN & Device Management > Apple ID خودت > Trust.
 9. فعال‌کردن کیبورد: Settings > General > Keyboard > Keyboards > Add New Keyboard > کیلس، سپس Allow Full Access.
-10. مدل (اگر حالت `bundle` نبود): فایل `build-model/Koochik.mlmodel` را به گوشی بفرست و از داخل برنامه وارد کن.
+10. مدل (اگر حالت `bundle` نبود): فایل `build-model/Koochik.aar` را به گوشی بفرست و از داخل برنامه وارد کن.
 
 ## محدودیت‌های حساب رایگان
 
