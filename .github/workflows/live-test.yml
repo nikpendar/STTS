@@ -486,14 +486,14 @@ jobs:
           print(int(x), int(f["y"] + f["height"] / 2))
           PY
           xcrun simctl terminate "$DEVICE" "$ID" || true
-          xcrun simctl launch "$DEVICE" "$ID"
+          xcrun simctl launch "$DEVICE" "$ID" -onboardingDone 1
           sleep 6
           dump out/ui-15.json || true
           read PX PY_ < <(python3 pick.py "ظاهر دکمه‌ها" out/ui-15.json || echo "200 500")
           axe tap -x "$PX" -y "$PY_" --udid "$DEVICE"; sleep 2
           xcrun simctl io "$DEVICE" screenshot out/8a-settings-colours.png
           xcrun simctl terminate "$DEVICE" "$ID" || true
-          xcrun simctl launch "$DEVICE" "$ID"
+          xcrun simctl launch "$DEVICE" "$ID" -onboardingDone 1
           sleep 6
           read PX PY_ < <(python3 pick.py "تایپ و پیشنهاد کلمه" out/ui-15.json || echo "200 450")
           axe tap -x "$PX" -y "$PY_" --udid "$DEVICE"; sleep 2

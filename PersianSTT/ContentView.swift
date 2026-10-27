@@ -26,6 +26,9 @@ struct ContentView: View {
     @State private var navigationID = UUID()
     /// Raised when the keyboard opened the app to start the session: the mic shows a ripple.
     @State private var sessionStarts = 0
+    /// The first-run guide, shown until it is finished once and from the setup page after.
+    @AppStorage(Onboarding.doneKey) private var onboardingDone = false
+    @State private var showingGuide = false
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -94,6 +97,7 @@ struct ContentView: View {
             .toolbar(.hidden, for: .navigationBar)
         }
         .id(navigationID)
+        .fullScreenCover(isPresented: $showingGuide) { Onboarding() }
         .fileImporter(isPresented: $pickingModel, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result { importer.importModel(from: url) }
         }
@@ -109,6 +113,7 @@ struct ContentView: View {
             dictionary.save()
             KeyboardBackground.handToKeyboard(style.backgroundImage)
             syncTraining()
+            if !onboardingDone { showingGuide = true }
         }
         .onOpenURL { url in
             if url.host == "session" {
@@ -395,6 +400,11 @@ struct ContentView: View {
             SetupStep(number: "۱", text: "Settings › General › Keyboard › Keyboards › Add New Keyboard")
             SetupStep(number: "۲", text: "«کیلس» را انتخاب و Allow Full Access را روشن کنید.")
             SetupStep(number: "۳", text: "در هر اپی با 🌐 به این کیبورد بروید و برای دیکته کلید فاصله را نگه دارید.")
+            Button {
+                showingGuide = true
+            } label: {
+                SettingLabel("راهنمای قدم‌به‌قدم", symbol: "book.fill", color: .orange)
+            }
             Button {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
