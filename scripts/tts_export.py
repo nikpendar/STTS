@@ -9,7 +9,8 @@
 The decoder runs without a cache: it reads the whole output so far at every step, which for a
 2-layer model and one sentence at a time costs little and keeps the app's loop simple. The app
 feeds the model the text as the Parsivar normalizer leaves it for these sentences: Persian ی as
-Arabic ي, ك as ک, ZWNJ kept; this script checks that this gives the same phonemes as Parsivar.
+Arabic ي, ك as ک, ZWNJ kept, punctuation and diacritics dropped; this script checks that this gives
+the same phonemes as Parsivar.
 
     python3 scripts/tts_export.py G2P_DIR VOICE.onnx VOICE.onnx.json OUT_DIR
 """
@@ -68,8 +69,17 @@ def export():
 
 
 def app_text(s):
-    """What the app feeds the G2P model."""
-    return s.replace("ی", "ي").replace("ك", "ک").replace("ى", "ي")
+    """What the app feeds the G2P model (PersianPhonemizer.clean and modelText): Persian letters,
+    ZWNJ and single spaces; Arabic yeh, Persian kaf."""
+    out = ""
+    for ch in s:
+        v = ord(ch)
+        if 0x0621 <= v <= 0x063A or 0x0641 <= v <= 0x064A or v in (0x067E, 0x0686, 0x0698, 0x06A9, 0x06AF, 0x06CC, 0x06C0, 0x0622, 0x200C):
+            out += ch
+        elif out and out[-1] != " " and not (0x064B <= v <= 0x0652) and v != 0x0640:
+            out += " "
+    out = out.strip()
+    return out.replace("ی", "ي").replace("ى", "ي").replace("ك", "ک").replace("ۀ", "ه")
 
 
 def to_ids(s):
