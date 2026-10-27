@@ -22,6 +22,7 @@
 		A10000000000000000000021 /* PersonalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* PersonalModel.swift */; };
 		A10000000000000000000005 /* AudioLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* AudioLoader.swift */; };
 		A1000000000000000000000F /* KeyboardPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* KeyboardPreview.swift */; };
+		A1000000000000000000005A /* Onboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000005A /* Onboarding.swift */; };
 		A10000000000000000000020 /* KeyboardTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* KeyboardTestView.swift */; };
 		A10000000000000000000010 /* KeyboardViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* KeyboardViewController.swift */; };
 		A10000000000000000000022 /* EditTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* EditTracker.swift */; };
@@ -86,6 +87,7 @@
 		A20000000000000000000021 /* PersonalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AudioLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLoader.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* KeyboardPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardPreview.swift; sourceTree = "<group>"; };
+		A2000000000000000000005A /* Onboarding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Onboarding.swift; sourceTree = "<group>"; };
 		A20000000000000000000020 /* KeyboardTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardTestView.swift; sourceTree = "<group>"; };
 		A2000000000000000000000A /* KeyboardSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardSession.swift; sourceTree = "<group>"; };
 		A2000000000000000000000B /* DictationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationBridge.swift; sourceTree = "<group>"; };
@@ -158,6 +160,7 @@
 				A20000000000000000000009 /* DictateIntent.swift */,
 				A2000000000000000000000A /* KeyboardSession.swift */,
 				A20000000000000000000010 /* KeyboardPreview.swift */,
+				A2000000000000000000005A /* Onboarding.swift */,
 				A20000000000000000000020 /* KeyboardTestView.swift */,
 				A2000000000000000000000E /* Info.plist */,
 				A20000000000000000000006 /* Models */,
@@ -373,6 +376,7 @@
 				A1000000000000000000000A /* KeyboardSession.swift in Sources */,
 				A1000000000000000000000B /* DictationBridge.swift in Sources */,
 				A1000000000000000000000F /* KeyboardPreview.swift in Sources */,
+				A1000000000000000000005A /* Onboarding.swift in Sources */,
 				A10000000000000000000020 /* KeyboardTestView.swift in Sources */,
 				A10000000000000000000010 /* KeyboardViewController.swift in Sources */,
 				A10000000000000000000022 /* EditTracker.swift in Sources */,

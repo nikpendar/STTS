@@ -47,8 +47,18 @@ jobs:
             local name="$1" appearance="$2"; shift 2
             xcrun simctl ui "$DEVICE" appearance "$appearance"
             xcrun simctl terminate "$DEVICE" "$ID" || true
-            xcrun simctl launch "$DEVICE" "$ID" "$@"
+            xcrun simctl launch "$DEVICE" "$ID" -onboardingDone 1 "$@"
           }
+
+          # The first-run guide, each page in Persian and English.
+          for lang in fa en; do
+            for p in 0 1 2 3 4; do
+              xcrun simctl terminate "$DEVICE" "$ID" || true
+              xcrun simctl launch "$DEVICE" "$ID" -onboardingDone 0 -onboardingPage "$p" -AppleLanguages "($lang)"
+              sleep 4
+              xcrun simctl io "$DEVICE" screenshot "shots/0-guide-$lang-$p.png"
+            done
+          done
 
           shoot app-loading light
           sleep 2
