@@ -1,0 +1,78 @@
+# Persian TTS survey: synthesizes the same test sentences with each Persian Piper voice on CPU,
+# prints model size, real-time factor (1 thread and all threads) and the eSpeak phonemes the voice
+# receives (to check Ezafe, short vowels and numbers), also for an int8-quantized copy, and commits
+# the WAV files to tts-samples/ on this branch for listening. Nothing here changes the app.
+name: TTS survey
+
+on:
+  push:
+    branches: [claude/project-thread-xaj97f]
+    paths: [.github/workflows/tts-survey.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  piper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng >/dev/null
+          pip install -q piper-tts onnx onnxruntime
+      - name: Voices
+        run: |
+          mkdir -p voices
+          get() { curl -fsSL --retry 3 -o "voices/$1.onnx" "$2" && curl -fsSL --retry 3 -o "voices/$1.onnx.json" "$2.json"; }
+          pv=https://huggingface.co/rhasspy/piper-voices/resolve/main/fa/fa_IR
+          get mana https://huggingface.co/MahtaFetrat/Mana-Persian-Piper/resolve/main/fa_IR-mana-medium.onnx
+          for v in gyro amir ganji reza_ibrahim; do get $v "$pv/$v/medium/fa_IR-$v-medium.onnx"; done
+          ls -l voices
+      - name: Synthesize
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, time, wave
+          import onnxruntime as ort
+          from onnxruntime.quantization import quantize_dynamic, QuantType
+          from piper import PiperVoice
+          sentences = [
+              "کتاب بزرگ من روی میز است.",
+              "قیمت این خانه ۳۵۰ میلیون تومان است و تا سال ۱۴۰۵ ثابت می‌ماند.",
+              "او دیروز با دوستانش به سینما رفت و فیلم جدیدی دید.",
+              "مهر مادر در دل فرزندان همیشه می‌ماند.",
+              "لطفاً پیام من را برای علی بفرست و بگو ساعت هشت می‌رسم.",
+          ]
+          for i, s in enumerate(sentences):
+              ph = subprocess.run(["espeak-ng", "-q", "-v", "fa", "--ipa", s], capture_output=True, text=True).stdout.strip()
+              print(f"PHON {i}: {s} => {ph}")
+          os.makedirs("tts-samples", exist_ok=True)
+          names = sorted(f[:-5] for f in os.listdir("voices") if f.endswith(".onnx"))
+          for name in names:
+              path = f"voices/{name}.onnx"
+              q = f"voices/{name}-int8.onnx"
+              quantize_dynamic(path, q, weight_type=QuantType.QUInt8)
+              os.rename(f"voices/{name}.onnx.json", f"voices/{name}.json")
+              for variant, model in (("fp32", path), ("int8", q)):
+                  cfg = f"voices/{name}.json"
+                  print(f"===== {name} {variant} size {os.path.getsize(model)/1e6:.1f} MB")
+                  for threads in (1, 0):
+                      so = ort.SessionOptions(); so.intra_op_num_threads = threads
+                      voice = PiperVoice.load(model, config_path=cfg)
+                      voice.session = ort.InferenceSession(model, so, providers=["CPUExecutionProvider"])
+                      audio_s = comp_s = 0.0
+                      for i, s in enumerate(sentences):
+                          out = f"tts-samples/{name}-{variant}-{i}.wav"
+                          t = time.perf_counter()
+                          with wave.open(out, "wb") as w:
+                              voice.synthesize_wav(s, w)
+                          comp_s += time.perf_counter() - t
+                          with wave.open(out) as w:
+                              audio_s += w.getnframes() / w.getframerate()
+                      print(f"RTF {name} {variant} threads={threads or 'all'} {comp_s/audio_s:.3f} (audio {audio_s:.1f} s)")
+          PY
+      - name: Commit samples
+        run: |
+          git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git add tts-samples && git commit -qm "TTS survey samples" && git push
