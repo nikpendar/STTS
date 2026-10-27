@@ -40,7 +40,7 @@ jobs:
           m=https://huggingface.co/MahtaFetrat/Mana-Persian-Piper/resolve/main/fa_IR-mana-medium.onnx
           curl -fsSL --retry 3 -o voices/mana.onnx "$m" && curl -fsSL --retry 3 -o voices/mana.onnx.json "$m.json"
       - name: Probe
-        run: python3 scripts/tts_g2p_probe.py g2p voices/mana.onnx voices/mana.onnx.json tts-samples/g2p
+        run: cd g2p/assets && python3 "$GITHUB_WORKSPACE/scripts/tts_g2p_probe.py" "$GITHUB_WORKSPACE/g2p" "$GITHUB_WORKSPACE/voices/mana.onnx" "$GITHUB_WORKSPACE/voices/mana.onnx.json" "$GITHUB_WORKSPACE/tts-samples/g2p"
       - name: Commit samples
         run: |
           git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
