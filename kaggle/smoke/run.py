@@ -10,7 +10,7 @@ def sh(cmd):
 
 sh("nvidia-smi; df -h /kaggle/working /kaggle/temp /tmp 2>/dev/null; nproc; free -g")
 t = time.time()
-sh("apt-get install -y -qq espeak-ng-data libespeak-ng-dev >/dev/null 2>&1; git clone -q --depth 1 https://github.com/OHF-voice/piper1-gpl.git /tmp/piper")
+sh("git clone -q --depth 1 https://github.com/OHF-voice/piper1-gpl.git /tmp/piper")
 sh("cd /tmp/piper && pip install -q -e '.[train]' 2>&1 | tail -3 && bash ./build_monotonic_align.sh 2>&1 | tail -2 && python setup.py build_ext --inplace 2>&1 | tail -1")
 print(f"install {time.time() - t:.0f} s", flush=True)
 sh("pip list 2>/dev/null | grep -iE '^(torch|lightning|pytorch-lightning|onnxruntime) '")
