@@ -10,13 +10,14 @@ on:
         description: Folder under kaggle/
         required: true
         default: smoke
-      wait:
-        description: Wait for the end and print the log
-        type: boolean
-        default: true
+      mode:
+        description: "run: push and wait; start: push only; log: wait for the last run and print its log"
+        type: choice
+        options: [run, start, log]
+        default: run
   push:
     branches: [claude/project-thread-xaj97f]
-    paths: [kaggle/smoke/**, .github/workflows/kaggle-run.yml]
+    paths: [kaggle/smoke/**]
 
 jobs:
   run:
@@ -26,6 +27,7 @@ jobs:
       KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
       KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
       KERNEL: ${{ inputs.kernel || 'smoke' }}
+      MODE: ${{ inputs.mode || 'run' }}
     steps:
       - uses: actions/checkout@v5
       - name: Kaggle tool
@@ -33,15 +35,16 @@ jobs:
           test -n "$KAGGLE_USERNAME" && test -n "$KAGGLE_KEY" || { echo "::error::KAGGLE_USERNAME / KAGGLE_KEY secrets missing"; exit 1; }
           pip install -q --upgrade kaggle && kaggle --version
       - name: Push
+        if: env.MODE != 'log'
         run: |
           sed -i "s#KAGGLE_USER/#$KAGGLE_USERNAME/#" "kaggle/$KERNEL/kernel-metadata.json"
           kaggle kernels push -p "kaggle/$KERNEL" | tee push.txt
           grep -qiE "error|failed" push.txt && exit 1 || true
       - name: Wait and log
-        if: ${{ inputs.wait != false }}
+        if: env.MODE != 'start'
         run: |
           ID="$KAGGLE_USERNAME/keyless-voice-$KERNEL"
-          sleep 60
+          [ "$MODE" = log ] || sleep 60
           while true; do
             S="$(kaggle kernels status "$ID" 2>&1 | tail -1)"; echo "$(date -u +%H:%M) $S"
             case "$S" in *complete*|*COMPLETE*|*error*|*ERROR*|*cancel*|*CANCEL*) break;; esac
