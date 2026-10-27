@@ -19,42 +19,7 @@ os.makedirs(OUT, exist_ok=True)
 sys.path.insert(0, os.path.dirname(__file__))
 from tts_g2p_probe_sentences import SENTENCES  # noqa: E402
 
-# GE2PE letters -> eSpeak IPA (as Piper's phoneme_id_map spells them).
-MAP = {
-    "a": "ɑ", "/": "a", "e": "e", "o": "o", "i": "i", "u": "u",
-    "@": "ʔ", "?": "ʔ", "c": "tʃ", "C": "tʃ", "$": "ʃ", "S": "ʃ", "Z": "ʒ", "j": "dʒ", "y": "j", "q": "q", "x": "x",
-    "g": "ɡ", "b": "b", "p": "p", "t": "t", "d": "d", "k": "k", "f": "f", "v": "v", "s": "s",
-    "z": "z", "h": "h", "m": "m", "n": "n", "l": "l", "r": "r", " ": " ",
-}
-VOWELS = set("ɑaeoiu")
-
-
-def ipa_word(word, stress):
-    """One GE2PE word as eSpeak-style IPA, stressed per `stress`. Greedy GE2PE output marks the
-    Ezafe with a 1 after the word's e or ye; eSpeak, which the voice learned from, writes no glottal
-    stop at the start of a word."""
-    ezafe = ""
-    if word.endswith("1"):
-        word = word[:-1]
-        if word.endswith("ye") and len(word) > 2:
-            word, ezafe = word[:-2], "je"
-        elif word.endswith("e"):
-            word, ezafe = word[:-1], "e"
-    if word.startswith("@"):
-        word = word[1:]
-    body = "".join(MAP.get(c, "") for c in word)
-    if stress != "none":
-        # Persian stress is mostly on the last syllable of the word itself (not the Ezafe), and on
-        # the prefix mi-/ne-/be- of a verb.
-        vows = [i for i, c in enumerate(body) if c in VOWELS]
-        if vows:
-            target = vows[-1]
-            if stress == "rules" and len(vows) > 1 and re.match(r"^(mi|nemi|ne|be|na)[^ɑaeoiu]", body):
-                target = vows[0]
-            # The mark goes before the syllable's first consonant, as eSpeak writes it.
-            start = target - 1 if target > 0 and body[target - 1] not in VOWELS else target
-            body = body[:start] + "ˈ" + body[start:]
-    return body + ezafe
+from tts_phonemes import MAP, VOWELS, ipa_word  # noqa: E402,F401
 
 
 def to_ids(ipa, id_map):
