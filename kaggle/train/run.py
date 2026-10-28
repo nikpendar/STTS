@@ -16,7 +16,9 @@ def sh(cmd, check=True):
 
 sh("nvidia-smi --query-gpu=name,memory.total --format=csv")
 sh("git clone -q --depth 1 https://github.com/OHF-voice/piper1-gpl.git /kaggle/temp/piper")
-sh("cd /kaggle/temp/piper && pip install -q -e '.[train]' && bash ./build_monotonic_align.sh && python setup.py build_ext --inplace -q")
+sh("pip install -q scikit-build cmake ninja")
+sh("cd /kaggle/temp/piper && pip install -q -e '.[train]' && bash ./build_monotonic_align.sh")
+sh("cd /kaggle/temp/piper && python setup.py build_ext --inplace -q", check=False)
 
 meta = glob.glob("/kaggle/input/**/metadata.csv", recursive=True)
 assert meta, "attach the output of keyless-voice-prep"
@@ -45,7 +47,7 @@ sh(
     "cd /kaggle/temp/piper && python -m piper.train fit"
     " --data.voice_name fa_IR-keyless"
     f" --data.csv_path {meta[0]} --data.audio_dir {data}/wavs"
-    " --data.data_type phoneme_ids --data.num_symbols 256"
+    " --data.dataset_type phoneme_ids --data.num_symbols 256 --data.espeak_voice fa"
     f" --data.phonemes_path {phonemes}"
     " --model.sample_rate 22050"
     " --data.cache_dir /kaggle/temp/cache"
