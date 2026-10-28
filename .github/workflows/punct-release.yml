@@ -1,8 +1,8 @@
 # Automatic punctuation for the app: takes the tagger the punctuation research trained (run
 # 40508002388 of punct-eval.yml on claude/project-thread-juda5i: ALBERT-fa 6 layers, Core ML with
 # 8-bit weights), compiles it for iOS 17 and writes the tokenizer's pieces and test sentences
-# (scripts/punct/release.py) as the artifact punct-model; with publish set, also as the release
-# punct-albert6, where setup.sh downloads them into the app.
+# (scripts/punct/release.py) as the artifact punct-model, checks the app's Swift code against it
+# (Tests/Punct) and publishes the files as the release punct-albert6, where setup.sh downloads them.
 name: Punctuation model
 
 on:
@@ -65,16 +65,6 @@ jobs:
           name: punct-model
           path: out
           retention-days: 30
-      - name: Publish
-        if: inputs.publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
-            --title "Automatic punctuation: ALBERT-fa 6 layers, 8-bit" \
-            --notes "Persian punctuation tagger (comma, period, question mark) fine-tuned from HooshvareLab/albert-fa-zwnj-base-v2 (Apache-2.0) on Persian Wikipedia and PersianQA, as a compiled Core ML model with 8-bit weights, with its SentencePiece pieces. setup.sh downloads them into the app."
-          gh release upload "$TAG" out/Punct.mlmodelc.zip out/punct-vocab.tsv out/punct-info.json out/punct-tests.jsonl --clobber
-
   check:
     needs: release
     runs-on: macos-15
@@ -90,3 +80,24 @@ jobs:
             | tee compile.txt | grep -E "error:" | sed 's/^/::error::/' || true
           [ -x punct-check ] || exit 1
           ./punct-check punct
+
+  # Rooz (2026-10-28): publish once the Swift check agrees with Python.
+  publish:
+    needs: check
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: punct-model
+          path: out
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
+            --title "Automatic punctuation: ALBERT-fa 6 layers, 8-bit" \
+            --notes "Persian punctuation tagger (comma, period, question mark) fine-tuned from HooshvareLab/albert-fa-zwnj-base-v2 (Apache-2.0) on Persian Wikipedia and PersianQA, as a compiled Core ML model with 8-bit weights, with its SentencePiece pieces. setup.sh downloads them into the app."
+          gh release upload "$TAG" out/Punct.mlmodelc.zip out/punct-vocab.tsv out/punct-info.json out/punct-tests.jsonl --clobber
+
