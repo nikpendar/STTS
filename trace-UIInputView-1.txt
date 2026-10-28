@@ -1,0 +1,310 @@
+Tracing: <UIInputView 0x1036a3290> [624]
+
+Found 48 roots referencing: <UIInputView 0x1036a3290> [624]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    48 <UIInputView 0x1036a3290> [624]
+      48 <NSLayoutDimension 0x600001757180> [64]     +8: _referenceItem 0x600001757188
+        47 0x1037c1f60 [384]   +208:  0x1037c2030
+        + 47 0x1049f0000 [65536] +16488:  0x1049f4068
+        +   46 <Swift._ContiguousArrayStorage<Swift.UInt16> 0x112790000> [655360]  item count: 313739 +132190:  0x1127b045e --> offset 272
+        +   ! 45 Region dyld private memory  region + 88 0x112754058 --> offset 2
+        +   ! : 44 Region dyld private memory  region + 24 0x112718018 --> offset 16
+        +   ! : | 44 Region dyld private memory  region + 24 0x1124b8018 --> offset 16
+        +   ! : |   44 Region dyld private memory  region + 24 0x11247c018 --> offset 16
+        +   ! : |     44 Region dyld private memory  region + 24 0x1123fc018 --> offset 16
+        +   ! : |       44 Region dyld private memory  region + 24 0x1123c0018 --> offset 16
+        +   ! : |         44 Region dyld private memory  region + 24 0x112384018 --> offset 16
+        +   ! : |           44 Region dyld private memory  region + 24 0x112348018 --> offset 16
+        +   ! : |             44 Region dyld private memory  region + 24 0x11230c018 --> offset 16
+        +   ! : |               44 Region dyld private memory  region + 64 0x11229c040
+        +   ! : |                 44 Region dyld private memory  region + 24 0x112264018 --> offset 16
+        +   ! : |                   44 Region dyld private memory  region + 24 0x11222c018 --> offset 16
+        +   ! : |                     44 Region dyld private memory  region + 24 0x1121f4018 --> offset 16
+        +   ! : |                       44 Region dyld private memory  region + 24 0x112178018 --> offset 16
+        +   ! : |                         44 Region dyld private memory  region + 24 0x112140018 --> offset 16
+        +   ! : |                           44 Region dyld private memory  region + 24 0x112108018 --> offset 16
+        +   ! : |                             44 Region dyld private memory  region + 24 0x1120d0018 --> offset 16
+        +   ! : |                               44 Region dyld private memory  region + 24 0x1067c0018 --> offset 16
+        +   ! : |                                 44 Region dyld private memory  region + 24 0x106788018 --> offset 16
+        +   ! : |                                   44 Region dyld private memory  region + 24 0x106750018 --> offset 16
+        +   ! : |                                     44 Region dyld private memory  region + 24 0x106718018 --> offset 16
+        +   ! : |                                       44 Region dyld private memory  region + 24 0x105f3c018 --> offset 16
+        +   ! : |                                         44 Region dyld private memory  region + 24 0x105f04018 --> offset 16
+        +   ! : |                                           44 Region dyld private memory  region + 24 0x105ecc018 --> offset 16
+        +   ! : |                                             44 Region dyld private memory  region + 24 0x105c78018 --> offset 16
+        +   ! : |                                               44 Region dyld private memory  region + 24 0x105c40018 --> offset 16
+        +   ! : |                                                 44 Region dyld private memory  region + 24 0x105c08018 --> offset 16
+        +   ! : |                                                   44 Region dyld private memory  region + 24 0x105bd0018 --> offset 16
+        +   ! : |                                                     44 Region dyld private memory  region + 24 0x105b98018 --> offset 16
+        +   ! : |                                                       44 Region dyld private memory  region + 24 0x105b60018 --> offset 16
+        +   ! : |                                                         44 Region dyld private memory  region + 24 0x105b28018 --> offset 16
+        +   ! : |                                                           44 Region dyld private memory  region + 24 0x105af0018 --> offset 16
+        +   ! : |                                                             44 Region dyld private memory  region + 24 0x105ab8018 --> offset 16
+        +   ! : |                                                               44 Region dyld private memory  region + 24 0x105a80018 --> offset 16
+        +   ! : |                                                                 44 Region dyld private memory  region + 24 0x105924018 --> offset 16
+        +   ! : |                                                                   44 Region dyld private memory  region + 24 0x1058ec018 --> offset 16
+        +   ! : |                                                                     23 0x1048e1690 [416]   +184:  0x1048e1748 --> offset 213506
+        +   ! : |                                                                     + 23 <TTenuousComponentFont 0x1048da2f0> [816]   +376:  0x1048da468
+        +   ! : |                                                                     +   17 <UICTFont 0x1036680a0> [608]   +456:  0x103668268
+        +   ! : |                                                                     +   ! 17 <CTRun 0x103668300> [400]   +128:  0x103668380
+        +   ! : |                                                                     +   !   17 <CTLine 0x103667b10> [272]    +88:  0x103667b68
+        +   ! : |                                                                     +   !     17 <_NSCoreTypesetterLayoutCache 0x600002154000> [80]    +56: _line 0x600002154038
+        +   ! : |                                                                     +   !       17 <UILabel 0x1048a6410> [816]   +600: __strong _layout 0x1048a6668
+        +   ! : |                                                                     +   !         16 <KeyView 0x1048a60b0> [864]   +472: __strong label 0x1048a6288
+        +   ! : |                                                                     +   !         : 16 <KeyboardViewController 0x10500d200> [2560]  +1832: __strong layerKey 0x10500d928
+        +   ! : |                                                                     +   !         :   14 <_UIViewServiceViewControllerOperator 0x1050bfe00> [1536]  +1088: __strong _localViewController 0x1050c0240
+        +   ! : |                                                                     +   !         :   | 14 <_UIHostedWindow 0x1048ed940> [1008]   +560: __strong _rootViewController 0x1048edb70
+        +   ! : |                                                                     +   !         :   |   13 <_UIEventDeferringOwnershipToken._ownerPointer (malloc) 0x1048edd30> [560]   +376:  0x1048edea8
+        +   ! : |                                                                     +   !         :   |   + 12 <NSMapTable (Key Storage) 0x600002c06400> [128]    +56: __strong  0x600002c06438
+        +   ! : |                                                                     +   !         :   |   + ! 12 <NSMapTable 0x600002c06380> [128]     +8: __strong keys.items 0x600002c06388
+        +   ! : |                                                                     +   !         :   |   + !   12 <UIEventEnvironment 0x600003908270> [208]   +128: __strong _eventRegistryByScene 0x6000039082f0
+        +   ! : |                                                                     +   !         :   |   + !     9 <UIEventDispatcher 0x600000c06520> [48]     +8: __strong _mainEnvironment 0x600000c06528
+        +   ! : |                                                                     +   !         :   |   + !     : 4 <UIEventFetcher 0x103705ab0> [272]   +256: __strong _eventFetcherSink 0x103705bb0
+        +   ! : |                                                                     +   !         :   |   + !     : | 4 <IOHIDEventSystemClient 0x1036067b0> [528]   +216:  0x103606888
+        +   ! : |                                                                     +   !         :   |   + !     : |   1 <CFDictionary (Value Storage) 0x600000207f20> [32]     +0: __strong  0x600000207f20
+        +   ! : |                                                                     +   !         :   |   + !     : |   + 1 <CFDictionary 0x600001706440> [64]  item count: 1    +40: __strong _values 0x600001706468
+        +   ! : |                                                                     +   !         :   |   + !     : |   +   1 Region IOKit __DATA __bss: '__ioPortCache' 0x1f27d12d0
+        +   ! : |                                                                     +   !         :   |   + !     : |   1 <__NSMallocBlock__ 0x600000c054a0> [48]  IOKit  __IOHIDEventSystemClientCreateWithType_block_invoke  0x182209ef4    +32:  0x600000c054c0
+        +   ! : |                                                                     +   !         :   |   + !     : |   + 1 0x600001706740 [64]    +24:  0x600001706758
+        +   ! : |                                                                     +   !         :   |   + !     : |   +   1 Region libsystem_trace.dylib __DATA __data: 'os_state_blocks' 0x1f26cee48
+        +   ! : |                                                                     +   !         :   |   + !     : |   1 Region BackBoardServices __DATA __bss: '_getHIDEventSystemClient.__hidEventSystemClientRef' 0x1f2bd7640
+        +   ! : |                                                                     +   !         :   |   + !     : |   1 Region Stack thread 1 __CFRunLoopRun (in CoreFoundation) + 408 0x16d116078
+        +   ! : |                                                                     +   !         :   |   + !     : 3 <UIApplication 0x103706c60> [496]   +160: __strong _eventDispatcher 0x103706d00
+        +   ! : |                                                                     +   !         :   |   + !     : | 2 <FBSWorkspace 0x600002106670> [80]    +40: __strong _delegate 0x600002106698
+        +   ! : |                                                                     +   !         :   |   + !     : | + 2 <FBSWorkspaceCoupler 0x6000002159a0> [32]     +8: __strong _lock_workspace 0x6000002159a8
+        +   ! : |                                                                     +   !         :   |   + !     : | +   1 <FBWorkspaceDomain 0x600002c07400> [128]     +8: __strong _coupler 0x600002c07408
+        +   ! : |                                                                     +   !         :   |   + !     : | +   ! 1 <FBWorkspaceEventDispatcher 0x600002118410> [80]     +8: __strong _domain 0x600002118418
+        +   ! : |                                                                     +   !         :   |   + !     : | +   !   1 <FBProcessManager 0x6000035091e0> [176]     +8: __strong _eventDispatcher 0x6000035091e8
+        +   ! : |                                                                     +   !         :   |   + !     : | +   !     1 Region FrontBoard __DATA __bss: '_sharedInstanceCreateIfNeeded:.__SharedManager' 0x1f2de8360
+        +   ! : |                                                                     +   !         :   |   + !     : | +   1 Region FrontBoardServices __DATA __bss: '_sharedInstance.__sharedInstance' 0x1f2aa2b10
+        +   ! : |                                                                     +   !         :   |   + !     : | 1 Region AXCoreUtilities __DATA __bss: 'AXProcessIsSystemApplication.app' 0x1f2d066d0
+        +   ! : |                                                                     +   !         :   |   + !     : 2 <CFRunLoopSource 0x600003709a40> [192]   +112:  0x600003709ab0
+        +   ! : |                                                                     +   !         :   |   + !     :   2 <CFSet (Value Storage) 0x600003776f40> [192]   +176: __strong  0x600003776ff0
+        +   ! : |                                                                     +   !         :   |   + !     :     2 <CFSet 0x600000c00690> [48]  item count: 15    +40: __strong _values 0x600000c006b8
+        +   ! : |                                                                     +   !         :   |   + !     :       2 <CFRunLoop 0x103812800> [3072]  +2648:  0x103813258
+        +   ! : |                                                                     +   !         :   |   + !     :         1 0x600000214a00 [32]    +16:  0x600000214a10
+        +   ! : |                                                                     +   !         :   |   + !     :         + 1 <CFBag 0x60000170c1c0> [64]    +40:  0x60000170c1e8
+        +   ! : |                                                                     +   !         :   |   + !     :         +   1 <CFRunLoopSource 0x600003708600> [192]    +96:  0x600003708660
+        +   ! : |                                                                     +   !         :   |   + !     :         +     1 <BSServiceMainRunLoopQueue 0x60000170c100> [64]    +32: _source 0x60000170c120
+        +   ! : |                                                                     +   !         :   |   + !     :         +       1 Region BoardServices __DATA __bss: '_MergedGlobals.1' + 16 0x1f2a77058
+        +   ! : |                                                                     +   !         :   |   + !     :         1 Region GraphicsServices __DATA __bss: '__eventRunLoop' 0x1f2d1e160
+        +   ! : |                                                                     +   !         :   |   + !     3 <__NSMallocBlock__ 0x600000c07570> [48]  UIKitCore  __21-[UIApplication init]_block_invoke  0x186341f10    +32: __strong [capture] 0x600000c07590
+        +   ! : |                                                                     +   !         :   |   + !       3 0x600002903560 [112]    +56:  0x600002903598
+        +   ! : |                                                                     +   !         :   |   + !         3 0x1051a0000 [4096]   +392:  0x1051a0188 --> offset 20
+        +   ! : |                                                                     +   !         :   |   + !           3 Region Kernel Alloc Once  region + 2056 0x103238808
+        +   ! : |                                                                     +   !         :   |   + !             1 0x10380bc00 [1536]     +0:  0x10380bc00 --> offset 64
+        +   ! : |                                                                     +   !         :   |   + !             | 1 Region libsystem_c.dylib __DATA __bss: '__atexit' 0x1f26d5fa8
+        +   ! : |                                                                     +   !         :   |   + !             1 Region __DATA_DIRTY /usr/lib/system/libsystem_kernel.dylib __DATA_DIRTY __common: '_os_alloc_once_table' + 8 0x10351c090 --> offset 1632
+        +   ! : |                                                                     +   !         :   |   + !             1 Region __DATA_DIRTY /usr/lib/system/libsystem_platform.dylib __DATA_DIRTY __common: '_os_alloc_heap' 0x103380020
+        +   ! : |                                                                     +   !         :   |   + 1 <NSMapTable (Key Storage) 0x600000281080> [32]    +24: __strong  0x600000281098
+        +   ! : |                                                                     +   !         :   |   +   1 <NSMapTable 0x600002c06a00> [128]     +8: __strong keys.items 0x600002c06a08
+        +   ! : |                                                                     +   !         :   |   +     1 <_UIKeyWindowSceneStack 0x600000cc60a0> [48]     +8: __strong _recordsByWindowScene 0x600000cc60a8
+        +   ! : |                                                                     +   !         :   |   +       1 <_UIKeyWindowEvaluator 0x600003b2b3a0> [224]   +184: __strong _keyWindowSceneStack 0x600003b2b458
+        +   ! : |                                                                     +   !         :   |   +         1 <__NSMallocBlock__ 0x600000cc5fb0> [48]  UIKitCore  __30-[_UIKeyWindowEvaluator _init]_block_invoke  0x1863fba6c    +32: __strong [capture] 0x600000cc5fd0
+        +   ! : |                                                                     +   !         :   |   +           1 <BSLogStateCaptureEntry 0x6000002b47a0> [32]    +16: __strong _captureBlock 0x6000002b47b0
+        +   ! : |                                                                     +   !         :   |   +             1 <NSMutableDictionary (Storage) 0x600003916e50> [208]   +168: __strong  0x600003916ef8
+        +   ! : |                                                                     +   !         :   |   +               1 <NSMutableDictionary 0x600000235820> [32]  item count: 7     +8: __strong storage 0x600000235828
+        +   ! : |                                                                     +   !         :   |   +                 1 Region BaseBoard __DATA __bss: '_MergedGlobals' + 8 0x1f2859548
+        +   ! : |                                                                     +   !         :   |   1 <UIWindowLayer 0x60000170e080> [64]    +48: _window 0x60000170e0b0
+        +   ! : |                                                                     +   !         :   |     1 <CAContext._impl (malloc) 0x104a52510> [272]    +96:  0x104a52570
+        +   ! : |                                                                     +   !         :   |       1 0x600000006a70 [16]     +0:  0x600000006a70
+        +   ! : |                                                                     +   !         :   |         1 Region QuartzCore __DATA __bss: 'CA::all_contexts()::contexts_data' 0x1f2bddce0
+        +   ! : |                                                                     +   !         :   2 <NSMutableDictionary (Storage) 0x600000cc5b30> [48]    +24: __strong  0x600000cc5b48
+        +   ! : |                                                                     +   !         :     2 <NSMutableDictionary 0x6000002b4600> [32]  item count: 1     +8: __strong storage 0x6000002b4608
+        +   ! : |                                                                     +   !         :       2 <EXConcreteExtensionContextVendor 0x600000238440> [32]    +24: __strong __extensionPrincipalObjects 0x600000238458
+        +   ! : |                                                                     +   !         :         2 <_NSXPCConnectionExportedObjectTable 0x6000021b8140> [80]     +8: _proxy1Object 0x6000021b8148
+        +   ! : |                                                                     +   !         :           2 <NSXPCConnection 0x600003386ee0> [160]  Protocol: EXExtensionContextHosting  Connection: "ir.nikpendar.PersianSTT.Keyboard.apple-extensi..."    +56: _exportInfo 0x600003386f18
+        +   ! : |                                                                     +   !         :             1 0x6000021b82d0 [80]     +8:  0x6000021b82d8
+        +   ! : |                                                                     +   !         :             + 1 <EXExtensionContextImplementation 0x60000300a370> [144]    +40: __strong __extensionHostProxy 0x60000300a398
+        +   ! : |                                                                     +   !         :             +   1 <UIInputViewControllerInterfaceClient 0x600000342ba0> [32]    +16: _internalImplementation 0x600000342bb0
+        +   ! : |                                                                     +   !         :             +     1 <_NSXPCConnectionExportedObjectTable 0x6000021b8230> [80]     +8: _proxy1Object 0x6000021b8238
+        +   ! : |                                                                     +   !         :             +       1 <NSXPCConnection 0x600003386940> [160]  Protocol: __NSX__HOST__PROTOCOL___UIIVCResponseDelegate  Connection: anonymous pid 25972 [Persia..."    +56: _exportInfo 0x600003386978
+        +   ! : |                                                                     +   !         :             +         1 0x6000021af1b0 [80]     +8:  0x6000021af1b8
+        +   ! : |                                                                     +   !         :             +           1 <_UITextDocumentInterface 0x6000017160c0> [64]     +8: __strong _responseDelegate 0x6000017160c8
+        +   ! : |                                                                     +   !         :             +             1 <NSMutableArray (Storage) 0x600000e0ea90> [48]    +40: __strong  0x600000e0eab8
+        +   ! : |                                                                     +   !         :             +               1 <NSMutableArray 0x600000cba5b0> [48]  item count: 6    +16: __strong storage 0x600000cba5c0
+        +   ! : |                                                                     +   !         :             +                 1 <TUIKeyboardInputManagerMux 0x600001754440> [64]    +40: __strong _clients 0x600001754468
+        +   ! : |                                                                     +   !         :             +                   1 Region TextInputUI __DATA __bss: 'sharedInstance.__instance' 0x1f3860ca8
+        +   ! : |                                                                     +   !         :             1 <__NSMallocBlock__ 0x600000e64120> [48]  Foundation  __56-[NSXPCConnection _initWithPeerConnection:name:options:]_block_invoke  0x1811f1f..."    +32: __strong [capture] 0x600000e64140
+        +   ! : |                                                                     +   !         :               1 <xpc_connection_t 0x104815740> [368]  "ir.nikpendar.PersianSTT.Keyboard.apple-extension-service.peer[25972].0x104815740" pid 25972 [Pe..."    +32: [capture] 0x104815760
+        +   ! : |                                                                     +   !         :                 1 <xpc_connection_t 0x1048104e0> [336]  "ir.nikpendar.PersianSTT.Keyboard.apple-extension-service" pid 19727 [PersianSTTKeyboard]   +144: [capture] 0x104810570
+        +   ! : |                                                                     +   !         :                   1 <NSXPCListener 0x60000172db00> [64]     +8: _connection 0x60000172db08
+        +   ! : |                                                                     +   !         :                     1 Region ExtensionFoundation __DATA __bss: '_startListening:.listener' 0x1f58840d0
+        +   ! : |                                                                     +   !         1 0x105e44000 [49152] +48896:  0x105e4ff00
+        +   ! : |                                                                     +   !           1 <CFXNotificationRegistrar 0x600003504160> [176]   +144:  0x6000035041f0
+        +   ! : |                                                                     +   !             1 <CFNotificationCenter 0x6000002072c0> [32]    +16:  0x6000002072d0
+        +   ! : |                                                                     +   !               1 Region CoreFoundation __DATA __bss: '__taskCenter' 0x1f26f9378
+        +   ! : |                                                                     +   6 <UICTFontDescriptor 0x60000264c120> [96]    +80:  0x60000264c170
+        +   ! : |                                                                     +     6 <TSplicedFont 0x10488aa50> [640]   +608:  0x10488acb0
+        +   ! : |                                                                     +       3 <UICTFontDescriptor 0x600002627900> [96]    +80:  0x600002627950
+        +   ! : |                                                                     +       : 3 <NSMutableArray (Storage) 0x11c6b0b60> [544]    +40: __strong  0x11c6b0b88
+        +   ! : |                                                                     +       :   3 <NSMutableArray 0x600000ccea90> [48]  item count: 43    +16: __strong storage 0x600000cceaa0
+        +   ! : |                                                                     +       :     3 <TTenuousComponentFont 0x10375a080> [816]   +136:  0x10375a108
+        +   ! : |                                                                     +       :       3 <UICTFont 0x10370c4b0> [608]   +456:  0x10370c678
+        +   ! : |                                                                     +       :         3 <NSMutableDictionary (Storage) 0x600003918000> [208]   +184: __strong  0x6000039180b8
+        +   ! : |                                                                     +       :           3 <NSMutableDictionary 0x60000022f500> [32]  item count: 8     +8: __strong storage 0x60000022f508
+        +   ! : |                                                                     +       :             1 <_UICache 0x600000c172d0> [48]    +16: _cache 0x600000c172e0
+        +   ! : |                                                                     +       :             | 1 Region UIFoundation __DATA __bss: '_sharedFontCache.__sharedFontCache' 0x1f2877e58
+        +   ! : |                                                                     +       :             1 <__NSMallocBlock__ 0x600000c173f0> [48]  UIFoundation  __50-[_UICache setClearsCacheOnApplicationBackground:]_block_invoke  0x1851205b0    +40: __strong [capture] 0x600000c17418
+        +   ! : |                                                                     +       :             | 1 0x104095800 [3072]  +2776:  0x1040962d8
+        +   ! : |                                                                     +       :             |   1 <_UIBoundingPathBitmap 0x600001759600> [64]    +56: _bitmapData + 48 0x600001759638
+        +   ! : |                                                                     +       :             |     1 <_UIScreenComplexBoundingPathUtilities 0x600000280f40> [32]    +24: __strong _bitmap 0x600000280f58
+        +   ! : |                                                                     +       :             |       1 <UIScreen 0x103710950> [320]   +312: __strong _boundingPathUtilities 0x103710a88
+        +   ! : |                                                                     +       :             |         1 Region Stack thread 0 __CFRunLoopRun (in CoreFoundation) + 2584 0x16ce5d748
+        +   ! : |                                                                     +       :             1 <__NSMallocBlock__ 0x600000c17870> [48]  UIFoundation  __16-[_UICache init]_block_invoke  0x185120128    +40: __strong [capture] 0x600000c17898
+        +   ! : |                                                                     +       :               1 0x600001730e40 [64]    +40:  0x600001730e68
+        +   ! : |                                                                     +       :                 1 0x6000021190e0 [80]    +40:  0x600002119108
+        +   ! : |                                                                     +       :                   1 Kernel Pointers Into User Space 
+        +   ! : |                                                                     +       2 <UICTFontDescriptor 0x60000264ee20> [96]    +80:  0x60000264ee70
+        +   ! : |                                                                     +       : 2 <NSMutableArray (Storage) 0x1048e4630> [544]    +40: __strong  0x1048e4658
+        +   ! : |                                                                     +       :   2 <NSMutableArray 0x600000ccd6b0> [48]  item count: 43    +16: __strong storage 0x600000ccd6c0
+        +   ! : |                                                                     +       :     2 <TTenuousComponentFont 0x1048f0b20> [816]   +136:  0x1048f0ba8
+        +   ! : |                                                                     +       :       2 <UICTFont 0x104859d60> [608]   +456:  0x104859f28
+        +   ! : |                                                                     +       :         2 <NSAttributeDictionary 0x600002979b20> [112]    +80:  0x600002979b70
+        +   ! : |                                                                     +       :           2 <NSMutableRLEArray.theList (struct _NSRefCountedRunArray) 0x6000021a37f0> [80]    +48:  0x6000021a3820
+        +   ! : |                                                                     +       :             2 <NSMutableRLEArray 0x600000018970> [16]     +8: theList 0x600000018978
+        +   ! : |                                                                     +       :               2 <TTrueTypeScaler 0x600003785800> [192]   +152:  0x600003785898
+        +   ! : |                                                                     +       :                 2 <TFPFont 0x1048a4650> [448]   +440:  0x1048a4808
+        +   ! : |                                                                     +       :                   2 0x6000002cf1c0 [32]     +8:  0x6000002cf1c8
+        +   ! : |                                                                     +       :                     2 <CGFont 0x600002c3a180> [128]   +112:  0x600002c3a1f0
+        +   ! : |                                                                     +       :                       2 0x1037b2fa0 [688]   +660:  0x1037b3234
+        +   ! : |                                                                     +       :                         2 <NSCache._cache (struct cache_s) 0x1048647e0> [272]    +96:  0x104864840
+        +   ! : |                                                                     +       :                           2 <NSCache._cache (struct cache_s) 0x10370cbc0> [272]     +8:  0x10370cbc8
+        +   ! : |                                                                     +       :                             2 <NSCache._cache (struct cache_s) 0x10370cee0> [272]     +8:  0x10370cee8
+        +   ! : |                                                                     +       :                               1 <NSCache 0x600000c497a0> [48]    +16: _cache 0x600000c497b0
+        +   ! : |                                                                     +       :                               | 1 <CUICatalog 0x60000260d680> [96]    +40: _lookupCache 0x60000260d6a8
+        +   ! : |                                                                     +       :                               |   1 <CUINamedVectorGlyph 0x600003e09900> [256]    +96: _catalog 0x600003e09960
+        +   ! : |                                                                     +       :                               |     1 <_UIImageCUIVectorGlyphContent 0x600002c6cf00> [128]    +40: __strong _vectorGlyph 0x600002c6cf28
+        +   ! : |                                                                     +       :                               |       1 <UIImage 0x60000301c870> [144]    +16: __strong _content 0x60000301c880
+        +   ! : |                                                                     +       :                               |         1 <NSMutableDictionary (Storage) 0x60000298c4d0> [112]    +96: __strong  0x60000298c530
+        +   ! : |                                                                     +       :                               |           1 <NSMutableDictionary 0x6000002f6200> [32]  item count: 5     +8: __strong storage 0x6000002f6208
+        +   ! : |                                                                     +       :                               |             1 Region EventKitUI __DATA __bss: 's_iconCache' 0x1f2f79700
+        +   ! : |                                                                     +       :                               1 <NSCache._cache (struct cache_s) 0x10370d100> [272]     +8:  0x10370d108
+        +   ! : |                                                                     +       :                                 1 <NSCache._cache (struct cache_s) 0x10370d210> [272]     +8:  0x10370d218
+        +   ! : |                                                                     +       :                                   1 0x10485eb80 [272]     +8:  0x10485eb88
+        +   ! : |                                                                     +       :                                     1 0x10485eef0 [272]     +8:  0x10485eef8
+        +   ! : |                                                                     +       :                                       1 0x103611ea0 [272]     +8:  0x103611ea8
+        +   ! : |                                                                     +       :                                         1 Region UIKitServices __DATA __common: 'UISCreateCachedColorTransform.colorTransformCache' 0x1f2bd1fc0
+        +   ! : |                                                                     +       1 <UICTFontDescriptor 0x60000264c1e0> [96]    +80:  0x60000264c230
+        +   ! : |                                                                     +         1 <NSMutableDictionary (Storage) 0x6000029782a0> [112]    +64: __strong  0x6000029782e0
+        +   ! : |                                                                     +           1 <NSMutableDictionary 0x6000003427a0> [32]  item count: 5     +8: __strong storage 0x6000003427a8
+        +   ! : |                                                                     +             1 Region CoreText __DATA __common: 'TDescriptorSource::sSplicedFonts' 0x1f27c9da0
+        +   ! : |                                                                     18 0x11c6b8000 [416]   +184:  0x11c6b80b8 --> offset 213506
+        +   ! : |                                                                     + 18 0x10485aa80 [384]    +56:  0x10485aab8
+        +   ! : |                                                                     +   18 <TTenuousComponentFont 0x11c6b6af0> [816]   +360:  0x11c6b6c58
+        +   ! : |                                                                     +     18 <UICTFont 0x11c6b6890> [608]   +456:  0x11c6b6a58
+        +   ! : |                                                                     +       18 <CTRun 0x104856890> [400]   +128:  0x104856910
+        +   ! : |                                                                     +         18 <CTLine 0x1048692e0> [272]    +88:  0x104869338
+        +   ! : |                                                                     +           18 <_NSCoreTypesetterLayoutCache 0x600002194000> [80]    +56: _line 0x600002194038
+        +   ! : |                                                                     +             18 <UILabel 0x1048d8770> [816]   +600: __strong _layout 0x1048d89c8
+        +   ! : |                                                                     +               18 <Swift Metadata 0x1050afc00> [16384] +15688:  0x1050b3948 --> offset 544
+        +   ! : |                                                                     +                 7 <Swift Metadata 0x105071800> [16384] +16288:  0x1050757a0 --> offset 24
+        +   ! : |                                                                     +                 ! 1 <Class.data (class_rw_t) 0x600000230060> [32]    +16:  0x600000230070 --> offset 5712
+        +   ! : |                                                                     +                 ! : 1 0x60000173b2c0 [64]    +40:  0x60000173b2e8 --> offset 2
+        +   ! : |                                                                     +                 ! :   1 0x60000173bf00 [64]     +0:  0x60000173bf00
+        +   ! : |                                                                     +                 ! :     1 0x60000173bdc0 [64]     +8:  0x60000173bdc8
+        +   ! : |                                                                     +                 ! :       1 0x60000173b600 [64]     +0:  0x60000173b600
+        +   ! : |                                                                     +                 ! :         1 0x60000173b8c0 [64]     +8:  0x60000173b8c8
+        +   ! : |                                                                     +                 ! :           1 0x60000173bbc0 [64]     +8:  0x60000173bbc8
+        +   ! : |                                                                     +                 ! :             1 0x60000173a780 [64]     +8:  0x60000173a788
+        +   ! : |                                                                     +                 ! :               1 0x60000023dce0 [32]     +8:  0x60000023dce8
+        +   ! : |                                                                     +                 ! :                 1 Region CoreSVG __DATA __bss: 'NameToColorMap()::__colorMap' 0x1f37cc590
+        +   ! : |                                                                     +                 ! 1 <Swift Metadata 0x1040e0a00> [16384] +10632:  0x1040e3388 --> offset 13320
+        +   ! : |                                                                     +                 ! : 1 Region libswiftCoreFoundation.dylib __DATA __data: 'lazy protocol witness table cache variable for type CGFloat and conformance CGFloat' 0x1f54aec68 --> offset 1320
+        +   ! : |                                                                     +                 ! 1 <Swift._DictionaryStorage<Swift.String, () -> ()> 0x1038d5a00> [2560]  item count: 29     +0: isa 0x1038d5a00 --> offset 2808
+        +   ! : |                                                                     +                 ! : 1 <DarwinObserver 0x600000342820> [32]    +16: __strong handlers._variant 0x600000342830
+        +   ! : |                                                                     +                 ! :   1 0x105247a00 [10240]  +5384:  0x105248f08
+        +   ! : |                                                                     +                 ! :     1 <CFXNotificationRegistrar 0x6000035040b0> [176]   +144:  0x600003504140
+        +   ! : |                                                                     +                 ! :       1 <CFNotificationCenter 0x600000206fc0> [32]    +16:  0x600000206fd0
+        +   ! : |                                                                     +                 ! :         1 <__NSMallocBlock__ 0x600000c14210> [48]  CoreFoundation  ____CFXNotificationRegisterObserver_block_invoke  0x180420014    +32: [capture] 0x600000c14230
+        +   ! : |                                                                     +                 ! :           1 0x600002904d90 [112]    +56:  0x600002904dc8
+        +   ! : |                                                                     +                 ! :             1 0x60000170fc00 [64]     +8:  0x60000170fc08
+        +   ! : |                                                                     +                 ! :               1 0x600000216f20 [32]    +16:  0x600000216f30
+        +   ! : |                                                                     +                 ! :                 1 Region libprotobuf-lite.dylib __DATA __common: 'wireless_diagnostics::google::protobuf::internal::shutdown_functions' 0x1f27d38b8
+        +   ! : |                                                                     +                 ! 1 Region DesignLibrary __DATA __data + 21464 0x25f208e80 --> offset 14840
+        +   ! : |                                                                     +                 ! 1 Region MobileSafari __DATA __data: 'OBJC_METACLASS_$_SFBookmarksCollectionViewControllerCompactRowCell' + 616 0x2603fe650 --> offset 2696
+        +   ! : |                                                                     +                 ! 1 Region libswiftDispatch.dylib __DATA __data: 'lazy protocol witness table cache variable for type DispatchWorkItemFlags and conformance DispatchWorkItemFlags' 0x1f54bef70 --> offset 3376
+        +   ! : |                                                                     +                 ! 1 Region libswiftObservation.dylib __DATA __data: 'demangling cache variable for type metadata for ()' 0x262521710 --> offset 2696
+        +   ! : |                                                                     +                 3 <Swift Metadata 0x1040b4c00> [16384]    +40:  0x1040b4c28 --> offset 16272
+        +   ! : |                                                                     +                 ! 1 <Swift Metadata 0x1040c6a00> [16384]   +192:  0x1040c6ac0 --> offset 15880
+        +   ! : |                                                                     +                 ! : 1 <Class.data (class_rw_t) 0x600000291d20> [32]    +24:  0x600000291d38 --> offset 656
+        +   ! : |                                                                     +                 ! :   1 <Swift Metadata 0x1040cea00> [16384] +11496:  0x1040d16e8
+        +   ! : |                                                                     +                 ! :     1 <Swift Metadata 0x1040d2a00> [16384]    +48:  0x1040d2a30 --> offset 15832
+        +   ! : |                                                                     +                 ! :       1 <Swift Metadata 0x103857200> [16384] +15600:  0x10385aef0 --> offset 4248
+        +   ! : |                                                                     +                 ! :         1 <Swift Metadata 0x10386cc00> [16384]  +8624:  0x10386edb0 --> offset 13888
+        +   ! : |                                                                     +                 ! :           1 Region CoreGraphics __DATA __data + 632 0x1f2be4a80 --> offset 8240
+        +   ! : |                                                                     +                 ! 1 <SwiftUI.(PropertiesTransform in $1dadcd2e4) 0x112a04270> [256]    +24: [capture] 0x112a04288 --> offset 9928
+        +   ! : |                                                                     +                 ! : 1 0x104d10b6c [76]    +36:  0x104d10b90
+        +   ! : |                                                                     +                 ! :   1 <AttributeGraph Owned>     +0: __strong  0x5
+        +   ! : |                                                                     +                 ! 1 <SwiftUI.(TypedElement in $1dbb9b854)<SwiftUI.EnvironmentPropertyKey<(extension in SwiftUI):SwiftUI.EnvironmentValues.(MaterialBackdropProxyKey in $1dbba8824)>> 0x6000021665d0> [80]     +0: isa 0x6000021665d0 --> offset 6808
+        +   ! : |                                                                     +                 !   1 <NSMutableArray (Storage) 0x600000006680> [16]     +0: __strong  0x600000006680
+        +   ! : |                                                                     +                 !     1 <NSMutableArray 0x600000cc8180> [48]  item count: 1    +16: __strong storage 0x600000cc8190
+        +   ! : |                                                                     +                 !       1 Region AXRuntime __DATA __bss: 'Cache' 0x1f2d40a98
+        +   ! : |                                                                     +                 3 <Swift Metadata 0x1050a3c00> [16384]   +744:  0x1050a3ee8 --> offset 14704
+        +   ! : |                                                                     +                 ! 3 <Swift Metadata 0x1050c5a00> [16384] +16096:  0x1050c98e0 --> offset 24
+        +   ! : |                                                                     +                 !   2 <Swift Metadata 0x1040d6a00> [16384] +15952:  0x1040da850 --> offset 24
+        +   ! : |                                                                     +                 !   : 2 <Swift Metadata 0x104117200> [16384]  +3496:  0x104117fa8 --> offset 2200
+        +   ! : |                                                                     +                 !   :   1 Region Gestures __DATA __data: '_OBJC_PROTOCOL_$_GFGestureNodeCoordinator' + 544 0x25f853290 --> offset 4112
+        +   ! : |                                                                     +                 !   :   1 Region libswiftObjectiveC.dylib __DATA __bss: 'metadata instantiation cache for protocol conformance descriptor for NSObject' + 40 0x1f54c4598 --> offset 2696
+        +   ! : |                                                                     +                 !   1 Region Combine __DATA __data: 'type metadata instantiation cache for Published.Publisher' + 40 0x1f4c31d68 --> offset 14464
+        +   ! : |                                                                     +                 1 0x103749300 [416]   +232:  0x1037493e8 --> offset 8920
+        +   ! : |                                                                     +                 ! 1 Region libswiftCore.dylib __DATA __bss: 'type metadata instantiation cache for _DictionaryStorage' + 8 0x1f2f34750
+        +   ! : |                                                                     +                 1 Region Foundation __DATA __data: 'demangling cache variable for type metadata for _DictionaryStorage<String, _TimeZoneProtocol>' 0x1f270d2a8 --> offset 9008
+        +   ! : |                                                                     +                 1 Region SwiftUI __DATA __data: 'lazy cache variable for type metadata for UserInterfaceSizeClass?' 0x1f5e41e60 --> offset 14704
+        +   ! : |                                                                     +                 1 Region SwiftUICore __DATA __data: 'lazy cache variable for type metadata for EnvironmentPropertyKey<DynamicTypeSizeKey>' 0x1f5fc5d10 --> offset 16272
+        +   ! : |                                                                     +                 1 Region UIKitCore __DATA __data: 'OBJC_METACLASS_$__TtC5UIKit23MaterialBackdropContext' + 56 0x1f2913d60 --> offset 14288
+        +   ! : |                                                                     3 Region dyld private memory  region + 24 0x105870018 --> offset 16
+        +   ! : |                                                                       3 Region dyld private memory  region + 24 0x105838018 --> offset 16
+        +   ! : |                                                                         3 Region dyld private memory  region + 24 0x105800018 --> offset 16
+        +   ! : |                                                                           3 Region dyld private memory  region + 24 0x104ec8018 --> offset 16
+        +   ! : |                                                                             3 Region dyld private memory  region + 24 0x104e90018 --> offset 16
+        +   ! : |                                                                               3 Region dyld private memory  region + 24 0x104e58018 --> offset 16
+        +   ! : |                                                                                 3 Region dyld private memory  region + 24 0x104e20018 --> offset 16
+        +   ! : |                                                                                   3 Region dyld private memory  region + 24 0x104cec018 --> offset 16
+        +   ! : |                                                                                     2 Region dyld private memory  region + 24 0x103584018 --> offset 16
+        +   ! : |                                                                                     ! 2 Region dyld private memory  region + 130456 0x103583d98 --> offset 2
+        +   ! : |                                                                                     !   2 Region dyld private memory  region + 46576 0x1033bb5f0 --> offset 96
+        +   ! : |                                                                                     !     1 Region dyld_sim __DATA __bss: 'lsl::sPoolBytes' + 20168 0x103179698 --> offset 1520
+        +   ! : |                                                                                     !     1 Region dyld_sim __DATA __bss: 'lsl::sPoolBytes' + 8432 0x1031768c0 --> offset 96
+        +   ! : |                                                                                     1 Region AttributeGraph __DATA __common: 'AG::data::_shared_table_bytes' 0x1f4d758c8 --> offset 146944
+        +   ! : 1 Region dyld private memory  region + 0 0x112c44000 --> offset 17
+        +   ! :   1 Region dyld private memory  region + 0 0x112cc4000 --> offset 17
+        +   ! :     1 Region dyld private memory  region + 0 0x112d00000 --> offset 17
+        +   ! :       1 Region dyld private memory  region + 0 0x113534000 --> offset 17
+        +   ! :         1 Region dyld private memory  region + 0 0x113624000 --> offset 17
+        +   ! :           1 Region dyld private memory  region + 0 0x113660000 --> offset 17
+        +   ! :             1 Region dyld private memory  region + 0 0x11369c000 --> offset 17
+        +   ! :               1 Region dyld private memory  region + 0 0x1136d8000 --> offset 17
+        +   ! :                 1 Region dyld private memory  region + 0 0x113ef8000 --> offset 17
+        +   ! :                   1 Region dyld private memory  region + 0 0x113d90000 --> offset 17
+        +   ! :                     1 Region dyld private memory  region + 0 0x113e98000 --> offset 17
+        +   ! :                       1 Region dyld private memory  region + 0 0x113f34000 --> offset 17
+        +   ! :                         1 Region dyld private memory  region + 0 0x113f70000 --> offset 17
+        +   ! :                           1 Region __DATA_DIRTY /usr/lib/dyld __DATA_DIRTY __all_image_info: 'dyld_all_image_infos' + 304 0x1032e8130 --> offset 96
+        +   ! 1 <Lexicon 0x600002c67500> [128]    +64: __strong followerRanks 0x600002c67540
+        +   !   1 Region PersianSTTKeyboard __DATA __common: 'static Lexicon.shared' 0x10305ce68
+        +   1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f26c94c8
+        1 <SVGPath 0x60000300b8d0> [144]    +56:  0x60000300b908
+          1 <SVGAttribute 0x600002929b20> [112]    +88:  0x600002929b78
+            1 0x600000dfbea0 [48]    +40:  0x600000dfbec8
+              1 0x600000df9170 [48]     +8:  0x600000df9178
+                1 <SVGAttributeMap 0x6000021b56d0> [80]    +48:  0x6000021b5700
+                  1 <SVGShapeNode 0x10363ff20> [336]    +56:  0x10363ff58
+                    1 0x600000028af0 [16]     +0:  0x600000028af0
+                      1 <SVGNode 0x6000039c9ee0> [208]    +88:  0x6000039c9f38
+                        1 0x600000028900 [16]     +0:  0x600000028900
+                          1 <SVGRootNode 0x103627690> [288]    +88:  0x1036276e8
+                            1 <SVGDocument 0x6000021b6030> [80]    +48:  0x6000021b6060
+                              1 <SVGDocument 0x60000022d820> [32]    +16:  0x60000022d830
+                                1 <_CUIThemeSVGRendition 0x1036bc540> [352]   +216: _svgDocument 0x1036bc618
+                                  1 <NSMutableDictionary (Storage) 0x103842200> [2048]  +1560: __strong  0x103842818
+                                    1 <NSMutableDictionary 0x600000342300> [32]  item count: 57     +8: __strong storage 0x600000342308
+                                      1 <CUIStructuredThemeStore 0x60000260edc0> [96]     +8: _cache 0x60000260edc8
+                                        1 0x6000017dc840 [64]    +16:  0x6000017dc850
+                                          1 <CFBasicHash 0x60000170f880> [64]    +40:  0x60000170f8a8
+                                            1 <NSClassicMapTable 0x600002606160> [96]    +80: _ht 0x6000026061b0
+                                              1 Region CoreUI __DATA __bss: '__PerformBlockWithThemeRegistry.__themeRegistry' 0x1f2ec3268
