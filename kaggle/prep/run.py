@@ -121,35 +121,53 @@ kept = skipped = 0
 hours = 0.0
 with open(f"{OUT}/metadata.csv", "w", encoding="utf-8") as meta, Pool(os.cpu_count()) as pool:
     for part in range(1, PARTS + 1):
-        path = hf_hub_download("MahtaFetrat/Mana-TTS", f"dataset/dataset_part_{part:03d}.parquet", repo_type="dataset", cache_dir="/kaggle/temp/hf")
-        df = pd.read_parquet(path)
-        ok = (df["CER"] <= MAX_CER) & df["duration"].between(MIN_S, MAX_S) & df["transcript"].str.len().gt(2)
+        try:
+            path = hf_hub_download("MahtaFetrat/Mana-TTS", f"dataset/dataset_part_{part:03d}.parquet", repo_type="dataset", cache_dir="/kaggle/temp/hf")
+            df = pd.read_parquet(path)
+        except Exception as e:  # noqa: BLE001
+            print(f"part {part}: not read: {e!r}", flush=True)
+            continue
+        ok = (df["CER"] <= MAX_CER) & df["duration"].between(MIN_S, MAX_S) & df["transcript"].fillna("").str.len().gt(2)
         skipped += int((~ok).sum())
         df = df[ok]
         rate_col = "samplerate" if "samplerate" in df.columns else "sample_rate"
         items = []
         for i, row in df.iterrows():
             name = f"p{part:03d}_{i:05d}.flac"
-            audio = np.asarray(row["audio"], dtype=np.float32)
-            rate = int(row[rate_col])
-            if rate == 44100:
-                audio = resample_poly(audio, 1, 2)
-            elif rate != 22050:
-                audio = resample_poly(audio, 22050, rate)
-            peak = float(np.abs(audio).max()) or 1.0
-            sf.write(f"{OUT}/wavs/{name}", (audio / peak * 0.95).astype(np.float32), 22050, subtype="PCM_16")
-            items.append((name, row["transcript"]))
+            try:
+                audio = np.asarray(row["audio"], dtype=np.float32).reshape(-1)
+                rate = int(row[rate_col])
+                if rate == 44100:
+                    audio = resample_poly(audio, 1, 2)
+                elif rate != 22050:
+                    audio = resample_poly(audio, 22050, rate)
+                peak = float(np.abs(audio).max()) if audio.size else 0.0
+                if peak <= 0 or not np.isfinite(peak):
+                    raise ValueError("silent")
+                sf.write(f"{OUT}/wavs/{name}", (audio / peak * 0.95).astype(np.float32), 22050, format="FLAC", subtype="PCM_16")
+            except Exception as e:  # noqa: BLE001
+                if skipped < 50:
+                    print(f"skip {name}: {e!r}", flush=True)
+                skipped += 1
+                continue
+            items.append((name, str(row["transcript"])))
             hours += row["duration"] / 3600
         for name, ipa in pool.imap(work, items, chunksize=16):
             if not ipa or ipa.startswith("!"):
+                if ipa and skipped < 50:
+                    print(f"skip {name}: {ipa}", flush=True)
                 os.remove(f"{OUT}/wavs/{name}")
                 skipped += 1
                 continue
             meta.write(f"{name}|{ipa}|{' '.join(map(str, ids_of(ipa)))}\n")
             kept += 1
         meta.flush()
-        os.remove(os.path.realpath(path))
-        print(f"part {part}: kept {kept}, skipped {skipped}, {hours:.1f} h, {time.time() - start:.0f} s", flush=True)
+        try:
+            os.remove(os.path.realpath(path))
+        except OSError:
+            pass
+        du = subprocess.run(f"du -sm {OUT}", shell=True, capture_output=True, text=True).stdout.split()[0]
+        print(f"part {part}: kept {kept}, skipped {skipped}, {hours:.1f} h, {du} MB, {time.time() - start:.0f} s", flush=True)
 
 with open(f"{OUT}/stats.txt", "w") as f:
     f.write(f"kept {kept} skipped {skipped} hours {hours:.1f}\n")
