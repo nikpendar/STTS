@@ -67,6 +67,13 @@ check("dictionary not across punctuation", ownWords.applied(to: "روز، ساع
 check("dictionary empty", PersonalDictionary().applied(to: "روز ساعد"), "روز ساعد")
 check("dictionary in a dictation", VoiceCommands.process("سلام روز ساعد نقطه", punctuation: true, commands: true,
                                                          dictionary: ownWords).text, "سلام Rooz Saad.")
+let starters = PersonalDictionary().addingStarters()
+check("starters", starters.entries.count, 5)
+check("starters once", starters.addingStarters().entries.count, 5)
+check("starter marks join the word before", starters.applied(to: "سلام ویرگول خوبی نقطه"), "سلام، خوبی.")
+check("starter percent", VoiceCommands.process("بیست درصد", punctuation: false, commands: false, dictionary: starters).text, "۲۰٪")
+check("starter emoji", starters.applied(to: "عالی بود شکلک لبخند"), "عالی بود 🙂")
+check("symbol words", starters.symbolWords.contains(PersonalDictionary.key("ویرگول")), true)
 check("replacements", PersonalDictionary.replacements(original: "با روز ساعد صحبت کردم.", corrected: "با Rooz Saad صحبت کردم.")
         .map { "\($0.heard)>\($0.written)" }.joined(separator: ","), "روز ساعد>Rooz Saad")
 check("replacements skip ZWNJ", PersonalDictionary.replacements(original: "می خوام", corrected: "می‌خوام").count, 0)

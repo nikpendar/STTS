@@ -480,7 +480,9 @@ final class KeyboardSession: ObservableObject {
                 }
                 // Commas, full stops and question marks (`AutoPunctuation`), off the main thread.
                 let served = KeyboardOptions.load().autoPunctuation
-                    ? await Task.detached(priority: .userInitiated) { AutoPunctuation.shared.punctuate(text) }.value
+                    ? await Task.detached(priority: .userInitiated) { [quiet = PersonalDictionary.saved.symbolWords] in
+                        AutoPunctuation.shared.punctuate(text, quiet: quiet)
+                    }.value
                     : text
                 guard id == dictationID else { return }
                 server.publish(DictationBridge.finalPrefix + dictation + "\n" + served)

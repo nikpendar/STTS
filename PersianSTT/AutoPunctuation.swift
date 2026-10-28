@@ -37,7 +37,9 @@ final class AutoPunctuation: @unchecked Sendable {
 
     /// `text` with the marks put in; the text unchanged when the model is missing or fails.
     /// Pause marks (`DictationBridge.pauseMark`) and line breaks stay where they are.
-    func punctuate(_ text: String) -> String {
+    /// `quiet`: keys (`PersonalDictionary.key`) of words that become marks, after which and
+    /// before which no mark is added.
+    func punctuate(_ text: String, quiet: Set<String> = []) -> String {
         let started = CFAbsoluteTimeGetCurrent()
         // Words with the separators after them, so the text goes back together as it was.
         var words: [(word: String, after: String)] = []
@@ -63,7 +65,11 @@ final class AutoPunctuation: @unchecked Sendable {
         var out = leading
         for (index, item) in words.enumerated() {
             out += item.word
-            let label = labels[index]
+            var label = labels[index]
+            if !quiet.isEmpty, quiet.contains(PersonalDictionary.key(item.word))
+                || (index + 1 < words.count && quiet.contains(PersonalDictionary.key(words[index + 1].word))) {
+                label = 0
+            }
             // A word that already ends in a mark keeps it.
             if label > 0, let last = item.word.last, !Self.endings.contains(last) {
                 out += Self.marks[label]

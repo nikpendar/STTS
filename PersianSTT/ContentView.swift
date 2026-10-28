@@ -113,6 +113,10 @@ struct ContentView: View {
         // Rewrites the shared pasteboard copies, which a reinstall or reboot can clear.
         .onAppear {
             style.save()
+            if !UserDefaults.standard.bool(forKey: "dictionaryStarters") {
+                dictionary = dictionary.addingStarters()
+                UserDefaults.standard.set(true, forKey: "dictionaryStarters")
+            }
             // The keyboard's own settings panel may have changed them since.
             options = KeyboardOptions.load()
             options.save()
