@@ -201,6 +201,7 @@ struct PunctTokenizer {
     let cls: Int32
     let sep: Int32
     let unk: Int32
+    let zwnj: Int32?
     private let pieces: [String: (id: Int32, score: Float)]
     private let longest: Int
     private let unkScore: Float
@@ -227,21 +228,30 @@ struct PunctTokenizer {
         cls = pieces["[CLS]"]?.id ?? 2
         sep = pieces["[SEP]"]?.id ?? 3
         unk = pieces["<unk>"]?.id ?? 1
+        zwnj = pieces["[ZWNJ]"]?.id
     }
 
-    /// The tokenizer's normalizer (tokenizer.json): ZWNJ as «[ZWNJ]», NFKD without combining
-    /// marks, lower case, then NFKC for the model's own character map (nmt_nfkc).
+    /// The tokenizer's normalizer (tokenizer.json): NFKD without combining marks, then NFKC for
+    /// the model's own character map (nmt_nfkc); letter case stays.
     static func normalize(_ word: String) -> String {
-        // The model's first step writes ZWNJ out as a token of its own.
-        let word = word.replacingOccurrences(of: "\u{200C}", with: "[ZWNJ]")
         let decomposed = word.decomposedStringWithCompatibilityMapping.unicodeScalars
             .filter { $0.properties.generalCategory != .nonspacingMark }
-        var out = String(String.UnicodeScalarView(decomposed)).lowercased()
-        out = out.precomposedStringWithCompatibilityMapping
+        let out = String(String.UnicodeScalarView(decomposed)).precomposedStringWithCompatibilityMapping
         return out.replacingOccurrences(of: "``", with: "\"").replacingOccurrences(of: "''", with: "\"")
     }
 
+    /// The normalizer writes ZWNJ as «[ZWNJ]», a token of its own, and each part around it is
+    /// read as a word of its own.
     func encode(word: String) -> [Int32] {
+        var ids: [Int32] = []
+        for (index, part) in word.split(separator: "\u{200C}", omittingEmptySubsequences: false).enumerated() {
+            if index > 0, let zwnj { ids.append(zwnj) }
+            ids += encodePart(String(part))
+        }
+        return ids
+    }
+
+    private func encodePart(_ word: String) -> [Int32] {
         let scalars = Array(("▁" + Self.normalize(word)).unicodeScalars)
         let n = scalars.count
         guard n > 1 else { return [] }
