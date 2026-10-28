@@ -126,6 +126,13 @@ final class AutoPunctuation: @unchecked Sendable {
         return labels
     }
 
+    /// Loads the model ahead of the first dictation (1.4 s in the simulator), off the main thread.
+    func preload() {
+        lock.lock()
+        defer { lock.unlock() }
+        _ = loaded()
+    }
+
     /// A word's pieces, for Tests/Punct.
     func pieces(of word: String) -> [Int32]? {
         lock.lock()

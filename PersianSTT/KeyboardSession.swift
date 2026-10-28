@@ -117,6 +117,9 @@ final class KeyboardSession: ObservableObject {
         }
         // Loads the model now if nothing has yet, so the first dictation does not wait for it.
         _ = Transcriber.shared
+        if KeyboardOptions.load().autoPunctuation {
+            Task.detached(priority: .utility) { AutoPunctuation.shared.preload() }
+        }
         Task {
             await PersonalModel.shared.upload()
             await PersonalModel.shared.check(automatic: true)
