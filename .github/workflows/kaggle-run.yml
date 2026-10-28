@@ -50,7 +50,7 @@ jobs:
             case "$S" in *complete*|*COMPLETE*|*error*|*ERROR*|*cancel*|*CANCEL*) break;; esac
             sleep 120
           done
-          mkdir -p out && kaggle kernels output "$ID" -p out >/dev/null 2>&1 || true
+          mkdir -p out && kaggle kernels output "$ID" -p out --file-pattern ".*\\.(log|txt|json)$" 2>&1 | tail -3 || true
           ls -la out
           LOG="$(ls out/*.log 2>/dev/null | head -1)"
           [ -n "$LOG" ] && python3 -c "import json,sys; [print(e.get('data',''),end='') for e in json.load(open(sys.argv[1]))]" "$LOG" | tail -150
