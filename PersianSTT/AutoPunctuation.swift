@@ -247,9 +247,11 @@ struct PunctTokenizer {
     /// read as a word of its own.
     func encode(word: String) -> [Int32] {
         var ids: [Int32] = []
-        for (index, part) in word.split(separator: "\u{200C}", omittingEmptySubsequences: false).enumerated() {
+        // By scalars: ZWNJ joins the letter before it into one Character.
+        let parts = word.unicodeScalars.split(separator: "\u{200C}", omittingEmptySubsequences: false)
+        for (index, part) in parts.enumerated() {
             if index > 0, let zwnj { ids.append(zwnj) }
-            ids += encodePart(String(part))
+            ids += encodePart(String(String.UnicodeScalarView(part)))
         }
         return ids
     }
