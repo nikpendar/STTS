@@ -1,0 +1,77 @@
+# Persian TTS groundwork: runs the Homo-GE2PE grapheme-to-phoneme model (MIT) on test sentences
+# next to eSpeak and synthesizes them with the Mana Piper voice (scripts/tts_g2p_probe.py), and
+# inspects SadeghK's FastPitch + HiFi-GAN Persian model. Samples are committed to tts-samples/g2p.
+# Nothing here changes the app.
+name: TTS explore
+
+on:
+  push:
+    branches: [claude/project-thread-xaj97f]
+    paths: [.github/workflows/tts-explore.yml, scripts/tts_g2p_probe.py]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  g2p:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Install
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq espeak-ng >/dev/null
+          pip install -q --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -q transformers sentencepiece onnxruntime numpy nltk unidecode
+      - name: Models
+        run: |
+          base=https://huggingface.co/MahtaFetrat/Homo-GE2PE-Persian/resolve/main
+          mkdir -p g2p/assets && cd g2p
+          curl -fsSL --retry 3 -o model.zip "$base/model-weights/homo-ge2pe.zip" && unzip -q model.zip -d homo-ge2pe
+          ls -l homo-ge2pe
+          curl -fsSL --retry 3 -o assets/GE2PE.py "$base/assets/GE2PE.py"
+          curl -fsSL --retry 3 -o parsivar.zip "$base/assets/Parsivar.zip" && unzip -q parsivar.zip -d assets
+          sed -i 's/from collections import Iterable/from collections.abc import Iterable/' assets/Parsivar/*.py
+          ls assets assets/* | head -30
+          cd .. && mkdir voices
+          m=https://huggingface.co/MahtaFetrat/Mana-Persian-Piper/resolve/main/fa_IR-mana-medium.onnx
+          curl -fsSL --retry 3 -o voices/mana.onnx "$m" && curl -fsSL --retry 3 -o voices/mana.onnx.json "$m.json"
+      - name: Probe
+        run: cd g2p/assets && python3 "$GITHUB_WORKSPACE/scripts/tts_g2p_probe.py" "$GITHUB_WORKSPACE/g2p" "$GITHUB_WORKSPACE/voices/mana.onnx" "$GITHUB_WORKSPACE/voices/mana.onnx.json" "$GITHUB_WORKSPACE/tts-samples/g2p"
+      - name: Commit samples
+        run: |
+          git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git add tts-samples && git commit -qm "TTS samples: Mana with Homo-GE2PE" && git pull -q --rebase && git push
+
+  fastpitch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Install
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libsndfile1 >/dev/null
+          pip install -q --index-url https://download.pytorch.org/whl/cpu torch torchaudio
+          git clone -q --depth 1 https://github.com/SadeghKrmi/NeMo.git nemo-fork
+          ls nemo-fork/nemo/collections/tts/g2p/models/fa_ir_persian
+          pip install -q Cython packaging
+          pip install -q -e "nemo-fork[tts]" onnxruntime onnx num2fawords
+      - name: Models
+        run: |
+          base=https://huggingface.co/SadeghK/tts_fa_fastpitch_hifigan-v2.0/resolve/main
+          mkdir fp
+          curl -fsSL --retry 3 -o fp/fastpitch.onnx "$base/models/onnx-models/fastpitch.onnx"
+          curl -fsSL --retry 3 -o fp/hifigan.onnx "$base/models/onnx-models/hifigan.onnx"
+          curl -fsSL --retry 3 -o fp/persian.dict "$base/persian-dict/persian-v5.0.dict"
+      - name: Probe
+        run: python3 scripts/tts_fastpitch_probe.py fp/fastpitch.onnx fp/hifigan.onnx fp/persian.dict tts-samples/fastpitch
+      - name: Commit samples
+        if: always()
+        run: |
+          git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git add tts-samples && git commit -qm "TTS samples: SadeghK FastPitch" && git pull -q --rebase && git push || true

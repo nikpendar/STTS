@@ -1,0 +1,57 @@
+# Checks the app's Persian voice code (PersianSTT/OnnxModel.swift, PersianPhonemizer.swift) on a
+# Mac with Tests/TTSCheck: the same phonemes as the Python export (Tests/TTS/tts-reference.json),
+# speed, and the test sentences as WAVs in tts-samples/swift on this branch. No simulator or app build.
+name: Persian voice check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-xaj97f]
+    paths:
+      - PersianSTT/OnnxModel.swift
+      - PersianSTT/PersianPhonemizer.swift
+      - PersianSTT/OnnxRuntime-Bridging-Header.h
+      - Tests/TTSCheck/**
+      - Tests/TTS/**
+      - .github/workflows/tts-check.yml
+
+permissions:
+  contents: write
+
+env:
+  ORT_VERSION: "1.20.0"
+
+jobs:
+  check:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: ONNX Runtime and the voice files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL --retry 3 -o ort.tgz "https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/onnxruntime-osx-arm64-$ORT_VERSION.tgz"
+          mkdir ort-x && tar xzf ort.tgz -C ort-x
+          ln -s "$(dirname "$(dirname "$(find ort-x -name onnxruntime_c_api.h | head -n1)")")" ort && ls ort/include ort/lib
+          mkdir voice && gh release download tts-fa-mana --dir voice && ls -l voice
+      - name: iOS framework for the app
+        run: |
+          # setup.sh takes ONNX Runtime for iOS from the CocoaPods archive: check it and its slices.
+          curl -fsSL --retry 3 -o pod.zip "https://download.onnxruntime.ai/pod-archive-onnxruntime-c-$ORT_VERSION.zip"
+          unzip -q pod.zip -d pod && find pod -maxdepth 3 | head -30 && du -sh pod/*
+          find pod -name Info.plist -path "*xcframework*" -maxdepth 3 -exec plutil -p {} \; | head -40
+      - name: Build and run
+        run: |
+          if ! xcrun swiftc -O -o tts-check -import-objc-header PersianSTT/OnnxRuntime-Bridging-Header.h -Iort/include \
+            -Lort/lib -lonnxruntime -Xlinker -rpath -Xlinker "$PWD/ort/lib" \
+            PersianSTT/OnnxModel.swift PersianSTT/PersianPhonemizer.swift PersianSTTKeyboard/SpokenNumbers.swift \
+            Tests/TTSCheck/LexiconStub.swift Tests/TTSCheck/main.swift 2> build.txt; then
+            cat build.txt | head -60
+            grep "error:" build.txt | head -20 | sed 's/^/::error::/'
+            exit 1
+          fi
+          ./tts-check voice Tests/TTS/tts-reference.json tts-samples/swift | tee result.txt
+      - name: Commit samples
+        run: |
+          git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git add tts-samples/swift && git commit -qm "TTS samples: the app's Swift voice code" && git pull -q --rebase && git push

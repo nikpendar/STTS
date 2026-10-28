@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A1000000000000000000004C /* OnnxModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* OnnxModel.swift */; };
+		A1000000000000000000004D /* PersianPhonemizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* PersianPhonemizer.swift */; };
+		A1000000000000000000004E /* PersianSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* PersianSpeech.swift */; };
+		A1000000000000000000004F /* onnxruntime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* onnxruntime.xcframework */; };
 		A10000000000000000000048 /* EmojiPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003F /* EmojiPanel.swift */; };
 		A10000000000000000000047 /* EmojiPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003F /* EmojiPanel.swift */; };
 		A10000000000000000000046 /* GlideDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003E /* GlideDecoder.swift */; };
@@ -86,6 +90,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A20000000000000000000042 /* OnnxModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnnxModel.swift; sourceTree = "<group>"; };
+		A20000000000000000000043 /* PersianPhonemizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianPhonemizer.swift; sourceTree = "<group>"; };
+		A20000000000000000000044 /* PersianSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianSpeech.swift; sourceTree = "<group>"; };
+		A20000000000000000000045 /* onnxruntime.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = onnxruntime.xcframework; sourceTree = "<group>"; };
+		A20000000000000000000046 /* OnnxRuntime-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "OnnxRuntime-Bridging-Header.h"; sourceTree = "<group>"; };
 		A20000000000000000000001 /* PersianSTTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianSTTApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* Transcriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcriber.swift; sourceTree = "<group>"; };
@@ -134,6 +143,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1000000000000000000004F /* onnxruntime.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -153,6 +163,7 @@
 				A30000000000000000000002 /* PersianSTT */,
 				A30000000000000000000005 /* PersianSTTKeyboard */,
 				A30000000000000000000006 /* Shared */,
+				A30000000000000000000007 /* Frameworks */,
 				A30000000000000000000004 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -175,6 +186,10 @@
 				A20000000000000000000010 /* KeyboardPreview.swift */,
 				A2000000000000000000005A /* Onboarding.swift */,
 				A20000000000000000000020 /* KeyboardTestView.swift */,
+				A20000000000000000000042 /* OnnxModel.swift */,
+				A20000000000000000000043 /* PersianPhonemizer.swift */,
+				A20000000000000000000044 /* PersianSpeech.swift */,
+				A20000000000000000000046 /* OnnxRuntime-Bridging-Header.h */,
 				A2000000000000000000000E /* Info.plist */,
 				A200000000000000000000D0 /* PrivacyInfo.xcprivacy */,
 				A20000000000000000000006 /* Models */,
@@ -224,6 +239,14 @@
 				A200000000000000000000C0 /* CrashReports.swift */,
 			);
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		A30000000000000000000007 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000045 /* onnxruntime.xcframework */,
+			);
+			path = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -379,6 +402,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1000000000000000000004C /* OnnxModel.swift in Sources */,
+				A1000000000000000000004D /* PersianPhonemizer.swift in Sources */,
+				A1000000000000000000004E /* PersianSpeech.swift in Sources */,
 				A10000000000000000000047 /* EmojiPanel.swift in Sources */,
 				A10000000000000000000045 /* GlideDecoder.swift in Sources */,
 				A10000000000000000000043 /* KeyboardMetrics.swift in Sources */,
@@ -501,8 +527,13 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lc++",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = ir.nikpendar.PersianSTT;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "PersianSTT/OnnxRuntime-Bridging-Header.h";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -531,8 +562,13 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.1;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lc++",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = ir.nikpendar.PersianSTT;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "PersianSTT/OnnxRuntime-Bridging-Header.h";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;

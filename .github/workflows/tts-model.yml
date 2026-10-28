@@ -1,0 +1,55 @@
+# Persian voice for the app: exports the Homo-GE2PE phonemizer (MahtaFetrat, MIT) to ONNX, takes
+# the Mana Persian Piper voice (MahtaFetrat, MIT), both with 8-bit weights (scripts/tts_export.py),
+# checks the ONNX phonemizer against the original, and publishes the files as the release
+# tts-fa-mana, where setup.sh downloads them. The phonemes for the test sentences go to
+# Tests/TTS/tts-reference.json for the app's Swift check.
+name: Persian voice model
+
+on:
+  push:
+    branches: [claude/project-thread-xaj97f]
+    paths: [.github/workflows/tts-model.yml, scripts/tts_export.py, scripts/tts_phonemes.py]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TAG: tts-fa-mana
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Install
+        run: |
+          pip install -q --index-url https://download.pytorch.org/whl/cpu torch
+          pip install -q transformers sentencepiece onnx onnxruntime numpy nltk unidecode
+      - name: Download
+        run: |
+          base=https://huggingface.co/MahtaFetrat/Homo-GE2PE-Persian/resolve/main
+          mkdir -p g2p/assets voices
+          curl -fsSL --retry 3 -o g2p/model.zip "$base/model-weights/homo-ge2pe.zip" && unzip -q g2p/model.zip -d g2p/homo-ge2pe
+          curl -fsSL --retry 3 -o g2p/parsivar.zip "$base/assets/Parsivar.zip" && unzip -q g2p/parsivar.zip -d g2p/assets
+          sed -i 's/from collections import Iterable/from collections.abc import Iterable/' g2p/assets/Parsivar/*.py
+          m=https://huggingface.co/MahtaFetrat/Mana-Persian-Piper/resolve/main/fa_IR-mana-medium.onnx
+          curl -fsSL --retry 3 -o voices/mana.onnx "$m" && curl -fsSL --retry 3 -o voices/mana.onnx.json "$m.json"
+      - name: Export
+        run: python3 scripts/tts_export.py "$PWD/g2p" voices/mana.onnx voices/mana.onnx.json out
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
+            --title "Persian voice: Mana Piper + Homo-GE2PE, 8-bit" \
+            --notes "Mana Persian Piper voice and the Homo-GE2PE phonemizer (both MahtaFetrat, MIT; voice data Mana-TTS, CC0) as ONNX with 8-bit weights. setup.sh downloads them into the app."
+          gh release upload "$TAG" out/g2p-encoder.onnx out/g2p-decoder.onnx out/mana.onnx out/mana.onnx.json --clobber
+      - name: Reference phonemes
+        run: |
+          mkdir -p Tests/TTS && cp out/tts-reference.json Tests/TTS/
+          git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"
+          git add Tests/TTS && (git diff --cached --quiet || (git commit -qm "TTS reference phonemes" && git pull -q --rebase && git push))
