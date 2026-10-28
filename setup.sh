@@ -63,6 +63,24 @@ if [ ! -d "$ROOT/Frameworks/onnxruntime.xcframework" ]; then
   mv "$(find "$ROOT/build-model/onnxruntime" -name onnxruntime.xcframework -type d | head -n1)" "$ROOT/Frameworks/"
 fi
 
+# Automatic punctuation (release punct-albert6, from .github/workflows/punct-release.yml): a Persian
+# ALBERT tagger fine-tuned from HooshvareLab/albert-fa-zwnj-base-v2 (Apache-2.0), compiled Core ML
+# with 8-bit weights, 11 MB in the app (Models/Punct).
+PUNCT_RELEASE="${PUNCT_RELEASE:-https://github.com/nikpendar/STTS/releases/download/punct-albert6}"
+mkdir -p "$MODELS/Punct"
+if [ ! -s "$MODELS/Punct/punct-vocab.tsv" ] || [ ! -d "$MODELS/Punct/Punct.mlmodelc" ]; then
+  echo "Downloading the punctuation model"
+  if curl -fL --retry 3 --progress-bar "$PUNCT_RELEASE/Punct.mlmodelc.zip" -o "$ROOT/build-model/Punct.mlmodelc.zip" &&
+     curl -fL --retry 3 --progress-bar "$PUNCT_RELEASE/punct-vocab.tsv" -o "$MODELS/Punct/punct-vocab.tsv.part"; then
+    rm -rf "$MODELS/Punct/Punct.mlmodelc" && unzip -q "$ROOT/build-model/Punct.mlmodelc.zip" -d "$MODELS/Punct"
+    mv "$MODELS/Punct/punct-vocab.tsv.part" "$MODELS/Punct/punct-vocab.tsv"
+  else
+    # Without it the app leaves dictations as the speech model writes them.
+    echo "The punctuation model is not available: no automatic punctuation"
+    rm -f "$MODELS/Punct/punct-vocab.tsv.part"
+  fi
+fi
+
 [ "$MODE" = sidecars ] && exit 0
 
 FORMAT="${KOOCHIK_FORMAT:-mlprogram}"

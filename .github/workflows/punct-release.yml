@@ -8,7 +8,7 @@ name: Punctuation model
 on:
   push:
     branches: [batch-1021c]
-    paths: [.github/workflows/punct-release.yml, scripts/punct/release.py]
+    paths: [.github/workflows/punct-release.yml, scripts/punct/release.py, PersianSTT/AutoPunctuation.swift, Tests/Punct/**]
   workflow_dispatch:
     inputs:
       run:
@@ -56,6 +56,8 @@ jobs:
           xcrun coremlcompiler compile "$PKG" compiled --deployment-target 17.0 --platform ios
           mv compiled/Punct-int8.mlmodelc compiled/Punct.mlmodelc
           (cd compiled && zip -qr ../out/Punct.mlmodelc.zip Punct.mlmodelc)
+          # For the Swift check only (Tests/Punct compiles it for macOS); not in the release.
+          cp -R "$PKG" out/Punct.mlpackage
           ls -l out && du -sh compiled/Punct.mlmodelc
           python3 -c 'import json; print("::notice title=tokenizer::" + json.dumps(json.load(open("out/punct-info.json")), ensure_ascii=False)[:3500])'
       - uses: actions/upload-artifact@v5
@@ -72,3 +74,17 @@ jobs:
             --title "Automatic punctuation: ALBERT-fa 6 layers, 8-bit" \
             --notes "Persian punctuation tagger (comma, period, question mark) fine-tuned from HooshvareLab/albert-fa-zwnj-base-v2 (Apache-2.0) on Persian Wikipedia and PersianQA, as a compiled Core ML model with 8-bit weights, with its SentencePiece pieces. setup.sh downloads them into the app."
           gh release upload "$TAG" out/Punct.mlmodelc.zip out/punct-vocab.tsv out/punct-info.json out/punct-tests.jsonl --clobber
+
+  check:
+    needs: release
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: punct-model
+          path: punct
+      - name: Swift tokenizer and tagger against Python
+        run: |
+          swiftc -O -o punct-check PersianSTT/AutoPunctuation.swift Tests/Punct/main.swift
+          ./punct-check punct

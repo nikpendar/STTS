@@ -550,8 +550,11 @@ final class KeyboardViewController: UIInputViewController {
         case DictationBridge.finalPrefix where !body.isEmpty:
             // Dictation id + newline + text.
             let parts = body.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
-            let result = VoiceCommands.process(String(parts.last ?? ""), punctuation: options.voicePunctuation,
-                                               commands: options.voiceCommands, zwnj: options.autoZWNJ,
+            // No spoken punctuation or edit commands (Rooz, 2026-10-28): the app punctuates
+            // (`AutoPunctuation`), the personal dictionary writes marks said aloud, and the locked
+            // bar deletes and starts a new line.
+            let result = VoiceCommands.process(String(parts.last ?? ""), punctuation: false,
+                                               commands: false, zwnj: options.autoZWNJ,
                                                dictionary: dictionary)
             perform(result)
             cancelTimeout()
@@ -566,7 +569,7 @@ final class KeyboardViewController: UIInputViewController {
         case DictationBridge.partialPrefix:
             // Empty after a live pass that found nothing new.
             if !body.isEmpty {
-                let draft = VoiceCommands.draft(body, punctuation: options.voicePunctuation, commands: options.voiceCommands,
+                let draft = VoiceCommands.draft(body, punctuation: false, commands: false,
                                                 zwnj: options.autoZWNJ, dictionary: dictionary)
                 if liveText.isEmpty { log.info("live text: first shown, \(draft.count) characters") }
                 liveDraft = draft
@@ -4301,8 +4304,7 @@ private final class KeyboardSettingsPanel: UIView {
         ("اصلاح خودکار", [Row(title: "اصلاح غلط تایپی", key: \.correctTypos),
                           Row(title: "نیم‌فاصله‌ی خودکار", key: \.autoZWNJ),
                           Row(title: "دو فاصله: نقطه، سه فاصله: ویرگول", key: \.doubleSpacePunctuation)]),
-        ("فرمان‌های صوتی", [Row(title: "نشانه‌گذاری با گفتن", key: \.voicePunctuation),
-                            Row(title: "فرمان‌های ویرایش", key: \.voiceCommands)]),
+        ("متن دیکته", [Row(title: "نشانه‌گذاری خودکار", key: \.autoPunctuation)]),
         ("بازخورد کلیدها", [Row(title: "بزرگ‌نمایی حرف هنگام تایپ", key: \.keyPreview),
                             Row(title: "صدای کلیدها", key: \.keySounds),
                             Row(title: "لرزش (هپتیک)", key: \.haptics)]),

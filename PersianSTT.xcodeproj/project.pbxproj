@@ -10,6 +10,7 @@
 		A1000000000000000000004C /* OnnxModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* OnnxModel.swift */; };
 		A1000000000000000000004D /* PersianPhonemizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* PersianPhonemizer.swift */; };
 		A1000000000000000000004E /* PersianSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* PersianSpeech.swift */; };
+		A100000000000000000000E0 /* AutoPunctuation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000000000000000000E0 /* AutoPunctuation.swift */; };
 		A1000000000000000000004F /* onnxruntime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* onnxruntime.xcframework */; };
 		A10000000000000000000048 /* EmojiPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003F /* EmojiPanel.swift */; };
 		A10000000000000000000047 /* EmojiPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003F /* EmojiPanel.swift */; };
@@ -93,6 +94,7 @@
 		A20000000000000000000042 /* OnnxModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnnxModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* PersianPhonemizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianPhonemizer.swift; sourceTree = "<group>"; };
 		A20000000000000000000044 /* PersianSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianSpeech.swift; sourceTree = "<group>"; };
+		A200000000000000000000E0 /* AutoPunctuation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoPunctuation.swift; sourceTree = "<group>"; };
 		A20000000000000000000045 /* onnxruntime.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = onnxruntime.xcframework; sourceTree = "<group>"; };
 		A20000000000000000000046 /* OnnxRuntime-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "OnnxRuntime-Bridging-Header.h"; sourceTree = "<group>"; };
 		A20000000000000000000001 /* PersianSTTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianSTTApp.swift; sourceTree = "<group>"; };
@@ -189,6 +191,7 @@
 				A20000000000000000000042 /* OnnxModel.swift */,
 				A20000000000000000000043 /* PersianPhonemizer.swift */,
 				A20000000000000000000044 /* PersianSpeech.swift */,
+				A200000000000000000000E0 /* AutoPunctuation.swift */,
 				A20000000000000000000046 /* OnnxRuntime-Bridging-Header.h */,
 				A2000000000000000000000E /* Info.plist */,
 				A200000000000000000000D0 /* PrivacyInfo.xcprivacy */,
@@ -405,6 +408,7 @@
 				A1000000000000000000004C /* OnnxModel.swift in Sources */,
 				A1000000000000000000004D /* PersianPhonemizer.swift in Sources */,
 				A1000000000000000000004E /* PersianSpeech.swift in Sources */,
+				A100000000000000000000E0 /* AutoPunctuation.swift in Sources */,
 				A10000000000000000000047 /* EmojiPanel.swift in Sources */,
 				A10000000000000000000045 /* GlideDecoder.swift in Sources */,
 				A10000000000000000000043 /* KeyboardMetrics.swift in Sources */,

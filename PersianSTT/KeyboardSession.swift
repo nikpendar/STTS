@@ -478,7 +478,12 @@ final class KeyboardSession: ObservableObject {
                     recent.append((dictation, samples, DictationBridge.removingPauseMarks(text)))
                     if recent.count > 8 { recent.removeFirst() }
                 }
-                server.publish(DictationBridge.finalPrefix + dictation + "\n" + text)
+                // Commas, full stops and question marks (`AutoPunctuation`), off the main thread.
+                let served = KeyboardOptions.load().autoPunctuation
+                    ? await Task.detached(priority: .userInitiated) { AutoPunctuation.shared.punctuate(text) }.value
+                    : text
+                guard id == dictationID else { return }
+                server.publish(DictationBridge.finalPrefix + dictation + "\n" + served)
                 DictationBridge.post(DictationBridge.done)
             } catch {
                 guard id == dictationID else { return }

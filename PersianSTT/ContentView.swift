@@ -158,17 +158,13 @@ struct ContentView: View {
     private var speechPage: some View {
         page("گفتار") {
             Section {
-                Toggle(isOn: $options.voicePunctuation) {
-                    SettingLabel("نشانه‌گذاری با گفتن", symbol: "textformat.abc.dottedunderline", color: .orange)
-                }
-                Toggle(isOn: $options.voiceCommands) {
-                    SettingLabel("فرمان‌های ویرایش", symbol: "delete.left.fill", color: .indigo)
+                Toggle(isOn: $options.autoPunctuation) {
+                    SettingLabel("نشانه‌گذاری خودکار", symbol: "textformat.abc.dottedunderline", color: .orange)
                 }
             } header: {
-                Text("فرمان‌های صوتی").font(.app(.footnote))
+                Text("متن دیکته").font(.app(.footnote))
             } footer: {
-                Text("بگویید: نقطه، ویرگول، علامت سؤال، علامت تعجب، دونقطه، نقطه‌ویرگول، خط بعد، پاراگراف جدید، پرانتز باز و بسته، گیومه باز و بسته. «این نقطه» یا «نقطه‌نظر» همان کلمه می‌ماند و «کلمه‌ی نقطه» همیشه خودِ کلمه را می‌نویسد. عددها با رقم نوشته می‌شوند: «بیست و سه» ← ۲۳؛ «یک» و «نه» و «ده» تنها، کلمه می‌مانند مگر «نه تا».\n\n"
-                     + "فرمان‌های ویرایش وقتی جدا و با مکث گفته شوند اجرا می‌شوند: «پاک کن» آخرین جمله را پاک می‌کند، «همه رو پاک کن» همه‌ی متن پیش از مکان‌نما را، و «برگردون» آخرین دیکته یا پاک‌کردن را برمی‌گرداند.").font(.app(.footnote))
+                Text("بعد از هر دیکته، ویرگول، نقطه و علامت سؤال خودکار گذاشته می‌شود. عددها با رقم نوشته می‌شوند: «بیست و سه» ← ۲۳؛ «یک» و «نه» و «ده» تنها، کلمه می‌مانند مگر «نه تا». برای نوشتن نشانه با گفتن، در واژه‌نامه‌ی شخصی بنویسید: «نقطه» ← «.».").font(.app(.footnote))
             }
 
             Section {
