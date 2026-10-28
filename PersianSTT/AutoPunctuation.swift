@@ -262,23 +262,24 @@ struct PunctTokenizer {
         return out.replacingOccurrences(of: "``", with: "\"").replacingOccurrences(of: "''", with: "\"")
     }
 
-    /// The normalizer writes ZWNJ as «[ZWNJ]», a token of its own, and each part around it is
-    /// read as a word of its own.
+    /// The normalizer writes ZWNJ as «[ZWNJ]», a token of its own; the parts after it go on
+    /// without "▁".
     func encode(word: String) -> [Int32] {
         var ids: [Int32] = []
         // By scalars: ZWNJ joins the letter before it into one Character.
         let parts = word.unicodeScalars.split(separator: "\u{200C}", omittingEmptySubsequences: false)
         for (index, part) in parts.enumerated() {
             if index > 0, let zwnj { ids.append(zwnj) }
-            ids += encodePart(String(String.UnicodeScalarView(part)))
+            ids += encodePart(String(String.UnicodeScalarView(part)), prefix: index == 0)
         }
         return ids
     }
 
-    private func encodePart(_ word: String) -> [Int32] {
-        let scalars = Array(("▁" + Self.normalize(word)).unicodeScalars)
+    /// `prefix`: "▁" before it, which only the word's first part has.
+    private func encodePart(_ word: String, prefix: Bool) -> [Int32] {
+        let scalars = Array(((prefix ? "▁" : "") + Self.normalize(word)).unicodeScalars)
         let n = scalars.count
-        guard n > 1 else { return [] }
+        guard n > (prefix ? 1 : 0) else { return [] }
         var best = [Float](repeating: -.infinity, count: n + 1)
         var back = [(start: Int, id: Int32)](repeating: (0, unk), count: n + 1)
         best[0] = 0
