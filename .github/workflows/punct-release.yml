@@ -6,6 +6,9 @@
 name: Punctuation model
 
 on:
+  push:
+    branches: [batch-1021c]
+    paths: [.github/workflows/punct-release.yml, scripts/punct/release.py]
   workflow_dispatch:
     inputs:
       run:
@@ -36,13 +39,13 @@ jobs:
         with:
           name: model-albert-l6
           path: art
-          run-id: ${{ inputs.run }}
+          run-id: ${{ inputs.run || '40508002388' }}
           github-token: ${{ github.token }}
       - uses: actions/download-artifact@v5
         with:
           name: punct-data
           path: punct-data
-          run-id: ${{ inputs.run }}
+          run-id: ${{ inputs.run || '40508002388' }}
           github-token: ${{ github.token }}
       - name: Files
         run: |
