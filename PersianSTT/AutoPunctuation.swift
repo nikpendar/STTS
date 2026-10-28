@@ -1,6 +1,9 @@
 import CoreML
 import Foundation
 import os
+#if canImport(UIKit)
+import UIKit
+#endif
 
 private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "punctuation")
 
@@ -10,7 +13,8 @@ private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "punctu
 /// transcripts it places full stops with F1 94 and commas with precision 80 and recall 36.
 ///
 /// It runs in the app, after the speech model and before the text goes to the keyboard, so the
-/// keyboard's memory is not touched. The model loads at the first dictation and stays.
+/// keyboard's memory is not touched. The model loads at the first dictation and stays until a
+/// memory warning.
 final class AutoPunctuation: @unchecked Sendable {
     static let shared = AutoPunctuation()
 
@@ -26,9 +30,24 @@ final class AutoPunctuation: @unchecked Sendable {
     nonisolated(unsafe) static var testDirectory: URL?
 
     private let lock = NSLock()
+    private var memoryObserver: NSObjectProtocol?
     private var model: MLModel?
     private var tokenizer: PunctTokenizer?
     private var failed = false
+
+    private init() {
+        #if canImport(UIKit)
+        // Loaded again at the next dictation.
+        memoryObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: nil) { [weak self] _ in
+            guard let self else { return }
+            self.lock.lock()
+            self.model = nil
+            self.lock.unlock()
+            log.info("punctuation model released on a memory warning")
+        }
+        #endif
+    }
 
     /// The mark after each word, as the tagger's labels: none, comma, full stop, question mark.
     private static let marks = ["", "،", ".", "؟"]
