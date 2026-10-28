@@ -1,0 +1,71 @@
+# Automatic punctuation for the app: takes the tagger the punctuation research trained (run
+# 40508002388 of punct-eval.yml on claude/project-thread-juda5i: ALBERT-fa 6 layers, Core ML with
+# 8-bit weights), compiles it for iOS 17 and writes the tokenizer's pieces and test sentences
+# (scripts/punct/release.py) as the artifact punct-model; with publish set, also as the release
+# punct-albert6, where setup.sh downloads them into the app.
+name: Punctuation model
+
+on:
+  workflow_dispatch:
+    inputs:
+      run:
+        description: punct-eval.yml run with the trained model
+        default: "40508002388"
+      publish:
+        description: also publish the files as the release punct-albert6
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+env:
+  TAG: punct-albert6
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -q transformers==4.56.2 sentencepiece protobuf coremltools==9.0 numpy
+      - uses: actions/download-artifact@v5
+        with:
+          name: model-albert-l6
+          path: art
+          run-id: ${{ inputs.run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v5
+        with:
+          name: punct-data
+          path: punct-data
+          run-id: ${{ inputs.run }}
+          github-token: ${{ github.token }}
+      - name: Files
+        run: |
+          find art -maxdepth 3 | head -40
+          HF="$(dirname "$(find art -name tokenizer.json | head -n1)")"
+          PKG="$(find art -name 'Punct-int8.mlpackage' -type d | head -n1)"
+          python3 scripts/punct/release.py "$HF" "$PKG" punct-data out
+          xcrun coremlcompiler compile "$PKG" compiled --deployment-target 17.0 --platform ios
+          mv compiled/Punct-int8.mlmodelc compiled/Punct.mlmodelc
+          (cd compiled && zip -qr ../out/Punct.mlmodelc.zip Punct.mlmodelc)
+          ls -l out && du -sh compiled/Punct.mlmodelc
+          python3 -c 'import json; print("::notice title=tokenizer::" + json.dumps(json.load(open("out/punct-info.json")), ensure_ascii=False)[:3500])'
+      - uses: actions/upload-artifact@v5
+        with:
+          name: punct-model
+          path: out
+          retention-days: 30
+      - name: Publish
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
+            --title "Automatic punctuation: ALBERT-fa 6 layers, 8-bit" \
+            --notes "Persian punctuation tagger (comma, period, question mark) fine-tuned from HooshvareLab/albert-fa-zwnj-base-v2 (Apache-2.0) on Persian Wikipedia and PersianQA, as a compiled Core ML model with 8-bit weights, with its SentencePiece pieces. setup.sh downloads them into the app."
+          gh release upload "$TAG" out/Punct.mlmodelc.zip out/punct-vocab.tsv out/punct-info.json out/punct-tests.jsonl --clobber
