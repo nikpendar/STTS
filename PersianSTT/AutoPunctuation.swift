@@ -228,7 +228,10 @@ struct PunctTokenizer {
         cls = pieces["[CLS]"]?.id ?? 2
         sep = pieces["[SEP]"]?.id ?? 3
         unk = pieces["<unk>"]?.id ?? 1
-        zwnj = pieces["[ZWNJ]"]?.id
+        // punct-info.json has the id the tokenizer gives it (an added token, not the piece).
+        let info = (try? Data(contentsOf: vocabulary.deletingLastPathComponent().appendingPathComponent("punct-info.json")))
+            .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        zwnj = (info?["zwnj"] as? Int).map(Int32.init) ?? pieces["[ZWNJ]"]?.id
     }
 
     /// The tokenizer's normalizer (tokenizer.json): NFKD without combining marks, then NFKC for

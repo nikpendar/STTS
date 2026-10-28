@@ -71,6 +71,7 @@ mkdir -p "$MODELS/Punct"
 if [ ! -s "$MODELS/Punct/punct-vocab.tsv" ] || [ ! -d "$MODELS/Punct/Punct.mlmodelc" ]; then
   echo "Downloading the punctuation model"
   if curl -fL --retry 3 --progress-bar "$PUNCT_RELEASE/Punct.mlmodelc.zip" -o "$ROOT/build-model/Punct.mlmodelc.zip" &&
+     curl -fL --retry 3 --progress-bar "$PUNCT_RELEASE/punct-info.json" -o "$MODELS/Punct/punct-info.json" &&
      curl -fL --retry 3 --progress-bar "$PUNCT_RELEASE/punct-vocab.tsv" -o "$MODELS/Punct/punct-vocab.tsv.part"; then
     rm -rf "$MODELS/Punct/Punct.mlmodelc" && unzip -q "$ROOT/build-model/Punct.mlmodelc.zip" -d "$MODELS/Punct"
     mv "$MODELS/Punct/punct-vocab.tsv.part" "$MODELS/Punct/punct-vocab.tsv"

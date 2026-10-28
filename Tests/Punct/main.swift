@@ -13,8 +13,9 @@ let folder = URL(fileURLWithPath: CommandLine.arguments[1])
 let work = FileManager.default.temporaryDirectory.appendingPathComponent("punct-check")
 try? FileManager.default.removeItem(at: work)
 try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
-try FileManager.default.copyItem(at: folder.appendingPathComponent("punct-vocab.tsv"),
-                                 to: work.appendingPathComponent("punct-vocab.tsv"))
+for file in ["punct-vocab.tsv", "punct-info.json"] {
+    try FileManager.default.copyItem(at: folder.appendingPathComponent(file), to: work.appendingPathComponent(file))
+}
 let compiled = try MLModel.compileModel(at: folder.appendingPathComponent("Punct.mlpackage"))
 try FileManager.default.moveItem(at: compiled, to: work.appendingPathComponent("Punct.mlmodelc"))
 AutoPunctuation.testDirectory = work

@@ -22,10 +22,17 @@ with open(f"{out}/punct-vocab.tsv", "w", encoding="utf-8") as f:
     for piece, score in model["vocab"]:
         assert "\t" not in piece and "\n" not in piece
         f.write(f"{piece}\t{score}\n")
-info = {"normalizer": spec.get("normalizer"), "pre_tokenizer": spec.get("pre_tokenizer"),
+normalizer = json.loads(json.dumps(spec.get("normalizer")))
+for n in (normalizer or {}).get("normalizers", []):
+    n.pop("precompiled_charsmap", None)  # large, and the app does not use it
+info = {"normalizer": normalizer, "pre_tokenizer": spec.get("pre_tokenizer"),
         "unk_id": model.get("unk_id"), "byte_fallback": model.get("byte_fallback"),
         "cls": tok.cls_token_id, "sep": tok.sep_token_id, "pad": tok.pad_token_id, "unk": tok.unk_token_id,
-        "vocab": len(model["vocab"]), "do_lower_case": getattr(tok, "do_lower_case", None)}
+        "vocab": len(model["vocab"]), "do_lower_case": getattr(tok, "do_lower_case", None),
+        # The id the tokenizer gives ZWNJ (the normalizer writes it as [ZWNJ], an added token).
+        "zwnj": tok.convert_tokens_to_ids("[ZWNJ]"),
+        "first_pieces": [p for p, _ in model["vocab"][:16]],
+        "added": [(t["id"], t["content"]) for t in spec.get("added_tokens", [])][:20]}
 json.dump(info, open(f"{out}/punct-info.json", "w"), ensure_ascii=False, indent=1)
 print(json.dumps(info, ensure_ascii=False, indent=1)[:4000])
 
