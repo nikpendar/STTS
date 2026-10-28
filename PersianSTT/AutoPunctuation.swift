@@ -84,7 +84,8 @@ final class AutoPunctuation: @unchecked Sendable {
     func labels(for words: [String]) -> [Int]? {
         lock.lock()
         defer { lock.unlock() }
-        guard let (model, tokenizer) = loaded() else { return nil }
+        guard let ready = loaded() else { return nil }
+        let (model, tokenizer) = ready
         var labels = [Int](repeating: 0, count: words.count)
         var start = 0
         while start < words.count {
@@ -207,7 +208,7 @@ struct PunctTokenizer {
     /// `vocabulary`: punct-vocab.tsv, a piece and its score on each line, in id order.
     init(vocabulary: URL) throws {
         let text = try String(contentsOf: vocabulary, encoding: .utf8)
-        var pieces: [String: (Int32, Float)] = [:]
+        var pieces: [String: (id: Int32, score: Float)] = [:]
         var longest = 1
         var lowest: Float = 0
         var id: Int32 = 0
@@ -223,14 +224,16 @@ struct PunctTokenizer {
         self.pieces = pieces
         self.longest = longest
         unkScore = lowest - 10
-        cls = pieces["[CLS]"]?.0 ?? 2
-        sep = pieces["[SEP]"]?.0 ?? 3
-        unk = pieces["<unk>"]?.0 ?? 1
+        cls = pieces["[CLS]"]?.id ?? 2
+        sep = pieces["[SEP]"]?.id ?? 3
+        unk = pieces["<unk>"]?.id ?? 1
     }
 
-    /// The tokenizer's normalizer: NFKD without combining marks, lower case, then NFKC, as
-    /// ALBERT's (keep_accents false, do_lower_case true) with the model's own character map.
+    /// The tokenizer's normalizer (tokenizer.json): ZWNJ as «[ZWNJ]», NFKD without combining
+    /// marks, lower case, then NFKC for the model's own character map (nmt_nfkc).
     static func normalize(_ word: String) -> String {
+        // The model's first step writes ZWNJ out as a token of its own.
+        let word = word.replacingOccurrences(of: "\u{200C}", with: "[ZWNJ]")
         let decomposed = word.decomposedStringWithCompatibilityMapping.unicodeScalars
             .filter { $0.properties.generalCategory != .nonspacingMark }
         var out = String(String.UnicodeScalarView(decomposed)).lowercased()

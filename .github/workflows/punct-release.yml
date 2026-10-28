@@ -86,5 +86,7 @@ jobs:
           path: punct
       - name: Swift tokenizer and tagger against Python
         run: |
-          swiftc -O -o punct-check PersianSTT/AutoPunctuation.swift Shared/PersonalDictionary.swift Tests/Punct/main.swift
+          swiftc -O -o punct-check PersianSTT/AutoPunctuation.swift Shared/PersonalDictionary.swift Tests/Punct/main.swift 2>&1 \
+            | tee compile.txt | grep -E "error:" | sed 's/^/::error::/' || true
+          [ -x punct-check ] || exit 1
           ./punct-check punct
