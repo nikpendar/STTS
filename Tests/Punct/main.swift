@@ -37,7 +37,7 @@ for test in tests {
     if pieces != expected {
         idMismatches += 1
         if notes.count < 6 {
-            let first = zip(pieces, expected).firstIndex { $0 != $1 } ?? min(pieces.count, expected.count)
+            let first = (0..<min(pieces.count, expected.count)).first { pieces[$0] != expected[$0] } ?? min(pieces.count, expected.count)
             notes.append("ids differ at \(first): swift \(Array(pieces[first..<min(pieces.count, first + 6)])) hf \(Array(expected[first..<min(expected.count, first + 6)])) in «\(test.words.joined(separator: " "))»")
         }
     }
