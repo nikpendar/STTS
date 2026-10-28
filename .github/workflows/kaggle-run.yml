@@ -37,7 +37,7 @@ jobs:
       - name: Push
         if: env.MODE != 'log'
         run: |
-          sed -i "s#KAGGLE_USER/#$KAGGLE_USERNAME/#" "kaggle/$KERNEL/kernel-metadata.json"
+          sed -i "s#KAGGLE_USER/#$KAGGLE_USERNAME/#g" "kaggle/$KERNEL/kernel-metadata.json"
           kaggle kernels push -p "kaggle/$KERNEL" | tee push.txt
           grep -qiE "error|failed" push.txt && exit 1 || true
       - name: Wait and log
