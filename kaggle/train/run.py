@@ -23,7 +23,16 @@ sh("cd /kaggle/temp/piper && python setup.py build_ext --inplace -q", check=Fals
 meta = glob.glob("/kaggle/input/**/metadata.csv", recursive=True)
 assert meta, "attach the output of keyless-voice-prep"
 data = os.path.dirname(meta[0])
-print("data", data, sum(1 for _ in open(meta[0])), "rows", flush=True)
+
+# Utterances up to MAX_S seconds: the longest ones ran a T4 (15 GB) out of memory at batch 24.
+import soundfile as sf
+
+MAX_S = 10.0
+rows = open(meta[0], encoding="utf-8").read().splitlines()
+kept = [r for r in rows if sf.info(f"{data}/wavs/{r.split('|', 1)[0]}").duration <= MAX_S]
+csv = "/kaggle/temp/metadata.csv"
+open(csv, "w", encoding="utf-8").write("\n".join(kept) + "\n")
+print("data", data, len(rows), "rows,", len(kept), f"up to {MAX_S} s", flush=True)
 
 resume = sorted(glob.glob("/kaggle/input/**/*.ckpt", recursive=True), key=os.path.getmtime)
 if resume:
@@ -71,16 +80,21 @@ with open(launcher, "w") as f:
 base = (
     f"cd /kaggle/temp/piper && python {launcher} piper.train fit"
     " --data.voice_name fa_IR-keyless"
-    f" --data.csv_path {meta[0]} --data.audio_dir {data}/wavs"
+    f" --data.csv_path {csv} --data.audio_dir {data}/wavs"
     " --data.dataset_type phoneme_ids --data.num_symbols 256 --data.espeak_voice fa"
     f" --data.phonemes_path {phonemes}"
     " --model.sample_rate 22050"
     " --data.cache_dir /kaggle/temp/cache"
     f" --data.config_path {OUT}/mana.onnx.json"
-    " --data.batch_size 24 --data.num_workers 4"
+    " --data.batch_size 16 --data.num_workers 4 --data.trim_silence false"
     " --trainer.devices 1 --trainer.max_epochs 100000"
     f" --trainer.default_root_dir {OUT}/train"
+    # A checkpoint every 1000 steps, so a crash or the time limit loses at most that much.
+    " --trainer.callbacks+=lightning.pytorch.callbacks.ModelCheckpoint"
+    f" --trainer.callbacks.dirpath {OUT}/train/steps --trainer.callbacks.every_n_train_steps 1000"
+    " --trainer.callbacks.save_top_k 1 --trainer.callbacks.save_last true"
 )
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 start = time.time()
 sh(f"{base} --trainer.max_time 00:{hh:02d}:{mm:02d}:00 --ckpt_path {start_ckpt}", check=False)
 if not glob.glob(f"{OUT}/train/**/*.ckpt", recursive=True) and time.time() - start < 1800:
