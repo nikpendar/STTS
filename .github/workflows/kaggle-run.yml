@@ -53,5 +53,6 @@ jobs:
           mkdir -p out && kaggle kernels output "$ID" -p out --file-pattern ".*\\.(log|txt|json)$" 2>&1 | tail -3 || true
           ls -la out && cat out/*.txt 2>/dev/null || true
           LOG="$(ls out/*.log 2>/dev/null | head -1)"
-          [ -n "$LOG" ] && python3 -c "import json,sys; [print(e.get('data',''),end='') for e in json.load(open(sys.argv[1]))]" "$LOG" | tail -150
+          [ -n "$LOG" ] && python3 -c "import json,sys; [print(''.join(f'[{e.get(\"time\",0):.0f}s] ' + l for l in e.get('data','').splitlines(True)),end='') for e in json.load(open(sys.argv[1]))]" "$LOG" > log.txt
+          [ -n "$LOG" ] && { echo "--- progress"; grep -aoE "Epoch [0-9]+:[^|]*\|[^|]*\|[^]]*\]" log.txt | tail -5; grep -aiE "cach|preprocess|sanity|max_time|Trainable|Total params" log.txt | head -20; echo "--- end of log"; tail -150 log.txt; }
           case "$S" in *complete*|*COMPLETE*) ;; *) exit 1;; esac
