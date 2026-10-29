@@ -42,9 +42,25 @@ json.dump(json.load(open("/kaggle/temp/mana.onnx.json"))["phoneme_id_map"], open
 
 hh = int(HOURS)
 mm = int((HOURS - hh) * 60)
+# Lightning loads --ckpt_path with weights_only=True, which refuses Mana's checkpoint (it holds
+# pathlib paths in its hyperparameters). Both checkpoints used here are trusted: Mana's own and ours.
+launcher = "/kaggle/temp/train_main.py"
+with open(launcher, "w") as f:
+    f.write(
+        "import functools, runpy, torch\n"
+        "_load = torch.load\n"
+        "@functools.wraps(_load)\n"
+        "def load(*a, **k):\n"
+        "    k['weights_only'] = False\n"
+        "    return _load(*a, **k)\n"
+        "torch.load = load\n"
+        "import sys\n"
+        "module = sys.argv.pop(1)\n"
+        "runpy.run_module(module, run_name='__main__', alter_sys=True)\n"
+    )
 start = time.time()
 sh(
-    "cd /kaggle/temp/piper && python -m piper.train fit"
+    f"cd /kaggle/temp/piper && python {launcher} piper.train fit"
     " --data.voice_name fa_IR-keyless"
     f" --data.csv_path {meta[0]} --data.audio_dir {data}/wavs"
     " --data.dataset_type phoneme_ids --data.num_symbols 256 --data.espeak_voice fa"
@@ -68,5 +84,5 @@ print("last", last, flush=True)
 shutil.copy(last, f"{OUT}/last.ckpt")
 for c in ckpts:
     os.remove(c)
-sh(f"cd /kaggle/temp/piper && python -m piper.train.export_onnx --checkpoint {OUT}/last.ckpt --output-file {OUT}/mana.onnx")
+sh(f"cd /kaggle/temp/piper && python {launcher} piper.train.export_onnx --checkpoint {OUT}/last.ckpt --output-file {OUT}/mana.onnx")
 sh(f"ls -la {OUT}; du -sh {OUT}")
