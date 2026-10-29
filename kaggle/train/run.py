@@ -34,6 +34,16 @@ else:
     ckpt = hf_hub_download("MahtaFetrat/Mana-Persian-Piper", "ckpt/epoch=6012-step=4203520.ckpt")
 print("start from", ckpt, flush=True)
 
+# Mana's checkpoint comes from the old piper_train (Lightning 1.7): its hyperparameters and loop
+# state do not parse in piper1-gpl, so the run starts from its weights, optimizer and step only.
+import torch
+
+c = torch.load(ckpt, map_location="cpu", weights_only=False)
+keep = ("state_dict", "optimizer_states", "lr_schedulers", "epoch", "global_step", "pytorch-lightning_version")
+start_ckpt = "/kaggle/temp/start.ckpt"
+torch.save({k: c[k] for k in keep if k in c}, start_ckpt)
+del c
+
 import urllib.request
 
 phonemes = "/kaggle/temp/phonemes.json"
@@ -58,8 +68,7 @@ with open(launcher, "w") as f:
         "module = sys.argv.pop(1)\n"
         "runpy.run_module(module, run_name='__main__', alter_sys=True)\n"
     )
-start = time.time()
-sh(
+base = (
     f"cd /kaggle/temp/piper && python {launcher} piper.train fit"
     " --data.voice_name fa_IR-keyless"
     f" --data.csv_path {meta[0]} --data.audio_dir {data}/wavs"
@@ -70,11 +79,16 @@ sh(
     f" --data.config_path {OUT}/mana.onnx.json"
     " --data.batch_size 24 --data.num_workers 4"
     " --trainer.devices 1 --trainer.max_epochs 100000"
-    f" --trainer.max_time 00:{hh:02d}:{mm:02d}:00"
     f" --trainer.default_root_dir {OUT}/train"
-    f" --ckpt_path '{ckpt}'",
-    check=False,
 )
+start = time.time()
+sh(f"{base} --trainer.max_time 00:{hh:02d}:{mm:02d}:00 --ckpt_path {start_ckpt}", check=False)
+if not glob.glob(f"{OUT}/train/**/*.ckpt", recursive=True) and time.time() - start < 1800:
+    # Resuming the old training state failed: start a new run from the weights alone.
+    left = HOURS - (time.time() - start) / 3600
+    lh, lm = int(left), int((left - int(left)) * 60)
+    print("resume failed; warm start from the weights", flush=True)
+    sh(f"{base} --trainer.max_time 00:{lh:02d}:{lm:02d}:00 --model.warmstart_ckpt {start_ckpt}", check=False)
 print(f"training {(time.time() - start) / 3600:.2f} h", flush=True)
 
 ckpts = sorted(glob.glob(f"{OUT}/train/**/*.ckpt", recursive=True), key=os.path.getmtime)
