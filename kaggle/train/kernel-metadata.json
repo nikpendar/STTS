@@ -8,7 +8,7 @@
   "enable_gpu": true,
   "enable_internet": true,
   "machine_shape": "NvidiaTeslaT4",
-  "dataset_sources": [],
+  "dataset_sources": ["KAGGLE_USER/keyless-voice-ckpt"],
   "kernel_sources": ["KAGGLE_USER/keyless-voice-prep"],
   "competition_sources": []
 }
