@@ -75,7 +75,7 @@ jobs:
           test -f "$CK"; echo "checkpoint $CK"
           git clone -q --depth 1 https://github.com/OHF-voice/piper1-gpl.git piper
           pip install -q torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -q scikit-build cmake ninja
+          pip install -q scikit-build cmake ninja onnx onnxscript
           (cd piper && pip install -q -e '.[train]' && bash ./build_monotonic_align.sh)
           python3 -c "import torch; c = torch.load('$CK', map_location='cpu', weights_only=False); print('step', c.get('global_step'), 'epoch', c.get('epoch'))"
           printf '%s\n' "import functools, runpy, sys, torch" "_load = torch.load" \
