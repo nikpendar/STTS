@@ -68,7 +68,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ID="$KAGGLE_USERNAME/keyless-voice-$KERNEL"
-          mkdir -p ck && kaggle kernels output "$ID" -p ck --file-pattern ".*(\.ckpt|mana\.onnx\.json)$" 2>&1 | tail -3
+          mkdir -p ck && kaggle kernels output "$ID" -p ck --file-pattern "(last\.ckpt|mana\.onnx\.json)$" 2>&1 | tail -3
           find ck -type f -exec ls -la {} \;
           CK="$(ls ck/last.ckpt 2>/dev/null || find ck -name 'last*.ckpt' | head -1)"
           [ -n "$CK" ] || CK="$(find ck -name '*.ckpt' -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2)"
