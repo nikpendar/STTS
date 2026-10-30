@@ -80,6 +80,8 @@ jobs:
           python3 -c "import torch; c = torch.load('$CK', map_location='cpu', weights_only=False); print('step', c.get('global_step'), 'epoch', c.get('epoch'))"
           printf '%s\n' "import functools, runpy, sys, torch" "_load = torch.load" \
             "torch.load = functools.wraps(_load)(lambda *a, **k: _load(*a, **{**k, 'weights_only': False}))" \
+            "_export = torch.onnx.export" \
+            "torch.onnx.export = functools.wraps(_export)(lambda *a, **k: _export(*a, **{**k, 'dynamo': False}))" \
             "runpy.run_module(sys.argv.pop(1), run_name='__main__', alter_sys=True)" > launch.py
           python3 launch.py piper.train.export_onnx --checkpoint "$CK" --output-file mana.onnx
           ls -la mana.onnx

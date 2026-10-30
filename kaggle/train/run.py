@@ -93,6 +93,9 @@ with open(launcher, "w") as f:
         "    k['weights_only'] = False\n"
         "    return _load(*a, **k)\n"
         "torch.load = load\n"
+        # piper's export is written for the TorchScript exporter; torch 2.9+ defaults to dynamo.
+        "_export = torch.onnx.export\n"
+        "torch.onnx.export = functools.wraps(_export)(lambda *a, **k: _export(*a, **{**k, 'dynamo': False}))\n"
         "import sys\n"
         "module = sys.argv.pop(1)\n"
         "runpy.run_module(module, run_name='__main__', alter_sys=True)\n"
