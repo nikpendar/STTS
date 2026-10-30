@@ -3,15 +3,32 @@
 # stops itself before Kaggle's 12 h limit, then writes the last checkpoint and mana.onnx to
 # /kaggle/working. The next session starts from the checkpoint in the dataset keyless-voice-ckpt
 # when that is attached, otherwise from Mana's own checkpoint on Hugging Face.
-import glob, json, os, shutil, subprocess, sys, time
+import glob, json, os, random, shutil, signal, subprocess, sys, time
 
-HOURS = float(os.environ.get("HOURS", "10.5"))
+T0 = time.time()
+# Kaggle stops a session at 12 h; training is cut here so the checkpoint copy and export still fit.
+BUDGET_H = float(os.environ.get("BUDGET_H", "11.2"))
+# Utterances per session, drawn anew each time: caching all 70k took 2.2 h of every session.
+SUBSET = int(os.environ.get("SUBSET", "35000"))
 OUT = "/kaggle/working"
 
 
-def sh(cmd, check=True):
-    print(f"$ {cmd}", flush=True)
-    return subprocess.run(cmd, shell=True, check=check)
+def sh(cmd, check=True, timeout=None):
+    print(f"[{(time.time() - T0) / 3600:.2f} h] $ {cmd}", flush=True)
+    p = subprocess.Popen(cmd, shell=True, start_new_session=True)
+    try:
+        p.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # The whole group, so the trainer under the shell and its data workers stop too.
+        print(f"[{(time.time() - T0) / 3600:.2f} h] stopped at the time budget", flush=True)
+        os.killpg(p.pid, signal.SIGINT)
+        try:
+            p.wait(timeout=180)
+        except subprocess.TimeoutExpired:
+            os.killpg(p.pid, signal.SIGKILL)
+            p.wait()
+    if check and p.returncode:
+        raise subprocess.CalledProcessError(p.returncode, cmd)
 
 
 sh("nvidia-smi --query-gpu=name,memory.total --format=csv")
@@ -26,13 +43,18 @@ data = os.path.dirname(meta[0])
 
 # Utterances up to MAX_S seconds: the longest ones ran a T4 (15 GB) out of memory at batch 24.
 import soundfile as sf
+from concurrent.futures import ThreadPoolExecutor
 
 MAX_S = 10.0
 rows = open(meta[0], encoding="utf-8").read().splitlines()
-kept = [r for r in rows if sf.info(f"{data}/wavs/{r.split('|', 1)[0]}").duration <= MAX_S]
+random.seed(time.time_ns())
+pick = random.sample(rows, min(len(rows), int(SUBSET * 1.1)))
+with ThreadPoolExecutor(32) as pool:
+    secs = list(pool.map(lambda r: sf.info(f"{data}/wavs/{r.split('|', 1)[0]}").duration, pick))
+kept = [r for r, d in zip(pick, secs) if d <= MAX_S][:SUBSET]
 csv = "/kaggle/temp/metadata.csv"
 open(csv, "w", encoding="utf-8").write("\n".join(kept) + "\n")
-print("data", data, len(rows), "rows,", len(kept), f"up to {MAX_S} s", flush=True)
+print(f"[{(time.time() - T0) / 3600:.2f} h] data", data, len(rows), "rows,", len(kept), f"used, up to {MAX_S} s", flush=True)
 
 resume = sorted(glob.glob("/kaggle/input/**/*.ckpt", recursive=True), key=os.path.getmtime)
 if resume:
@@ -59,8 +81,6 @@ phonemes = "/kaggle/temp/phonemes.json"
 urllib.request.urlretrieve("https://github.com/nikpendar/STTS/releases/download/tts-fa-mana/mana.onnx.json", "/kaggle/temp/mana.onnx.json")
 json.dump(json.load(open("/kaggle/temp/mana.onnx.json"))["phoneme_id_map"], open(phonemes, "w"), ensure_ascii=False)
 
-hh = int(HOURS)
-mm = int((HOURS - hh) * 60)
 # Lightning loads --ckpt_path with weights_only=True, which refuses Mana's checkpoint (it holds
 # pathlib paths in its hyperparameters). Both checkpoints used here are trusted: Mana's own and ours.
 launcher = "/kaggle/temp/train_main.py"
@@ -95,20 +115,26 @@ base = (
     " --trainer.callbacks.save_top_k 1 --trainer.callbacks.save_last true"
 )
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+left = lambda: BUDGET_H * 3600 - (time.time() - T0)
 start = time.time()
-sh(f"{base} --trainer.max_time 00:{hh:02d}:{mm:02d}:00 --ckpt_path {start_ckpt}", check=False)
+# The clock covers caching too (Lightning's max_time does not), so the process is stopped from here
+# and the newest step checkpoint is used.
+sh(f"{base} --ckpt_path {start_ckpt}", check=False, timeout=left())
 if not glob.glob(f"{OUT}/train/**/*.ckpt", recursive=True) and time.time() - start < 1800:
     # Resuming the old training state failed: start a new run from the weights alone.
-    left = HOURS - (time.time() - start) / 3600
-    lh, lm = int(left), int((left - int(left)) * 60)
     print("resume failed; warm start from the weights", flush=True)
-    sh(f"{base} --trainer.max_time 00:{lh:02d}:{lm:02d}:00 --model.warmstart_ckpt {start_ckpt}", check=False)
+    sh(f"{base} --model.warmstart_ckpt {start_ckpt}", check=False, timeout=left())
 print(f"training {(time.time() - start) / 3600:.2f} h", flush=True)
 
 ckpts = sorted(glob.glob(f"{OUT}/train/**/*.ckpt", recursive=True), key=os.path.getmtime)
 assert ckpts, "no checkpoint written"
-last = ckpts[-1]
-print("last", last, flush=True)
+# The newest one that loads: the stop can land in the middle of a save.
+for last in reversed(ckpts):
+    try:
+        print("last", last, torch.load(last, map_location="cpu", weights_only=False)["global_step"], flush=True)
+        break
+    except Exception as e:
+        print("unreadable", last, e, flush=True)
 shutil.copy(last, f"{OUT}/last.ckpt")
 for c in ckpts:
     os.remove(c)

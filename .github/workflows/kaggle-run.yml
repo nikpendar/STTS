@@ -1,6 +1,9 @@
 # Runs a folder of kaggle/ (run.py + kernel-metadata.json) as a private Kaggle notebook on the
 # account in the secrets KAGGLE_USERNAME / KAGGLE_KEY, waits for it (up to 5.5 h here; Kaggle
-# itself allows 12 h) and prints the end of its log. Outputs stay on Kaggle.
+# itself allows 12 h) and prints the end of its log. Outputs stay on Kaggle, except in fetch mode:
+# the newest voice checkpoint of keyless-voice-train goes to the private Kaggle dataset
+# keyless-voice-ckpt (the next training session resumes from it) and its ONNX export to the
+# GitHub release tts-fa-keyless-wip.
 name: Kaggle run
 
 on:
@@ -11,13 +14,16 @@ on:
         required: true
         default: smoke
       mode:
-        description: "run: push and wait; start: push only; log: wait for the last run and print its log"
+        description: "run: push and wait; start: push only; log: wait for the last run and print its log; fetch: checkpoint to dataset + ONNX to release"
         type: choice
-        options: [run, start, log]
+        options: [run, start, log, fetch]
         default: run
   push:
     branches: [claude/project-thread-xaj97f]
     paths: [kaggle/smoke/**]
+
+permissions:
+  contents: write
 
 jobs:
   run:
@@ -35,13 +41,13 @@ jobs:
           test -n "$KAGGLE_USERNAME" && test -n "$KAGGLE_KEY" || { echo "::error::KAGGLE_USERNAME / KAGGLE_KEY secrets missing"; exit 1; }
           pip install -q --upgrade kaggle && kaggle --version
       - name: Push
-        if: env.MODE != 'log'
+        if: env.MODE == 'run' || env.MODE == 'start'
         run: |
           sed -i "s#KAGGLE_USER/#$KAGGLE_USERNAME/#g" "kaggle/$KERNEL/kernel-metadata.json"
           kaggle kernels push -p "kaggle/$KERNEL" | tee push.txt
           grep -qiE "error|failed" push.txt && exit 1 || true
       - name: Wait and log
-        if: env.MODE != 'start'
+        if: env.MODE == 'run' || env.MODE == 'log'
         run: |
           ID="$KAGGLE_USERNAME/keyless-voice-$KERNEL"
           [ "$MODE" = log ] || sleep 60
@@ -56,3 +62,34 @@ jobs:
           [ -n "$LOG" ] && python3 -c "import json,sys; [print(''.join(f'[{e.get(\"time\",0):.0f}s] ' + l for l in e.get('data','').splitlines(True)),end='') for e in json.load(open(sys.argv[1]))]" "$LOG" > log.txt
           [ -n "$LOG" ] && { echo "--- progress"; grep -aoE "Epoch [0-9]+:[^|]*\|[^|]*\|[^]]*\]" log.txt | tail -5; grep -aiE "cach|preprocess|sanity|max_time|Trainable|Total params" log.txt | head -20; echo "--- end of log"; tail -150 log.txt; }
           case "$S" in *complete*|*COMPLETE*) ;; *) exit 1;; esac
+      - name: Fetch checkpoint
+        if: env.MODE == 'fetch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ID="$KAGGLE_USERNAME/keyless-voice-$KERNEL"
+          mkdir -p ck && kaggle kernels output "$ID" -p ck --file-pattern ".*(\.ckpt|mana\.onnx\.json)$" 2>&1 | tail -3
+          find ck -type f -exec ls -la {} \;
+          CK="$(ls ck/last.ckpt 2>/dev/null || find ck -name 'last*.ckpt' | head -1)"
+          [ -n "$CK" ] || CK="$(find ck -name '*.ckpt' -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2)"
+          test -f "$CK"; echo "checkpoint $CK"
+          git clone -q --depth 1 https://github.com/OHF-voice/piper1-gpl.git piper
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q scikit-build cmake ninja
+          (cd piper && pip install -q -e '.[train]' && bash ./build_monotonic_align.sh)
+          python3 -c "import torch; c = torch.load('$CK', map_location='cpu', weights_only=False); print('step', c.get('global_step'), 'epoch', c.get('epoch'))"
+          printf '%s\n' "import functools, runpy, sys, torch" "_load = torch.load" \
+            "torch.load = functools.wraps(_load)(lambda *a, **k: _load(*a, **{**k, 'weights_only': False}))" \
+            "runpy.run_module(sys.argv.pop(1), run_name='__main__', alter_sys=True)" > launch.py
+          python3 launch.py piper.train.export_onnx --checkpoint "$CK" --output-file mana.onnx
+          ls -la mana.onnx
+          JSON="$(find ck -name mana.onnx.json | head -1)"
+          gh release view tts-fa-keyless-wip >/dev/null 2>&1 || gh release create tts-fa-keyless-wip --prerelease --target "$GITHUB_SHA" --title "Keyless voice (training)" --notes "Mana Piper fine-tuned on Mana-TTS with the app's phonemes; work in progress."
+          gh release upload tts-fa-keyless-wip mana.onnx "$JSON" --clobber
+          mkdir -p ds && mv "$CK" ds/last.ckpt
+          printf '{"title": "keyless-voice-ckpt", "id": "%s/keyless-voice-ckpt", "licenses": [{"name": "other"}]}\n' "$KAGGLE_USERNAME" > ds/dataset-metadata.json
+          if kaggle datasets status "$KAGGLE_USERNAME/keyless-voice-ckpt" >/dev/null 2>&1; then
+            kaggle datasets version -p ds -m "checkpoint $(date -u +%F)"
+          else
+            kaggle datasets create -p ds
+          fi
