@@ -37,9 +37,11 @@ sh("pip install -q scikit-build cmake ninja")
 sh("cd /kaggle/temp/piper && pip install -q -e '.[train]' && bash ./build_monotonic_align.sh")
 sh("cd /kaggle/temp/piper && python setup.py build_ext --inplace -q", check=False)
 
-meta = glob.glob("/kaggle/input/**/metadata.csv", recursive=True)
+# Phonemes from keyless-voice-relabel when attached, audio from keyless-voice-prep.
+meta = sorted(glob.glob("/kaggle/input/**/metadata.csv", recursive=True), key=lambda m: "relabel" not in m)
 assert meta, "attach the output of keyless-voice-prep"
-data = os.path.dirname(meta[0])
+data = os.path.dirname(glob.glob("/kaggle/input/**/wavs", recursive=True)[0])
+print("phonemes from", meta[0], flush=True)
 
 # Utterances up to MAX_S seconds: the longest ones ran a T4 (15 GB) out of memory at batch 24.
 import soundfile as sf

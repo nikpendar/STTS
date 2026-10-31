@@ -31,7 +31,8 @@ sys.path.insert(0, "/kaggle/temp")
 from tts_phonemes import ipa_word  # noqa: E402
 
 IDS = {k: v[0] for k, v in json.load(open(f"{VOICE}/mana.onnx.json"))["phoneme_id_map"].items()}
-PUNCT = {".": ".", "!": "!", "?": "?", "؟": "?", "،": ",", ",": ",", ";": ";", "؛": ";", ":": ":"}
+# Colons and semicolons as commas (rare in the corpus; the voice drifted on them), as in the app.
+PUNCT = {".": ".", "!": "!", "?": "?", "؟": "?", "،": ",", ",": ",", ";": ",", "؛": ",", ":": ","}
 enc = dec = None
 
 

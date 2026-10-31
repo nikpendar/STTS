@@ -67,8 +67,9 @@ final class PersianPhonemizer {
 
     // MARK: - Text
 
+    // Colons and semicolons are read as commas: the voice heard them too rarely in training.
     private static let punctuation: [Character: String] = [
-        ".": ".", "!": "!", "?": "?", "؟": "?", "،": ",", ",": ",", ";": ";", "؛": ";", ":": ":",
+        ".": ".", "!": "!", "?": "?", "؟": "?", "،": ",", ",": ",", ";": ",", "؛": ",", ":": ",",
     ]
 
     /// Pieces of `text` that end at one of `marks` (kept), or at the end.
@@ -118,7 +119,7 @@ final class PersianPhonemizer {
     /// GE2PE letters to the IPA symbols in the voice's phoneme map.
     private static let letters: [Character: String] = [
         "a": "ɑ", "/": "a", "e": "e", "o": "o", "i": "i", "u": "u",
-        "@": "ʔ", "?": "ʔ", "c": "tʃ", "C": "tʃ", "$": "ʃ", "S": "ʃ", "Z": "ʒ", "j": "dʒ", "y": "j", "q": "q", "x": "x",
+        "@": "ʔ", "?": "ʔ", "c": "tʃ", "C": "tʃ", "$": "ʃ", "S": "ʃ", "Z": "ʒ", ";": "ʒ", "j": "dʒ", "y": "j", "q": "q", "x": "x",
         "g": "ɡ", "b": "b", "p": "p", "t": "t", "d": "d", "k": "k", "f": "f", "v": "v", "s": "s",
         "z": "z", "h": "h", "m": "m", "n": "n", "l": "l", "r": "r",
     ]
