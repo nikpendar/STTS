@@ -67,6 +67,12 @@ final class KeyboardSession: ObservableObject {
         observer.observe(DictationBridge.stop) { [weak self] in
             MainActor.assumeIsolated { self?.finishCapture() }
         }
+        observer.observe(DictationBridge.pause) { [weak self] in
+            MainActor.assumeIsolated { self?.setPaused(true) }
+        }
+        observer.observe(DictationBridge.resume) { [weak self] in
+            MainActor.assumeIsolated { self?.setPaused(false) }
+        }
         observer.observe(DictationBridge.cancel) { [weak self] in
             MainActor.assumeIsolated { self?.cancelDictation() }
         }
@@ -229,6 +235,14 @@ final class KeyboardSession: ObservableObject {
         if let testAudio { feedTestAudio(testAudio) }
     }
 
+    /// The keyboard paused or resumed a locked recording: while paused, no audio is kept, so
+    /// the model hears nothing of it and the held limit does not run.
+    private func setPaused(_ paused: Bool) {
+        guard isCapturing else { return }
+        collector.paused = paused
+        log.info("recording \(paused ? "paused" : "resumed", privacy: .public)")
+    }
+
     /// Every 0.05 s while recording: sends the level of the latest 0.1 s of audio to the
     /// keyboard (as one of `DictationBridge.levels` notifications, only when it changes), so the
     /// orb keeps up with the voice; twice a second it drops a recording in which nobody has
@@ -244,7 +258,7 @@ final class KeyboardSession: ObservableObject {
             while !Task.isCancelled, let self, self.isCapturing {
                 try? await Task.sleep(nanoseconds: 50_000_000)
                 guard !Task.isCancelled, self.isCapturing else { break }
-                let level = self.collector.recentLevel(Int(AudioLoader.sampleRate) / 10)
+                let level = self.collector.paused ? 0 : self.collector.recentLevel(Int(AudioLoader.sampleRate) / 10)
                 let db = 20 * log10(max(level, 1e-6))
                 let step = min(DictationBridge.levels - 1, max(0, Int((db + 55) / 2)))
                 if step != lastStep {
@@ -529,6 +543,7 @@ private final class SampleCollector: @unchecked Sendable {
     private var frameSum: Float = 0
     private var frameCount = 0
     private var capturing = false
+    private var isPaused = false
     private static let frame = Int(AudioLoader.sampleRate) / 10
 
     /// Starts a recording; returns the room's level before it (the 30th percentile of the last
@@ -543,7 +558,20 @@ private final class SampleCollector: @unchecked Sendable {
         frameSum = 0
         frameCount = 0
         capturing = true
+        isPaused = false
         return sorted.count >= 10 ? sorted[sorted.count * 3 / 10] : nil
+    }
+
+    /// While a recording is paused, its audio is dropped (and is not taken for room noise either).
+    var paused: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return isPaused }
+        set {
+            lock.lock()
+            isPaused = newValue
+            frameSum = 0
+            frameCount = 0
+            lock.unlock()
+        }
     }
 
     /// Levels of the complete 0.1 s frames so far.
@@ -581,6 +609,7 @@ private final class SampleCollector: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         capturing = false
+        isPaused = false
         let result = samples
         samples = []
         return result
@@ -588,6 +617,10 @@ private final class SampleCollector: @unchecked Sendable {
 
     func append(_ pointer: UnsafePointer<Float>, count: Int) {
         lock.lock()
+        if capturing && isPaused {
+            lock.unlock()
+            return
+        }
         let buffer = UnsafeBufferPointer(start: pointer, count: count)
         if capturing { samples.append(contentsOf: buffer) }
         for sample in buffer {

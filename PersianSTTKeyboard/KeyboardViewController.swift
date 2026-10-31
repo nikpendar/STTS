@@ -16,6 +16,12 @@ final class KeyboardViewController: UIInputViewController {
 
     private var state = State.checking {
         didSet {
+            // A pause belongs to one recording.
+            if state != .recording, isPaused {
+                isPaused = false
+                orb.paused = false
+                orb.accessibilityLabel = nil
+            }
             render()
             if (oldValue == .noSession || oldValue == .checking) != (state == .noSession || state == .checking) {
                 updateSpaceImage()
@@ -375,6 +381,9 @@ final class KeyboardViewController: UIInputViewController {
         switch state {
         case .ready:
             startDictation(held: false)
+        case .recording where isLocked:
+            // Locked: the orb pauses and resumes; the middle of the orange bar ends it.
+            setPaused(!isPaused)
         case .recording:
             DictationBridge.post(DictationBridge.stop)
             beginTranscribing()
@@ -390,6 +399,18 @@ final class KeyboardViewController: UIInputViewController {
         case .starting:
             break
         }
+    }
+
+    /// A locked recording paused by a tap on the orb: the app keeps no audio until the next tap.
+    private var isPaused = false
+
+    private func setPaused(_ paused: Bool) {
+        guard paused != isPaused else { return }
+        isPaused = paused
+        haptic(.impact(.light))
+        DictationBridge.post(paused ? DictationBridge.pause : DictationBridge.resume)
+        orb.paused = paused
+        orb.accessibilityLabel = paused ? "ادامه‌ی ضبط" : "مکث ضبط"
     }
 
     /// Asks the app to record. `held`: while a finger holds the space bar, which the app then
@@ -1476,6 +1497,8 @@ final class KeyboardViewController: UIInputViewController {
         deletedTouches.removeAll()
         letterWeightsCache = nil
         updateSuggestions()
+        // New keys go on top; an open settings panel stays above them until it is closed.
+        if let panel = settingsPanel, panel.superview === keysView { keysView.bringSubviewToFront(panel) }
         view.setNeedsLayout()
     }
 
@@ -3440,6 +3463,11 @@ private final class DictationOrbView: UIControl {
         }
     }
 
+    /// A locked recording paused: the orb dims and stops moving, and shows a pause sign.
+    var paused = false {
+        didSet { if paused != oldValue { update() } }
+    }
+
     enum Lock { case open, closed }
     /// Over a held space bar: an open lock floats above the orb with an arrow bobbing over it,
     /// for sliding up to lock; once locked, the lock closes in orange and the arrow fades.
@@ -3637,9 +3665,9 @@ private final class DictationOrbView: UIControl {
             processingRing.isHidden = true
             caption.text = "…"
         case .recording:
-            gradient.opacity = 1
+            gradient.opacity = paused ? 0.45 : 1
             setLoading(false)
-            setMotion(true)
+            setMotion(!paused)
             liveRing.track.isHidden = false
             liveRing.ring.isHidden = !liveRing.isRunning
             processingRing.isHidden = true
@@ -3651,6 +3679,16 @@ private final class DictationOrbView: UIControl {
             liveRing.isHidden = true
             processingRing.isHidden = false
             caption.text = "در حال تبدیل به متن… برای لغو بزنید"
+        }
+        let symbol = mode == .recording && paused ? "pause.fill" : "mic.fill"
+        if icon.accessibilityIdentifier != symbol {
+            icon.accessibilityIdentifier = symbol
+            let image = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold))
+            if animates, window != nil {
+                UIView.transition(with: icon, duration: 0.15, options: .transitionCrossDissolve) { self.icon.image = image }
+            } else {
+                icon.image = image
+            }
         }
         CATransaction.commit()
     }
@@ -4328,7 +4366,10 @@ private final class KeyboardSettingsPanel: UIView {
         addSubview(backdrop)
 
         titleLabel.text = "تنظیمات کیبورد"
-        titleLabel.font = AppFont.font(ofSize: 17)
+        // Larger and bold, so it stands apart from the rows below it.
+        let titleFont = AppFont.font(ofSize: 20)
+        titleLabel.font = titleFont.fontDescriptor.withSymbolicTraits(.traitBold).map { UIFont(descriptor: $0, size: 20) }
+            ?? .systemFont(ofSize: 20, weight: .bold)
         titleLabel.textAlignment = .right
         closeButton.setImage(UIImage(systemName: "keyboard.chevron.compact.down",
                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 18)), for: .normal)
@@ -4467,12 +4508,14 @@ private final class KeyboardSettingsPanel: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         backdrop.frame = bounds
-        let side: CGFloat = 16 + max(safeAreaInsets.left, safeAreaInsets.right)
-        header.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 40)
-        closeButton.frame = CGRect(x: side - 8, y: 0, width: 44, height: 40)
-        titleLabel.frame = CGRect(x: side + 40, y: 0, width: bounds.width - 2 * side - 40, height: 40)
-        scroll.frame = CGRect(x: 0, y: 40, width: bounds.width, height: bounds.height - 40)
-        let width = bounds.width - 2 * side
+        // Content is at most 440 pt wide and centred, so in landscape titles sit near their switches.
+        let inset: CGFloat = 16 + max(safeAreaInsets.left, safeAreaInsets.right)
+        let width = min(bounds.width - 2 * inset, 440)
+        let side = (bounds.width - width) / 2
+        header.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 44)
+        closeButton.frame = CGRect(x: side - 8, y: 0, width: 44, height: 44)
+        titleLabel.frame = CGRect(x: side + 40, y: 0, width: width - 40, height: 44)
+        scroll.frame = CGRect(x: 0, y: 44, width: bounds.width, height: bounds.height - 44)
         let height = stack.systemLayoutSizeFitting(CGSize(width: width, height: 0),
                                                    withHorizontalFittingPriority: .required,
                                                    verticalFittingPriority: .fittingSizeLevel).height

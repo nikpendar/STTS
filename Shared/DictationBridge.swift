@@ -20,6 +20,9 @@ enum DictationBridge {
     static let startHeld = "com.persianstt.startHeld"
     static let recording = "com.persianstt.recording"
     static let stop = "com.persianstt.stop"
+    /// Keyboard pauses a locked recording (no audio is kept) and resumes it.
+    static let pause = "com.persianstt.pause"
+    static let resume = "com.persianstt.resume"
     /// Keyboard abandons the transcription in progress.
     static let cancel = "com.persianstt.cancel"
     /// App has a provisional transcript of the recording so far on `transcriptPort`.
