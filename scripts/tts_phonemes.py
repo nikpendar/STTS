@@ -20,6 +20,26 @@ EXCEPTIONS = {
 }
 
 
+# Latin letters by their English names, in GE2PE letters: «IPA» is read «آی‌پی‌اِی».
+LETTERS = {
+    "a": "ey", "b": "bi", "c": "si", "d": "di", "e": "i", "f": "ef", "g": "ji", "h": "ec", "i": "ay",
+    "j": "jey", "k": "key", "l": "el", "m": "em", "n": "en", "o": "o", "p": "pi", "q": "kiu", "r": "ar",
+    "s": "es", "t": "ti", "u": "yu", "v": "vi", "w": "d/blyu", "x": "eks", "y": "vay", "z": "zed",
+}
+
+
+def latin_runs(clause):
+    """`clause` as runs of (is_latin, text). Latin words longer than five letters that are not all
+    capitals are left out: their English pronunciation cannot be guessed from the letters."""
+    runs = []
+    for part in re.findall(r"[A-Za-z]+|[^A-Za-z]+", clause):
+        latin = part[0].isascii() and part[0].isalpha()
+        if latin and len(part) > 5 and not part.isupper():
+            part, latin = " ", False
+        runs.append((latin, part))
+    return runs
+
+
 def with_exceptions(words, phonemes):
     """GE2PE output with EXCEPTIONS put in, keeping the model's Ezafe; only when the model gave one
     phoneme word per input word."""

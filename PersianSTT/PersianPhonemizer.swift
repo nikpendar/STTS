@@ -31,20 +31,52 @@ final class PersianPhonemizer {
             var ipa = ""
             for clause in Self.split(sentence, at: "،,;؛:") {
                 let mark = clause.last.flatMap { Self.punctuation[$0] }
-                let words = Self.clean(clause).split(separator: " ")
-                // Long clauses in pieces: the model learned from sentences of usual length.
-                for start in stride(from: 0, to: words.count, by: 24) {
-                    let piece = words[start..<min(start + 24, words.count)].joined(separator: " ")
-                    let phonemes = try self.phonemes(piece)
-                    if !ipa.isEmpty, ipa.last != " " { ipa += " " }
-                    let fixed = Self.withExceptions(Array(words[start..<min(start + 24, words.count)]), phonemes.split(separator: " "))
-                    ipa += fixed.map { Self.ipa(word: $0, stress: stress) }.joined(separator: " ")
+                for (latin, run) in Self.latinRuns(clause) {
+                    if latin {
+                        if !ipa.isEmpty, ipa.last != " " { ipa += " " }
+                        ipa += run.lowercased().compactMap { Self.letters[$0] }
+                            .map { Self.ipa(word: Substring($0), stress: stress) }.joined(separator: " ")
+                        continue
+                    }
+                    let words = Self.clean(run).split(separator: " ")
+                    // Long clauses in pieces: the model learned from sentences of usual length.
+                    for start in stride(from: 0, to: words.count, by: 24) {
+                        let piece = Array(words[start..<min(start + 24, words.count)])
+                        let phonemes = try self.phonemes(piece.joined(separator: " "))
+                        if !ipa.isEmpty, ipa.last != " " { ipa += " " }
+                        let fixed = Self.withExceptions(piece, phonemes.split(separator: " "))
+                        ipa += fixed.map { Self.ipa(word: $0, stress: stress) }.joined(separator: " ")
+                    }
                 }
                 if let mark, !ipa.isEmpty { ipa += mark }
             }
             if !ipa.isEmpty { out.append(ipa.trimmingCharacters(in: .whitespaces)) }
         }
         return out
+    }
+
+    /// Latin letters by their English names, in GE2PE letters: «IPA» is read «آی‌پی‌اِی».
+    static let letters: [Character: String] = [
+        "a": "ey", "b": "bi", "c": "si", "d": "di", "e": "i", "f": "ef", "g": "ji", "h": "ec", "i": "ay",
+        "j": "jey", "k": "key", "l": "el", "m": "em", "n": "en", "o": "o", "p": "pi", "q": "kiu", "r": "ar",
+        "s": "es", "t": "ti", "u": "yu", "v": "vi", "w": "d/blyu", "x": "eks", "y": "vay", "z": "zed",
+    ]
+
+    /// `clause` as runs of (isLatin, text). Latin words longer than five letters that are not all
+    /// capitals are left out: their English pronunciation cannot be guessed from the letters.
+    static func latinRuns(_ clause: String) -> [(Bool, String)] {
+        var runs: [(Bool, String)] = []
+        for character in clause {
+            let latin = character.isASCII && character.isLetter
+            if let last = runs.last, last.0 == latin {
+                runs[runs.count - 1].1.append(character)
+            } else {
+                runs.append((latin, String(character)))
+            }
+        }
+        return runs.map { latin, text in
+            latin && text.count > 5 && text != text.uppercased() ? (false, " ") : (latin, text)
+        }
     }
 
     /// Words Homo-GE2PE reads wrong, in its own letters (ده as the number «dah», not «deh»).
