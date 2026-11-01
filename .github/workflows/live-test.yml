@@ -409,7 +409,8 @@ jobs:
           read SPX SPY < <(python3 find.py spaceKey out/ui-10.json || echo "240 817")
           axe swipe --start-x "$((SPX + 50))" --start-y "$SPY" --end-x "$((SPX - 50))" --end-y "$SPY" --udid "$DEVICE" || true
           sleep 2
-          mem() { for p in PersianSTT PersianSTTKeyboard; do PID="$(pgrep -x "$p" | head -n1)"
+          # In this test the keyboard runs inside the app (-keyboardTest), so one process.
+          mem() { for p in PersianSTT PersianSTTKeyboard; do PID="$(pgrep -x "$p" | head -n1 || true)"
             echo "$1 $p: $( [ -n "$PID" ] && footprint "$PID" 2>/dev/null | grep -m1 -iE 'phys_footprint:' | tr -s ' ' || echo 'not running')"
             done | tee -a out/leave.txt; }
           mem before
