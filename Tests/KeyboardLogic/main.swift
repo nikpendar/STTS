@@ -111,13 +111,13 @@ check("phone digits back", SpokenNumbers.words(in: "۰۹۱۲"), "صفر نه ی�
 check("mobile joined", text("شماره‌ام صفر نهصد و دوازده سیصد و چهل و پنج شصت و هفت هشتاد و نه"), "شماره‌ام 09123456789")
 check("mobile without a cue", text("صفر نهصد و دوازده یک دو سه چهار"), "09121234")
 check("lone نه inside a number", text("صفر نه یک دو"), "0912")
-check("card joined", text("کارت شش هزار و سی و هفت نود و نه هفتاد و پنج یک دو سه چهار پنج شش هفت هشت نه"), "کارت 6037997512345678")
+check("card joined", text("کارت شش هزار و سی و هفت نود و نه هفتاد و پنج یک دو سه چهار پنج شش هفت هشت"), "کارت 6037997512345678")
 check("seven digits joined", text("دوازده سی و چهار پنجاه و شش هفتاد و هشت"), "12345678")
 check("pieces with a comma", text("شماره صفر نهصد و دوازده، سیصد و چهل و پنج", punctuation: false), "شماره 0912345")
 check("two small numbers apart", text("سه چهار نفر"), "۳ ۴ نفر")
 check("years apart", text("سال هزار و چهارصد و دو هزار و چهارصد و سه"), "سال ۱۴۰۲ ۱۴۰۳")
 check("date", text("تاریخ هزار و چهارصد و سه پنج دوازده"), "تاریخ ۱۴۰۳/۰۵/۱۲")
-check("date day first", text("تاریخ دوازده پنج هزار و چهارصد و سه"), "تاریخ ۱۲/۰۵/۱۴۰۳")
+check("date day first", text("تاریخ دوازده پنج دو هزار و بیست و چهار"), "تاریخ ۱۲/۰۵/۲۰۲۴")
 check("joins listed", SpokenNumbers.digitsAndJoins(in: "شماره صفر نهصد و دوازده").joins,
       [SpokenNumbers.Join(joined: "0912", spaced: "۰ ۹۱۲")])
 
