@@ -7,8 +7,8 @@ import Foundation
 /// («دو سه روز» → «۲ ۳ روز»), except a number said in pieces: a phone, card, national ID or
 /// IBAN number (first piece zero, seven digits or more, or after «شماره», «کارت», «کد»...) is
 /// joined in Latin digits, to paste into a banking app or the contacts («صفر نهصد و دوازده سیصد
-/// و چهل و پنج...» → «0912345...»), and a date after «تاریخ» (or year first) in Persian digits
-/// with slashes («۱۴۰۳/۰۵/۱۲»).
+/// و چهل و پنج...» → «0912345...»), and a date said day, month, year in Persian digits with
+/// slashes («دوازده پنج هزار و چهارصد و سه» → «۱۲/۰۵/۱۴۰۳»).
 /// `words(in:)` writes digits back in words, for training on a corrected dictation: the
 /// recording has the words.
 enum SpokenNumbers {
@@ -143,15 +143,18 @@ enum SpokenNumbers {
         let plain = run.map { $0.filter { $0 != "٬" } }
         let values = plain.map { Int(String($0.compactMap { $0.wholeNumberValue }.map(String.init).joined())) ?? -1 }
         let dateCue = before.contains { $0.hasPrefix("تاریخ") }
-        // Year, month and day: after «تاریخ», or a Persian year first.
-        if run.count == 3 {
-            let year = { (v: Int) in (1300...1499).contains(v) || (1900...2099).contains(v) }
-            let date: [Int]? = year(values[0]) && (1...12).contains(values[1]) && (1...31).contains(values[2]) ? values
-                : dateCue && year(values[2]) && (1...12).contains(values[1]) && (1...31).contains(values[0]) ? values : nil
-            if let date, dateCue || (1300...1499).contains(values[0]) {
-                return date.map { format(padded: $0) }.joined(separator: "/")
-            }
+        // A date only as said in Persian, day, month and year in numbers (Rooz, 2026-11-01).
+        // «دوازده پنج هزار و چهارصد و سه» reads as 12 and 5403: month 5 of 1403 when the
+        // thousands are a month and the rest a year (not a round price such as 5300).
+        let year = { (v: Int) in (1300...1499).contains(v) || (1900...2099).contains(v) }
+        var date: [Int]?
+        if run.count == 3, (1...31).contains(values[0]), (1...12).contains(values[1]), year(values[2]) {
+            date = values
+        } else if run.count == 2, (1...31).contains(values[0]), (1...12).contains(values[1] / 1000),
+                  (300...499).contains(values[1] % 1000), values[1] % 100 != 0 {
+            date = [values[0], values[1] / 1000, 1000 + values[1] % 1000]
         }
+        if let date { return date.map { format(padded: $0) }.joined(separator: "/") }
         let cue = before.contains { identifierCues.contains($0) }
         let digits = plain.reduce(0) { $0 + $1.count }
         // «سال ۱۴۰۲ ۱۴۰۳»: years one after another, not a number.
