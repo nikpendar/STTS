@@ -37,13 +37,33 @@ final class PersianPhonemizer {
                     let piece = words[start..<min(start + 24, words.count)].joined(separator: " ")
                     let phonemes = try self.phonemes(piece)
                     if !ipa.isEmpty, ipa.last != " " { ipa += " " }
-                    ipa += phonemes.split(separator: " ").map { Self.ipa(word: $0, stress: stress) }.joined(separator: " ")
+                    let fixed = Self.withExceptions(Array(words[start..<min(start + 24, words.count)]), phonemes.split(separator: " "))
+                    ipa += fixed.map { Self.ipa(word: $0, stress: stress) }.joined(separator: " ")
                 }
                 if let mark, !ipa.isEmpty { ipa += mark }
             }
             if !ipa.isEmpty { out.append(ipa.trimmingCharacters(in: .whitespaces)) }
         }
         return out
+    }
+
+    /// Words Homo-GE2PE reads wrong, in its own letters (ده as the number «dah», not «deh»).
+    static let exceptions: [String: String] = [
+        "ده": "d/h",
+        "آوانگاری": "@avanegari",
+        "هم\u{200C}نویسه": "h/mnevise",
+        "هم\u{200C}نویسه\u{200C}ها": "h/mneviseha",
+    ]
+
+    /// GE2PE output with `exceptions` put in, keeping the model's Ezafe; only when the model gave one
+    /// phoneme word per input word.
+    static func withExceptions(_ words: [Substring], _ phonemes: [Substring]) -> [Substring] {
+        guard words.count == phonemes.count else { return phonemes }
+        return zip(words, phonemes).map { word, phoneme in
+            guard var fix = exceptions[String(word)] else { return phoneme }
+            if phoneme.hasSuffix("1") { fix += "aeiou/".contains(fix.last!) ? "ye1" : "e1" }
+            return Substring(fix)
+        }
     }
 
     /// One clause in GE2PE phoneme letters, greedy decoding: «کتاب بزرگ» → "ketabe1 bozorg".

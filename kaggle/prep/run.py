@@ -28,7 +28,7 @@ for f in ("g2p-encoder.onnx", "g2p-decoder.onnx", "mana.onnx.json"):
     urllib.request.urlretrieve(REL + f, f"{VOICE}/{f}")
 urllib.request.urlretrieve("https://raw.githubusercontent.com/nikpendar/STTS/claude/project-thread-xaj97f/scripts/tts_phonemes.py", "/kaggle/temp/tts_phonemes.py")
 sys.path.insert(0, "/kaggle/temp")
-from tts_phonemes import ipa_word  # noqa: E402
+from tts_phonemes import ipa_word, with_exceptions  # noqa: E402
 
 IDS = {k: v[0] for k, v in json.load(open(f"{VOICE}/mana.onnx.json"))["phoneme_id_map"].items()}
 # Colons and semicolons as commas (rare in the corpus; the voice drifted on them), as in the app.
@@ -95,7 +95,7 @@ def ipa_of(text):
             ph = g2p(" ".join(w[i:i + 24]))
             if ipa and not ipa.endswith(" "):
                 ipa += " "
-            ipa += " ".join(ipa_word(x, "rules") for x in ph.split())
+            ipa += " ".join(ipa_word(x, "rules") for x in with_exceptions(w[i:i + 24], ph.split()))
         if mark and ipa:
             ipa += mark
     return ipa.strip()

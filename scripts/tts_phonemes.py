@@ -11,6 +11,28 @@ MAP = {
 }
 VOWELS = set("ɑaeoiu")
 
+# Words Homo-GE2PE reads wrong, in its own letters (ده as the number «dah», not «deh»).
+EXCEPTIONS = {
+    "ده": "d/h",
+    "آوانگاری": "@avanegari",
+    "هم\u200cنویسه": "h/mnevise",
+    "هم\u200cنویسه\u200cها": "h/mneviseha",
+}
+
+
+def with_exceptions(words, phonemes):
+    """GE2PE output with EXCEPTIONS put in, keeping the model's Ezafe; only when the model gave one
+    phoneme word per input word."""
+    if len(words) != len(phonemes):
+        return phonemes
+    out = []
+    for w, p in zip(words, phonemes):
+        fix = EXCEPTIONS.get(w)
+        if fix and p.endswith("1"):
+            fix += "ye1" if fix[-1] in "aeiou/" else "e1"
+        out.append(fix or p)
+    return out
+
 
 def is_prefixed_verb(body, vowels):
     """A verb with mi-, nemi-, be-, ne- or na- (stressed there): a personal or past ending
