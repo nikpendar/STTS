@@ -34,7 +34,7 @@ final class PersianPhonemizer {
                 for (latin, run) in Self.latinRuns(clause) {
                     if latin {
                         if !ipa.isEmpty, ipa.last != " " { ipa += " " }
-                        ipa += run.lowercased().compactMap { Self.letters[$0] }
+                        ipa += run.lowercased().compactMap { Self.latinLetters[$0] }
                             .map { Self.ipa(word: Substring($0), stress: stress) }.joined(separator: " ")
                         continue
                     }
@@ -56,7 +56,7 @@ final class PersianPhonemizer {
     }
 
     /// Latin letters by their English names, in GE2PE letters: «IPA» is read «آی‌پی‌اِی».
-    static let letters: [Character: String] = [
+    static let latinLetters: [Character: String] = [
         "a": "ey", "b": "bi", "c": "si", "d": "di", "e": "i", "f": "ef", "g": "ji", "h": "ec", "i": "ay",
         "j": "jey", "k": "key", "l": "el", "m": "em", "n": "en", "o": "o", "p": "pi", "q": "kiu", "r": "ar",
         "s": "es", "t": "ti", "u": "yu", "v": "vi", "w": "d/blyu", "x": "eks", "y": "vay", "z": "zed",
