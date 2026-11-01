@@ -107,6 +107,19 @@ check("numbers with punctuation off", text("سی و دو", punctuation: false), 
 check("words back for training", SpokenNumbers.words(in: "۲۳ نفر در سال ۱۴۰۳ و ۲٬۵۰۰٬۰۰۰ تومن، ۳٫۵ درصد."),
       "بیست و سه نفر در سال هزار و چهارصد و سه و دو میلیون و پانصد هزار تومن، سه ممیز پنج درصد.")
 check("phone digits back", SpokenNumbers.words(in: "۰۹۱۲"), "صفر نه یک دو")
+// Numbers said in pieces: identifiers joined in Latin digits, dates with slashes, others apart.
+check("mobile joined", text("شماره‌ام صفر نهصد و دوازده سیصد و چهل و پنج شصت و هفت هشتاد و نه"), "شماره‌ام 09123456789")
+check("mobile without a cue", text("صفر نهصد و دوازده یک دو سه چهار"), "09121234")
+check("lone نه inside a number", text("صفر نه یک دو"), "0912")
+check("card joined", text("کارت شش هزار و سی و هفت نود و نه هفتاد و پنج یک دو سه چهار پنج شش هفت هشت نه"), "کارت 6037997512345678")
+check("seven digits joined", text("دوازده سی و چهار پنجاه و شش هفتاد و هشت"), "12345678")
+check("pieces with a comma", text("شماره صفر نهصد و دوازده، سیصد و چهل و پنج", punctuation: false), "شماره 0912345")
+check("two small numbers apart", text("سه چهار نفر"), "۳ ۴ نفر")
+check("years apart", text("سال هزار و چهارصد و دو هزار و چهارصد و سه"), "سال ۱۴۰۲ ۱۴۰۳")
+check("date", text("تاریخ هزار و چهارصد و سه پنج دوازده"), "تاریخ ۱۴۰۳/۰۵/۱۲")
+check("date day first", text("تاریخ دوازده پنج هزار و چهارصد و سه"), "تاریخ ۱۲/۰۵/۱۴۰۳")
+check("joins listed", SpokenNumbers.digitsAndJoins(in: "شماره صفر نهصد و دوازده").joins,
+      [SpokenNumbers.Join(joined: "0912", spaced: "۰ ۹۱۲")])
 
 // The speech model writes no ZWNJ; dictated text gets it where the word list has it.
 check("ZWNJ after می", text("من میخوام برم"), "من می‌خوام برم")

@@ -165,6 +165,13 @@ final class KeyboardViewController: UIInputViewController {
     private var zwnjDeclined = Set(UserDefaults.standard.stringArray(forKey: "zwnjDeclined") ?? [])
     /// The last letter typed by a tap, for a joining letter tapped twice typing ZWNJ.
     private var lastLetterTap: (character: String, time: CFTimeInterval)?
+    /// ZWNJ typed by a double tap: one backspace right after types the letter instead, and that
+    /// spelling («فرضیی» of فرضییات) never gets ZWNJ again.
+    private var lastDoubleZWNJ: (spelling: String, letter: String)?
+    private var doubleDeclined = Set(UserDefaults.standard.stringArray(forKey: "doubleDeclined") ?? [])
+    /// The last number of a dictation joined from pieces, at the end of what it typed: one
+    /// backspace right after puts the pieces back, in Persian digits.
+    private var lastNumberJoin: (inserted: String, original: String)?
     /// TapMap (`TouchModel`): where the user touches each key, and the touches of the word being
     /// typed, which count once the word is finished.
     private var touchModel = TouchModel.load()
@@ -607,6 +614,7 @@ final class KeyboardViewController: UIInputViewController {
                                                commands: false, zwnj: options.autoZWNJ,
                                                dictionary: dictionary)
             perform(result)
+            noteNumberJoin(result)
             cancelTimeout()
             state = .ready
             // Corrections of a dictation that also edited the text could not be matched to its recording.
@@ -636,6 +644,17 @@ final class KeyboardViewController: UIInputViewController {
         default:
             break
         }
+    }
+
+    /// A dictation ending in a number joined from pieces (a mark or two may follow it): one
+    /// backspace puts the pieces back.
+    private func noteNumberJoin(_ result: VoiceCommands.Result) {
+        guard let join = result.joins.last, case .text(let text)? = result.steps.last,
+              let range = text.range(of: join.joined, options: .backwards) else { return }
+        let tail = String(text[range.upperBound...])
+        guard tail.count <= 2, !tail.contains(where: { $0.isLetter || $0.isNumber }) else { return }
+        let persian = join.spaced.map { $0.wholeNumberValue.map { Array("۰۱۲۳۴۵۶۷۸۹")[$0] } ?? $0 }
+        lastNumberJoin = (join.joined + tail, String(persian) + tail)
     }
 
     /// A dictation's text without the words a return or delete already settled.
@@ -784,6 +803,8 @@ final class KeyboardViewController: UIInputViewController {
         }
         lastSpace = nil
         lastAutoZWNJ = nil
+        lastDoubleZWNJ = nil
+        lastNumberJoin = nil
         manualShift = false
         lastInsertion = (text, CACurrentMediaTime())
         if edits.isTracking { report(edits.willEdit(dictated ? .dictate(text) : .type(text), in: documentContext)) }
@@ -799,6 +820,8 @@ final class KeyboardViewController: UIInputViewController {
     private func deleteBackward() {
         lastSpace = nil
         lastAutoZWNJ = nil
+        lastDoubleZWNJ = nil
+        lastNumberJoin = nil
         lastInsertion = nil
         manualShift = false
         if edits.isTracking { report(edits.willEdit(.deleteBackward, in: documentContext)) }
@@ -1703,9 +1726,10 @@ final class KeyboardViewController: UIInputViewController {
         if !isEnglish, layer == .letters, let last = lastLetterTap, last.character == character,
            now - last.time < 0.4, Self.joiningLetters.contains(character), lexicon.isLoaded {
             let word = currentWord(before: contextBefore())
-            if word.hasSuffix(character), !lexicon.startsWord(word + character) {
+            if word.hasSuffix(character), !lexicon.startsWord(word + character), !doubleDeclined.contains(word + character) {
                 lastLetterTap = nil
                 insert("\u{200C}")
+                lastDoubleZWNJ = (word + character, character)
                 return
             }
         }
@@ -2116,6 +2140,19 @@ final class KeyboardViewController: UIInputViewController {
             UserDefaults.standard.set(Array(zwnjDeclined), forKey: "zwnjDeclined")
             for _ in 0..<change.inserted.count { deleteBackward() }
             insert(change.original)
+            return
+        }
+        if let double = lastDoubleZWNJ, (proxy.documentContextBeforeInput ?? "").hasSuffix("\u{200C}") {
+            doubleDeclined.insert(double.spelling)
+            if doubleDeclined.count > 300 { doubleDeclined.remove(doubleDeclined.first!) }
+            UserDefaults.standard.set(Array(doubleDeclined), forKey: "doubleDeclined")
+            deleteBackward()
+            insert(double.letter)
+            return
+        }
+        if let join = lastNumberJoin, (proxy.documentContextBeforeInput ?? "").hasSuffix(join.inserted) {
+            for _ in 0..<join.inserted.count { deleteBackward() }
+            insert(join.original)
             return
         }
         if let glide = lastGlide, (proxy.documentContextBeforeInput ?? "").hasSuffix(glide.inserted) {

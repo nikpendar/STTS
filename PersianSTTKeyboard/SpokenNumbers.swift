@@ -4,7 +4,11 @@ import Foundation
 /// «هزار و چهارصد و سه» → «۱۴۰۳», «دو میلیون» → «۲٬۰۰۰٬۰۰۰», «سه ممیز پنج» → «۳٫۵».
 /// Kept as words: a lone «یک» or «یه» (mostly "a"), a lone «نه» or «ده» unless a counting word
 /// follows («نه تا»), and ordinals («بیست و سوم»). Numbers said one after another stay apart
-/// («دو سه روز» → «۲ ۳ روز»).
+/// («دو سه روز» → «۲ ۳ روز»), except a number said in pieces: a phone, card, national ID or
+/// IBAN number (first piece zero, seven digits or more, or after «شماره», «کارت», «کد»...) is
+/// joined in Latin digits, to paste into a banking app or the contacts («صفر نهصد و دوازده سیصد
+/// و چهل و پنج...» → «0912345...»), and a date after «تاریخ» (or year first) in Persian digits
+/// with slashes («۱۴۰۳/۰۵/۱۲»).
 /// `words(in:)` writes digits back in words, for training on a corrected dictation: the
 /// recording has the words.
 enum SpokenNumbers {
@@ -42,7 +46,22 @@ enum SpokenNumbers {
         var gap: String
     }
 
-    static func digits(in text: String) -> String {
+    /// A number said in pieces that was joined: as written and as the pieces would have been.
+    struct Join: Equatable {
+        let joined: String
+        let spaced: String
+    }
+
+    static func digits(in text: String) -> String { digitsAndJoins(in: text).text }
+
+    /// Words before a number said in pieces that make it an identifier.
+    private static let identifierCues: Set<String> = [
+        "شماره", "شمارهی", "شمارهام", "شمارهاش", "شمارهات", "شمارم", "کارت", "کارتم", "کارتش", "کد", "کدم",
+        "موبایل", "موبایلم", "تلفن", "تلفنم", "همراه", "حساب", "حسابم", "شبا", "ملی", "ملیم", "تماس", "پستی",
+    ]
+    private static let latinDigits = Array("0123456789")
+
+    static func digitsAndJoins(in text: String) -> (text: String, joins: [Join]) {
         var lead = ""
         var words: [Word] = []
         var current = ""
@@ -63,21 +82,72 @@ enum SpokenNumbers {
                 gap.unicodeScalars.append(scalar)
             }
         }
-        guard !current.isEmpty else { return text }
+        guard !current.isEmpty else { return (text, []) }
         words.append(Word(text: current, gap: gap))
         let keys = words.map { Lexicon.key($0.text) }
         var out = lead
+        var joins: [Join] = []
         var i = 0
         while i < words.count {
-            if let number = number(words, keys, at: i) {
-                out += number.digits + words[number.end].gap
-                i = number.end + 1
-            } else {
+            guard let first = number(words, keys, at: i) else {
                 out += words[i].text + words[i].gap
                 i += 1
+                continue
+            }
+            // Numbers said one after another, with a space (or the comma automatic punctuation
+            // may put in a pause) between them. Within them a lone «یک» or «نه» is a digit.
+            var run = [first.digits]
+            var gaps: [String] = []
+            var end = first.end
+            while [" ", "، "].contains(words[end].gap), end + 1 < words.count, keys[end + 1] != "یه",
+                  let next = number(words, keys, at: end + 1, alone: false) {
+                gaps.append(words[end].gap)
+                run.append(next.digits)
+                end = next.end
+            }
+            var spaced = run[0]
+            for (gap, digits) in zip(gaps, run.dropFirst()) { spaced += gap + digits }
+            if let written = joined(run, after: keys[max(0, i - 3)..<i]) {
+                out += written
+                joins.append(Join(joined: written, spaced: spaced))
+            } else {
+                out += spaced
+            }
+            out += words[end].gap
+            i = end + 1
+        }
+        return (out, joins)
+    }
+
+    /// Numbers said one after another written as one: an identifier in Latin digits, a date in
+    /// Persian digits with slashes; nil when they stay apart («۳ ۴ نفر»). `before`: up to three
+    /// words before them (`Lexicon.key`).
+    private static func joined(_ run: [String], after before: ArraySlice<String>) -> String? {
+        guard run.count >= 2, !run.contains(where: { $0.contains("٫") }) else { return nil }
+        let plain = run.map { $0.filter { $0 != "٬" } }
+        let values = plain.map { Int(String($0.compactMap { $0.wholeNumberValue }.map(String.init).joined())) ?? -1 }
+        let dateCue = before.contains { $0.hasPrefix("تاریخ") }
+        // Year, month and day: after «تاریخ», or a Persian year first.
+        if run.count == 3 {
+            let year = { (v: Int) in (1300...1499).contains(v) || (1900...2099).contains(v) }
+            let date: [Int]? = year(values[0]) && (1...12).contains(values[1]) && (1...31).contains(values[2]) ? values
+                : dateCue && year(values[2]) && (1...12).contains(values[1]) && (1...31).contains(values[0]) ? values : nil
+            if let date, dateCue || (1300...1499).contains(values[0]) {
+                return date.map { format(padded: $0) }.joined(separator: "/")
             }
         }
-        return out
+        let cue = before.contains { identifierCues.contains($0) }
+        let digits = plain.reduce(0) { $0 + $1.count }
+        // «سال ۱۴۰۲ ۱۴۰۳»: years one after another, not a number.
+        let years = before.contains { $0.hasPrefix("سال") } || dateCue
+        guard cue || (!years && (values[0] == 0 || digits >= 7)) else { return nil }
+        return String(plain.joined().map { $0.wholeNumberValue.map { latinDigits[$0] } ?? $0 })
+    }
+
+    /// Persian digits, months and days with a leading zero: «۰۵».
+    private static func format(padded value: Int) -> String {
+        let text = format(value).filter { $0 != "٬" }
+        return value < 10 ? "۰" + text : text
     }
 
     /// The number starting at word `i`, as digits, and the index of its last word. `keys` are the

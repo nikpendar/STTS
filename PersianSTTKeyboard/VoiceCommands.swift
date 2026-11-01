@@ -30,6 +30,8 @@ enum VoiceCommands {
         /// occurrence of the symbol in `text` it is. A correction of the text is sent for
         /// training with the words put back, since they are what the recording has.
         var spoken: [Spoken] = []
+        /// Numbers said in pieces written as one (phone, card, date numbers).
+        var joins: [SpokenNumbers.Join] = []
 
         /// All text of the dictation, without the edits.
         var text: String {
@@ -141,7 +143,9 @@ enum VoiceCommands {
             }
             let before = texts.joined(separator: " ")
             let text = punctuation ? convert(tokens, before: before, lexicon: lexicon, spoken: &result.spoken) : String(piece)
-            let written = SpokenNumbers.digits(in: text)
+            let numbers = SpokenNumbers.digitsAndJoins(in: text)
+            let written = numbers.text
+            result.joins += numbers.joins
             texts.append(dictionary.applied(to: zwnj ? lexicon.restoringZWNJ(written) : written))
         }
         flush()
