@@ -335,7 +335,7 @@ func timed(_ times: Int, _ work: () -> Void) -> Double {
 }
 let whole = timed(20) { _ = VoiceCommands.process(long, punctuation: false, commands: false) }
 let numbersOnly = timed(20) { _ = SpokenNumbers.digitsAndJoins(in: long) }
-print("::notice::final text of \(longWords) words: \(String(format: "%.1f", whole)) ms, of which numbers \(String(format: "%.1f", numbersOnly)) ms")
+print("::warning::measured: final text of \(longWords) words: \(String(format: "%.1f", whole)) ms, of which numbers \(String(format: "%.1f", numbersOnly)) ms")
 check("long dictation under 60 ms", whole < 60, true)
 check("numbers a small share", numbersOnly < max(5, whole * 0.5), true)
 
@@ -349,13 +349,13 @@ for (index, word) in long.split(separator: " ").enumerated() where index < 400 {
     liveMax = max(liveMax, ms)
     liveTotal += ms
 }
-print("::notice::live text, 400 updates: slowest \(String(format: "%.1f", liveMax)) ms, average \(String(format: "%.2f", liveTotal / 400)) ms")
+print("::warning::measured: live text, 400 updates: slowest \(String(format: "%.1f", liveMax)) ms, average \(String(format: "%.2f", liveTotal / 400)) ms")
 check("live update under 30 ms", liveMax < 30, true)
 
 // The worst case: a long run of number words, every one joining the run.
 let digitsSaid = String(repeating: "یک دو سه چهار پنج شش هفت هشت نه صفر ", count: 300)
 let worst = timed(5) { _ = SpokenNumbers.digitsAndJoins(in: "شماره " + digitsSaid) }
-print("::notice::3000 number words in a row: \(String(format: "%.1f", worst)) ms")
+print("::warning::measured: 3000 number words in a row: \(String(format: "%.1f", worst)) ms")
 check("3000 number words under 100 ms", worst < 100, true)
 check("3000 number words joined", SpokenNumbers.digitsAndJoins(in: "شماره " + digitsSaid).text.count, "شماره ".count + 3000 + 1)
 
@@ -364,7 +364,7 @@ for _ in 0..<50 { _ = VoiceCommands.process(long, punctuation: false, commands: 
 let memoryBefore = footprintMB()
 for _ in 0..<500 { autoreleasepool { _ = VoiceCommands.process(long, punctuation: false, commands: false) } }
 let memoryAfter = footprintMB()
-print("::notice::memory over 500 long dictations: \(String(format: "%.1f", memoryBefore)) → \(String(format: "%.1f", memoryAfter)) MB")
+print("::warning::measured: memory over 500 long dictations: \(String(format: "%.1f", memoryBefore)) → \(String(format: "%.1f", memoryAfter)) MB")
 check("no memory growth", memoryAfter - memoryBefore < 3, true)
 
 // Text with no numbers is left exactly as it was.
