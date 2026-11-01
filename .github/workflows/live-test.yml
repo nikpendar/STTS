@@ -423,7 +423,10 @@ jobs:
           mem after
           xcrun simctl io "$DEVICE" screenshot out/9-left-while-dictating.png
           grep -E "recording started|recording cancelled|recording paused|controller .* freed" out/log.txt | tail -n 6 | cut -c1-250 | tee -a out/leave.txt || true
-          grep -q "recording cancelled" out/log.txt && echo "::notice::leaving the keyboard cancelled the recording" \
+          # Here the keyboard lives in the app, so leaving may not close it: the recording then
+          # ends at the touch-up. Either way it must end and free its audio.
+          LAST="$(grep -E "recording started|recording cancelled|final text|recording paused" out/log.txt | tail -n 1)"
+          echo "$LAST" | grep -qE "recording cancelled|final text" && echo "::notice::recording ended after leaving: ${LAST##*] }" \
             || echo "::error::leaving the keyboard while dictating did not end the recording"
           while read -r line; do echo "::notice::$line"; done < <(grep -E "^(before|recording|after) " out/leave.txt)
           # The repository gets a model (here a copy of the bundled one) for the next launch.
