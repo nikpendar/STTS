@@ -103,34 +103,51 @@ enum SpokenNumbers {
         var out = lead
         var joins: [Join] = []
         var i = 0
-        while i < words.count {
-            guard let first = number(words, keys, at: i) else {
-                out += words[i].text + words[i].gap
-                i += 1
-                continue
-            }
-            // Numbers said one after another: with a space, a pause (said slowly) or a mark
-            // automatic punctuation put in the pause between them. Within them a lone «یک» or
-            // «نه» is a digit.
+        /// Numbers said one after another from `first`: with a space, a pause (said slowly) or a
+        /// mark automatic punctuation put in the pause between them. Within them a lone «یک» or
+        /// «نه» is a digit.
+        func run(from first: (digits: String, end: Int)) -> (run: [String], spaced: String, end: Int) {
             var run = [first.digits]
-            var gaps: [String] = []
+            var spaced = first.digits
             var end = first.end
             while Self.joinable(words[end].gap), end + 1 < words.count, keys[end + 1] != "یه",
                   let next = number(words, keys, at: end + 1, alone: false) {
-                gaps.append(words[end].gap)
+                spaced += words[end].gap + next.digits
                 run.append(next.digits)
                 end = next.end
             }
-            var spaced = run[0]
-            for (gap, digits) in zip(gaps, run.dropFirst()) { spaced += gap + digits }
-            if let written = joined(run, after: keys[max(0, i - 3)..<i]) {
-                out += written
-                joins.append(Join(joined: written, spaced: spaced))
-            } else {
-                out += spaced
+            return (run, spaced, end)
+        }
+        while i < words.count {
+            let before = keys[max(0, i - 3)..<i]
+            if let first = number(words, keys, at: i) {
+                let found = run(from: first)
+                let after = found.end + 1 < keys.count ? keys[found.end + 1] : nil
+                if let written = joined(found.run, after: before, next: after) {
+                    out += written
+                    joins.append(Join(joined: written, spaced: found.spaced))
+                } else {
+                    out += found.spaced
+                }
+                out += words[found.end].gap
+                i = found.end + 1
+                continue
             }
-            out += words[end].gap
-            i = end + 1
+            // A number read aloud may start with a lone «یک» or «نه» («کد پستی یک دو سه...»):
+            // a digit only when the whole is then written as one number.
+            if isNumberWord(keys[i]), Self.joinable(words[i].gap), i + 1 < keys.count, isNumberWord(keys[i + 1]),
+               let first = number(words, keys, at: i, alone: false) {
+                let found = run(from: first)
+                let after = found.end + 1 < keys.count ? keys[found.end + 1] : nil
+                if let written = joined(found.run, after: before, next: after) {
+                    out += written + words[found.end].gap
+                    joins.append(Join(joined: written, spaced: found.spaced))
+                    i = found.end + 1
+                    continue
+                }
+            }
+            out += words[i].text + words[i].gap
+            i += 1
         }
         return (out, joins)
     }
@@ -138,7 +155,7 @@ enum SpokenNumbers {
     /// Numbers said one after another written as one: an identifier in Latin digits, a date in
     /// Persian digits with slashes; nil when they stay apart («۳ ۴ نفر»). `before`: up to three
     /// words before them (`Lexicon.key`).
-    private static func joined(_ run: [String], after before: ArraySlice<String>) -> String? {
+    private static func joined(_ run: [String], after before: ArraySlice<String>, next: String? = nil) -> String? {
         guard run.count >= 2, !run.contains(where: { $0.contains("٫") }) else { return nil }
         let plain = run.map { $0.filter { $0 != "٬" } }
         let values = plain.map { Int(String($0.compactMap { $0.wholeNumberValue }.map(String.init).joined())) ?? -1 }
@@ -154,7 +171,10 @@ enum SpokenNumbers {
                   (300...499).contains(values[1] % 1000), values[1] % 100 != 0 {
             date = [values[0], values[1] / 1000, 1000 + values[1] % 1000]
         }
-        if let date { return date.map { format(padded: $0) }.joined(separator: "/") }
+        // «سه چهار هزار و سیصد و پنجاه تومن» is a price.
+        if let date, next.map({ !counters.contains($0) }) ?? true {
+            return date.map { format(padded: $0) }.joined(separator: "/")
+        }
         let cue = before.contains { identifierCues.contains($0) }
         let digits = plain.reduce(0) { $0 + $1.count }
         // «سال ۱۴۰۲ ۱۴۰۳»: years one after another, not a number.
