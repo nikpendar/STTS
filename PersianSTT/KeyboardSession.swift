@@ -81,8 +81,16 @@ final class KeyboardSession: ObservableObject {
             forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
         ) { [weak self] note in
             let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
-            guard raw.flatMap(AVAudioSession.InterruptionType.init) == .ended else { return }
-            MainActor.assumeIsolated { self?.resume() }
+            switch raw.flatMap(AVAudioSession.InterruptionType.init) {
+            case .began:
+                // iOS took the microphone: the recording pauses (what was said stays) until the
+                // keyboard resumes it.
+                MainActor.assumeIsolated { self?.interrupted() }
+            case .ended:
+                MainActor.assumeIsolated { self?.resume() }
+            default:
+                break
+            }
         }
     }
 
@@ -226,6 +234,7 @@ final class KeyboardSession: ObservableObject {
         Self.ambientNoise = collector.begin()
         server.clear()
         isCapturing = true
+        pausedSince = nil
         dictationID += 1
         resetIdleTimer()
         DictationBridge.post(DictationBridge.recording)
@@ -240,7 +249,20 @@ final class KeyboardSession: ObservableObject {
     private func setPaused(_ paused: Bool) {
         guard isCapturing else { return }
         collector.paused = paused
+        pausedSince = paused ? Date() : nil
         log.info("recording \(paused ? "paused" : "resumed", privacy: .public)")
+    }
+
+    /// When the recording was paused; a recording left paused this long is ended and
+    /// transcribed, so a keyboard that went away does not keep it (and its audio) for ever.
+    private var pausedSince: Date?
+    static let pauseLimitSeconds = 300.0
+
+    private func interrupted() {
+        guard isCapturing, pausedSince == nil else { return }
+        log.info("microphone taken by iOS")
+        setPaused(true)
+        DictationBridge.post(DictationBridge.interrupted)
     }
 
     /// Every 0.05 s while recording: sends the level of the latest 0.1 s of audio to the
@@ -268,6 +290,12 @@ final class KeyboardSession: ObservableObject {
                 // Speech decisions twice a second are enough, and none while the space bar is held,
                 // except a limit on its length, should the keyboard never say it was let go.
                 let levels = self.collector.levels()
+                if let since = self.pausedSince, Date().timeIntervalSince(since) >= Self.pauseLimitSeconds {
+                    log.info("recording paused for \(Self.pauseLimitSeconds, format: .fixed(precision: 0)) s; stopped")
+                    DictationBridge.post(DictationBridge.stopped)
+                    self.finishCapture()
+                    break
+                }
                 if held {
                     if Double(levels.count) / 10 >= Self.heldLimitSeconds {
                         log.info("held recording reached \(Self.heldLimitSeconds, format: .fixed(precision: 0)) s; stopped")
@@ -456,6 +484,7 @@ final class KeyboardSession: ObservableObject {
     private func finishCapture() {
         guard isActive, isCapturing else { return }
         isCapturing = false
+        pausedSince = nil
         testFeed?.cancel()
         let levels = collector.levels()
         let samples = collector.end()
@@ -525,9 +554,11 @@ final class KeyboardSession: ObservableObject {
         monitorTask = nil
         dictationID += 1
         streamTask = nil
+        pausedSince = nil
         if isCapturing {
             isCapturing = false
-            _ = collector.end()
+            let dropped = collector.end()
+            log.info("recording cancelled, \(dropped.count / Int(AudioLoader.sampleRate)) s dropped")
         }
     }
 }

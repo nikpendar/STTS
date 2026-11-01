@@ -237,6 +237,9 @@ final class KeyboardViewController: UIInputViewController {
         observer.observe(DictationBridge.idle) { [weak self] in
             MainActor.assumeIsolated { self?.nobodySpoke() }
         }
+        observer.observe(DictationBridge.interrupted) { [weak self] in
+            MainActor.assumeIsolated { self?.microphoneTaken() }
+        }
         for step in 0..<DictationBridge.levels {
             observer.observe(DictationBridge.level(step)) { [weak self] in
                 MainActor.assumeIsolated { self?.orb.setVoiceLevel(step) }
@@ -288,6 +291,8 @@ final class KeyboardViewController: UIInputViewController {
             touchModel = TouchModel()
             touchModel.save()
         }
+        // Back to a locked recording paused when the keyboard went away: it waits for the orb.
+        if state == .recording, isPaused { return }
         checkSession()
     }
 
@@ -296,9 +301,13 @@ final class KeyboardViewController: UIInputViewController {
         finishEdits()
         settingsPanel?.removeFromSuperview()
         if touchSaveScheduled { touchModel.save() }
-        // A recording the keyboard can no longer end (a locked one, or a finger still on the
-        // space bar) would keep the app's microphone and model running: it is cancelled.
-        if state == .starting || state == .recording {
+        // A locked recording pauses, as when iOS takes the microphone: when this keyboard comes
+        // back it goes on after a tap on the orb, and the app ends it if it stays paused.
+        if state == .recording, isLocked {
+            setPaused(true)
+        } else if state == .starting || state == .recording {
+            // One the keyboard can no longer end (a finger still on the space bar) would keep
+            // the app's microphone and model running: it is cancelled.
             DictationBridge.post(DictationBridge.cancel)
             isHeld = false
             stopWhenRecording = false
@@ -385,8 +394,7 @@ final class KeyboardViewController: UIInputViewController {
             // Locked: the orb pauses and resumes; the middle of the orange bar ends it.
             setPaused(!isPaused)
         case .recording:
-            DictationBridge.post(DictationBridge.stop)
-            beginTranscribing()
+            endRecording()
         case .noSession, .checking:
             askForSession()
         case .transcribing:
@@ -401,16 +409,37 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    private func endRecording() {
+        DictationBridge.post(DictationBridge.stop)
+        beginTranscribing()
+    }
+
     /// A locked recording paused by a tap on the orb: the app keeps no audio until the next tap.
     private var isPaused = false
 
-    private func setPaused(_ paused: Bool) {
+    /// `tell`: false when the app paused it itself and only the orb has to show it.
+    private func setPaused(_ paused: Bool, tell: Bool = true) {
         guard paused != isPaused else { return }
         isPaused = paused
-        haptic(.impact(.light))
-        DictationBridge.post(paused ? DictationBridge.pause : DictationBridge.resume)
+        if tell {
+            haptic(.impact(.light))
+            DictationBridge.post(paused ? DictationBridge.pause : DictationBridge.resume)
+        }
         orb.paused = paused
         orb.accessibilityLabel = paused ? "ادامه‌ی ضبط" : "مکث ضبط"
+    }
+
+    /// iOS took the microphone (a call, Siri, its own dictation) and the app paused the
+    /// recording: a locked one shows the pause and goes on after a tap on the orb; a held one
+    /// ends with what was said.
+    private func microphoneTaken() {
+        guard state == .recording else { return }
+        if isLocked {
+            setPaused(true, tell: false)
+        } else {
+            isHeld = false
+            endRecording()
+        }
     }
 
     /// Asks the app to record. `held`: while a finger holds the space bar, which the app then
@@ -1966,7 +1995,8 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func insertSpace() {
         // While dictating, the orange space bar types nothing; a tap on it ends a locked recording.
         if isMagnet {
-            if state == .recording, !isHeld { micTapped() }
+            // Not micTapped: there a tap on a locked recording pauses it.
+            if state == .recording, !isHeld { endRecording() }
             return
         }
         if emojiSearch != nil {
@@ -2613,6 +2643,24 @@ final class KeyboardViewController: UIInputViewController {
         if new.suggestionBar != old.suggestionBar {
             view.setNeedsLayout()
             updateSuggestions()
+        }
+        if new.numberRow != old.numberRow || new.suggestionBar != old.suggestionBar { heightChanged() }
+    }
+
+    /// The keyboard grows or shrinks at once, as when the dictation orb gives way to the keys.
+    /// Only setting the constraint's constant left a taller keyboard squeezed in the old height
+    /// until the next language switch laid it out again.
+    private func heightChanged() {
+        guard let heightConstraint, !isCompact else { return }
+        heightConstraint.constant = fullHeight
+        view.setNeedsUpdateConstraints()
+        view.superview?.setNeedsLayout()
+        view.superview?.layoutIfNeeded()
+        view.setNeedsLayout()
+        // iOS may resize the input view a moment later: lay the keys out again on its new height.
+        DispatchQueue.main.async { [weak self] in
+            self?.view.setNeedsLayout()
+            self?.view.layoutIfNeeded()
         }
     }
 

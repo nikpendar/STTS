@@ -23,6 +23,9 @@ enum DictationBridge {
     /// Keyboard pauses a locked recording (no audio is kept) and resumes it.
     static let pause = "com.persianstt.pause"
     static let resume = "com.persianstt.resume"
+    /// The app paused the recording itself: iOS took the microphone (a call, Siri, the system's
+    /// own dictation). The keyboard shows the pause; a tap on the orb resumes.
+    static let interrupted = "com.persianstt.interrupted"
     /// Keyboard abandons the transcription in progress.
     static let cancel = "com.persianstt.cancel"
     /// App has a provisional transcript of the recording so far on `transcriptPort`.

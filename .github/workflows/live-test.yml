@@ -402,6 +402,29 @@ jobs:
           axe tap -x "$MKX" -y "$MKY" --udid "$DEVICE"; sleep 0.8
           xcrun simctl io "$DEVICE" screenshot out/5j-english-more.png
           axe tap -x "$LKX" -y "$LKY" --udid "$DEVICE"; sleep 0.5
+
+          # Leaving the keyboard while dictating (another keyboard or app takes over): the
+          # recording must end and its audio be freed. Memory of the app and the keyboard before,
+          # while recording, and after. Back to Persian first: only Persian dictates.
+          read SPX SPY < <(python3 find.py spaceKey out/ui-10.json || echo "240 817")
+          axe swipe --start-x "$((SPX + 50))" --start-y "$SPY" --end-x "$((SPX - 50))" --end-y "$SPY" --udid "$DEVICE" || true
+          sleep 2
+          mem() { for p in PersianSTT PersianSTTKeyboard; do PID="$(pgrep -x "$p" | head -n1)"
+            echo "$1 $p: $( [ -n "$PID" ] && footprint "$PID" 2>/dev/null | grep -m1 -iE 'phys_footprint:' | tr -s ' ' || echo 'not running')"
+            done | tee -a out/leave.txt; }
+          mem before
+          axe touch -x "$SPX" -y "$SPY" --down --udid "$DEVICE"; sleep 5
+          mem recording
+          xcrun simctl launch "$DEVICE" com.apple.Preferences || true
+          sleep 4
+          axe touch -x "$SPX" -y "$SPY" --up --udid "$DEVICE" || true
+          sleep 3
+          mem after
+          xcrun simctl io "$DEVICE" screenshot out/9-left-while-dictating.png
+          grep -E "recording started|recording cancelled|recording paused|controller .* freed" out/log.txt | tail -n 6 | cut -c1-250 | tee -a out/leave.txt || true
+          grep -q "recording cancelled" out/log.txt && echo "::notice::leaving the keyboard cancelled the recording" \
+            || echo "::error::leaving the keyboard while dictating did not end the recording"
+          while read -r line; do echo "::notice::$line"; done < <(grep -E "^(before|recording|after) " out/leave.txt)
           # The repository gets a model (here a copy of the bundled one) for the next launch.
           mkdir -p srv/release
           cp build-model/Koochik.aar srv/release/model.aar
