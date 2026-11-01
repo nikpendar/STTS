@@ -134,6 +134,14 @@ enum VoiceCommands {
             if !text.isEmpty { result.steps.append(.text(text)) }
             texts = []
         }
+        // Without spoken punctuation («دو نقطه» is a colon there), numbers are read across the
+        // pauses first, so a number read slowly in pieces is still one number.
+        var raw = raw
+        if !punctuation {
+            let numbers = SpokenNumbers.digitsAndJoins(in: raw)
+            raw = numbers.text
+            result.joins = numbers.joins
+        }
         for piece in raw.split(separator: DictationBridge.pauseMark, omittingEmptySubsequences: true) {
             let tokens = tokenize(piece)
             if commands, let step = editCommand(tokens) {
@@ -143,7 +151,7 @@ enum VoiceCommands {
             }
             let before = texts.joined(separator: " ")
             let text = punctuation ? convert(tokens, before: before, lexicon: lexicon, spoken: &result.spoken) : String(piece)
-            let numbers = SpokenNumbers.digitsAndJoins(in: text)
+            let numbers = punctuation ? SpokenNumbers.digitsAndJoins(in: text) : (text: text, joins: [])
             let written = numbers.text
             result.joins += numbers.joins
             texts.append(dictionary.applied(to: zwnj ? lexicon.restoringZWNJ(written) : written))

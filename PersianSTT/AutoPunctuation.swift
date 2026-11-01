@@ -54,6 +54,19 @@ final class AutoPunctuation: @unchecked Sendable {
     /// Model inputs are at most 128 pieces, with [CLS] and [SEP].
     private static let maxPieces = 126
 
+    /// Persian number words (as `SpokenNumbers` reads them, with «ص», a misheard «صفر»).
+    private static let numberWords: Set<String> = [
+        "صفر", "ص", "یک", "یه", "دو", "سه", "چهار", "پنج", "شش", "شیش", "هفت", "هشت", "نه",
+        "ده", "یازده", "دوازده", "سیزده", "چهارده", "پانزده", "پونزده", "شانزده", "شونزده", "هفده", "هیفده", "هجده", "هیجده", "نوزده",
+        "بیست", "سی", "چهل", "پنجاه", "شصت", "هفتاد", "هشتاد", "نود",
+        "صد", "یکصد", "دویست", "سیصد", "چهارصد", "پانصد", "پونصد", "ششصد", "هفتصد", "هشتصد", "نهصد",
+        "هزار", "میلیون", "میلیارد",
+    ]
+
+    private static func isNumberWord(_ word: String) -> Bool {
+        numberWords.contains(String(word.unicodeScalars.filter { $0 != "\u{200C}" }.map(Character.init)))
+    }
+
     /// `text` with the marks put in; the text unchanged when the model is missing or fails.
     /// Pause marks (`DictationBridge.pauseMark`) and line breaks stay where they are.
     /// `quiet`: keys (`PersonalDictionary.key`) of words that become marks, after which and
@@ -87,6 +100,11 @@ final class AutoPunctuation: @unchecked Sendable {
             var label = labels[index]
             if !quiet.isEmpty, quiet.contains(PersonalDictionary.key(item.word))
                 || (index + 1 < words.count && quiet.contains(PersonalDictionary.key(words[index + 1].word))) {
+                label = 0
+            }
+            // Between two pieces of a number (a phone or card number read slowly) no mark goes,
+            // so the keyboard can join them.
+            if index + 1 < words.count, Self.isNumberWord(item.word), Self.isNumberWord(words[index + 1].word) {
                 label = 0
             }
             // A word that already ends in a mark keeps it.

@@ -54,6 +54,19 @@ enum SpokenNumbers {
 
     static func digits(in text: String) -> String { digitsAndJoins(in: text).text }
 
+    /// What may stand between two pieces of one number: spaces and pauses, and at most a comma or
+    /// full stop that automatic punctuation put in a pause.
+    private static func joinable(_ gap: String) -> Bool {
+        guard gap.contains(" ") || gap.contains(DictationBridge.pauseMark) else { return false }
+        let rest = gap.filter { $0 != " " && $0 != DictationBridge.pauseMark }
+        return rest.isEmpty || rest == "،" || rest == "." || rest == ","
+    }
+
+    /// A word `number(...)` reads (`Lexicon.key`).
+    static func isNumberWord(_ key: String) -> Bool {
+        units[key] != nil || teens[key] != nil || tens[key] != nil || hundreds[key] != nil || scales[key] != nil
+    }
+
     /// Words before a number said in pieces that make it an identifier.
     private static let identifierCues: Set<String> = [
         "شماره", "شمارهی", "شمارهام", "شمارهاش", "شمارهات", "شمارم", "کارت", "کارتم", "کارتش", "کد", "کدم",
@@ -84,7 +97,9 @@ enum SpokenNumbers {
         }
         guard !current.isEmpty else { return (text, []) }
         words.append(Word(text: current, gap: gap))
-        let keys = words.map { Lexicon.key($0.text) }
+        var keys = words.map { Lexicon.key($0.text) }
+        // «صفر» at the start of a number read aloud is often heard as «ص», which is no word.
+        for j in keys.indices where keys[j] == "ص" && j + 1 < keys.count && isNumberWord(keys[j + 1]) { keys[j] = "صفر" }
         var out = lead
         var joins: [Join] = []
         var i = 0
@@ -94,12 +109,13 @@ enum SpokenNumbers {
                 i += 1
                 continue
             }
-            // Numbers said one after another, with a space (or the comma automatic punctuation
-            // may put in a pause) between them. Within them a lone «یک» or «نه» is a digit.
+            // Numbers said one after another: with a space, a pause (said slowly) or a mark
+            // automatic punctuation put in the pause between them. Within them a lone «یک» or
+            // «نه» is a digit.
             var run = [first.digits]
             var gaps: [String] = []
             var end = first.end
-            while [" ", "، "].contains(words[end].gap), end + 1 < words.count, keys[end + 1] != "یه",
+            while Self.joinable(words[end].gap), end + 1 < words.count, keys[end + 1] != "یه",
                   let next = number(words, keys, at: end + 1, alone: false) {
                 gaps.append(words[end].gap)
                 run.append(next.digits)
