@@ -26,6 +26,9 @@ struct ContentView: View {
     @State private var navigationID = UUID()
     /// Raised when the keyboard opened the app to start the session: the mic shows a ripple.
     @State private var sessionStarts = 0
+    /// The first-run guide, shown until it is finished once and from the setup page after.
+    @AppStorage(Onboarding.doneKey) private var onboardingDone = false
+    @State private var showingGuide = false
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -89,11 +92,16 @@ struct ContentView: View {
                     NavigationLink { page("راه‌اندازی کیبورد") { setupSection } } label: {
                         SettingLabel("راه‌اندازی کیبورد", symbol: "keyboard", color: .gray)
                     }
+                    NavigationLink { page("گزارش خرابی‌ها") { CrashReportsPage() } } label: {
+                        SettingLabel("گزارش خرابی‌ها", symbol: "ladybug.fill", color: .orange)
+                    }
+                    privacyLink
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
         }
         .id(navigationID)
+        .fullScreenCover(isPresented: $showingGuide) { Onboarding() }
         .fileImporter(isPresented: $pickingModel, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result { importer.importModel(from: url) }
         }
@@ -105,10 +113,17 @@ struct ContentView: View {
         // Rewrites the shared pasteboard copies, which a reinstall or reboot can clear.
         .onAppear {
             style.save()
+            if !UserDefaults.standard.bool(forKey: "dictionaryStarters") {
+                dictionary = dictionary.addingStarters()
+                UserDefaults.standard.set(true, forKey: "dictionaryStarters")
+            }
+            // The keyboard's own settings panel may have changed them since.
+            options = KeyboardOptions.load()
             options.save()
             dictionary.save()
             KeyboardBackground.handToKeyboard(style.backgroundImage)
             syncTraining()
+            if !onboardingDone { showingGuide = true }
         }
         .onOpenURL { url in
             if url.host == "session" {
@@ -127,6 +142,9 @@ struct ContentView: View {
                 model.loadNewModelIfNeeded()
                 importer.importWaitingModel()
                 syncTraining()
+                CrashReports.shared.collectFromKeyboard()
+                let latest = KeyboardOptions.load()
+                if latest != options { options = latest }
             }
         }
     }
@@ -144,17 +162,13 @@ struct ContentView: View {
     private var speechPage: some View {
         page("گفتار") {
             Section {
-                Toggle(isOn: $options.voicePunctuation) {
-                    SettingLabel("نشانه‌گذاری با گفتن", symbol: "textformat.abc.dottedunderline", color: .orange)
-                }
-                Toggle(isOn: $options.voiceCommands) {
-                    SettingLabel("فرمان‌های ویرایش", symbol: "delete.left.fill", color: .indigo)
+                Toggle(isOn: $options.autoPunctuation) {
+                    SettingLabel("نشانه‌گذاری خودکار", symbol: "textformat.abc.dottedunderline", color: .orange)
                 }
             } header: {
-                Text("فرمان‌های صوتی").font(.app(.footnote))
+                Text("متن دیکته").font(.app(.footnote))
             } footer: {
-                Text("بگویید: نقطه، ویرگول، علامت سؤال، علامت تعجب، دونقطه، نقطه‌ویرگول، خط بعد، پاراگراف جدید، پرانتز باز و بسته، گیومه باز و بسته. «این نقطه» یا «نقطه‌نظر» همان کلمه می‌ماند و «کلمه‌ی نقطه» همیشه خودِ کلمه را می‌نویسد. عددها با رقم نوشته می‌شوند: «بیست و سه» ← ۲۳؛ «یک» و «نه» و «ده» تنها، کلمه می‌مانند مگر «نه تا».\n\n"
-                     + "فرمان‌های ویرایش وقتی جدا و با مکث گفته شوند اجرا می‌شوند: «پاک کن» آخرین جمله را پاک می‌کند، «همه رو پاک کن» همه‌ی متن پیش از مکان‌نما را، و «برگردون» آخرین دیکته یا پاک‌کردن را برمی‌گرداند.").font(.app(.footnote))
+                Text("بعد از هر دیکته، ویرگول، نقطه و علامت سؤال خودکار گذاشته می‌شود. عددها با رقم نوشته می‌شوند: «بیست و سه» ← ۲۳؛ «یک» و «نه» و «ده» تنها، کلمه می‌مانند مگر «نه تا». برای نوشتن نشانه با گفتن، در واژه‌نامه‌ی شخصی بنویسید: «نقطه» ← «.».").font(.app(.footnote))
             }
 
             Section {
@@ -395,6 +409,11 @@ struct ContentView: View {
             SetupStep(number: "۲", text: "«کیلس» را انتخاب و Allow Full Access را روشن کنید.")
             SetupStep(number: "۳", text: "در هر اپی با 🌐 به این کیبورد بروید و برای دیکته کلید فاصله را نگه دارید.")
             Button {
+                showingGuide = true
+            } label: {
+                SettingLabel("راهنمای قدم‌به‌قدم", symbol: "book.fill", color: .orange)
+            }
+            Button {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
                 }
@@ -439,6 +458,16 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
+    }
+
+    /// The privacy policy, published from docs/privacy.html of the repository by GitHub Pages.
+    static let privacyPolicyURL = URL(string: "https://nikpendar.github.io/STTS/privacy.html")!
+
+    private var privacyLink: some View {
+        Link(destination: Self.privacyPolicyURL) {
+            SettingLabel("سیاست حریم خصوصی", symbol: "hand.raised.fill", color: .blue)
+        }
+        .foregroundStyle(.primary)
     }
 
     /// Learning from corrections: uploading them to the user's private GitHub repository and
@@ -503,6 +532,7 @@ struct ContentView: View {
                     personal.useBaseModel()
                 }
             }
+            privacyLink
         } footer: {
             Text((personal.status.isEmpty ? "" : personal.status + "\n\n")
                  + "وقتی متن دیکته‌شده را با تایپ یا دیکته‌ی دوباره اصلاح کنید، صدای آن دیکته و متن درست به مخزن خصوصی خودتان در GitHub فرستاده می‌شود و جای دیگری نمی‌رود. "
@@ -699,6 +729,45 @@ private struct SettingLabel: View {
     }
 }
 
+/// The crash, hang and abnormal-exit reports iOS gave the app and the keyboard (`CrashReports`),
+/// newest first, each to share as its JSON file.
+private struct CrashReportsPage: View {
+    @State private var reports = CrashReports.all()
+
+    var body: some View {
+        Section {
+            if reports.isEmpty {
+                Text("گزارشی نیست.")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(reports) { report in
+                ShareLink(item: report.url) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("\(report.source) · \(report.date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(Locale(identifier: "fa_IR"))))")
+                            .font(.app(.subheadline))
+                            .foregroundStyle(.secondary)
+                        Text(report.summary)
+                            .foregroundStyle(.primary)
+                    }
+                }
+            }
+        } footer: {
+            Text("iOS خرابی‌ها، گیرکردن‌ها و بسته شدن‌های ناگهانی برنامه و کیبورد را ثبت می‌کند و حداکثر یک روز بعد به برنامه می‌دهد. چیزی خودکار فرستاده نمی‌شود؛ برای فرستادن، روی گزارش بزنید.")
+        }
+        if !reports.isEmpty {
+            Section {
+                ShareLink(items: reports.map(\.url)) {
+                    Text("فرستادن همه")
+                }
+                Button("پاک کردن همه", role: .destructive) {
+                    CrashReports.removeAll()
+                    reports = []
+                }
+            }
+        }
+    }
+}
+
 /// A numbered step of the keyboard setup instructions.
 private struct SetupStep: View {
     let number: String
@@ -825,10 +894,11 @@ private struct DictionaryPage: View {
 }
 
 /// A row of keys drawn with the chosen style, on a keyboard-like background.
-/// TapMap as the keyboard learned it: on each key, a dot where the user's touches for it
-/// centre (larger and darker the more touches it has seen), with a line from the key's middle.
+/// TapMap as the keyboard learned it: every key with its letter, drawn where the user's
+/// touches for it centre. Letters start in the middle of their keys and drift as touches are
+/// learned (the model's own prior keeps the drift gradual); a line shows how far each moved.
 private struct TapMapPage: View {
-    @State private var model = TouchModel.fromKeyboard()
+    @State private var model = TouchModel.fromKeyboard() ?? TouchModel()
     @State private var english = false
 
     private static let persian = [["ض", "ص", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"],
@@ -845,19 +915,15 @@ private struct TapMapPage: View {
                 Text("English").tag(true)
             }
             .pickerStyle(.segmented)
-            if let model, !model.isEmpty {
-                map(model)
-                    .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
-            } else {
-                Text("هنوز چیزی یاد گرفته نشده. با کیبورد تایپ کنید و دوباره اینجا را باز کنید.")
-                    .font(.app(.footnote))
-                    .foregroundStyle(.secondary)
-            }
+            map(model)
+                .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
         } footer: {
-            Text("نقطه‌ی آبی جایی است که معمولاً هر کلید را می‌زنید؛ هرچه پررنگ‌تر، لمس بیشتری دیده شده. کیبورد لمس نزدیک مرز کلیدها را با همین نقشه به حرف درست می‌دهد.")
+            Text(model.isEmpty
+                 ? "هر حرف وسط کلید خودش است. با تایپ کردن، کیبورد یاد می‌گیرد هر کلید را کجا می‌زنید و حرف‌ها کم‌کم به همان‌جا جابه‌جا می‌شوند."
+                 : "هر حرف جایی است که معمولاً آن کلید را می‌زنید؛ ابر رنگی محدوده‌ی لمس‌هاست و هرچه پررنگ‌تر، لمس بیشتری دیده شده؛ خط از وسط کلید تا جای تازه‌ی حرف است. کیبورد لمس نزدیک مرز کلیدها را با همین نقشه به حرف درست می‌دهد.")
                 .font(.app(.footnote))
         }
-        .onAppear { model = TouchModel.fromKeyboard() }
+        .onAppear { model = TouchModel.fromKeyboard() ?? TouchModel() }
     }
 
     private func map(_ model: TouchModel) -> some View {
@@ -874,20 +940,29 @@ private struct TapMapPage: View {
                     let cell = CGRect(x: start + CGFloat(column) * unit, y: CGFloat(index) * rowHeight, width: unit, height: rowHeight)
                     let face = cell.insetBy(dx: 2, dy: 4)
                     context.fill(Path(roundedRect: face, cornerRadius: 5), with: .color(Color(.secondarySystemFill)))
-                    context.draw(Text(english ? key.uppercased() : key).font(.custom(AppFont.name ?? "", size: 15))
-                        .foregroundStyle(.secondary), at: CGPoint(x: face.midX, y: face.minY + 11))
                     let offset = model.offset(key: key, layout: layout)
-                    let middle = CGPoint(x: cell.midX, y: cell.midY + 4)
+                    let middle = CGPoint(x: cell.midX, y: cell.midY)
                     let point = CGPoint(x: middle.x + offset.x * cell.width, y: middle.y + offset.y * cell.height)
                     let seen = min(1, model.touches(key: key, layout: layout) / TouchModel.keyLimit)
-                    var line = Path()
-                    line.move(to: middle)
-                    line.addLine(to: point)
-                    context.stroke(line, with: .color(.blue.opacity(0.35 + 0.4 * seen)), lineWidth: 1)
-                    let radius = 2.5 + 2.5 * seen
-                    context.fill(Path(ellipseIn: CGRect(x: point.x - radius, y: point.y - radius, width: 2 * radius, height: 2 * radius)),
-                                 with: .color(.blue.opacity(0.35 + 0.65 * seen)))
-                    context.fill(Path(ellipseIn: CGRect(x: middle.x - 1, y: middle.y - 1, width: 2, height: 2)), with: .color(.secondary))
+                    if seen > 0 {
+                        // A heat cloud where the touches land, as in SwiftKey's typing heatmap:
+                        // as wide as their usual spread, stronger the more touches were seen.
+                        let radius = TouchModel.spread * cell.width
+                        let cloud = CGRect(x: point.x - radius, y: point.y - radius, width: 2 * radius, height: 2 * radius)
+                        context.fill(Path(ellipseIn: cloud), with: .radialGradient(
+                            Gradient(colors: [Color.orange.opacity(0.25 + 0.5 * seen), Color.red.opacity(0.15 * seen), .clear]),
+                            center: point, startRadius: 0, endRadius: radius))
+                    }
+                    if hypot(point.x - middle.x, point.y - middle.y) > 1.5 {
+                        var line = Path()
+                        line.move(to: middle)
+                        line.addLine(to: point)
+                        context.stroke(line, with: .color(.blue.opacity(0.25 + 0.35 * seen)), lineWidth: 1)
+                        context.fill(Path(ellipseIn: CGRect(x: middle.x - 1.5, y: middle.y - 1.5, width: 3, height: 3)), with: .color(.secondary))
+                    }
+                    let tint = seen > 0 ? Color.blue.opacity(0.45 + 0.55 * seen) : Color.primary
+                    context.draw(Text(english ? key.uppercased() : key).font(.custom(AppFont.name ?? "", size: 16))
+                        .foregroundStyle(tint), at: point)
                 }
             }
         }

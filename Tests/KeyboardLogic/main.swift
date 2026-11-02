@@ -67,6 +67,13 @@ check("dictionary not across punctuation", ownWords.applied(to: "روز، ساع
 check("dictionary empty", PersonalDictionary().applied(to: "روز ساعد"), "روز ساعد")
 check("dictionary in a dictation", VoiceCommands.process("سلام روز ساعد نقطه", punctuation: true, commands: true,
                                                          dictionary: ownWords).text, "سلام Rooz Saad.")
+let starters = PersonalDictionary().addingStarters()
+check("starters", starters.entries.count, 5)
+check("starters once", starters.addingStarters().entries.count, 5)
+check("starter marks join the word before", starters.applied(to: "سلام ویرگول خوبی نقطه"), "سلام، خوبی.")
+check("starter percent", VoiceCommands.process("بیست درصد", punctuation: false, commands: false, dictionary: starters).text, "۲۰٪")
+check("starter emoji", starters.applied(to: "عالی بود شکلک لبخند"), "عالی بود 🙂")
+check("symbol words", starters.symbolWords.contains(PersonalDictionary.key("ویرگول")), true)
 check("replacements", PersonalDictionary.replacements(original: "با روز ساعد صحبت کردم.", corrected: "با Rooz Saad صحبت کردم.")
         .map { "\($0.heard)>\($0.written)" }.joined(separator: ","), "روز ساعد>Rooz Saad")
 check("replacements skip ZWNJ", PersonalDictionary.replacements(original: "می خوام", corrected: "می‌خوام").count, 0)
@@ -100,6 +107,34 @@ check("numbers with punctuation off", text("سی و دو", punctuation: false), 
 check("words back for training", SpokenNumbers.words(in: "۲۳ نفر در سال ۱۴۰۳ و ۲٬۵۰۰٬۰۰۰ تومن، ۳٫۵ درصد."),
       "بیست و سه نفر در سال هزار و چهارصد و سه و دو میلیون و پانصد هزار تومن، سه ممیز پنج درصد.")
 check("phone digits back", SpokenNumbers.words(in: "۰۹۱۲"), "صفر نه یک دو")
+// Numbers said in pieces: identifiers joined in Latin digits, dates with slashes, others apart.
+check("mobile joined", text("شماره‌ام صفر نهصد و دوازده سیصد و چهل و پنج شصت و هفت هشتاد و نه"), "شماره‌ام 09123456789")
+check("mobile without a cue", text("صفر نهصد و دوازده یک دو سه چهار"), "09121234")
+check("lone نه inside a number", text("صفر نه یک دو"), "0912")
+check("card joined", text("کارت شش هزار و سی و هفت نود و نه هفتاد و پنج یک دو سه چهار پنج شش هفت هشت"), "کارت 6037997512345678")
+check("seven digits joined", text("دوازده سی و چهار پنجاه و شش هفتاد و هشت"), "12345678")
+check("pieces with a comma", text("شماره صفر نهصد و دوازده، سیصد و چهل و پنج", punctuation: false), "شماره 0912345")
+check("two small numbers apart", text("سه چهار نفر"), "۳ ۴ نفر")
+check("years apart", text("سال هزار و چهارصد و دو هزار و چهارصد و سه"), "سال ۱۴۰۲ ۱۴۰۳")
+check("date", text("تاریخ دوازده پنج هزار و چهارصد و سه"), "تاریخ ۱۲/۰۵/۱۴۰۳")
+check("date without a cue", text("دوازده پنج هزار و چهارصد و سه"), "۱۲/۰۵/۱۴۰۳")
+check("year first is no date", text("تاریخ هزار و چهارصد و سه پنج دوازده"), "تاریخ ۱۴۰۳ ۵ ۱۲")
+check("round price is no date", text("دوازده پنج هزار و سیصد تومن"), "۱۲ ۵۳۰۰ تومن")
+check("date day first", text("تاریخ دوازده پنج دو هزار و بیست و چهار"), "تاریخ ۱۲/۰۵/۲۰۲۴")
+// Read slowly: the pieces come with pause marks (and marks automatic punctuation put there).
+func dictated(_ raw: String) -> String { VoiceCommands.process(raw, punctuation: false, commands: false).text }
+check("slow mobile", dictated("شماره‌ام صفر نهصد و دوازده" + pause + "سیصد و چهل و پنج" + pause + "شصت و هفت هشتاد و نه"),
+      "شماره‌ام 09123456789")
+check("slow mobile with marks", dictated("صفر نهصد و دوازده." + pause + "سیصد و چهل و پنج،" + pause + "شصت و هفت"), "091234567")
+check("slow card", dictated("کارت شش هزار و سی و هفت" + pause + "نود و نه هفتاد و پنج" + pause + "یک دو سه چهار" + pause + "پنج شش هفت هشت"),
+      "کارت 6037997512345678")
+check("slow date", dictated("تاریخ دوازده" + pause + "پنج" + pause + "هزار و چهارصد و سه"), "تاریخ ۱۲/۰۵/۱۴۰۳")
+check("small numbers in pauses apart", dictated("سه." + pause + "چهار نفر اومدن"), "۳. ۴ نفر اومدن")
+check("ص heard for صفر", dictated("شماره ص نهصد و دوازده سیصد و چهل و پنج"), "شماره 0912345")
+check("lone ص stays", dictated("حرف ص"), "حرف ص")
+check("slow joins listed", VoiceCommands.process("صفر نهصد" + pause + "دوازده", punctuation: false, commands: false).joins.count, 1)
+check("joins listed", SpokenNumbers.digitsAndJoins(in: "شماره صفر نهصد و دوازده").joins,
+      [SpokenNumbers.Join(joined: "0912", spaced: "۰ ۹۱۲")])
 
 // The speech model writes no ZWNJ; dictated text gets it where the word list has it.
 check("ZWNJ after می", text("من میخوام برم"), "من می‌خوام برم")
@@ -246,6 +281,96 @@ for word in ["سلان", "کتاا", "مرسس", "زندگس", "صحبط", "اس
     _ = Lexicon.shared.corrections(for: word, limit: 3)
 }
 print(String(format: "corrections: %.1f ms per word", Date().timeIntervalSince(start) * 1000 / 8))
+
+// MARK: - Numbers on everyday speech, speed and memory (Rooz, 2026-11-01)
+
+// Everyday sentences with numbers keep their meaning: only identifiers and day-month-year dates change.
+let everyday: [(String, String)] = [
+    ("ساعت پنج و نیم میام", "ساعت ۵ و نیم میام"),
+    ("دو تا نون بگیر", "۲ تا نون بگیر"),
+    ("قیمتش صد و بیست هزار تومنه", "قیمتش ۱۲۰٬۰۰۰ تومنه"),
+    ("سه چهار روز دیگه میام", "۳ ۴ روز دیگه میام"),
+    ("بیست و پنج سالشه", "۲۵ سالشه"),
+    ("اتاق صد و دو طبقه سه", "اتاق ۱۰۲ طبقه ۳"),
+    ("صفحه سی و دو تا سی و پنج", "صفحه ۳۲ تا ۳۵"),
+    ("دوازده سیزده سالش بود", "۱۲ ۱۳ سالش بود"),
+    ("پنج شش هزار تومن", "۵ ۶۰۰۰ تومن"),
+    ("سه چهار هزار و سیصد و پنجاه تومن", "۳ ۴۳۵۰ تومن"),
+    ("دوازده مرداد هزار و چهارصد و سه", "۱۲ مرداد ۱۴۰۳"),
+    ("نود و نه درصد مطمئنم", "۹۹ درصد مطمئنم"),
+    ("یک روز میام", "یک روز میام"),
+    ("نه سه تا بسه", "نه ۳ تا بسه"),
+    ("سال نود و هشت و نود و نه", "سال ۹۸ و ۹۹"),
+    ("ساعت ده و ربع", "ساعت ده و ربع"),
+    ("تو ده دقیقه میرسم", "تو ۱۰ دقیقه میرسم"),
+    ("حرف ص رو بنویس", "حرف ص رو بنویس"),
+    ("صد بار گفتم", "۱۰۰ بار گفتم"),
+    ("دو میلیون و پونصد", "۲٬۰۰۰٬۵۰۰"),
+    ("کد پستی یک دو سه چهار پنج شش هفت هشت نه صفر", "کد پستی 1234567890"),
+    ("شماره ص نهصد و دوازده" + pause + "سیصد و چهل و پنج", "شماره 0912345"),
+    ("سه" + pause + "چهار نفر", "۳ ۴ نفر"),
+]
+for (said, written) in everyday { check("everyday «\(said.filter { $0 != DictationBridge.pauseMark })»", dictated(said), written) }
+
+func footprintMB() -> Double {
+    var info = task_vm_info_data_t()
+    var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+    let result = withUnsafeMutablePointer(to: &info) {
+        $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count) }
+    }
+    return result == KERN_SUCCESS ? Double(info.phys_footprint) / 1_048_576 : -1
+}
+
+// A long dictation (about 5 minutes of speech) full of numbers, read with pauses.
+let passage = "سلام امروز ساعت پنج و نیم با علی قرار دارم" + pause + "شماره‌اش صفر نهصد و دوازده" + pause
+    + "سیصد و چهل و پنج شصت و هفت هشتاد و نه" + pause + "قیمتش صد و بیست هزار تومن بود و دوازده پنج هزار و چهارصد و سه پرداخت شد"
+    + pause + "کارتم شش هزار و سی و هفت نود و نه هفتاد و پنج یک دو سه چهار پنج شش هفت هشت" + pause
+    + "حرف ص رو یادت نره و سه چهار روز دیگه میام خونه" + pause
+let long = String(repeating: passage, count: 15)
+let longWords = long.split(whereSeparator: { $0 == " " || $0 == DictationBridge.pauseMark }).count
+func timed(_ times: Int, _ work: () -> Void) -> Double {
+    let start = Date()
+    for _ in 0..<times { work() }
+    return Date().timeIntervalSince(start) * 1000 / Double(times)
+}
+let whole = timed(20) { _ = VoiceCommands.process(long, punctuation: false, commands: false) }
+let numbersOnly = timed(20) { _ = SpokenNumbers.digitsAndJoins(in: long) }
+print("::warning::measured: final text of \(longWords) words: \(String(format: "%.1f", whole)) ms, of which numbers \(String(format: "%.1f", numbersOnly)) ms")
+check("long dictation under 60 ms", whole < 60, true)
+check("numbers a small share", numbersOnly < max(5, whole * 0.5), true)
+
+// Live text: the whole text so far is processed again on every update.
+var liveMax = 0.0
+var liveTotal = 0.0
+var sofar = ""
+for (index, word) in long.split(separator: " ").enumerated() where index < 400 {
+    sofar += (sofar.isEmpty ? "" : " ") + word
+    let ms = timed(1) { _ = VoiceCommands.draft(sofar, punctuation: false, commands: false) }
+    liveMax = max(liveMax, ms)
+    liveTotal += ms
+}
+print("::warning::measured: live text, 400 updates: slowest \(String(format: "%.1f", liveMax)) ms, average \(String(format: "%.2f", liveTotal / 400)) ms")
+check("live update under 30 ms", liveMax < 30, true)
+
+// The worst case: a long run of number words, every one joining the run.
+let digitsSaid = String(repeating: "یک دو سه چهار پنج شش هفت هشت نه صفر ", count: 300)
+let worst = timed(5) { _ = SpokenNumbers.digitsAndJoins(in: "شماره " + digitsSaid) }
+print("::warning::measured: 3000 number words in a row: \(String(format: "%.1f", worst)) ms")
+check("3000 number words under 100 ms", worst < 100, true)
+check("3000 number words joined", SpokenNumbers.digitsAndJoins(in: "شماره " + digitsSaid).text.count, "شماره ".count + 3000 + 1)
+
+// Memory: thousands of dictations must not grow the process.
+for _ in 0..<50 { _ = VoiceCommands.process(long, punctuation: false, commands: false) }
+let memoryBefore = footprintMB()
+for _ in 0..<500 { autoreleasepool { _ = VoiceCommands.process(long, punctuation: false, commands: false) } }
+let memoryAfter = footprintMB()
+print("::warning::measured: memory over 500 long dictations: \(String(format: "%.1f", memoryBefore)) → \(String(format: "%.1f", memoryAfter)) MB")
+check("no memory growth", memoryAfter - memoryBefore < 3, true)
+
+// Text with no numbers is left exactly as it was.
+let plain = "امروز هوا خیلی خوب بود و با دوستام رفتیم بیرون" + pause + "یه قهوه خوردیم و برگشتیم خونه"
+check("plain text untouched", SpokenNumbers.digitsAndJoins(in: plain).text, plain)
+check("digits idempotent", SpokenNumbers.digitsAndJoins(in: SpokenNumbers.digits(in: long)).text, SpokenNumbers.digits(in: long))
 
 print(failures == 0 ? "all passed" : "\(failures) failed")
 exit(failures == 0 ? 0 : 1)

@@ -67,6 +67,12 @@ final class KeyboardSession: ObservableObject {
         observer.observe(DictationBridge.stop) { [weak self] in
             MainActor.assumeIsolated { self?.finishCapture() }
         }
+        observer.observe(DictationBridge.pause) { [weak self] in
+            MainActor.assumeIsolated { self?.setPaused(true) }
+        }
+        observer.observe(DictationBridge.resume) { [weak self] in
+            MainActor.assumeIsolated { self?.setPaused(false) }
+        }
         observer.observe(DictationBridge.cancel) { [weak self] in
             MainActor.assumeIsolated { self?.cancelDictation() }
         }
@@ -75,8 +81,16 @@ final class KeyboardSession: ObservableObject {
             forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
         ) { [weak self] note in
             let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
-            guard raw.flatMap(AVAudioSession.InterruptionType.init) == .ended else { return }
-            MainActor.assumeIsolated { self?.resume() }
+            switch raw.flatMap(AVAudioSession.InterruptionType.init) {
+            case .began:
+                // iOS took the microphone: the recording pauses (what was said stays) until the
+                // keyboard resumes it.
+                MainActor.assumeIsolated { self?.interrupted() }
+            case .ended:
+                MainActor.assumeIsolated { self?.resume() }
+            default:
+                break
+            }
         }
     }
 
@@ -117,6 +131,9 @@ final class KeyboardSession: ObservableObject {
         }
         // Loads the model now if nothing has yet, so the first dictation does not wait for it.
         _ = Transcriber.shared
+        if KeyboardOptions.load().autoPunctuation {
+            Task.detached(priority: .utility) { AutoPunctuation.shared.preload() }
+        }
         Task {
             await PersonalModel.shared.upload()
             await PersonalModel.shared.check(automatic: true)
@@ -217,6 +234,7 @@ final class KeyboardSession: ObservableObject {
         Self.ambientNoise = collector.begin()
         server.clear()
         isCapturing = true
+        pausedSince = nil
         dictationID += 1
         resetIdleTimer()
         DictationBridge.post(DictationBridge.recording)
@@ -224,6 +242,27 @@ final class KeyboardSession: ObservableObject {
         startStreaming(id: dictationID)
         startMonitor(held: held)
         if let testAudio { feedTestAudio(testAudio) }
+    }
+
+    /// The keyboard paused or resumed a locked recording: while paused, no audio is kept, so
+    /// the model hears nothing of it and the held limit does not run.
+    private func setPaused(_ paused: Bool) {
+        guard isCapturing else { return }
+        collector.paused = paused
+        pausedSince = paused ? Date() : nil
+        log.info("recording \(paused ? "paused" : "resumed", privacy: .public)")
+    }
+
+    /// When the recording was paused; a recording left paused this long is ended and
+    /// transcribed, so a keyboard that went away does not keep it (and its audio) for ever.
+    private var pausedSince: Date?
+    static let pauseLimitSeconds = 300.0
+
+    private func interrupted() {
+        guard isCapturing, pausedSince == nil else { return }
+        log.info("microphone taken by iOS")
+        setPaused(true)
+        DictationBridge.post(DictationBridge.interrupted)
     }
 
     /// Every 0.05 s while recording: sends the level of the latest 0.1 s of audio to the
@@ -241,7 +280,7 @@ final class KeyboardSession: ObservableObject {
             while !Task.isCancelled, let self, self.isCapturing {
                 try? await Task.sleep(nanoseconds: 50_000_000)
                 guard !Task.isCancelled, self.isCapturing else { break }
-                let level = self.collector.recentLevel(Int(AudioLoader.sampleRate) / 10)
+                let level = self.collector.paused ? 0 : self.collector.recentLevel(Int(AudioLoader.sampleRate) / 10)
                 let db = 20 * log10(max(level, 1e-6))
                 let step = min(DictationBridge.levels - 1, max(0, Int((db + 55) / 2)))
                 if step != lastStep {
@@ -251,6 +290,12 @@ final class KeyboardSession: ObservableObject {
                 // Speech decisions twice a second are enough, and none while the space bar is held,
                 // except a limit on its length, should the keyboard never say it was let go.
                 let levels = self.collector.levels()
+                if let since = self.pausedSince, Date().timeIntervalSince(since) >= Self.pauseLimitSeconds {
+                    log.info("recording paused for \(Self.pauseLimitSeconds, format: .fixed(precision: 0)) s; stopped")
+                    DictationBridge.post(DictationBridge.stopped)
+                    self.finishCapture()
+                    break
+                }
                 if held {
                     if Double(levels.count) / 10 >= Self.heldLimitSeconds {
                         log.info("held recording reached \(Self.heldLimitSeconds, format: .fixed(precision: 0)) s; stopped")
@@ -439,6 +484,7 @@ final class KeyboardSession: ObservableObject {
     private func finishCapture() {
         guard isActive, isCapturing else { return }
         isCapturing = false
+        pausedSince = nil
         testFeed?.cancel()
         let levels = collector.levels()
         let samples = collector.end()
@@ -478,7 +524,14 @@ final class KeyboardSession: ObservableObject {
                     recent.append((dictation, samples, DictationBridge.removingPauseMarks(text)))
                     if recent.count > 8 { recent.removeFirst() }
                 }
-                server.publish(DictationBridge.finalPrefix + dictation + "\n" + text)
+                // Commas, full stops and question marks (`AutoPunctuation`), off the main thread.
+                let served = KeyboardOptions.load().autoPunctuation
+                    ? await Task.detached(priority: .userInitiated) { [quiet = PersonalDictionary.saved.symbolWords] in
+                        AutoPunctuation.shared.punctuate(text, quiet: quiet)
+                    }.value
+                    : text
+                guard id == dictationID else { return }
+                server.publish(DictationBridge.finalPrefix + dictation + "\n" + served)
                 DictationBridge.post(DictationBridge.done)
             } catch {
                 guard id == dictationID else { return }
@@ -501,9 +554,11 @@ final class KeyboardSession: ObservableObject {
         monitorTask = nil
         dictationID += 1
         streamTask = nil
+        pausedSince = nil
         if isCapturing {
             isCapturing = false
-            _ = collector.end()
+            let dropped = collector.end()
+            log.info("recording cancelled, \(dropped.count / Int(AudioLoader.sampleRate)) s dropped")
         }
     }
 }
@@ -519,6 +574,7 @@ private final class SampleCollector: @unchecked Sendable {
     private var frameSum: Float = 0
     private var frameCount = 0
     private var capturing = false
+    private var isPaused = false
     private static let frame = Int(AudioLoader.sampleRate) / 10
 
     /// Starts a recording; returns the room's level before it (the 30th percentile of the last
@@ -533,7 +589,20 @@ private final class SampleCollector: @unchecked Sendable {
         frameSum = 0
         frameCount = 0
         capturing = true
+        isPaused = false
         return sorted.count >= 10 ? sorted[sorted.count * 3 / 10] : nil
+    }
+
+    /// While a recording is paused, its audio is dropped (and is not taken for room noise either).
+    var paused: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return isPaused }
+        set {
+            lock.lock()
+            isPaused = newValue
+            frameSum = 0
+            frameCount = 0
+            lock.unlock()
+        }
     }
 
     /// Levels of the complete 0.1 s frames so far.
@@ -571,6 +640,7 @@ private final class SampleCollector: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         capturing = false
+        isPaused = false
         let result = samples
         samples = []
         return result
@@ -578,6 +648,10 @@ private final class SampleCollector: @unchecked Sendable {
 
     func append(_ pointer: UnsafePointer<Float>, count: Int) {
         lock.lock()
+        if capturing && isPaused {
+            lock.unlock()
+            return
+        }
         let buffer = UnsafeBufferPointer(start: pointer, count: count)
         if capturing { samples.append(contentsOf: buffer) }
         for sample in buffer {

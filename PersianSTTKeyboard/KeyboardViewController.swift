@@ -16,6 +16,12 @@ final class KeyboardViewController: UIInputViewController {
 
     private var state = State.checking {
         didSet {
+            // A pause belongs to one recording.
+            if state != .recording, isPaused {
+                isPaused = false
+                orb.paused = false
+                orb.accessibilityLabel = nil
+            }
             render()
             if (oldValue == .noSession || oldValue == .checking) != (state == .noSession || state == .checking) {
                 updateSpaceImage()
@@ -159,6 +165,13 @@ final class KeyboardViewController: UIInputViewController {
     private var zwnjDeclined = Set(UserDefaults.standard.stringArray(forKey: "zwnjDeclined") ?? [])
     /// The last letter typed by a tap, for a joining letter tapped twice typing ZWNJ.
     private var lastLetterTap: (character: String, time: CFTimeInterval)?
+    /// ZWNJ typed by a double tap: one backspace right after types the letter instead, and that
+    /// spelling («فرضیی» of فرضییات) never gets ZWNJ again.
+    private var lastDoubleZWNJ: (spelling: String, letter: String)?
+    private var doubleDeclined = Set(UserDefaults.standard.stringArray(forKey: "doubleDeclined") ?? [])
+    /// The last number of a dictation joined from pieces, at the end of what it typed: one
+    /// backspace right after puts the pieces back, in Persian digits.
+    private var lastNumberJoin: (inserted: String, original: String)?
     /// TapMap (`TouchModel`): where the user touches each key, and the touches of the word being
     /// typed, which count once the word is finished.
     private var touchModel = TouchModel.load()
@@ -191,6 +204,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        CrashReports.shared.start()
         updatePrimaryLanguage()
         log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) loaded")
         // Both orientations' sizes are worked out (and kept) on the first run after install.
@@ -229,6 +243,9 @@ final class KeyboardViewController: UIInputViewController {
         }
         observer.observe(DictationBridge.idle) { [weak self] in
             MainActor.assumeIsolated { self?.nobodySpoke() }
+        }
+        observer.observe(DictationBridge.interrupted) { [weak self] in
+            MainActor.assumeIsolated { self?.microphoneTaken() }
         }
         for step in 0..<DictationBridge.levels {
             observer.observe(DictationBridge.level(step)) { [weak self] in
@@ -272,33 +289,32 @@ final class KeyboardViewController: UIInputViewController {
             return
         }
         applyKeyStyle(KeyStyle.load())
-        let hadNumberRow = options.numberRow
-        let hadDigits = options.digitsOnLetters
-        let hadBar = options.suggestionBar
-        options = KeyboardOptions.load()
-        dictionary = PersonalDictionary.load()
         // The keys were built with the standard options (the digits on the letters off) before
         // the app's were read here.
-        if options.numberRow != hadNumberRow || options.digitsOnLetters != hadDigits { buildCharacterKeys() }
-        if options.suggestionBar != hadBar {
-            view.setNeedsLayout()
-            updateSuggestions()
-        }
+        applyOptions(KeyboardOptions.load())
+        dictionary = PersonalDictionary.load()
         if options.touchResets != UserDefaults.standard.integer(forKey: "touchResets") {
             UserDefaults.standard.set(options.touchResets, forKey: "touchResets")
             touchModel = TouchModel()
             touchModel.save()
         }
+        // Back to a locked recording paused when the keyboard went away: it waits for the orb.
+        if state == .recording, isPaused { return }
         checkSession()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         finishEdits()
+        settingsPanel?.removeFromSuperview()
         if touchSaveScheduled { touchModel.save() }
-        // A recording the keyboard can no longer end (a locked one, or a finger still on the
-        // space bar) would keep the app's microphone and model running: it is cancelled.
-        if state == .starting || state == .recording {
+        // A locked recording pauses, as when iOS takes the microphone: when this keyboard comes
+        // back it goes on after a tap on the orb, and the app ends it if it stays paused.
+        if state == .recording, isLocked {
+            setPaused(true)
+        } else if state == .starting || state == .recording {
+            // One the keyboard can no longer end (a finger still on the space bar) would keep
+            // the app's microphone and model running: it is cancelled.
             DictationBridge.post(DictationBridge.cancel)
             isHeld = false
             stopWhenRecording = false
@@ -381,11 +397,13 @@ final class KeyboardViewController: UIInputViewController {
         switch state {
         case .ready:
             startDictation(held: false)
+        case .recording where isLocked:
+            // Locked: the orb pauses and resumes; the middle of the orange bar ends it.
+            setPaused(!isPaused)
         case .recording:
-            DictationBridge.post(DictationBridge.stop)
-            beginTranscribing()
+            endRecording()
         case .noSession, .checking:
-            open(DictationBridge.sessionURL)
+            askForSession()
         case .transcribing:
             // Stop the transcription; the app discards it.
             cancelTimeout()
@@ -395,6 +413,39 @@ final class KeyboardViewController: UIInputViewController {
             showStatus("لغو شد", transient: true)
         case .starting:
             break
+        }
+    }
+
+    private func endRecording() {
+        DictationBridge.post(DictationBridge.stop)
+        beginTranscribing()
+    }
+
+    /// A locked recording paused by a tap on the orb: the app keeps no audio until the next tap.
+    private var isPaused = false
+
+    /// `tell`: false when the app paused it itself and only the orb has to show it.
+    private func setPaused(_ paused: Bool, tell: Bool = true) {
+        guard paused != isPaused else { return }
+        isPaused = paused
+        if tell {
+            haptic(.impact(.light))
+            DictationBridge.post(paused ? DictationBridge.pause : DictationBridge.resume)
+        }
+        orb.paused = paused
+        orb.accessibilityLabel = paused ? "ادامه‌ی ضبط" : "مکث ضبط"
+    }
+
+    /// iOS took the microphone (a call, Siri, its own dictation) and the app paused the
+    /// recording: a locked one shows the pause and goes on after a tap on the orb; a held one
+    /// ends with what was said.
+    private func microphoneTaken() {
+        guard state == .recording else { return }
+        if isLocked {
+            setPaused(true, tell: false)
+        } else {
+            isHeld = false
+            endRecording()
         }
     }
 
@@ -424,7 +475,7 @@ final class KeyboardViewController: UIInputViewController {
                 holdLayout = true
                 startDictation(held: true)
             case .noSession, .checking:
-                open(DictationBridge.sessionURL)
+                askForSession()
             default:
                 break
             }
@@ -556,10 +607,14 @@ final class KeyboardViewController: UIInputViewController {
         case DictationBridge.finalPrefix where !body.isEmpty:
             // Dictation id + newline + text.
             let parts = body.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
-            let result = VoiceCommands.process(String(parts.last ?? ""), punctuation: options.voicePunctuation,
-                                               commands: options.voiceCommands, zwnj: options.autoZWNJ,
+            // No spoken punctuation or edit commands (Rooz, 2026-10-28): the app punctuates
+            // (`AutoPunctuation`), the personal dictionary writes marks said aloud, and the locked
+            // bar deletes and starts a new line.
+            let result = VoiceCommands.process(String(parts.last ?? ""), punctuation: false,
+                                               commands: false, zwnj: options.autoZWNJ,
                                                dictionary: dictionary)
             perform(result)
+            noteNumberJoin(result)
             cancelTimeout()
             state = .ready
             // Corrections of a dictation that also edited the text could not be matched to its recording.
@@ -572,7 +627,7 @@ final class KeyboardViewController: UIInputViewController {
         case DictationBridge.partialPrefix:
             // Empty after a live pass that found nothing new.
             if !body.isEmpty {
-                let draft = VoiceCommands.draft(body, punctuation: options.voicePunctuation, commands: options.voiceCommands,
+                let draft = VoiceCommands.draft(body, punctuation: false, commands: false,
                                                 zwnj: options.autoZWNJ, dictionary: dictionary)
                 if liveText.isEmpty { log.info("live text: first shown, \(draft.count) characters") }
                 liveDraft = draft
@@ -589,6 +644,17 @@ final class KeyboardViewController: UIInputViewController {
         default:
             break
         }
+    }
+
+    /// A dictation ending in a number joined from pieces (a mark or two may follow it): one
+    /// backspace puts the pieces back.
+    private func noteNumberJoin(_ result: VoiceCommands.Result) {
+        guard let join = result.joins.last, case .text(let text)? = result.steps.last,
+              let range = text.range(of: join.joined, options: .backwards) else { return }
+        let tail = String(text[range.upperBound...])
+        guard tail.count <= 2, !tail.contains(where: { $0.isLetter || $0.isNumber }) else { return }
+        let persian = join.spaced.map { $0.wholeNumberValue.map { Array("۰۱۲۳۴۵۶۷۸۹")[$0] } ?? $0 }
+        lastNumberJoin = (join.joined + tail, String(persian) + tail)
     }
 
     /// A dictation's text without the words a return or delete already settled.
@@ -737,6 +803,8 @@ final class KeyboardViewController: UIInputViewController {
         }
         lastSpace = nil
         lastAutoZWNJ = nil
+        lastDoubleZWNJ = nil
+        lastNumberJoin = nil
         manualShift = false
         lastInsertion = (text, CACurrentMediaTime())
         if edits.isTracking { report(edits.willEdit(dictated ? .dictate(text) : .type(text), in: documentContext)) }
@@ -752,6 +820,8 @@ final class KeyboardViewController: UIInputViewController {
     private func deleteBackward() {
         lastSpace = nil
         lastAutoZWNJ = nil
+        lastDoubleZWNJ = nil
+        lastNumberJoin = nil
         lastInsertion = nil
         manualShift = false
         if edits.isTracking { report(edits.willEdit(.deleteBackward, in: documentContext)) }
@@ -805,10 +875,19 @@ final class KeyboardViewController: UIInputViewController {
         showStatus("متنی تشخیص داده نشد", transient: true)
     }
 
+    /// No session: the app opens and starts one (`DictationBridge.keyboardOpensApp`), else
+    /// the space bar says to.
+    private func askForSession() {
+        if !DictationBridge.keyboardOpensApp || !open(DictationBridge.sessionURL) {
+            showStatus("کیلس را باز کنید و «شروع جلسه» را بزنید", transient: true)
+        }
+    }
+
     /// Extensions cannot call UIApplication.open, so the host's UIApplication is found
     /// through the responder chain and its open method is called dynamically.
-    private func open(_ url: URL) {
-        guard hasFullAccess else { return }
+    @discardableResult
+    private func open(_ url: URL) -> Bool {
+        guard hasFullAccess else { return false }
         typealias OpenURL = @convention(c) (
             AnyObject, Selector, NSURL, NSDictionary, (@convention(block) (Bool) -> Void)?) -> Void
         let selector = NSSelectorFromString("openURL:options:completionHandler:")
@@ -818,11 +897,11 @@ final class KeyboardViewController: UIInputViewController {
                current.responds(to: selector) {
                 let open = unsafeBitCast(current.method(for: selector), to: OpenURL.self)
                 open(current, selector, url as NSURL, NSDictionary(), nil)
-                return
+                return true
             }
             responder = current.next
         }
-        showStatus("اپ را باز کنید و جلسه را شروع کنید")
+        return false
     }
 
     /// Messages show on the space bar, so the keyboard needs no status row. A transient one
@@ -979,18 +1058,25 @@ final class KeyboardViewController: UIInputViewController {
     private var numberKeys: [KeyView] = []
     private var showsNumberRow: Bool { options.numberRow && !options.digitsOnLetters && layer == .letters }
     private let backspaceKey = KeyView(symbol: "delete.right")
-    /// Emoji panel on a tap; a menu with the emoji panel and the app's settings on a long press.
+    /// The emoji panel on a tap; a menu with the emoji panel and the keyboard's settings on a
+    /// long press. The settings open inside the keyboard, as a keyboard may open no app but
+    /// Settings (App Store guideline 4.4.1).
     private let emojiKey = KeyView()
     private let keyMenu = KeyMenuView()
     /// The enlarged letter over a pressed key, or the row of a letter's other forms.
     private let keyPopup = KeyPopupView()
     /// Covers the keys while the menu stays open, and closes it when touched.
     private let menuShield = UIControl()
+    /// The keyboard's own settings over the keys (`KeyboardSettingsPanel`), made when first opened.
+    private var settingsPanel: KeyboardSettingsPanel?
     private let emojiPanel = EmojiPanel()
     private let emojiSearchView = EmojiSearchView()
     /// On the emoji panel, beside backspace (Persian) or ABC (English): opens the search.
     private let emojiSearchKey = KeyView(symbol: "magnifyingglass")
     private let layerKey = KeyView(title: "۱۲۳", fontSize: 16)
+    /// The next keyboard, where iOS draws no globe under the keys (Home button iPhones, iPad):
+    /// App Store guideline 4.4.1 asks every keyboard for one.
+    private let globeKey = KeyView(symbol: "globe")
     /// English: #+= on the numbers layer and 123 behind it, where shift is on the letters.
     private let moreKey = KeyView(title: "#+=", fontSize: 16)
     /// No label: arrows around a globe show that swiping it changes the language, until the
@@ -1297,6 +1383,10 @@ final class KeyboardViewController: UIInputViewController {
         backspaceKey.addTarget(self, action: #selector(backspaceUp), for: [.touchUpInside, .touchUpOutside, .touchCancel])
         layerKey.accessibilityIdentifier = "layerKey"
         layerKey.addTarget(self, action: #selector(toggleLayer), for: .touchUpInside)
+        globeKey.accessibilityIdentifier = "globeKey"
+        globeKey.accessibilityLabel = "کیبورد بعدی"
+        globeKey.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
+        globeKey.isHidden = true
         emojiKey.accessibilityIdentifier = "emojiKey"
         emojiKey.addTarget(self, action: #selector(toggleEmoji), for: .touchUpInside)
         let press = UILongPressGestureRecognizer(target: self, action: #selector(emojiPressed(_:)))
@@ -1322,7 +1412,7 @@ final class KeyboardViewController: UIInputViewController {
         returnKey.accessibilityLabel = "return"
         returnKey.accessibilityIdentifier = "returnKey"
         returnKey.addTarget(self, action: #selector(insertReturn), for: .touchUpInside)
-        for key in [backspaceKey, layerKey, emojiKey, lockedReturnKey, lockedDeleteKey, spaceKey, returnKey] {
+        for key in [backspaceKey, layerKey, globeKey, emojiKey, lockedReturnKey, lockedDeleteKey, spaceKey, returnKey] {
             keysView.addSubview(key)
         }
         lockedReturnKey.isHidden = true
@@ -1333,7 +1423,7 @@ final class KeyboardViewController: UIInputViewController {
         lockedDeleteKey.accessibilityIdentifier = "lockedDeleteKey"
         lockedDeleteKey.accessibilityLabel = "پاک کردن کلمه"
         lockedDeleteKey.addTarget(self, action: #selector(lockedDeleteTapped), for: .touchUpInside)
-        for key in [layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey] {
+        for key in [layerKey, moreKey, globeKey, emojiKey, spaceKey, returnKey, shiftKey] {
             key.addAction(UIAction { [weak self] _ in self?.click(.modifier) }, for: .touchDown)
         }
         suggestionBar.onPick = { [weak self] item in self?.pick(item) }
@@ -1349,9 +1439,7 @@ final class KeyboardViewController: UIInputViewController {
 
         keyMenu.items = [
             KeyMenuView.Item(title: "شکلک", symbol: "face.smiling") { [weak self] in self?.toggleEmoji() },
-            KeyMenuView.Item(title: "تنظیمات", symbol: "gearshape") { [weak self] in
-                self?.open(DictationBridge.settingsURL)
-            },
+            KeyMenuView.Item(title: "تنظیمات", symbol: "gearshape") { [weak self] in self?.showSettings() },
         ]
         keyMenu.onSelect = { [weak self] item in
             self?.closeMenu()
@@ -1454,13 +1542,15 @@ final class KeyboardViewController: UIInputViewController {
         updateAutoShift()
         emojiKey.image = layer == .emoji ? KeyIcons.menuKey(symbol: "keyboard") : KeyIcons.emojiKey
         // A key hidden while it was pressed (emoji, 123) comes back unpressed.
-        for key in [emojiKey, layerKey, moreKey, shiftKey, returnKey, spaceKey] { key.isHighlighted = false }
+        for key in [emojiKey, globeKey, layerKey, moreKey, shiftKey, returnKey, spaceKey] { key.isHighlighted = false }
         emojiKey.accessibilityLabel = layer == .emoji ? "حروف" : "شکلک"
         lastGlide = nil
         wordTouches.removeAll()
         deletedTouches.removeAll()
         letterWeightsCache = nil
         updateSuggestions()
+        // New keys go on top; an open settings panel stays above them until it is closed.
+        if let panel = settingsPanel, panel.superview === keysView { keysView.bringSubviewToFront(panel) }
         view.setNeedsLayout()
     }
 
@@ -1500,7 +1590,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         view.overrideUserInterfaceStyle = interface
-        let functionKeys = [backspaceKey, layerKey, moreKey, emojiKey, spaceKey, returnKey, shiftKey, emojiSearchKey]
+        let functionKeys = [backspaceKey, layerKey, moreKey, globeKey, emojiKey, spaceKey, returnKey, shiftKey, emojiSearchKey]
         for key in functionKeys + characterKeys.flatMap({ $0 }) + numberKeys {
             key.apply(style)
         }
@@ -1636,9 +1726,10 @@ final class KeyboardViewController: UIInputViewController {
         if !isEnglish, layer == .letters, let last = lastLetterTap, last.character == character,
            now - last.time < 0.4, Self.joiningLetters.contains(character), lexicon.isLoaded {
             let word = currentWord(before: contextBefore())
-            if word.hasSuffix(character), !lexicon.startsWord(word + character) {
+            if word.hasSuffix(character), !lexicon.startsWord(word + character), !doubleDeclined.contains(word + character) {
                 lastLetterTap = nil
                 insert("\u{200C}")
+                lastDoubleZWNJ = (word + character, character)
                 return
             }
         }
@@ -1727,6 +1818,7 @@ final class KeyboardViewController: UIInputViewController {
         keysView.frame = CGRect(x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
         glideTrail.frame = keysView.bounds
         menuShield.frame = keysView.bounds
+        settingsPanel?.frame = keysView.bounds
         if keyPopup.frame != keysView.bounds {
             keyPopup.hide()
             keyPopup.frame = keysView.bounds
@@ -1802,10 +1894,14 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
 
-        // Bottom row, left to right, in elevenths of the width: 123 two, emoji (and settings)
-        // two, space five (held, it dictates), return two at the right edge, its arrow mirrored
-        // in Persian.
+        // Bottom row, left to right, in elevenths of the width: 123 two, emoji two, space five
+        // (held, it dictates), return two at the right edge, its arrow mirrored in Persian.
+        // Where iOS draws no globe, the next-keyboard key takes one and a half of the emoji's
+        // and the space bar's cells.
         let eleventh = width / 11
+        let showsGlobe = needsInputModeSwitchKey && layer != .emoji
+        globeKey.isHidden = !showsGlobe
+        let globeWidth = showsGlobe ? 1.5 * eleventh : 0
         let y = top + 3 * row + bottomGap
         var x = left
         func place(_ view: UIView, _ keyWidth: CGFloat) {
@@ -1819,8 +1915,9 @@ final class KeyboardViewController: UIInputViewController {
                                           y: y, width: searchKeyWidth, height: row)
         } else {
             place(layerKey, 2 * eleventh)
-            if emojiSearch == nil { place(emojiKey, 2 * eleventh) }
-            place(spaceKey, (emojiSearch == nil ? 5 : 7) * eleventh)
+            if showsGlobe { place(globeKey, globeWidth) }
+            if emojiSearch == nil { place(emojiKey, 2 * eleventh - globeWidth / 2) }
+            place(spaceKey, (emojiSearch == nil ? 5 : 7) * eleventh - (emojiSearch == nil ? globeWidth / 2 : globeWidth))
             place(returnKey, 2 * eleventh)
             // Dictating: the space bar reaches over the emoji key to the middle of the keyboard;
             // locked, it splits into return, end (wider) and delete.
@@ -1922,7 +2019,8 @@ final class KeyboardViewController: UIInputViewController {
     @objc private func insertSpace() {
         // While dictating, the orange space bar types nothing; a tap on it ends a locked recording.
         if isMagnet {
-            if state == .recording, !isHeld { micTapped() }
+            // Not micTapped: there a tap on a locked recording pauses it.
+            if state == .recording, !isHeld { endRecording() }
             return
         }
         if emojiSearch != nil {
@@ -2042,6 +2140,19 @@ final class KeyboardViewController: UIInputViewController {
             UserDefaults.standard.set(Array(zwnjDeclined), forKey: "zwnjDeclined")
             for _ in 0..<change.inserted.count { deleteBackward() }
             insert(change.original)
+            return
+        }
+        if let double = lastDoubleZWNJ, (proxy.documentContextBeforeInput ?? "").hasSuffix("\u{200C}") {
+            doubleDeclined.insert(double.spelling)
+            if doubleDeclined.count > 300 { doubleDeclined.remove(doubleDeclined.first!) }
+            UserDefaults.standard.set(Array(doubleDeclined), forKey: "doubleDeclined")
+            deleteBackward()
+            insert(double.letter)
+            return
+        }
+        if let join = lastNumberJoin, (proxy.documentContextBeforeInput ?? "").hasSuffix(join.inserted) {
+            for _ in 0..<join.inserted.count { deleteBackward() }
+            insert(join.original)
             return
         }
         if let glide = lastGlide, (proxy.documentContextBeforeInput ?? "").hasSuffix(glide.inserted) {
@@ -2558,6 +2669,76 @@ final class KeyboardViewController: UIInputViewController {
         menuShield.isHidden = true
         keyMenu.isHidden = true
     }
+
+    // MARK: - Settings panel
+
+    /// Takes new options: the app's when the keyboard appears, or the settings panel's.
+    private func applyOptions(_ new: KeyboardOptions) {
+        let old = options
+        options = new
+        if new.numberRow != old.numberRow || new.digitsOnLetters != old.digitsOnLetters { buildCharacterKeys() }
+        if new.suggestionBar != old.suggestionBar {
+            view.setNeedsLayout()
+            updateSuggestions()
+        }
+        if new.numberRow != old.numberRow || new.suggestionBar != old.suggestionBar { heightChanged() }
+    }
+
+    /// The keyboard grows or shrinks at once, as when the dictation orb gives way to the keys.
+    /// Only setting the constraint's constant left a taller keyboard squeezed in the old height
+    /// until the next language switch laid it out again.
+    private func heightChanged() {
+        guard let heightConstraint, !isCompact else { return }
+        heightConstraint.constant = fullHeight
+        view.setNeedsUpdateConstraints()
+        view.superview?.setNeedsLayout()
+        view.superview?.layoutIfNeeded()
+        view.setNeedsLayout()
+        // iOS may resize the input view a moment later: lay the keys out again on its new height.
+        DispatchQueue.main.async { [weak self] in
+            self?.view.setNeedsLayout()
+            self?.view.layoutIfNeeded()
+        }
+    }
+
+    private func showSettings() {
+        endEmojiSearch(backToEmoji: false)
+        if layer == .emoji {
+            layer = .letters
+            buildCharacterKeys()
+        }
+        let panel = settingsPanel ?? KeyboardSettingsPanel()
+        if settingsPanel == nil {
+            settingsPanel = panel
+            panel.onChange = { [weak self] new in
+                guard let self else { return }
+                // Saved like the app's settings page: the app reads it back when it opens.
+                new.save()
+                self.applyOptions(new)
+            }
+            panel.onClose = { [weak self] in self?.hideSettings() }
+            panel.onOpenApp = { [weak self] in
+                guard let self else { return }
+                if !self.open(DictationBridge.settingsURL) {
+                    self.showStatus("برای بقیه‌ی تنظیمات کیلس را باز کنید", transient: true)
+                }
+            }
+        }
+        panel.textColor = keyStyle.textColor
+        panel.options = options
+        panel.frame = keysView.bounds
+        keysView.addSubview(panel)
+        keysView.bringSubviewToFront(panel)
+        panel.alpha = 0
+        UIView.animate(withDuration: 0.2) { panel.alpha = 1 }
+    }
+
+    private func hideSettings() {
+        guard let panel = settingsPanel else { return }
+        UIView.animate(withDuration: 0.15, animations: { panel.alpha = 0 }) { _ in
+            panel.removeFromSuperview()
+        }
+    }
 }
 
 extension KeyboardViewController: UIGestureRecognizerDelegate {
@@ -2566,7 +2747,8 @@ extension KeyboardViewController: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === spacePan { return !keyPopup.isShowingVariants }
         guard gestureRecognizer === glidePan else { return true }
-        guard layer == .letters, emojiSearch == nil, !isCompact, keyMenu.isHidden, !keyPopup.isShowingVariants,
+        guard layer == .letters, emojiSearch == nil, !isCompact, keyMenu.isHidden, settingsPanel?.superview == nil,
+              !keyPopup.isShowingVariants,
               lexicon.isLoaded else { return false }
         let point = glidePan.location(in: keysView)
         let moved = glidePan.translation(in: keysView)
@@ -3366,6 +3548,11 @@ private final class DictationOrbView: UIControl {
         }
     }
 
+    /// A locked recording paused: the orb dims and stops moving, and shows a pause sign.
+    var paused = false {
+        didSet { if paused != oldValue { update() } }
+    }
+
     enum Lock { case open, closed }
     /// Over a held space bar: an open lock floats above the orb with an arrow bobbing over it,
     /// for sliding up to lock; once locked, the lock closes in orange and the arrow fades.
@@ -3563,9 +3750,9 @@ private final class DictationOrbView: UIControl {
             processingRing.isHidden = true
             caption.text = "…"
         case .recording:
-            gradient.opacity = 1
+            gradient.opacity = paused ? 0.45 : 1
             setLoading(false)
-            setMotion(true)
+            setMotion(!paused)
             liveRing.track.isHidden = false
             liveRing.ring.isHidden = !liveRing.isRunning
             processingRing.isHidden = true
@@ -3577,6 +3764,16 @@ private final class DictationOrbView: UIControl {
             liveRing.isHidden = true
             processingRing.isHidden = false
             caption.text = "در حال تبدیل به متن… برای لغو بزنید"
+        }
+        let symbol = mode == .recording && paused ? "pause.fill" : "mic.fill"
+        if icon.accessibilityIdentifier != symbol {
+            icon.accessibilityIdentifier = symbol
+            let image = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 24, weight: .semibold))
+            if animates, window != nil {
+                UIView.transition(with: icon, duration: 0.15, options: .transitionCrossDissolve) { self.icon.image = image }
+            } else {
+                icon.image = image
+            }
         }
         CATransaction.commit()
     }
@@ -3707,6 +3904,7 @@ private enum KeyIcons {
     static let lockedDelete = leftToRight("delete.right", size: 17, weight: .light)
     static let lockedEnd = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
     /// The emoji key's face, drawn once: always the outline.
+    /// Three dots under the face: a long press opens the menu (emoji, settings).
     static let emojiKey = menuKey(symbol: "face.smiling")
 
     /// An SF Symbol as drawn left to right, as a template that no layout direction flips.
@@ -3871,7 +4069,12 @@ private enum KeyIcons {
     }
     private static var marks: [String: UIImage] = [:]
 
-    /// A symbol with three dots under it, for a key that also does something on a long press.
+    /// A symbol alone, for a key with no long press.
+    static func plainKey(symbol: String) -> UIImage? {
+        UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16))
+    }
+
+    /// A symbol with three dots under it, for a key with a long-press menu.
     static func menuKey(symbol: String) -> UIImage? {
         guard let icon = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 16)) else {
             return nil
@@ -4196,5 +4399,212 @@ private final class KeyMenuView: UIView {
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         highlight(at: nil)
+    }
+}
+
+/// The keyboard's settings, opened from the emoji key's menu over the keys: the switches of the
+/// app's keyboard page. Colours, the background picture and the dictionary stay in the app.
+private final class KeyboardSettingsPanel: UIView {
+    var options = KeyboardOptions.standard {
+        didSet { if options != oldValue { refresh() } }
+    }
+    var onChange: ((KeyboardOptions) -> Void)?
+    var onClose: (() -> Void)?
+    /// «بقیه‌ی تنظیمات در کیلس», shown when the keyboard may open the app.
+    var onOpenApp: (() -> Void)?
+    var textColor = UIColor.label {
+        didSet { applyColours() }
+    }
+
+    private struct Row {
+        let title: String
+        let key: WritableKeyPath<KeyboardOptions, Bool>
+    }
+
+    private static let sections: [(title: String, rows: [Row])] = [
+        ("ردیف پیشنهاد", [Row(title: "نمایش ردیف پیشنهاد", key: \.suggestionBar),
+                          Row(title: "پیش‌بینی کلمه‌ی بعدی", key: \.predictNextWord)]),
+        ("اصلاح خودکار", [Row(title: "اصلاح غلط تایپی", key: \.correctTypos),
+                          Row(title: "نیم‌فاصله‌ی خودکار", key: \.autoZWNJ),
+                          Row(title: "دو فاصله: نقطه، سه فاصله: ویرگول", key: \.doubleSpacePunctuation)]),
+        ("متن دیکته", [Row(title: "نشانه‌گذاری خودکار", key: \.autoPunctuation)]),
+        ("بازخورد کلیدها", [Row(title: "بزرگ‌نمایی حرف هنگام تایپ", key: \.keyPreview),
+                            Row(title: "صدای کلیدها", key: \.keySounds),
+                            Row(title: "لرزش (هپتیک)", key: \.haptics)]),
+        ("لمس", [Row(title: "یادگیری محل لمس", key: \.learnTouches)]),
+    ]
+
+    private let backdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))
+    private let header = UIView()
+    private let titleLabel = UILabel()
+    private let closeButton = UIButton(type: .system)
+    private let scroll = UIScrollView()
+    private let stack = UIStackView()
+    private let numbers = UISegmentedControl(items: ["خاموش", "ردیف جدا", "روی حروف"])
+    private let appButton = UIButton(type: .system)
+    private var switches: [(UISwitch, WritableKeyPath<KeyboardOptions, Bool>)] = []
+    private var labels: [UILabel] = []
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        semanticContentAttribute = .forceRightToLeft
+        addSubview(backdrop)
+
+        titleLabel.text = "تنظیمات کیبورد"
+        // Larger and bold, so it stands apart from the rows below it.
+        let titleFont = AppFont.font(ofSize: 20)
+        titleLabel.font = titleFont.fontDescriptor.withSymbolicTraits(.traitBold).map { UIFont(descriptor: $0, size: 20) }
+            ?? .systemFont(ofSize: 20, weight: .bold)
+        titleLabel.textAlignment = .right
+        closeButton.setImage(UIImage(systemName: "keyboard.chevron.compact.down",
+                                     withConfiguration: UIImage.SymbolConfiguration(pointSize: 18)), for: .normal)
+        closeButton.accessibilityLabel = "بستن تنظیمات"
+        closeButton.accessibilityIdentifier = "settingsClose"
+        closeButton.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
+        header.addSubview(titleLabel)
+        header.addSubview(closeButton)
+        addSubview(header)
+
+        stack.axis = .vertical
+        stack.spacing = 2
+        stack.semanticContentAttribute = .forceRightToLeft
+        scroll.addSubview(stack)
+        scroll.alwaysBounceVertical = true
+        scroll.showsVerticalScrollIndicator = true
+        addSubview(scroll)
+
+        for section in Self.sections {
+            addSectionTitle(section.title)
+            for row in section.rows { addSwitch(row) }
+            if section.title == "ردیف پیشنهاد" { addNumbers() }
+        }
+        let note = makeLabel("رنگ‌ها، تصویر زمینه و واژه‌نامه در برنامه‌ی کیلس.", size: 13, secondary: true)
+        note.numberOfLines = 0
+        stack.addArrangedSubview(note)
+        if DictationBridge.keyboardOpensApp {
+            var config = UIButton.Configuration.bordered()
+            config.cornerStyle = .capsule
+            config.image = UIImage(systemName: "gearshape", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14))
+            config.imagePadding = 6
+            config.attributedTitle = AttributedString("بقیه‌ی تنظیمات در کیلس",
+                                                      attributes: AttributeContainer([.font: AppFont.font(ofSize: 15)]))
+            appButton.configuration = config
+            appButton.semanticContentAttribute = .forceRightToLeft
+            appButton.accessibilityIdentifier = "settingsOpenApp"
+            appButton.addAction(UIAction { [weak self] _ in self?.onOpenApp?() }, for: .touchUpInside)
+            appButton.heightAnchor.constraint(equalToConstant: 40).isActive = true
+            stack.setCustomSpacing(10, after: note)
+            stack.addArrangedSubview(appButton)
+        }
+        refresh()
+        applyColours()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func makeLabel(_ text: String, size: CGFloat, secondary: Bool = false) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.font = AppFont.font(ofSize: size)
+        label.textAlignment = .right
+        label.tag = secondary ? 1 : 0
+        labels.append(label)
+        return label
+    }
+
+    private func addSectionTitle(_ text: String) {
+        let label = makeLabel(text, size: 13, secondary: true)
+        let box = UIView()
+        box.addSubview(label)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: box.leadingAnchor),
+            label.trailingAnchor.constraint(equalTo: box.trailingAnchor),
+            label.topAnchor.constraint(equalTo: box.topAnchor, constant: 10),
+            label.bottomAnchor.constraint(equalTo: box.bottomAnchor, constant: -2),
+        ])
+        stack.addArrangedSubview(box)
+    }
+
+    private func row(_ label: UILabel, _ control: UIView) -> UIStackView {
+        let row = UIStackView(arrangedSubviews: [label, control])
+        row.axis = .horizontal
+        row.alignment = .center
+        row.spacing = 12
+        row.semanticContentAttribute = .forceRightToLeft
+        row.heightAnchor.constraint(greaterThanOrEqualToConstant: 40).isActive = true
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.adjustsFontSizeToFitWidth = true
+        label.minimumScaleFactor = 0.8
+        control.setContentHuggingPriority(.required, for: .horizontal)
+        control.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return row
+    }
+
+    private func addSwitch(_ item: Row) {
+        let toggle = UISwitch()
+        toggle.accessibilityLabel = item.title
+        let key = item.key
+        toggle.addAction(UIAction { [weak self, weak toggle] _ in
+            guard let self, let toggle else { return }
+            self.options[keyPath: key] = toggle.isOn
+            self.onChange?(self.options)
+        }, for: .valueChanged)
+        switches.append((toggle, key))
+        stack.addArrangedSubview(row(makeLabel(item.title, size: 16), toggle))
+    }
+
+    /// The number row's three places, as the app's picker.
+    private func addNumbers() {
+        numbers.semanticContentAttribute = .forceRightToLeft
+        numbers.setTitleTextAttributes([.font: AppFont.font(ofSize: 13)], for: .normal)
+        numbers.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            let place = self.numbers.selectedSegmentIndex
+            self.options.numberRow = place == 1
+            self.options.digitsOnLetters = place == 2
+            self.onChange?(self.options)
+        }, for: .valueChanged)
+        addSectionTitle("اعداد")
+        stack.addArrangedSubview(numbers)
+    }
+
+    private func refresh() {
+        for (toggle, key) in switches { toggle.isOn = options[keyPath: key] }
+        numbers.selectedSegmentIndex = options.digitsOnLetters ? 2 : options.numberRow ? 1 : 0
+        if let predict = switches.first(where: { $0.1 == \KeyboardOptions.predictNextWord })?.0 {
+            predict.isEnabled = options.suggestionBar
+        }
+    }
+
+    private func applyColours() {
+        for label in labels {
+            label.textColor = label.tag == 1 ? textColor.withAlphaComponent(0.6) : textColor
+        }
+        titleLabel.textColor = textColor
+        closeButton.tintColor = textColor
+        appButton.tintColor = textColor
+        let light = KeyboardBackground.luminance(textColor.resolvedColor(with: traitCollection)) > 0.5
+        backdrop.effect = UIBlurEffect(style: light ? .systemThickMaterialDark : .systemThickMaterialLight)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        backdrop.frame = bounds
+        // Content is at most 440 pt wide and centred, so in landscape titles sit near their switches.
+        let inset: CGFloat = 16 + max(safeAreaInsets.left, safeAreaInsets.right)
+        let width = min(bounds.width - 2 * inset, 440)
+        let side = (bounds.width - width) / 2
+        header.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 44)
+        closeButton.frame = CGRect(x: side - 8, y: 0, width: 44, height: 44)
+        titleLabel.frame = CGRect(x: side + 40, y: 0, width: width - 40, height: 44)
+        scroll.frame = CGRect(x: 0, y: 44, width: bounds.width, height: bounds.height - 44)
+        let height = stack.systemLayoutSizeFitting(CGSize(width: width, height: 0),
+                                                   withHorizontalFittingPriority: .required,
+                                                   verticalFittingPriority: .fittingSizeLevel).height
+        stack.frame = CGRect(x: side, y: 0, width: width, height: height)
+        scroll.contentSize = CGSize(width: bounds.width, height: height + 12)
     }
 }

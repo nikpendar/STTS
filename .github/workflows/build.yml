@@ -29,6 +29,8 @@ on:
       - "training/**"
       - "Tests/**"
       - "scripts/**"
+      # The privacy policy page (GitHub Pages).
+      - "docs/**"
 
 env:
   BUNDLE: ${{ github.event.inputs.bundle_model == 'true' }}

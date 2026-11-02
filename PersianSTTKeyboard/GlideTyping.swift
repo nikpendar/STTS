@@ -30,13 +30,13 @@ final class GlideTrailView: UIView {
     private var endCount = 0
     private var endTime: CFTimeInterval = 0
     private var glass: TrailGlass?
-    private static let lifetime: CFTimeInterval = 0.32
+    private static let lifetime: CFTimeInterval = 0.6
     /// After the finger lifts, the whole drop stays and fades this slowly.
-    private static let fadeTime: CFTimeInterval = 0.6
+    private static let fadeTime: CFTimeInterval = 0.9
     private static let headRadius: CGFloat = 17
     /// The drop never gets longer than this, however fast the finger moves.
-    private static let maxLength: CGFloat = 130
-    private static let maxDiscs = 80
+    private static let maxLength: CGFloat = 220
+    private static let maxDiscs = 120
 
     /// The colour behind the keys, shown in the lens between them.
     var lensBackground: UIColor = .systemGray5

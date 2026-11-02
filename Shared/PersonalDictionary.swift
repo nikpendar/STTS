@@ -20,6 +20,34 @@ struct PersonalDictionary: Codable, Equatable {
 
     static let standard = PersonalDictionary()
 
+    /// Entries every dictionary starts with: punctuation and symbols said aloud. They are added
+    /// once, also to a dictionary saved before they existed (`addingStarters`).
+    static let starters: [Entry] = [
+        Entry(heard: "ویرگول", written: "،"),
+        Entry(heard: "نقطه", written: "."),
+        Entry(heard: "دونقطه", written: ":"),
+        Entry(heard: "درصد", written: "٪"),
+        Entry(heard: "شکلک لبخند", written: "🙂"),
+    ]
+
+    /// The starters the dictionary does not have yet, added at the end.
+    func addingStarters() -> PersonalDictionary {
+        var copy = self
+        let known = Set(entries.map { Self.key($0.heard) })
+        copy.entries += Self.starters.filter { !known.contains(Self.key($0.heard)) }
+        return copy
+    }
+
+    /// Marks that sit right after the word before them, with no space: «۲۰٪», «سلام،».
+    private static let closing: Set<Character> = [".", "،", ",", ":", "؛", ";", "٪", "%", "!", "؟", "?", ")", "»"]
+
+    /// Heard words whose written form has no letters or digits (marks, symbols, emoji): after
+    /// them and before them, automatic punctuation adds nothing (`AutoPunctuation`).
+    var symbolWords: Set<String> {
+        Set(entries.filter { !$0.written.unicodeScalars.contains { Self.wordScalars.contains($0) } }
+            .map { Self.key($0.heard) })
+    }
+
     /// The key two spellings of the same words share.
     static func key(_ text: String) -> String {
         var out = ""
@@ -86,6 +114,9 @@ struct PersonalDictionary: Codable, Equatable {
             }
             guard let match else { w += 1; continue }
             out.append(contentsOf: scalars[copied..<words[w].lowerBound])
+            if let first = match.written.first, Self.closing.contains(first) {
+                while let last = out.last, last == " " || last == "\u{00A0}" { out.removeLast() }
+            }
             out.append(contentsOf: match.written.unicodeScalars)
             copied = words[match.end].upperBound
             w = match.end + 1

@@ -20,6 +20,12 @@ enum DictationBridge {
     static let startHeld = "com.persianstt.startHeld"
     static let recording = "com.persianstt.recording"
     static let stop = "com.persianstt.stop"
+    /// Keyboard pauses a locked recording (no audio is kept) and resumes it.
+    static let pause = "com.persianstt.pause"
+    static let resume = "com.persianstt.resume"
+    /// The app paused the recording itself: iOS took the microphone (a call, Siri, the system's
+    /// own dictation). The keyboard shows the pause; a tap on the orb resumes.
+    static let interrupted = "com.persianstt.interrupted"
     /// Keyboard abandons the transcription in progress.
     static let cancel = "com.persianstt.cancel"
     /// App has a provisional transcript of the recording so far on `transcriptPort`.
@@ -65,9 +71,13 @@ enum DictationBridge {
     /// Loopback port the keyboard sends corrections to.
     static let correctionPort: NWEndpoint.Port = 47_862
 
+    /// The keyboard opens the app: to start a session, and from its settings panel. Guideline
+    /// 4.4.1 lets a keyboard open only Settings; on Rooz's decision (2026-10-27) it stays on in
+    /// the App Store build too, and goes off here if App Review rejects it.
+    static let keyboardOpensApp = true
     /// Opens the app and starts a keyboard session.
     static let sessionURL = URL(string: "persianstt://session")!
-    /// Opens the app from the keyboard's settings key.
+    /// Opens the app's settings from the keyboard's settings panel.
     static let settingsURL = URL(string: "persianstt://settings")!
 
     static func post(_ name: String) {
@@ -304,14 +314,15 @@ protocol SharedSetting: Codable {
 extension SharedSetting {
     private static var pasteboardType: String { "public.json" }
 
-    /// App side: saves the setting and hands it to the keyboard.
+    /// Saves the setting and hands it to the other side: the app's settings pages, or the
+    /// keyboard's settings panel (`KeyboardOptions`), which the app reads back with `load()`.
     func save() {
         guard let data = try? JSONEncoder().encode(self) else { return }
         UserDefaults.standard.set(data, forKey: Self.defaultsKey)
         UIPasteboard(name: Self.pasteboardName, create: true)?.setData(data, forPasteboardType: Self.pasteboardType)
     }
 
-    /// Keyboard side: the app's latest setting, else the last one seen, else the standard one.
+    /// The latest setting on the pasteboard, else the last one seen, else the standard one.
     static func load() -> Self {
         if let data = UIPasteboard(name: pasteboardName, create: false)?.data(forPasteboardType: pasteboardType),
            let value = try? JSONDecoder().decode(Self.self, from: data) {
@@ -376,10 +387,8 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var predictNextWord = true
     /// Offer the listed word a typed one is probably a misspelling of.
     var correctTypos = true
-    /// Spoken «نقطه», «ویرگول», «خط بعد»… become punctuation.
-    var voicePunctuation = true
-    /// «پاک کن», «همه رو پاک کن» and «برگردون», said on their own, edit the text.
-    var voiceCommands = true
+    /// Commas, full stops and question marks put into each dictation by the app (`AutoPunctuation`).
+    var autoPunctuation = true
     /// Each pressed key shows its letter enlarged above it.
     var keyPreview = true
     /// Two spaces in a row type a full stop, three a comma.
@@ -411,8 +420,7 @@ struct KeyboardOptions: SharedSetting, Equatable {
         suggestionBar = try container.decodeIfPresent(Bool.self, forKey: .suggestionBar) ?? true
         predictNextWord = try container.decodeIfPresent(Bool.self, forKey: .predictNextWord) ?? true
         correctTypos = try container.decodeIfPresent(Bool.self, forKey: .correctTypos) ?? true
-        voicePunctuation = try container.decodeIfPresent(Bool.self, forKey: .voicePunctuation) ?? true
-        voiceCommands = try container.decodeIfPresent(Bool.self, forKey: .voiceCommands) ?? true
+        autoPunctuation = try container.decodeIfPresent(Bool.self, forKey: .autoPunctuation) ?? true
         keyPreview = try container.decodeIfPresent(Bool.self, forKey: .keyPreview) ?? true
         doubleSpacePunctuation = try container.decodeIfPresent(Bool.self, forKey: .doubleSpacePunctuation) ?? true
         numberRow = try container.decodeIfPresent(Bool.self, forKey: .numberRow) ?? false
