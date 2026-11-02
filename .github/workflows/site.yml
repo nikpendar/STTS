@@ -42,8 +42,8 @@ jobs:
       - name: Check the published pages
         run: |
           sleep 15
-          for page in "" privacy.html; do
-            CODE="$(curl -s -o page.html -w '%{http_code}' "https://$PROJECT-26k.pages.dev/$page")"
+          for page in "" privacy; do
+            CODE="$(curl -sL -o page.html -w '%{http_code}' "https://$PROJECT-26k.pages.dev/$page")"
             TITLE="$(grep -o '<title>[^<]*' page.html | sed 's/<title>//')"
             echo "::notice::/$page: HTTP $CODE, title «$TITLE»"
             [ "$CODE" = 200 ] || { echo "::error::/$page is not served"; exit 1; }
