@@ -1,0 +1,25 @@
+# Recording script for a new voice (scripts/recording/select.py), published to the release
+# recording-script. Nothing in the app changes here.
+name: Recording script
+
+on:
+  push:
+    branches: [claude/project-thread-xaj97f]
+    paths: [.github/workflows/recording-script.yml, scripts/recording/**]
+
+permissions:
+  contents: write
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - run: pip install -q pyarrow huggingface_hub
+      - run: python3 scripts/recording/select.py rec 1500 && head -20 rec/script.txt
+      - run: |
+          gh release view recording-script >/dev/null 2>&1 || gh release create recording-script --prerelease --target "$GITHUB_SHA" \
+            --title "Recording script" --notes "1500 sentences from HomoRich-G2P-Persian (CC0) for recording a voice."
+          gh release upload recording-script rec/script.txt rec/script.csv --clobber
