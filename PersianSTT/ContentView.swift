@@ -461,7 +461,8 @@ struct ContentView: View {
     }
 
     /// The privacy policy, published from docs/privacy.html of the repository by GitHub Pages.
-    static let privacyPolicyURL = URL(string: "https://nikpendar.github.io/STTS/privacy.html")!
+    /// The project website on Cloudflare Pages (Rooz, 2026-11-01), until a domain is bought.
+    static let privacyPolicyURL = URL(string: "https://keyless-26k.pages.dev/privacy")!
 
     private var privacyLink: some View {
         Link(destination: Self.privacyPolicyURL) {
