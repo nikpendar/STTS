@@ -114,27 +114,35 @@ final class PersianPhonemizer {
     }
 
     /// One GE2PE word with its Ezafe mark set to `ezafe` (from the tagger): «ketab» → «ketabe1»,
-    /// «sedaye1» → «seda». `spelling` (the Persian word) tells a vowel ending (ا و ه ی: -ye) from a
-    /// consonant (-e); GE2PE sometimes writes «beduneye1». A written Ezafe (خانه‌ی، خانۀ) stays.
+    /// «sedaye1» → «seda». The word's own last letter tells a vowel ending (-ye) from a consonant
+    /// (-e): «dane$gah» (دانشگاه) takes -e although it is spelled with ه. GE2PE sometimes writes
+    /// «beduneye1». `spelling` (the Persian word) keeps a written Ezafe (خانه‌ی، خانۀ) as GE2PE read it.
+    /// scripts/tts_phonemes.py with_ezafe is the same.
     static func withEzafe(_ word: Substring, ezafe: Bool, spelling: Substring) -> Substring {
         let scalars = Array(spelling.unicodeScalars)
         if scalars.last == "\u{06C0}" || (scalars.count > 1 && scalars.last == "\u{06CC}" && scalars[scalars.count - 2] == "\u{200C}") {
             return word
         }
-        let vowelEnd = scalars.last.map { "\u{0627}\u{0648}\u{0647}\u{06CC}\u{064A}\u{06C0}".unicodeScalars.contains($0) } ?? false
-        var word = word
-        if word.hasSuffix("1") {
-            word = word.dropLast()
-            if vowelEnd, word.hasSuffix("ye"), word.count > 2 {
-                word = word.dropLast(2)
-            } else if !vowelEnd, word.hasSuffix("eye"), word.count > 3 {
-                word = word.dropLast(3)
-            } else if !vowelEnd, word.hasSuffix("e") {
-                word = word.dropLast()
+        let vowels: Set<Character> = ["a", "e", "i", "o", "u", "/"]
+        let vowelSpelling = scalars.last.map { "\u{0627}\u{0648}\u{0647}\u{06CC}\u{064A}".unicodeScalars.contains($0) } ?? false
+        var letters = Array(word)
+        if letters.last == "1" {
+            letters.removeLast()
+            let n = letters.count
+            // «beduneye1»: -eye on a consonant, only for a word not spelled with a vowel letter at
+            // the end («xaneye1» is خانه with -ye).
+            if n > 3, letters[(n - 3)...] == ["e", "y", "e"], !vowels.contains(letters[n - 4]), !vowelSpelling {
+                letters.removeLast(3)
+            } else if n > 2, letters[(n - 2)...] == ["y", "e"], vowels.contains(letters[n - 3]) {
+                letters.removeLast(2)
+            } else if n > 1, letters[n - 1] == "e", !vowels.contains(letters[n - 2]) {
+                letters.removeLast()
             }
         }
-        guard ezafe else { return word }
-        return Substring(word + (vowelEnd ? "ye1" : "e1"))
+        if ezafe {
+            letters += (letters.last.map { vowels.contains($0) } ?? false) ? ["y", "e", "1"] : ["e", "1"]
+        }
+        return Substring(String(letters))
     }
 
     /// GE2PE output as one phoneme word per input word. GE2PE sometimes writes one word as two

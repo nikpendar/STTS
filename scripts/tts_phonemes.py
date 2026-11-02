@@ -42,22 +42,26 @@ def latin_runs(clause):
 
 def with_ezafe(word, ezafe, spelling):
     """One GE2PE word with its Ezafe mark set to `ezafe` (from the Ezafe tagger, which decides
-    better than GE2PE): «ketab» -> «ketabe1», «sedaye1» -> «seda». `spelling` (the Persian word)
-    tells a vowel ending (ا و ه ی: -ye) from a consonant (-e); GE2PE sometimes writes «beduneye1»."""
+    better than GE2PE): «ketab» -> «ketabe1», «sedaye1» -> «seda». The word's own last letter tells
+    a vowel ending (-ye) from a consonant (-e): «dane$gah» (دانشگاه) takes -e although it is spelled
+    with ه. GE2PE sometimes writes «beduneye1». `spelling` (the Persian word) keeps a written
+    Ezafe (خانه‌ی، خانۀ) as GE2PE read it."""
     if spelling.endswith(("\u200cی", "ۀ")):
-        return word  # the Ezafe is written (خانه‌ی، خانۀ): GE2PE reads it already
-    vowel_end = spelling[-1:] in "اوهیيۀ"
+        return word
+    vowels = "aeiou/"
     if word.endswith("1"):
         word = word[:-1]
-        if vowel_end and word.endswith("ye") and len(word) > 2:
-            word = word[:-2]
-        elif not vowel_end and word.endswith("eye") and len(word) > 3:
+        # «beduneye1»: -eye on a consonant, only for a word not spelled with a vowel letter at the
+        # end («xaneye1» is خانه with -ye).
+        if word.endswith("eye") and len(word) > 3 and word[-4] not in vowels and spelling[-1:] not in "اوهیي":
             word = word[:-3]
-        elif not vowel_end and word.endswith("e"):
+        elif word.endswith("ye") and len(word) > 2 and word[-3] in vowels:
+            word = word[:-2]
+        elif word.endswith("e") and len(word) > 1 and word[-2] not in vowels:
             word = word[:-1]
     if not ezafe:
         return word
-    return word + ("ye1" if vowel_end else "e1")
+    return word + ("ye1" if word[-1:] in vowels else "e1")
 
 def _distance(a, b):
     row = list(range(len(b) + 1))
