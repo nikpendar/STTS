@@ -1,0 +1,29 @@
+# Publishes a trained voice as the release the app's setup.sh downloads: a push to the throwaway
+# branch voice-upload-tmp with voice-upload/{mana.onnx,mana.onnx.json} (int8, from kaggle/train)
+# creates or updates release tts-fa-keyless with them plus the phonemizer from tts-fa-mana. The
+# branch is deleted afterwards on GitHub so the 19 MB file stays out of the work branches.
+name: Voice release
+
+on:
+  push:
+    branches: [voice-upload-tmp]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: tts-fa-keyless
+    steps:
+      - uses: actions/checkout@v5
+      - name: Upload
+        run: |
+          ls -l voice-upload
+          mkdir g2p && gh release download tts-fa-mana --pattern 'g2p-*.onnx' --dir g2p
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "Keyless Persian voice" \
+            --notes "Mana Piper voice (MahtaFetrat, MIT) fine-tuned on Mana-TTS (CC0) with the app's own phonemes (kaggle/train), int8; Homo-GE2PE phonemizer (MIT) as in tts-fa-mana."
+          gh release upload "$TAG" voice-upload/mana.onnx voice-upload/mana.onnx.json g2p/g2p-encoder.onnx g2p/g2p-decoder.onnx --clobber
+          gh release view "$TAG"

@@ -42,10 +42,11 @@ fetch preprocessor.json "$MODELS/preprocessor.json"
 fetch mel_filters_slaney_80x257.json "$MODELS/mel_filters_slaney_80x257.json"
 fetch "${NAME}_manifest.json" "$MODELS/manifest.json"
 
-# The Persian voice (release tts-fa-mana, from .github/workflows/tts-model.yml): the Mana Piper voice
-# and the Homo-GE2PE phonemizer, both MahtaFetrat (MIT), 28 MB in the app (Models/Voice); and ONNX
-# Runtime (MIT), which runs them, as Frameworks/onnxruntime.xcframework.
-VOICE_RELEASE="${VOICE_RELEASE:-https://github.com/nikpendar/STTS/releases/download/tts-fa-mana}"
+# The Persian voice (release tts-fa-keyless, from kaggle/train via .github/workflows/voice-release.yml):
+# the Mana Piper voice fine-tuned on Mana-TTS with the app's own phonemes, and the Homo-GE2PE
+# phonemizer, both MahtaFetrat (MIT), 28 MB in the app (Models/Voice); and ONNX Runtime (MIT), which
+# runs them, as Frameworks/onnxruntime.xcframework.
+VOICE_RELEASE="${VOICE_RELEASE:-https://github.com/nikpendar/STTS/releases/download/tts-fa-keyless}"
 mkdir -p "$MODELS/Voice" "$ROOT/build-model" "$ROOT/Frameworks"
 for f in g2p-encoder.onnx g2p-decoder.onnx mana.onnx mana.onnx.json; do
   if [ ! -s "$MODELS/Voice/$f" ]; then
