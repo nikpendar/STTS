@@ -40,6 +40,65 @@ def latin_runs(clause):
     return runs
 
 
+def with_ezafe(word, ezafe, spelling):
+    """One GE2PE word with its Ezafe mark set to `ezafe` (from the Ezafe tagger, which decides
+    better than GE2PE): «ketab» -> «ketabe1», «sedaye1» -> «seda». `spelling` (the Persian word)
+    tells a vowel ending (ا و ه ی: -ye) from a consonant (-e); GE2PE sometimes writes «beduneye1»."""
+    if spelling.endswith(("\u200cی", "ۀ")):
+        return word  # the Ezafe is written (خانه‌ی، خانۀ): GE2PE reads it already
+    vowel_end = spelling[-1:] in "اوهیۀ"
+    if word.endswith("1"):
+        word = word[:-1]
+        if vowel_end and word.endswith("ye") and len(word) > 2:
+            word = word[:-2]
+        elif not vowel_end and word.endswith("eye") and len(word) > 3:
+            word = word[:-3]
+        elif not vowel_end and word.endswith("e"):
+            word = word[:-1]
+    if not ezafe:
+        return word
+    return word + ("ye1" if vowel_end else "e1")
+
+def _distance(a, b):
+    row = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        prev, row[0] = row[0], i
+        for j, cb in enumerate(b, 1):
+            prev, row[j] = row[j], min(row[j] + 1, row[j - 1] + 1, prev + (ca != cb))
+    return row[-1]
+
+
+def aligned(words, phonemes, alone):
+    """GE2PE output as one phoneme word per input word. GE2PE sometimes writes one word as two
+    («درمی‌آیند» -> «d/r miay/nd») or two as one; then pieces are grouped (up to three per word)
+    to be closest to each word phonemized by itself (`alone(word)`). None when that fails."""
+    n, m = len(words), len(phonemes)
+    if n == m:
+        return phonemes
+    if not n or not m or m > 3 * n or n > 3 * m:
+        return None
+    own = [alone(w).replace(" ", "") for w in words]
+    INF = float("inf")
+    # best[i][j]: cost of words[:i] taking phonemes[:j]; each word takes 1 to 3 pieces.
+    best = [[INF] * (m + 1) for _ in range(n + 1)]
+    back = [[0] * (m + 1) for _ in range(n + 1)]
+    best[0][0] = 0
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            for k in (1, 2, 3):
+                if j - k >= 0 and best[i - 1][j - k] < INF:
+                    c = best[i - 1][j - k] + _distance("".join(phonemes[j - k:j]), own[i - 1])
+                    if c < best[i][j]:
+                        best[i][j], back[i][j] = c, k
+    if best[n][m] == INF:
+        return None
+    out, j = [], m
+    for i in range(n, 0, -1):
+        k = back[i][j]
+        out.append("".join(phonemes[j - k:j]))
+        j -= k
+    return out[::-1]
+
 def with_exceptions(words, phonemes):
     """GE2PE output with EXCEPTIONS put in, keeping the model's Ezafe; only when the model gave one
     phoneme word per input word."""
