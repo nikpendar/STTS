@@ -17,11 +17,22 @@ final class PersianPhonemizer {
 
     private let encoder: OnnxModel
     private let decoder: OnnxModel
+    /// Decides the Ezafe instead of GE2PE when the app has it (EzafeTagger).
+    let ezafe: EzafeTagger?
 
-    /// `directory` holds g2p-encoder.onnx and g2p-decoder.onnx.
-    init(directory: URL) throws {
+    /// `directory` holds g2p-encoder.onnx, g2p-decoder.onnx and, if the app has the Ezafe tagger,
+    /// Ezafe.mlmodelc, which reads the pieces in `vocabulary` (punct-vocab.tsv).
+    init(directory: URL, vocabulary: URL? = nil) throws {
         encoder = try OnnxModel(url: directory.appendingPathComponent("g2p-encoder.onnx"))
         decoder = try OnnxModel(url: directory.appendingPathComponent("g2p-decoder.onnx"))
+        let tagger = directory.appendingPathComponent("Ezafe.mlmodelc")
+        if let vocabulary, FileManager.default.fileExists(atPath: tagger.path),
+           FileManager.default.fileExists(atPath: vocabulary.path) {
+            // Without it GE2PE's own Ezafe stays.
+            ezafe = try? EzafeTagger(model: tagger, vocabulary: vocabulary)
+        } else {
+            ezafe = nil
+        }
     }
 
     /// `text` as sentences of IPA, each with its punctuation, for the voice one at a time.
@@ -31,19 +42,156 @@ final class PersianPhonemizer {
             var ipa = ""
             for clause in Self.split(sentence, at: "،,;؛:") {
                 let mark = clause.last.flatMap { Self.punctuation[$0] }
-                let words = Self.clean(clause).split(separator: " ")
-                // Long clauses in pieces: the model learned from sentences of usual length.
-                for start in stride(from: 0, to: words.count, by: 24) {
-                    let piece = words[start..<min(start + 24, words.count)].joined(separator: " ")
-                    let phonemes = try self.phonemes(piece)
-                    if !ipa.isEmpty, ipa.last != " " { ipa += " " }
-                    ipa += phonemes.split(separator: " ").map { Self.ipa(word: $0, stress: stress) }.joined(separator: " ")
+                for (latin, run) in Self.latinRuns(clause) {
+                    if latin {
+                        if !ipa.isEmpty, ipa.last != " " { ipa += " " }
+                        ipa += run.lowercased().compactMap { Self.latinLetters[$0] }
+                            .map { Self.ipa(word: Substring($0), stress: stress) }.joined(separator: " ")
+                        continue
+                    }
+                    let words = Self.clean(run).split(separator: " ")
+                    // Long clauses in pieces: the model learned from sentences of usual length.
+                    for start in stride(from: 0, to: words.count, by: 24) {
+                        let piece = Array(words[start..<min(start + 24, words.count)])
+                        let phonemes = try self.phonemes(piece.joined(separator: " ")).split(separator: " ")
+                        if !ipa.isEmpty, ipa.last != " " { ipa += " " }
+                        var fixed = try Self.aligned(piece, phonemes) { try self.phonemes(String($0)) } ?? phonemes
+                        fixed = Self.withExceptions(piece, fixed)
+                        if fixed.count == piece.count, let flags = ezafe?.flags(piece.map(String.init)) {
+                            fixed = zip(zip(fixed, flags), piece).map { Self.withEzafe($0.0, ezafe: $0.1, spelling: $1) }
+                        }
+                        ipa += fixed.map { Self.ipa(word: $0, stress: stress) }.joined(separator: " ")
+                    }
                 }
                 if let mark, !ipa.isEmpty { ipa += mark }
             }
             if !ipa.isEmpty { out.append(ipa.trimmingCharacters(in: .whitespaces)) }
         }
         return out
+    }
+
+    /// Latin letters by their English names, in GE2PE letters: «IPA» is read «آی‌پی‌اِی».
+    static let latinLetters: [Character: String] = [
+        "a": "ey", "b": "bi", "c": "si", "d": "di", "e": "i", "f": "ef", "g": "ji", "h": "ec", "i": "ay",
+        "j": "jey", "k": "key", "l": "el", "m": "em", "n": "en", "o": "o", "p": "pi", "q": "kiu", "r": "ar",
+        "s": "es", "t": "ti", "u": "yu", "v": "vi", "w": "d/blyu", "x": "eks", "y": "vay", "z": "zed",
+    ]
+
+    /// `clause` as runs of (isLatin, text). Latin words longer than five letters that are not all
+    /// capitals are left out: their English pronunciation cannot be guessed from the letters.
+    static func latinRuns(_ clause: String) -> [(Bool, String)] {
+        var runs: [(Bool, String)] = []
+        for character in clause {
+            let latin = character.isASCII && character.isLetter
+            if let last = runs.last, last.0 == latin {
+                runs[runs.count - 1].1.append(character)
+            } else {
+                runs.append((latin, String(character)))
+            }
+        }
+        return runs.map { latin, text in
+            latin && text.count > 5 && text != text.uppercased() ? (false, " ") : (latin, text)
+        }
+    }
+
+    /// Words Homo-GE2PE reads wrong, in its own letters (ده as the number «dah», not «deh»).
+    static let exceptions: [String: String] = [
+        "ده": "d/h",
+        "آوانگاری": "@avanegari",
+        "هم\u{200C}نویسه": "h/mnevise",
+        "هم\u{200C}نویسه\u{200C}ها": "h/mneviseha",
+    ]
+
+    /// GE2PE output with `exceptions` put in, keeping the model's Ezafe; only when the model gave one
+    /// phoneme word per input word.
+    static func withExceptions(_ words: [Substring], _ phonemes: [Substring]) -> [Substring] {
+        guard words.count == phonemes.count else { return phonemes }
+        return zip(words, phonemes).map { word, phoneme in
+            guard var fix = exceptions[String(word)] else { return phoneme }
+            if phoneme.hasSuffix("1") { fix += "aeiou/".contains(fix.last!) ? "ye1" : "e1" }
+            return Substring(fix)
+        }
+    }
+
+    /// One GE2PE word with its Ezafe mark set to `ezafe` (from the tagger): «ketab» → «ketabe1»,
+    /// «sedaye1» → «seda». The word's own last letter tells a vowel ending (-ye) from a consonant
+    /// (-e): «dane$gah» (دانشگاه) takes -e although it is spelled with ه. GE2PE sometimes writes
+    /// «beduneye1». `spelling` (the Persian word) keeps a written Ezafe (خانه‌ی، خانۀ) as GE2PE read it.
+    /// scripts/tts_phonemes.py with_ezafe is the same.
+    static func withEzafe(_ word: Substring, ezafe: Bool, spelling: Substring) -> Substring {
+        let scalars = Array(spelling.unicodeScalars)
+        if scalars.last == "\u{06C0}" || (scalars.count > 1 && scalars.last == "\u{06CC}" && scalars[scalars.count - 2] == "\u{200C}") {
+            return word
+        }
+        let vowels: Set<Character> = ["a", "e", "i", "o", "u", "/"]
+        let vowelSpelling = scalars.last.map { "\u{0627}\u{0648}\u{0647}\u{06CC}\u{064A}".unicodeScalars.contains($0) } ?? false
+        var letters = Array(word)
+        if letters.last == "1" {
+            letters.removeLast()
+            let n = letters.count
+            // «beduneye1»: -eye on a consonant, only for a word not spelled with a vowel letter at
+            // the end («xaneye1» is خانه with -ye).
+            if n > 3, letters[(n - 3)...] == ["e", "y", "e"], !vowels.contains(letters[n - 4]), !vowelSpelling {
+                letters.removeLast(3)
+            } else if n > 2, letters[(n - 2)...] == ["y", "e"], vowels.contains(letters[n - 3]) {
+                letters.removeLast(2)
+            } else if n > 1, letters[n - 1] == "e", !vowels.contains(letters[n - 2]) {
+                letters.removeLast()
+            }
+        }
+        if ezafe {
+            letters += (letters.last.map { vowels.contains($0) } ?? false) ? ["y", "e", "1"] : ["e", "1"]
+        }
+        return Substring(String(letters))
+    }
+
+    /// GE2PE output as one phoneme word per input word. GE2PE sometimes writes one word as two
+    /// («درمی‌آیند» → «d/r miay/nd») or two as one; then pieces are grouped (up to three per word)
+    /// to be closest to each word phonemized by itself (`alone`). nil when that fails.
+    static func aligned(_ words: [Substring], _ phonemes: [Substring], alone: (Substring) throws -> String) rethrows -> [Substring]? {
+        let n = words.count, m = phonemes.count
+        if n == m { return phonemes }
+        if n == 0 || m == 0 || m > 3 * n || n > 3 * m { return nil }
+        let own = try words.map { Array(try alone($0).replacingOccurrences(of: " ", with: "")) }
+        let piece = phonemes.map { Array($0) }
+        var best = [[Int]](repeating: [Int](repeating: .max, count: m + 1), count: n + 1)
+        var back = [[Int]](repeating: [Int](repeating: 0, count: m + 1), count: n + 1)
+        best[0][0] = 0
+        for i in 1...n {
+            for j in 1...m {
+                for k in 1...3 where j - k >= 0 && best[i - 1][j - k] < .max {
+                    let cost = best[i - 1][j - k] + distance(Array(piece[(j - k)..<j].joined()), own[i - 1])
+                    if cost < best[i][j] {
+                        best[i][j] = cost
+                        back[i][j] = k
+                    }
+                }
+            }
+        }
+        guard best[n][m] < .max else { return nil }
+        var out: [Substring] = []
+        var j = m
+        for i in stride(from: n, to: 0, by: -1) {
+            let k = back[i][j]
+            out.append(Substring(phonemes[(j - k)..<j].joined()))
+            j -= k
+        }
+        return out.reversed()
+    }
+
+    /// Edit distance between two letter sequences.
+    static func distance(_ a: [Character], _ b: [Character]) -> Int {
+        var row = Array(0...b.count)
+        for (i, ca) in a.enumerated() {
+            var previous = row[0]
+            row[0] = i + 1
+            for (j, cb) in b.enumerated() {
+                let up = row[j + 1]
+                row[j + 1] = min(row[j + 1] + 1, row[j] + 1, previous + (ca == cb ? 0 : 1))
+                previous = up
+            }
+        }
+        return row[b.count]
     }
 
     /// One clause in GE2PE phoneme letters, greedy decoding: «کتاب بزرگ» → "ketabe1 bozorg".
@@ -67,8 +215,9 @@ final class PersianPhonemizer {
 
     // MARK: - Text
 
+    // Colons and semicolons are read as commas: the voice heard them too rarely in training.
     private static let punctuation: [Character: String] = [
-        ".": ".", "!": "!", "?": "?", "؟": "?", "،": ",", ",": ",", ";": ";", "؛": ";", ":": ":",
+        ".": ".", "!": "!", "?": "?", "؟": "?", "،": ",", ",": ",", ";": ",", "؛": ",", ":": ",",
     ]
 
     /// Pieces of `text` that end at one of `marks` (kept), or at the end.
@@ -118,7 +267,7 @@ final class PersianPhonemizer {
     /// GE2PE letters to the IPA symbols in the voice's phoneme map.
     private static let letters: [Character: String] = [
         "a": "ɑ", "/": "a", "e": "e", "o": "o", "i": "i", "u": "u",
-        "@": "ʔ", "?": "ʔ", "c": "tʃ", "C": "tʃ", "$": "ʃ", "S": "ʃ", "Z": "ʒ", "j": "dʒ", "y": "j", "q": "q", "x": "x",
+        "@": "ʔ", "?": "ʔ", "c": "tʃ", "C": "tʃ", "$": "ʃ", "S": "ʃ", "Z": "ʒ", ";": "ʒ", "j": "dʒ", "y": "j", "q": "q", "x": "x",
         "g": "ɡ", "b": "b", "p": "p", "t": "t", "d": "d", "k": "k", "f": "f", "v": "v", "s": "s",
         "z": "z", "h": "h", "m": "m", "n": "n", "l": "l", "r": "r",
     ]

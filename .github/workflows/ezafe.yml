@@ -1,0 +1,44 @@
+# Ezafe tagger for the voice's phonemizer: HooshvareLab ALBERT-fa (Apache-2.0), 6 passes, fine-tuned on
+# CPU on HomoRich-G2P-Persian (CC0) Ezafe labels, measured against Homo-GE2PE's own Ezafe (what the app
+# uses now). The ONNX files go to the release tts-fa-ezafe. Nothing in the app changes here.
+name: Ezafe tagger
+
+on:
+  push:
+    branches: [claude/project-thread-xaj97f]
+    paths: [.github/workflows/ezafe.yml, scripts/ezafe/**]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Tools
+        run: |
+          pip install -q torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install -q transformers==4.56.2 sentencepiece protobuf onnx onnxruntime==1.22.1 pyarrow huggingface_hub numpy
+      - name: Data
+        run: python3 scripts/ezafe/prepare.py ezafe-data 400000
+      - name: Train
+        run: python3 scripts/ezafe/train.py HooshvareLab/albert-fa-zwnj-base-v2 6 200 ezafe-data ezafe-out
+      - name: Evaluate
+        run: |
+          mkdir voice && gh release download tts-fa-mana --pattern 'g2p-*.onnx' --dir voice
+          python3 scripts/ezafe/evaluate.py ezafe-data ezafe-out voice 1000 | tee ezafe-out/eval.txt
+      - name: Release
+        run: |
+          cd ezafe-out && cp hf/spiece.model . 2>/dev/null || true; ls -la . hf
+          gh release view tts-fa-ezafe >/dev/null 2>&1 || gh release create tts-fa-ezafe --prerelease --target "$GITHUB_SHA" \
+            --title "Persian Ezafe tagger" --notes "ALBERT-fa (HooshvareLab, Apache-2.0) fine-tuned on HomoRich-G2P-Persian (CC0) Ezafe labels; scripts/ezafe."
+          tar czf hf.tgz hf
+          gh release upload tts-fa-ezafe model.int8.onnx model.onnx eval.txt hf.tgz $(ls spiece.model 2>/dev/null) --clobber

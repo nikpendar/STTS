@@ -10,6 +10,7 @@ on:
     paths:
       - PersianSTT/OnnxModel.swift
       - PersianSTT/PersianPhonemizer.swift
+      - PersianSTT/EzafeTagger.swift
       - PersianSTT/OnnxRuntime-Bridging-Header.h
       - Tests/TTSCheck/**
       - Tests/TTS/**
@@ -33,7 +34,13 @@ jobs:
           curl -fsSL --retry 3 -o ort.tgz "https://github.com/microsoft/onnxruntime/releases/download/v$ORT_VERSION/onnxruntime-osx-arm64-$ORT_VERSION.tgz"
           mkdir ort-x && tar xzf ort.tgz -C ort-x
           ln -s "$(dirname "$(dirname "$(find ort-x -name onnxruntime_c_api.h | head -n1)")")" ort && ls ort/include ort/lib
-          mkdir voice && gh release download tts-fa-mana --dir voice && ls -l voice
+          mkdir voice && gh release download tts-fa-keyless --dir voice && ls -l voice
+          # The Ezafe tagger (ezafe-coreml.yml) and the punctuation tagger's pieces it reads, if published.
+          mkdir punct && gh release download punct-albert6 --pattern 'punct-*' --dir punct || true
+          if gh release download tts-fa-ezafe --pattern Ezafe.mlpackage.zip; then
+            unzip -q Ezafe.mlpackage.zip && xcrun coremlcompiler compile Ezafe.mlpackage voice
+          fi
+          ls voice punct
       - name: iOS framework for the app
         run: |
           # setup.sh takes ONNX Runtime for iOS from the CocoaPods archive: check it and its slices.
@@ -45,12 +52,13 @@ jobs:
           if ! xcrun swiftc -O -o tts-check -import-objc-header PersianSTT/OnnxRuntime-Bridging-Header.h -Iort/include \
             -Lort/lib -lonnxruntime -Xlinker -rpath -Xlinker "$PWD/ort/lib" \
             PersianSTT/OnnxModel.swift PersianSTT/PersianPhonemizer.swift PersianSTTKeyboard/SpokenNumbers.swift \
+            PersianSTT/EzafeTagger.swift PersianSTT/AutoPunctuation.swift Shared/PersonalDictionary.swift \
             Tests/TTSCheck/LexiconStub.swift Tests/TTSCheck/main.swift 2> build.txt; then
             cat build.txt | head -60
             grep "error:" build.txt | head -20 | sed 's/^/::error::/'
             exit 1
           fi
-          ./tts-check voice Tests/TTS/tts-reference.json tts-samples/swift | tee result.txt
+          ./tts-check voice Tests/TTS/tts-reference.json tts-samples/swift punct/punct-vocab.tsv | tee result.txt
       - name: Commit samples
         run: |
           git config user.name "github-actions" && git config user.email "github-actions@users.noreply.github.com"

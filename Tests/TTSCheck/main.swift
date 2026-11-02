@@ -1,7 +1,9 @@
 // Checks the app's Persian voice code (PersianPhonemizer, PiperVoice, OnnxModel) on a Mac against
 // the Python export (Tests/TTS/tts-reference.json: phonemes and IPA of the test sentences), writes
 // each sentence as a WAV and prints the speed (real-time factor, 2 threads as in the app).
-// Usage: tts-check <voice files dir> <tts-reference.json> <output dir>
+// With the Ezafe tagger (Ezafe.mlmodelc in the voice dir and punct-vocab.tsv) it decides the Ezafe in
+// the WAVs, and each sentence's IPA is printed as the voice gets it.
+// Usage: tts-check <voice files dir> <tts-reference.json> <output dir> [punct-vocab.tsv]
 import AVFoundation
 import Foundation
 
@@ -18,7 +20,8 @@ let out = URL(fileURLWithPath: args[3])
 try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
 
 var start = Date()
-let phonemizer = try PersianPhonemizer(directory: models)
+let phonemizer = try PersianPhonemizer(directory: models, vocabulary: args.count > 4 ? URL(fileURLWithPath: args[4]) : nil)
+print("Ezafe tagger: \(phonemizer.ezafe == nil ? "no" : "yes")")
 let voice = try PiperVoice(directory: models)
 print(String(format: "load %.2f s", Date().timeIntervalSince(start)))
 
@@ -37,6 +40,7 @@ for (i, ref) in references.enumerated() {
     start = Date()
     var samples: [Float] = []
     for sentence in try phonemizer.sentences(ref.text) {
+        print("     voice  \(sentence)")
         samples += try voice.synthesize(sentence)
     }
     synthSeconds += Date().timeIntervalSince(start)

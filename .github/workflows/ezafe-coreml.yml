@@ -1,0 +1,46 @@
+# The Ezafe tagger (release tts-fa-ezafe, from ezafe.yml) for the app: Core ML with 8-bit weights
+# (scripts/ezafe-app/coreml.py), compiled for iOS 17, checked in Swift (Tests/Ezafe: PersianSTT/EzafeTagger.swift
+# with the punctuation tagger's pieces) and added to the release tts-fa-ezafe, where setup.sh and the
+# voice check (tts-check.yml) download it.
+name: Ezafe tagger for the app
+
+on:
+  push:
+    branches: [claude/project-thread-xaj97f]
+    paths: [.github/workflows/ezafe-coreml.yml, scripts/ezafe-app/coreml.py, Tests/Ezafe/**, PersianSTT/EzafeTagger.swift]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  coreml:
+    runs-on: macos-15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Tools
+        run: pip install -q torch==2.7.1 transformers==4.56.2 sentencepiece protobuf coremltools==9.0 numpy pyarrow huggingface_hub
+      - name: Files
+        run: |
+          gh release download tts-fa-ezafe --pattern hf.tgz && tar xzf hf.tgz
+          mkdir punct && gh release download punct-albert6 --pattern 'punct-*' --dir punct
+          python3 scripts/ezafe/prepare.py ezafe-data 1
+      - name: Core ML
+        run: python3 scripts/ezafe-app/coreml.py hf ezafe-data punct out
+      - name: Swift check
+        run: |
+          swiftc -O -o ezafe-check PersianSTT/EzafeTagger.swift PersianSTT/AutoPunctuation.swift Shared/PersonalDictionary.swift \
+            Tests/Ezafe/main.swift 2>&1 | tee compile.txt | grep -E "error:" | sed 's/^/::error::/' || true
+          [ -x ezafe-check ] || exit 1
+          ./ezafe-check out punct
+      - name: Publish
+        run: |
+          xcrun coremlcompiler compile out/Ezafe.mlpackage compiled --deployment-target 17.0 --platform ios
+          (cd compiled && zip -qr ../Ezafe.mlmodelc.zip Ezafe.mlmodelc) && du -sh compiled/Ezafe.mlmodelc
+          (cd out && zip -qr ../Ezafe.mlpackage.zip Ezafe.mlpackage)
+          gh release upload tts-fa-ezafe Ezafe.mlmodelc.zip Ezafe.mlpackage.zip out/ezafe-tests.jsonl --clobber

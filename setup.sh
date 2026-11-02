@@ -42,10 +42,11 @@ fetch preprocessor.json "$MODELS/preprocessor.json"
 fetch mel_filters_slaney_80x257.json "$MODELS/mel_filters_slaney_80x257.json"
 fetch "${NAME}_manifest.json" "$MODELS/manifest.json"
 
-# The Persian voice (release tts-fa-mana, from .github/workflows/tts-model.yml): the Mana Piper voice
-# and the Homo-GE2PE phonemizer, both MahtaFetrat (MIT), 28 MB in the app (Models/Voice); and ONNX
-# Runtime (MIT), which runs them, as Frameworks/onnxruntime.xcframework.
-VOICE_RELEASE="${VOICE_RELEASE:-https://github.com/nikpendar/STTS/releases/download/tts-fa-mana}"
+# The Persian voice (release tts-fa-keyless, from kaggle/train via .github/workflows/voice-release.yml):
+# the Mana Piper voice fine-tuned on Mana-TTS with the app's own phonemes, and the Homo-GE2PE
+# phonemizer, both MahtaFetrat (MIT), 28 MB in the app (Models/Voice); and ONNX Runtime (MIT), which
+# runs them, as Frameworks/onnxruntime.xcframework.
+VOICE_RELEASE="${VOICE_RELEASE:-https://github.com/nikpendar/STTS/releases/download/tts-fa-keyless}"
 mkdir -p "$MODELS/Voice" "$ROOT/build-model" "$ROOT/Frameworks"
 for f in g2p-encoder.onnx g2p-decoder.onnx mana.onnx mana.onnx.json; do
   if [ ! -s "$MODELS/Voice/$f" ]; then
@@ -54,6 +55,19 @@ for f in g2p-encoder.onnx g2p-decoder.onnx mana.onnx mana.onnx.json; do
     mv "$MODELS/Voice/$f.part" "$MODELS/Voice/$f"
   fi
 done
+# The Ezafe tagger for the phonemizer (release tts-fa-ezafe, from .github/workflows/ezafe-coreml.yml):
+# ALBERT-fa (HooshvareLab, Apache-2.0) fine-tuned on HomoRich-G2P-Persian (CC0), Core ML with 8-bit
+# weights; it reads the punctuation tagger's pieces (Models/Punct/punct-vocab.tsv). Without it the
+# voice keeps Homo-GE2PE's own Ezafe.
+EZAFE_RELEASE="${EZAFE_RELEASE:-https://github.com/nikpendar/STTS/releases/download/tts-fa-ezafe}"
+if [ ! -d "$MODELS/Voice/Ezafe.mlmodelc" ]; then
+  echo "Downloading the Ezafe tagger"
+  if curl -fL --retry 3 --progress-bar "$EZAFE_RELEASE/Ezafe.mlmodelc.zip" -o "$ROOT/build-model/Ezafe.mlmodelc.zip"; then
+    unzip -q "$ROOT/build-model/Ezafe.mlmodelc.zip" -d "$MODELS/Voice"
+  else
+    echo "The Ezafe tagger is not available: the voice keeps GE2PE's Ezafe"
+  fi
+fi
 ORT_VERSION="${ORT_VERSION:-1.20.0}"
 if [ ! -d "$ROOT/Frameworks/onnxruntime.xcframework" ]; then
   echo "Downloading ONNX Runtime $ORT_VERSION"
