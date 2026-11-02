@@ -46,7 +46,7 @@ def with_ezafe(word, ezafe, spelling):
     tells a vowel ending (ا و ه ی: -ye) from a consonant (-e); GE2PE sometimes writes «beduneye1»."""
     if spelling.endswith(("\u200cی", "ۀ")):
         return word  # the Ezafe is written (خانه‌ی، خانۀ): GE2PE reads it already
-    vowel_end = spelling[-1:] in "اوهیۀ"
+    vowel_end = spelling[-1:] in "اوهیيۀ"
     if word.endswith("1"):
         word = word[:-1]
         if vowel_end and word.endswith("ye") and len(word) > 2:

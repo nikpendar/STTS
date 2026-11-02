@@ -35,6 +35,15 @@ final class PersianSpeech: ObservableObject {
 
     private init() {
         engine.attach(player)
+        // The voice, its phonemizer and the Ezafe tagger (about 40 MB) load again at the next text.
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: nil) { [weak self] _ in
+            guard let self else { return }
+            self.queue.async {
+                self.phonemizer = nil
+                self.voice = nil
+            }
+        }
     }
 
     func speak(_ text: String) {
@@ -80,7 +89,9 @@ final class PersianSpeech: ObservableObject {
         guard let directory = Self.directory else {
             throw OnnxModel.Failure(message: "صدای فارسی در این نسخه‌ی برنامه نیست.")
         }
-        phonemizer = try PersianPhonemizer(directory: directory)
+        // The Ezafe tagger reads the punctuation tagger's pieces (the same ALBERT-fa tokenizer).
+        phonemizer = try PersianPhonemizer(directory: directory,
+                                           vocabulary: AutoPunctuation.directory?.appendingPathComponent("punct-vocab.tsv"))
         voice = try PiperVoice(directory: directory)
     }
 

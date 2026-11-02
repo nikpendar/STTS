@@ -13,3 +13,8 @@ enum Lexicon {
         })
     }
 }
+
+// What AutoPunctuation (the Ezafe tagger's tokenizer) needs from the keyboard bridge.
+enum DictationBridge {
+    static let pauseMark: Character = "\u{E000}"
+}

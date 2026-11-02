@@ -162,7 +162,7 @@ final class AutoPunctuation: @unchecked Sendable {
 
     /// The word as the tagger was trained on it: ی and ک in Persian forms, no diacritics, no ZWNJ
     /// differences (the speech model writes none).
-    private static func modelWord(_ word: String) -> String {
+    static func modelWord(_ word: String) -> String {
         var out = ""
         for scalar in word.unicodeScalars {
             switch scalar {
