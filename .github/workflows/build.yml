@@ -31,6 +31,9 @@ on:
       - "scripts/**"
       # The privacy policy page (GitHub Pages).
       - "docs/**"
+      # The website (Cloudflare Pages, site.yml).
+      - "site/**"
+      - ".github/workflows/site.yml"
 
 env:
   BUNDLE: ${{ github.event.inputs.bundle_model == 'true' }}
