@@ -2,9 +2,10 @@
 greedily to cover Persian sound pairs, with some questions.
 
 usage: select.py OUT [COUNT]
-Sentences have 4-14 words, Persian letters and ، . ؟ only (no digits, Latin or quotes). Each pick
-maximises the sound pairs (in GE2PE phoneme letters, word boundaries included) not yet covered, per
-word, so the script stays short to read. Writes OUT/script.txt (numbered) and OUT/script.csv (id|text).
+Sentences have 4-14 words, Persian letters and ، . ؟ only (no digits, Latin, quotes, stray
+half-spaces or trailing commas). Each pick
+maximises the sound pairs (in GE2PE phoneme letters, word boundaries included, found in at least 30
+sentences) not yet covered, per word, so the script stays short to read. Writes OUT/script.txt (numbered) and OUT/script.csv (id|text).
 """
 import heapq, os, re, sys
 from collections import Counter
@@ -24,13 +25,19 @@ for g, p in zip(t.column("Grapheme").to_pylist(), t.column("Mapped Phoneme").to_
         continue
     g = " ".join(g.replace("ي", "ی").replace("ك", "ک").split())
     n = len(g.split())
-    if not 4 <= n <= 14 or not OK.match(g) or g in seen:
+    if not 4 <= n <= 14 or not OK.match(g) or g in seen or g.endswith("،"):
+        continue
+    # Misplaced half-spaces (‌ next to a space, «اگر‌در‌آب‌داغ») and very long words read badly.
+    if "\u200c " in g or " \u200c" in g or g.count("\u200c") > 3 or max(len(w) for w in g.split()) > 14:
         continue
     seen.add(g)
     s = "#" + p.replace(" ", "#") + "#"
     pairs = {s[i:i + 2] for i in range(len(s) - 1)}
     cands.append((g, n, pairs))
 print(len(cands), "candidate sentences", flush=True)
+# Sound pairs found in fewer than 30 sentences (mostly foreign names) are not chased.
+freq = Counter(x for c in cands for x in c[2])
+cands = [(g, n, {x for x in pairs if freq[x] >= 30}) for g, n, pairs in cands]
 
 covered, picked = Counter(), []
 
