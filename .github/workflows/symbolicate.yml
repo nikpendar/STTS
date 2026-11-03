@@ -1,0 +1,38 @@
+# One-off: rebuilds main 09811f9 exactly as build.yml does and names the keyboard frames of a
+# crash report (keyboard binary UUID B49B4728-...). Uploads nothing.
+name: Symbolicate keyboard crash
+
+on:
+  push:
+    branches: [symbolicate-1103]
+
+jobs:
+  symbols:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select Xcode
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
+      - name: Build
+        run: |
+          bash ./setup.sh model
+          set -a; . ./config.env; set +a
+          xcodebuild -project PersianSTT.xcodeproj -target PersianSTT \
+            -configuration Release -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            TRAINING_REPO="$TRAINING_REPO" \
+            build > build.txt 2>&1 || { tail -30 build.txt; exit 1; }
+      - name: Symbolicate
+        run: |
+          D=build/Release-iphoneos/PersianSTTKeyboard.appex.dSYM/Contents/Resources/DWARF/PersianSTTKeyboard
+          ls -la "$D" || find build -name "*.dSYM" | head
+          dwarfdump --uuid "$D"
+          ADDRS=""
+          for off in 205648 133084 177472 389984 392792 114704 132328 458836 506816 172152; do
+            ADDRS="$ADDRS $(printf '0x%x' $((0x100000000 + off)))"
+          done
+          echo "top frame first:"
+          atos -o "$D" -arch arm64 -l 0x100000000 -i $ADDRS
