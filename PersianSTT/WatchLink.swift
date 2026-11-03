@@ -57,6 +57,9 @@ final class WatchLink: NSObject, WCSessionDelegate, @unchecked Sendable {
         }
         replyHandler(["ok": true])
         queue.async {
+            // A recording whose pieces stopped coming (the watch went out of range) is dropped
+            // when the next one starts, so its audio does not stay in memory.
+            if self.pending[id] == nil { self.pending = [:] }
             var parts = self.pending[id] ?? [:]
             parts[index] = data
             guard parts.count == count else {
