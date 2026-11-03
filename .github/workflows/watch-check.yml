@@ -1,0 +1,47 @@
+# Compiles the Apple Watch app (KeylessWatch + its complication) and the iOS app with WatchLink,
+# unsigned, to check the code; uploads nothing. The watch IPA itself comes from build.yml
+# (config.env BUILD_WATCH=1).
+name: Watch app compile check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-eej871]
+    paths:
+      - KeylessWatch/**
+      - KeylessWatchWidget/**
+      - PersianSTT/WatchLink.swift
+      - PersianSTT/PersianSTTApp.swift
+      - PersianSTT/KeyboardSession.swift
+      - PersianSTT.xcodeproj/**
+      - .github/workflows/watch-check.yml
+
+jobs:
+  compile:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select Xcode
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i watch
+      - name: Watch app
+        run: |
+          set -o pipefail
+          xcodebuild -project PersianSTT.xcodeproj -target KeylessWatch -configuration Release -sdk watchos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee watch.txt \
+            || { grep -E "error:" watch.txt | head -20 | sed 's/^/::error::/'; exit 1; }
+          ls -R build/Release-watchos/KeylessWatch.app | head -40
+          plutil -p build/Release-watchos/KeylessWatch.app/Info.plist
+          plutil -p build/Release-watchos/KeylessWatch.app/PlugIns/KeylessWatchWidget.appex/Info.plist
+      - name: iOS app
+        run: |
+          bash ./setup.sh sidecars
+          set -o pipefail
+          set -a; . ./config.env; set +a
+          xcodebuild -project PersianSTT.xcodeproj -target PersianSTT -configuration Release -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            TRAINING_REPO="$TRAINING_REPO" build 2>&1 | tee ios.txt \
+            || { grep -E "error:" ios.txt | head -20 | sed 's/^/::error::/'; exit 1; }

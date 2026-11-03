@@ -65,6 +65,15 @@
 		A1000000000000000000003F /* KeyboardBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003A /* KeyboardBackground.swift */; };
 		A100000000000000000000D0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A200000000000000000000D0 /* PrivacyInfo.xcprivacy */; };
 		A100000000000000000000D1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A200000000000000000000D1 /* PrivacyInfo.xcprivacy */; };
+		B10000000000000000000001 /* KeylessWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* KeylessWatchApp.swift */; };
+		B10000000000000000000002 /* PhoneLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* PhoneLink.swift */; };
+		B10000000000000000000003 /* WatchDictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* WatchDictation.swift */; };
+		B10000000000000000000004 /* DictationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* DictationView.swift */; };
+		B10000000000000000000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000005 /* Assets.xcassets */; };
+		B10000000000000000000007 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000007 /* PrivacyInfo.xcprivacy */; };
+		B10000000000000000000010 /* KeylessComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000010 /* KeylessComplication.swift */; };
+		B10000000000000000000020 /* WatchLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000020 /* WatchLink.swift */; };
+		B10000000000000000000012 /* KeylessWatchWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B20000000000000000000012 /* KeylessWatchWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +83,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = A40000000000000000000002;
 			remoteInfo = PersianSTTKeyboard;
+		};
+		B90000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A60000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B40000000000000000000002;
+			remoteInfo = KeylessWatchWidget;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -85,6 +101,17 @@
 			dstSubfolderSpec = 13;
 			files = (
 				A1000000000000000000000E /* PersianSTTKeyboard.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B50000000000000000000004 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B10000000000000000000012 /* KeylessWatchWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -140,6 +167,18 @@
 		A20000000000000000000038 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A200000000000000000000D0 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A200000000000000000000D1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B20000000000000000000001 /* KeylessWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeylessWatchApp.swift; sourceTree = "<group>"; };
+		B20000000000000000000002 /* PhoneLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLink.swift; sourceTree = "<group>"; };
+		B20000000000000000000003 /* WatchDictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchDictation.swift; sourceTree = "<group>"; };
+		B20000000000000000000004 /* DictationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationView.swift; sourceTree = "<group>"; };
+		B20000000000000000000005 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B20000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B20000000000000000000007 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		B20000000000000000000010 /* KeylessComplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeylessComplication.swift; sourceTree = "<group>"; };
+		B20000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B20000000000000000000020 /* WatchLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLink.swift; sourceTree = "<group>"; };
+		B20000000000000000000008 /* KeylessWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeylessWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B20000000000000000000012 /* KeylessWatchWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KeylessWatchWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -158,6 +197,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B50000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B50000000000000000000006 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -167,6 +220,8 @@
 				A30000000000000000000002 /* PersianSTT */,
 				A30000000000000000000005 /* PersianSTTKeyboard */,
 				A30000000000000000000006 /* Shared */,
+				B30000000000000000000001 /* KeylessWatch */,
+				B30000000000000000000002 /* KeylessWatchWidget */,
 				A30000000000000000000007 /* Frameworks */,
 				A30000000000000000000004 /* Products */,
 			);
@@ -195,6 +250,7 @@
 				A20000000000000000000044 /* PersianSpeech.swift */,
 				A200000000000000000000E0 /* AutoPunctuation.swift */,
 				A200000000000000000000E1 /* EzafeTagger.swift */,
+				B20000000000000000000020 /* WatchLink.swift */,
 				A20000000000000000000046 /* OnnxRuntime-Bridging-Header.h */,
 				A2000000000000000000000E /* Info.plist */,
 				A200000000000000000000D0 /* PrivacyInfo.xcprivacy */,
@@ -208,6 +264,8 @@
 			children = (
 				A20000000000000000000008 /* PersianSTT.app */,
 				A2000000000000000000000D /* PersianSTTKeyboard.appex */,
+				B20000000000000000000008 /* KeylessWatch.app */,
+				B20000000000000000000012 /* KeylessWatchWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -255,6 +313,29 @@
 			path = Frameworks;
 			sourceTree = "<group>";
 		};
+		B30000000000000000000001 /* KeylessWatch */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000001 /* KeylessWatchApp.swift */,
+				B20000000000000000000002 /* PhoneLink.swift */,
+				B20000000000000000000003 /* WatchDictation.swift */,
+				B20000000000000000000004 /* DictationView.swift */,
+				B20000000000000000000005 /* Assets.xcassets */,
+				B20000000000000000000006 /* Info.plist */,
+				B20000000000000000000007 /* PrivacyInfo.xcprivacy */,
+			);
+			path = KeylessWatch;
+			sourceTree = "<group>";
+		};
+		B30000000000000000000002 /* KeylessWatchWidget */ = {
+			isa = PBXGroup;
+			children = (
+				B20000000000000000000010 /* KeylessComplication.swift */,
+				B20000000000000000000011 /* Info.plist */,
+			);
+			path = KeylessWatchWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -296,6 +377,42 @@
 			productReference = A2000000000000000000000D /* PersianSTTKeyboard.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		B40000000000000000000001 /* KeylessWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B70000000000000000000001 /* Build configuration list for PBXNativeTarget "KeylessWatch" */;
+			buildPhases = (
+				B50000000000000000000001 /* Sources */,
+				B50000000000000000000002 /* Frameworks */,
+				B50000000000000000000003 /* Resources */,
+				B50000000000000000000004 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B90000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = KeylessWatch;
+			productName = KeylessWatch;
+			productReference = B20000000000000000000008 /* KeylessWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B40000000000000000000002 /* KeylessWatchWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B70000000000000000000002 /* Build configuration list for PBXNativeTarget "KeylessWatchWidget" */;
+			buildPhases = (
+				B50000000000000000000005 /* Sources */,
+				B50000000000000000000006 /* Frameworks */,
+				B50000000000000000000007 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KeylessWatchWidget;
+			productName = KeylessWatchWidget;
+			productReference = B20000000000000000000012 /* KeylessWatchWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -310,6 +427,12 @@
 						CreatedOnToolsVersion = 16.0;
 					};
 					A40000000000000000000002 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					B40000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					B40000000000000000000002 = {
 						CreatedOnToolsVersion = 16.0;
 					};
 				};
@@ -330,6 +453,8 @@
 			targets = (
 				A40000000000000000000001 /* PersianSTT */,
 				A40000000000000000000002 /* PersianSTTKeyboard */,
+				B40000000000000000000001 /* KeylessWatch */,
+				B40000000000000000000002 /* KeylessWatchWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -355,6 +480,22 @@
 				A10000000000000000000039 /* en_words.txt in Resources */,
 				A1000000000000000000003A /* en_bigrams.bin in Resources */,
 				A100000000000000000000D1 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B50000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000005 /* Assets.xcassets in Resources */,
+				B10000000000000000000007 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B50000000000000000000007 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -441,6 +582,7 @@
 				A1000000000000000000003E /* KeyboardBackground.swift in Sources */,
 				A1000000000000000000004A /* PersonalDictionary.swift in Sources */,
 				A100000000000000000000C0 /* CrashReports.swift in Sources */,
+				B10000000000000000000020 /* WatchLink.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -465,6 +607,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B50000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000001 /* KeylessWatchApp.swift in Sources */,
+				B10000000000000000000002 /* PhoneLink.swift in Sources */,
+				B10000000000000000000003 /* WatchDictation.swift in Sources */,
+				B10000000000000000000004 /* DictationView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B50000000000000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000010 /* KeylessComplication.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -472,6 +633,11 @@
 			isa = PBXTargetDependency;
 			target = A40000000000000000000002 /* PersianSTTKeyboard */;
 			targetProxy = A90000000000000000000001 /* PBXContainerItemProxy */;
+		};
+		B90000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B40000000000000000000002 /* KeylessWatchWidget */;
+			targetProxy = B90000000000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -635,6 +801,120 @@
 			};
 			name = Release;
 		};
+		B80000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KeylessWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "کیلس";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "برای تبدیل صدای شما به متن، ساعت صدا را ضبط می‌کند و فقط به آیفون خودتان می‌فرستد؛ صدا روی گوشی به متن تبدیل می‌شود و از دستگاه‌های شما بیرون نمی‌رود.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = ir.nikpendar.PersianSTT.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		B80000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KeylessWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "کیلس";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "برای تبدیل صدای شما به متن، ساعت صدا را ضبط می‌کند و فقط به آیفون خودتان می‌فرستد؛ صدا روی گوشی به متن تبدیل می‌شود و از دستگاه‌های شما بیرون نمی‌رود.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = ir.nikpendar.PersianSTT.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
+		B80000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KeylessWatchWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "کیلس";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = ir.nikpendar.PersianSTT.watchkitapp.Complication;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		B80000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = KeylessWatchWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "کیلس";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = ir.nikpendar.PersianSTT.watchkitapp.Complication;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -661,6 +941,24 @@
 			buildConfigurations = (
 				A80000000000000000000005 /* Debug */,
 				A80000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B70000000000000000000001 /* Build configuration list for PBXNativeTarget "KeylessWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B80000000000000000000001 /* Debug */,
+				B80000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B70000000000000000000002 /* Build configuration list for PBXNativeTarget "KeylessWatchWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B80000000000000000000003 /* Debug */,
+				B80000000000000000000004 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

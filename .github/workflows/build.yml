@@ -114,6 +114,30 @@ jobs:
           codesign -dv Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex 2>&1 | head -5
           zip -qry KeylessShenava.ipa Payload
           ls -lh KeylessShenava.ipa
+          # The same app with the Apple Watch app inside (Watch/KeylessWatch.app), only when
+          # config.env asks for it (BUILD_WATCH=1). A watch app installs only with a paid developer
+          # account (TestFlight or Xcode); AltServer with a free Apple ID cannot sign it, so
+          # KeylessShenava.ipa stays without it.
+          BUILD_WATCH="$(sed -n 's/^BUILD_WATCH=//p' config.env)"
+          if [ "$BUILD_WATCH" = 1 ]; then
+            xcodebuild -project PersianSTT.xcodeproj -target KeylessWatch \
+              -configuration Release -sdk watchos \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+              build
+            WATCH_ROOT="$RUNNER_TEMP/watch-ipa"
+            mkdir -p "$WATCH_ROOT"
+            cp -R Payload "$WATCH_ROOT/"
+            W="$WATCH_ROOT/Payload/PersianSTT.app/Watch"
+            mkdir -p "$W"
+            cp -R build/Release-watchos/KeylessWatch.app "$W/"
+            ls "$W/KeylessWatch.app/PlugIns/KeylessWatchWidget.appex"
+            plutil -p "$W/KeylessWatch.app/Info.plist" | grep -E "WKApplication|WKCompanionAppBundleIdentifier"
+            codesign --force --sign - "$W/KeylessWatch.app/PlugIns/KeylessWatchWidget.appex"
+            codesign --force --sign - "$W/KeylessWatch.app"
+            codesign --force --sign - "$WATCH_ROOT/Payload/PersianSTT.app"
+            (cd "$WATCH_ROOT" && zip -qry "$GITHUB_WORKSPACE/KeylessShenavaWatch.ipa" Payload)
+            ls -lh KeylessShenavaWatch.ipa
+          fi
           # The same app with the model compiled inside, where Transcriber finds it.
           # Only when config.env asks for it (BUILD_EMBEDDED=1).
           BUILD_EMBEDDED="$(sed -n 's/^BUILD_EMBEDDED=//p' config.env)"
@@ -132,6 +156,13 @@ jobs:
         with:
           name: KeylessShenava
           path: KeylessShenava.ipa
+          compression-level: 0
+
+      - uses: actions/upload-artifact@v5
+        if: hashFiles('KeylessShenavaWatch.ipa') != ''
+        with:
+          name: KeylessShenavaWatch
+          path: KeylessShenavaWatch.ipa
           compression-level: 0
 
       - uses: actions/upload-artifact@v5

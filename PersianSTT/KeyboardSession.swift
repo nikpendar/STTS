@@ -48,7 +48,7 @@ final class KeyboardSession: ObservableObject {
     private var streamFailed = false
     /// Watches the recording: the level for the keyboard's orb, and the end of speech.
     private var monitorTask: Task<Void, Never>?
-    private var isCapturing = false
+    private(set) var isCapturing = false
     /// Identifies the current dictation, so a cancelled one cannot report a late result.
     private var dictationID = 0
 
