@@ -74,8 +74,10 @@ final class SpeechEngine: @unchecked Sendable {
     }
 
     /// How much the personal dictionary's words are favoured while decoding (a logit margin;
-    /// 0 is off), chosen with the biasing benchmark (bias-eval.yml).
-    static let boostStrength: Float = 2
+    /// 0 is off), chosen with the biasing benchmark (bias-eval.yml, run 41681524360): with the
+    /// boost from the third letter on, dictionary words 20% -> 31% recognized, FLEURS WER
+    /// 10.8 -> 10.4, Common Voice 12.6 -> 12.5, and unsaid dictionary words change nothing.
+    static let boostStrength: Float = 4
 
     /// The personal dictionary's words, read again for each dictation (on `queue`).
     private func applyBoost(to stream: ShenavaStream) {
