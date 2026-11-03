@@ -54,6 +54,7 @@ enum AppUsage {
             "date": ISO8601DateFormatter().string(from: Date()),
             "secondsSaved": Int(stats.secondsSaved),
             "glideMeters": (stats.glideMeters * 10).rounded() / 10,
+            "accuracy": stats.accuracy.map { ($0 * 1000).rounded() / 1000 } ?? NSNull(),
         ]
         if let since { info["since"] = ISO8601DateFormatter().string(from: since) }
         if let data = try? JSONEncoder().encode(stats),
@@ -84,7 +85,10 @@ enum AppUsage {
 /// The report page: time saved, words by voice, glide lines, corrections and predictions,
 /// with sending and resetting.
 struct UsageReportPage: View {
+    /// The personal dictionary, for adding a frequent mistake in one tap.
+    @Binding var dictionary: PersonalDictionary
     @State private var stats = AppUsage.report()
+    @State private var mistakes: [DictionarySuggestions.Suggestion] = []
     @State private var confirmingReset = false
     @State private var exportURL: URL?
 
@@ -93,6 +97,35 @@ struct UsageReportPage: View {
             row("زمان صرفه‌جویی‌شده", duration(stats.secondsSaved), symbol: "clock.fill", color: .green)
         } footer: {
             Text("در مقایسه با تایپ روی گوشی (حدود ۳۰ کلمه در دقیقه): زمان تایپ کلمه‌های دیکته‌شده منهای زمان گفتنشان، به‌علاوه‌ی حرف‌هایی که پیشنهادها لازم نکردند.")
+        }
+        accuracySection
+        if !mistakes.isEmpty {
+            Section {
+                ForEach(mistakes.prefix(5)) { mistake in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(mistake.heard) ← \(mistake.written)")
+                            Text("\(number(mistake.count)) بار")
+                                .font(.app(.caption))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            dictionary.entries.append(PersonalDictionary.Entry(heard: mistake.heard, written: mistake.written))
+                            refresh()
+                        } label: {
+                            Label("افزودن به واژه‌نامه", systemImage: "plus.circle.fill")
+                                .labelStyle(.iconOnly)
+                                .font(.title3)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+            } header: {
+                Text("غلط‌های پرتکرار دیکته")
+            } footer: {
+                Text("با + به واژه‌نامه‌ی شخصی اضافه می‌شود و از آن به بعد خودکار درست نوشته می‌شود.")
+            }
         }
         Section {
             row("کلمه‌های نوشته‌شده با صدا", number(stats.voiceWords), symbol: "waveform", color: .red)
@@ -144,7 +177,54 @@ struct UsageReportPage: View {
 
     private func refresh() {
         stats = AppUsage.report()
+        mistakes = DictionarySuggestions.list(excluding: dictionary)
         exportURL = AppUsage.exportFile()
+    }
+
+    /// The user's own word error rate from their edits of dictated text, overall and per week,
+    /// with the weeks a new personal model came.
+    @ViewBuilder private var accuracySection: some View {
+        let weeks = stats.weeks.filter { $0.value.count == 2 && $0.value[0] >= 20 }
+            .sorted { $0.key > $1.key }
+            .prefix(8)
+        let updates = Set((UserDefaults.standard.array(forKey: PersonalModel.updatesKey) as? [Date] ?? []).map { UsageStats.week(of: $0) })
+        Section {
+            row("دقت دیکته", stats.accuracy.map(percent) ?? "هنوز کافی نیست", symbol: "target", color: .mint)
+            row("کلمه‌های سنجیده‌شده", number(max(0, stats.checkedWords)), symbol: "text.magnifyingglass", color: .mint)
+            ForEach(Array(weeks), id: \.key) { week in
+                LabeledContent {
+                    Text(percent(max(0, 1 - Double(week.value[1]) / Double(week.value[0])))).monospacedDigit()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(weekTitle(week.key))
+                        Text("\(number(week.value[0])) کلمه" + (updates.contains(week.key) ? " · مدل شخصی تازه" : ""))
+                            .font(.app(.caption))
+                            .foregroundStyle(updates.contains(week.key) ? Color.green : Color.secondary)
+                    }
+                }
+            }
+        } header: {
+            Text("دقت روی صدای شما")
+        } footer: {
+            Text("از اصلاح‌هایی که روی متن دیکته‌شده انجام می‌دهید: کلمه‌های عوض‌شده، حذف‌شده یا اضافه‌شده تقسیم بر کلمه‌های دیکته. دیکته‌ی اصلاح‌نشده درست حساب می‌شود و بازنویسی‌های بزرگ (بیش از نیمی از کلمه‌ها) شمرده نمی‌شوند.")
+        }
+    }
+
+    private func percent(_ value: Double) -> String {
+        value.formatted(.percent.precision(.fractionLength(0)).locale(Self.persian))
+    }
+
+    /// "این هفته", "هفته‌ی پیش" or the week's first day.
+    private func weekTitle(_ key: String) -> String {
+        if key == UsageStats.week() { return "این هفته" }
+        if key == UsageStats.week(of: Date().addingTimeInterval(-7 * 86_400)) { return "هفته‌ی پیش" }
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        var components = DateComponents()
+        components.yearForWeekOfYear = parts.first
+        components.weekOfYear = parts.last
+        components.weekday = 2
+        guard parts.count == 2, let date = Calendar(identifier: .iso8601).date(from: components) else { return key }
+        return "هفته‌ی " + date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(Self.persian))
     }
 
     private func row(_ title: String, _ value: String, symbol: String, color: Color) -> some View {

@@ -391,9 +391,17 @@ final class PersonalModel: ObservableObject {
     }
 
     private func setVersion(_ value: Int) {
+        if value > 0, value != version {
+            // For the usage report's weekly accuracy: the weeks a new personal model came.
+            var dates = UserDefaults.standard.array(forKey: Self.updatesKey) as? [Date] ?? []
+            dates.append(Date())
+            UserDefaults.standard.set(Array(dates.suffix(30)), forKey: Self.updatesKey)
+        }
         version = value
         UserDefaults.standard.set(value, forKey: Self.versionKey)
     }
+
+    static let updatesKey = "personalModelUpdates"
 
     /// Older personal models, and the Whisper ones of earlier versions (ggml-personal-*.bin).
     private func removeModels(except keep: URL?) {

@@ -161,6 +161,10 @@ final class KeyboardViewController: UIInputViewController {
     private var lastInsertion: (text: String, time: CFTimeInterval)?
     /// The last ZWNJ a space put in by itself, which backspace right after takes back.
     private var lastAutoZWNJ: (inserted: String, original: String)?
+    /// When viewDidLoad began, for the time to the first appearance in the log.
+    private var loadStarted: CFTimeInterval = 0
+    /// The background picture's average colour, worked out once per picture.
+    private var averageColour: (id: String, colour: UIColor)?
     /// `lastAutoZWNJ` was a typo correction (for the report's undone corrections).
     private var lastChangeWasTypo = false
     /// Seconds the last dictation recorded, for the report (`UsageStats`).
@@ -213,7 +217,13 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        CrashReports.shared.start()
+        loadStarted = CACurrentMediaTime()
+        // iOS kills a keyboard that takes too long to open (reports of 2026-10-29 to 11-01), so
+        // only what the first frame needs runs here. Crash reporting connects to its service later.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { CrashReports.shared.start() }
+        // The app's options before the keys are built: built with the standard ones, they were
+        // all built again in viewWillAppear whenever the number row or digits differed.
+        options = KeyboardOptions.load()
         updatePrimaryLanguage()
         log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) loaded")
         // Both orientations' sizes are worked out (and kept) on the first run after install.
@@ -282,6 +292,10 @@ final class KeyboardViewController: UIInputViewController {
     /// let through at once.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        if loadStarted > 0 {
+            log.info("keyboard opened in \(Int((CACurrentMediaTime() - loadStarted) * 1000)) ms")
+            loadStarted = 0
+        }
         // A word list that finished loading while the keyboard was not on screen.
         updateSuggestions()
         var view: UIView? = self.view.window
@@ -652,6 +666,8 @@ final class KeyboardViewController: UIInputViewController {
             if parts.count == 2, !result.hasEdits, !dictationEdited, case .text(let text)? = result.steps.first {
                 let id = String(parts[0])
                 if !result.spoken.isEmpty { spokenForms[id] = (text, result.spoken) }
+                let followed = text.split(whereSeparator: \.isWhitespace).count
+                UsageStats.record { $0.addChecked(words: followed, errors: 0) }
                 report(edits.dictationFinished(id: id, text: text))
                 log.info("following dictation \(id, privacy: .public) for edits")
             }
@@ -870,6 +886,19 @@ final class KeyboardViewController: UIInputViewController {
     /// Sends finished corrections to the app, and restarts the wait for the user to stop editing.
     private func report(_ corrections: [Correction]) {
         for var correction in corrections {
+            // The user's word error rate (usage report): small edits are recognition errors; a
+            // rewrite of more than half the words is the user changing their mind, left out.
+            let words = correction.original.split(whereSeparator: \.isWhitespace).count
+            let errors = UsageStats.wordErrors(correction.original, correction.corrected)
+            if errors > max(3, words / 2) {
+                UsageStats.record { $0.addChecked(words: -words, errors: 0) }
+            } else if errors > 0 {
+                UsageStats.record {
+                    $0.addChecked(words: 0, errors: errors)
+                    $0.voiceFixes += 1
+                    $0.voiceWordsFixed += errors
+                }
+            }
             var corrected = correction.corrected
             if let forms = spokenForms.removeValue(forKey: correction.id) {
                 guard let restored = VoiceCommands.restoringSpoken(corrected, original: forms.text,
@@ -884,13 +913,6 @@ final class KeyboardViewController: UIInputViewController {
                                     corrected: SpokenNumbers.words(in: corrected))
             log.info("sending correction for \(correction.id, privacy: .public)")
             correction.send()
-            let before = correction.original.split(whereSeparator: \.isWhitespace)
-            let after = Set(correction.corrected.split(whereSeparator: \.isWhitespace))
-            let changed = max(1, before.filter { !after.contains($0) }.count)
-            UsageStats.record {
-                $0.voiceFixes += 1
-                $0.voiceWordsFixed += changed
-            }
         }
         if spokenForms.count > 20 { spokenForms.removeAll() }
         editsTimer?.invalidate()
@@ -1622,7 +1644,11 @@ final class KeyboardViewController: UIInputViewController {
         // Letters left to the system colour turn light on a dark background and dark on a light
         // one. Keys of a solid fill decide it first, as the letters sit on them: white keys kept
         // white letters where the app asked for a dark keyboard (Spotlight on the home screen).
-        let average = picture.map { KeyboardBackground.averageColor(of: $0) } ?? solid
+        var average = solid
+        if let picture, let id = style.backgroundImage {
+            if averageColour?.id != id { averageColour = (id, KeyboardBackground.averageColor(of: picture)) }
+            average = averageColour?.colour
+        }
         var interface = UIUserInterfaceStyle.unspecified
         if style.text == nil {
             if style.fill.a >= 0.5 {

@@ -158,6 +158,20 @@ jobs:
           path: KeylessShenava.ipa
           compression-level: 0
 
+      # Debug symbols of this build's app, keyboard and watch app: crash reports from the phone
+      # (page «گزارش خرابی‌ها») name only offsets, and these turn them into file and line
+      # (atos -o <dSYM>/Contents/Resources/DWARF/<binary> -arch arm64 -l 0x100000000 <0x100000000+offset>).
+      - name: Collect debug symbols
+        run: |
+          mkdir -p dsyms
+          find build -maxdepth 2 -name "*.dSYM" -type d -exec cp -R {} dsyms/ \;
+          for d in dsyms/*.dSYM; do dwarfdump --uuid "$d"; done | tee dsyms/uuids.txt
+      - uses: actions/upload-artifact@v5
+        with:
+          name: dSYMs
+          path: dsyms
+          retention-days: 90
+
       - uses: actions/upload-artifact@v5
         if: hashFiles('KeylessShenavaWatch.ipa') != ''
         with:

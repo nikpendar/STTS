@@ -21,8 +21,81 @@ struct UsageStats: Codable, Equatable {
     /// Words taken from the suggestion bar, and the letters that spared typing.
     var predictionsPicked = 0
     var lettersSaved = 0
+    /// Dictated words the keyboard followed for edits, and the word errors those edits showed
+    /// (substitutions, deletions, insertions): the user's own word error rate. Rewrites (more
+    /// than half the words changed) are left out, as they are not recognition errors.
+    var checkedWords = 0
+    var voiceErrors = 0
+    /// The same per ISO week ("2026-45"): [checked words, errors], the last 26 weeks.
+    var weeks: [String: [Int]] = [:]
 
     static let zero = UsageStats()
+
+    init() {}
+
+    /// Totals saved by an older version lack the newer counts; they start at zero.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func int(_ key: CodingKeys) -> Int { (try? c.decodeIfPresent(Int.self, forKey: key)) ?? 0 }
+        func double(_ key: CodingKeys) -> Double { (try? c.decodeIfPresent(Double.self, forKey: key)) ?? 0 }
+        voiceWords = int(.voiceWords)
+        voiceSeconds = double(.voiceSeconds)
+        dictations = int(.dictations)
+        glideWords = int(.glideWords)
+        glidePoints = double(.glidePoints)
+        autoCorrections = int(.autoCorrections)
+        autoCorrectionsUndone = int(.autoCorrectionsUndone)
+        voiceFixes = int(.voiceFixes)
+        voiceWordsFixed = int(.voiceWordsFixed)
+        predictionsPicked = int(.predictionsPicked)
+        lettersSaved = int(.lettersSaved)
+        checkedWords = int(.checkedWords)
+        voiceErrors = int(.voiceErrors)
+        weeks = (try? c.decodeIfPresent([String: [Int]].self, forKey: .weeks)) ?? [:]
+    }
+
+    /// Share of the checked words recognized right, nil before 20 words.
+    var accuracy: Double? {
+        checkedWords >= 20 ? max(0, 1 - Double(voiceErrors) / Double(checkedWords)) : nil
+    }
+
+    static func week(of date: Date = Date()) -> String {
+        let calendar = Calendar(identifier: .iso8601)
+        let parts = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+        return String(format: "%04d-%02d", parts.yearForWeekOfYear ?? 0, parts.weekOfYear ?? 0)
+    }
+
+    /// Counts the words of a dictation followed for edits (errors 0), the errors its edits
+    /// showed, or (negative words) a rewrite taken back out.
+    mutating func addChecked(words: Int, errors: Int) {
+        checkedWords += words
+        voiceErrors += errors
+        let key = Self.week()
+        var pair = weeks[key] ?? [0, 0]
+        pair[0] += words
+        pair[1] += errors
+        weeks[key] = pair
+        if weeks.count > 26 {
+            for old in weeks.keys.sorted().prefix(weeks.count - 26) { weeks[old] = nil }
+        }
+    }
+
+    /// Word errors between a dictation and its edited text: the edit distance over words.
+    static func wordErrors(_ original: String, _ corrected: String) -> Int {
+        let a = original.split(whereSeparator: \.isWhitespace).map(String.init)
+        let b = corrected.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard !a.isEmpty else { return b.count }
+        guard !b.isEmpty else { return a.count }
+        var previous = Array(0...b.count)
+        for i in 1...a.count {
+            var current = [i] + Array(repeating: 0, count: b.count)
+            for j in 1...b.count {
+                current[j] = min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
+            }
+            previous = current
+        }
+        return previous[b.count]
+    }
 
     static func + (a: UsageStats, b: UsageStats) -> UsageStats {
         a.combined(with: b, sign: 1)
@@ -34,17 +107,22 @@ struct UsageStats: Codable, Equatable {
 
     private func combined(with b: UsageStats, sign: Int) -> UsageStats {
         let s = Double(sign)
-        return UsageStats(voiceWords: voiceWords + sign * b.voiceWords,
-                          voiceSeconds: voiceSeconds + s * b.voiceSeconds,
-                          dictations: dictations + sign * b.dictations,
-                          glideWords: glideWords + sign * b.glideWords,
-                          glidePoints: glidePoints + s * b.glidePoints,
-                          autoCorrections: autoCorrections + sign * b.autoCorrections,
-                          autoCorrectionsUndone: autoCorrectionsUndone + sign * b.autoCorrectionsUndone,
-                          voiceFixes: voiceFixes + sign * b.voiceFixes,
-                          voiceWordsFixed: voiceWordsFixed + sign * b.voiceWordsFixed,
-                          predictionsPicked: predictionsPicked + sign * b.predictionsPicked,
-                          lettersSaved: lettersSaved + sign * b.lettersSaved)
+        var r = self
+        r.voiceWords += sign * b.voiceWords
+        r.voiceSeconds += s * b.voiceSeconds
+        r.dictations += sign * b.dictations
+        r.glideWords += sign * b.glideWords
+        r.glidePoints += s * b.glidePoints
+        r.autoCorrections += sign * b.autoCorrections
+        r.autoCorrectionsUndone += sign * b.autoCorrectionsUndone
+        r.voiceFixes += sign * b.voiceFixes
+        r.voiceWordsFixed += sign * b.voiceWordsFixed
+        r.predictionsPicked += sign * b.predictionsPicked
+        r.lettersSaved += sign * b.lettersSaved
+        r.checkedWords += sign * b.checkedWords
+        r.voiceErrors += sign * b.voiceErrors
+        r.weeks = weeks.merging(b.weeks.mapValues { $0.map { sign * $0 } }) { x, y in zip(x, y).map { $0 + $1 } }
+        return r
     }
 
     /// Some count went down: the keyboard was reinstalled and counts from zero again.

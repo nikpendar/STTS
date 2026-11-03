@@ -92,7 +92,7 @@ struct ContentView: View {
                     NavigationLink { page("راه‌اندازی کیبورد") { setupSection } } label: {
                         SettingLabel("راه‌اندازی کیبورد", symbol: "keyboard", color: .gray)
                     }
-                    NavigationLink { page("گزارش کارکرد") { UsageReportPage() } } label: {
+                    NavigationLink { page("گزارش کارکرد") { UsageReportPage(dictionary: $dictionary) } } label: {
                         SettingLabel("گزارش کارکرد", symbol: "chart.bar.fill", color: .indigo)
                     }
                     NavigationLink { page("گزارش خرابی‌ها") { CrashReportsPage() } } label: {
