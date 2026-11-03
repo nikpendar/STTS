@@ -95,9 +95,6 @@ struct ContentView: View {
                     NavigationLink { page("گزارش کارکرد") { UsageReportPage() } } label: {
                         SettingLabel("گزارش کارکرد", symbol: "chart.bar.fill", color: .indigo)
                     }
-                    NavigationLink { page("دیکته‌های سیری و ویجت") { DictationHistoryPage() } } label: {
-                        SettingLabel("دیکته‌های سیری و ویجت", symbol: "clock.arrow.circlepath", color: .orange)
-                    }
                     NavigationLink { page("گزارش خرابی‌ها") { CrashReportsPage() } } label: {
                         SettingLabel("گزارش خرابی‌ها", symbol: "ladybug.fill", color: .orange)
                     }
@@ -129,13 +126,9 @@ struct ContentView: View {
             dictionary.save()
             KeyboardBackground.handToKeyboard(style.backgroundImage)
             syncTraining()
-            if !onboardingDone { showingGuide = true } else { BackgroundDictation.askForNotifications() }
+            if !onboardingDone { showingGuide = true }
         }
         .onOpenURL { url in
-            if url.host == "dictate" {
-                // The home screen widget on iOS 17: the dictation that copies the text.
-                model.requestQuickDictation()
-            }
             if url.host == "session" {
                 // Straight to the session, whatever page was open, and a sign that it started.
                 navigationID = UUID()
@@ -148,7 +141,6 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                model.appDidBecomeActive()
                 model.loadNewModelIfNeeded()
                 importer.importWaitingModel()
                 syncTraining()
@@ -593,7 +585,7 @@ struct ContentView: View {
                 SettingLabel(needsModel ? "وارد کردن مدل از Files" : "جایگزینی مدل از Files",
                              symbol: "square.and.arrow.down.fill", color: .blue)
             }
-            .disabled(importer.progress != nil || model.isRecording)
+            .disabled(importer.progress != nil)
             if importer.progress != nil {
                 ProgressView {
                     Text("در حال آماده کردن مدل…").font(.app(.subheadline))

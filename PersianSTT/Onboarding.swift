@@ -165,7 +165,7 @@ struct Onboarding: View {
                     }
                     .buttonStyle(.bordered)
                     .buttonBorderShape(.capsule)
-                    .disabled(importer.progress != nil || model.isRecording)
+                    .disabled(importer.progress != nil)
                     modelStatus
                 }
             }

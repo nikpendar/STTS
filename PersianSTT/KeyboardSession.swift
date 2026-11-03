@@ -231,8 +231,6 @@ final class KeyboardSession: ObservableObject {
     /// `held`: the keyboard's space bar is held; the keyboard ends the recording, not a silence.
     private func startCapture(held: Bool) {
         guard isActive else { return }
-        // A Siri or widget dictation shares the model's stream; the keyboard's comes first.
-        BackgroundDictation.shared.cancel()
         Self.ambientNoise = collector.begin()
         server.clear()
         isCapturing = true

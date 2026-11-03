@@ -96,9 +96,8 @@ final class SpeechEngine: @unchecked Sendable {
         }
     }
 
-    /// A whole recording at once (the dictation shortcut). It would replace a dictation in
-    /// progress, which does not happen: the shortcut records with the app in front, the
-    /// keyboard with the app in the background.
+    /// A whole recording at once (the watch app's dictation). It would replace a keyboard
+    /// dictation in progress, which WatchLink avoids by refusing while the keyboard records.
     func transcribe(_ samples: [Float]) async throws -> String {
         try await run { stream in
             stream.reset()
@@ -118,18 +117,15 @@ final class SpeechEngine: @unchecked Sendable {
     }
 }
 
-/// Owns the speech model: loads the personal, imported or bundled model (in that order), and
-/// records and transcribes the dictation shortcut, whose text goes to the clipboard. The
-/// keyboard session streams its recordings into `engine`.
+/// Owns the speech model: loads the personal, imported or bundled model (in that order). The
+/// keyboard session streams its recordings into `engine`; the watch app's come whole.
 @MainActor
 final class Transcriber: ObservableObject {
-    /// Shared by the keyboard session, the settings page and the dictation shortcut (DictateIntent).
+    /// Shared by the keyboard session, the settings page and the watch link.
     static let shared = Transcriber()
 
-    /// The model's state, or the last shortcut dictation's result, for the settings page.
+    /// The model's state, for the settings page.
     @Published var status = "در حال بارگذاری مدل…"
-    /// The dictation shortcut is recording.
-    @Published var isRecording = false
     @Published var isBusy = true
     @Published var modelName = ""
     /// A model is loaded. Builds without a bundled model need one imported (`ModelImporter`).
@@ -137,10 +133,6 @@ final class Transcriber: ObservableObject {
 
     private(set) var engine: SpeechEngine?
     private var loadTask: Task<Void, Never>?
-    private var recorder: AVAudioRecorder?
-    private var meterTask: Task<Void, Never>?
-    private var quickDictationPending = false
-    private let recordingURL = FileManager.default.temporaryDirectory.appendingPathComponent("recording.wav")
 
     /// The model's sidecars, in the app's Models folder: tokens.json, preprocessor.json,
     /// mel_filters_slaney_80x257.json and manifest.json. A fine-tuned model keeps them.
@@ -159,7 +151,6 @@ final class Transcriber: ObservableObject {
 
     /// Switches to a newly downloaded personal model (or back to the imported one).
     func reloadModel() {
-        guard !isRecording else { return }
         engine = nil
         hasModel = false
         isBusy = true
@@ -200,9 +191,7 @@ final class Transcriber: ObservableObject {
             hasModel = true
             let memory = MemoryFootprint.megabytes
             log.info("loaded \(url.lastPathComponent, privacy: .public), compute units \(engine.computeUnits.rawValue), memory \(Int(memory.now)) MB (peak \(Int(memory.peak)) MB)")
-            if !isRecording {
-                status = engine.computeUnits == .cpuOnly ? "آماده (CPU)" : "آماده"
-            }
+            status = engine.computeUnits == .cpuOnly ? "آماده (CPU)" : "آماده"
         } catch {
             log.error("cannot load \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
             // A personal model that does not load is dropped for the imported one.
@@ -214,134 +203,7 @@ final class Transcriber: ObservableObject {
                 ? "فایل مدل باز نشد؛ ممکن است ناقص کپی شده باشد. دوباره وارد کنید."
                 : error.localizedDescription
         }
-        if !isRecording {
-            isBusy = false
-        }
+        isBusy = false
     }
 
-    // MARK: - Dictation shortcut
-
-    /// Called by DictateIntent. Recording can only start once the app is in the foreground,
-    /// so the request is kept until `appDidBecomeActive()` if needed.
-    func requestQuickDictation() {
-        quickDictationPending = true
-        if UIApplication.shared.applicationState == .active {
-            appDidBecomeActive()
-        }
-    }
-
-    func appDidBecomeActive() {
-        guard quickDictationPending, !isRecording else { return }
-        quickDictationPending = false
-        Task { await startRecording() }
-    }
-
-    /// Records until a pause after speech (`watchForSilence`), then transcribes.
-    private func startRecording() async {
-        guard await AVAudioApplication.requestRecordPermission() else {
-            status = "دسترسی به میکروفون داده نشده است. از تنظیمات آیفون فعالش کنید."
-            return
-        }
-        do {
-            let session = AVAudioSession.sharedInstance()
-            // voiceChat mode turns on Apple's voice processing (noise suppression) for the recorder.
-            if KeyboardSession.noiseSuppression {
-                try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
-            } else {
-                try session.setCategory(.record, mode: .default)
-            }
-            try session.setActive(true)
-            let settings: [String: Any] = [
-                AVFormatIDKey: Int(kAudioFormatLinearPCM),
-                AVSampleRateKey: AudioLoader.sampleRate,
-                AVNumberOfChannelsKey: 1,
-                AVLinearPCMBitDepthKey: 16,
-                AVLinearPCMIsFloatKey: false,
-                AVLinearPCMIsBigEndianKey: false,
-            ]
-            let recorder = try AVAudioRecorder(url: recordingURL, settings: settings)
-            recorder.isMeteringEnabled = true
-            guard recorder.record() else {
-                status = "شروع ضبط ناموفق بود."
-                return
-            }
-            self.recorder = recorder
-            isRecording = true
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            status = "در حال گوش دادن… بعد از مکث خودکار تمام می‌شود."
-            watchForSilence()
-        } catch {
-            status = "خطا در ضبط: \(error.localizedDescription)"
-        }
-    }
-
-    /// Stops the dictation after speech followed by a pause, or when nothing is said.
-    private func watchForSilence() {
-        meterTask?.cancel()
-        meterTask = Task { [weak self] in
-            let started = Date()
-            var heardSpeech = false
-            var silence: TimeInterval = 0
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 100_000_000)
-                guard let self, let recorder = self.recorder, recorder.isRecording else { return }
-                recorder.updateMeters()
-                if recorder.averagePower(forChannel: 0) > -40 {
-                    heardSpeech = true
-                    silence = 0
-                } else {
-                    silence += 0.1
-                }
-                let elapsed = Date().timeIntervalSince(started)
-                if (heardSpeech && silence >= 1.8) || (!heardSpeech && silence >= 8) || elapsed >= 60 {
-                    self.stopAndTranscribe()
-                    return
-                }
-            }
-        }
-    }
-
-    private func stopAndTranscribe() {
-        meterTask?.cancel()
-        meterTask = nil
-        recorder?.stop()
-        recorder = nil
-        isRecording = false
-        if !KeyboardSession.shared.isActive {
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        }
-        transcribe(url: recordingURL)
-    }
-
-    /// Transcribes, then copies the text to the clipboard so it can be pasted into any app. The
-    /// shortcut has no keyboard, so spoken punctuation and numbers are applied here.
-    private func transcribe(url: URL) {
-        isBusy = true
-        Task {
-            if engine == nil { status = "در حال بارگذاری مدل…" }
-            guard let engine = await readyEngine() else {
-                isBusy = false
-                return
-            }
-            status = "در حال تبدیل به متن…"
-            do {
-                let start = Date()
-                let samples = try await Task.detached { try AudioLoader.loadSamples(url: url) }.value
-                let raw = try await engine.transcribe(samples)
-                let text = VoiceCommands.process(raw, punctuation: true, commands: false).text
-                let audioSeconds = Double(samples.count) / AudioLoader.sampleRate
-                let elapsed = Date().timeIntervalSince(start)
-                var summary = String(format: "%.1f ثانیه صدا در %.1f ثانیه تبدیل شد", audioSeconds, elapsed)
-                if !text.isEmpty {
-                    UIPasteboard.general.string = text
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    summary += " و در کلیپ‌بورد کپی شد"
-                }
-                status = summary
-            } catch {
-                status = error.localizedDescription
-            }
-            isBusy = false
-        }
-    }
 }

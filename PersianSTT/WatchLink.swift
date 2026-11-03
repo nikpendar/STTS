@@ -110,6 +110,9 @@ final class WatchLink: NSObject, WCSessionDelegate, @unchecked Sendable {
                                                 zwnj: options.autoZWNJ, dictionary: dictionary).text
             log.info("watch dictation: \(Double(samples.count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s of audio in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s")
             send(id: id, text: written)
+            let words = written.split(whereSeparator: \.isWhitespace).count
+            let seconds = Double(samples.count) / AudioLoader.sampleRate
+            await MainActor.run { AppUsage.recordDictation(words: words, seconds: seconds) }
         } catch {
             log.error("watch dictation failed: \(error.localizedDescription, privacy: .public)")
             send(id: id, error: "تبدیل به متن ناموفق بود.")

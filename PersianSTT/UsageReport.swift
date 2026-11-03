@@ -1,8 +1,8 @@
 import SwiftUI
 import UIKit
 
-/// The app's own dictations (Siri, the widget, the Control Center button), counted in the
-/// same report as the keyboard's.
+/// The report's totals: the keyboard's, less those it had at the last reset, plus the
+/// dictations of the Apple Watch app, which the app writes itself (`WatchLink`).
 enum AppUsage {
     private static let appKey = "appUsageStats"
     private static let baselineKey = "usageBaseline"
@@ -183,46 +183,5 @@ struct UsageReportPage: View {
         value >= 1000
             ? "\((value / 1000).formatted(.number.precision(.fractionLength(2)).locale(Self.persian))) کیلومتر"
             : "\(value.formatted(.number.precision(.fractionLength(1)).locale(Self.persian))) متر"
-    }
-}
-
-/// The dictations started without the app on screen, newest first; a tap copies one.
-struct DictationHistoryPage: View {
-    @State private var entries = DictationHistory.all()
-    @State private var copiedID: UUID?
-
-    var body: some View {
-        Section {
-            if entries.isEmpty {
-                Text("هنوز دیکته‌ای با سیری، ویجت یا دکمه‌ی مرکز کنترل انجام نشده.")
-                    .foregroundStyle(.secondary)
-            }
-            ForEach(entries) { entry in
-                Button {
-                    UIPasteboard.general.string = entry.text
-                    copiedID = entry.id
-                } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(entry.date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(Locale(identifier: "fa_IR")))
-                             + (copiedID == entry.id ? " · کپی شد" : ""))
-                            .font(.app(.subheadline))
-                            .foregroundStyle(.secondary)
-                        Text(entry.text)
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.leading)
-                    }
-                }
-            }
-        } footer: {
-            Text("سیری: «Hey Siri, Keyless dictation» (با گوشی قفل هم). برای کپی، روی هر متن بزنید.")
-        }
-        if !entries.isEmpty {
-            Section {
-                Button("پاک کردن همه", role: .destructive) {
-                    DictationHistory.removeAll()
-                    entries = []
-                }
-            }
-        }
     }
 }

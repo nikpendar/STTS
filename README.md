@@ -123,11 +123,12 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 برنامه (`PersianSTT/`):
 - `ContentView.swift`: صفحه‌ی تنظیمات (جلسه، گفتار، واژه‌نامه، تایپ، ظاهر، مدل، یادگیری، راه‌اندازی، گزارش خرابی‌ها، حریم خصوصی)
 - `Onboarding.swift`: راهنمای اجرای اول
+- `UsageReport.swift` و `Shared/UsageStats.swift`: صفحه‌ی «گزارش کارکرد» (زمان صرفه‌جویی‌شده، کلمه‌های صوتی، خط‌های کشیده‌شده، اصلاح‌ها و پیشنهادها؛ فرستادن و ریست)
 - `ReadAloudIntent.swift` و `Speaker.swift`: خواندن متن با کار Shortcuts و جای موتور صدای فارسی آفلاین
 - `PrivacyInfo.xcprivacy` (در برنامه و کیبورد): manifest حریم خصوصی App Store؛ متن سیاست حریم خصوصی در `docs/privacy.html`
 - `KeyboardSession.swift`: جلسه‌ی میکروفون پس‌زمینه برای کیبورد، تشخیص گفتار و سکوت، فرستادن صدا به مدل هم‌زمان با ضبط
 - `ShenavaStream.swift`: ویژگی‌های صدا (log-mel مثل NeMo)، اجرای گام‌به‌گام مدل Core ML با cacheها، CTC حریصانه و علامت مکث
-- `Transcriber.swift`: بارگذاری مدل (شخصی، وارد‌شده یا داخلی) روی Neural Engine یا CPU و صف اجرای آن؛ ضبط میان‌بر دیکته (`DictateIntent.swift`)
+- `Transcriber.swift`: بارگذاری مدل (شخصی، وارد‌شده یا داخلی) روی Neural Engine یا CPU و صف اجرای آن
 - `ModelImporter.swift`: وارد کردن `Koochik.aar` (یا `Koochik.mlmodel` قدیمی) از Files و کامپایل آن روی گوشی
 - `PersonalModel.swift`: صف و ارسال اصلاح‌ها به مخزن خصوصی GitHub، دانلود و نصب مدل شخصی
 - `AudioLoader.swift`: خواندن فایل صوتی به نمونه‌های ۱۶ کیلوهرتز

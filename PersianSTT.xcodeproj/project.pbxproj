@@ -7,14 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		C10000000000000000000001 /* KeylessWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000001 /* KeylessWidgets.swift */; };
-		C10000000000000000000003 /* DictationActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000003 /* DictationActivity.swift */; };
-		C10000000000000000000013 /* DictationActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000003 /* DictationActivity.swift */; };
-		C10000000000000000000004 /* BackgroundDictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000004 /* BackgroundDictation.swift */; };
 		C10000000000000000000005 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000005 /* UsageStats.swift */; };
 		C10000000000000000000015 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000005 /* UsageStats.swift */; };
 		C10000000000000000000006 /* UsageReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000006 /* UsageReport.swift */; };
-		C10000000000000000000008 /* KeylessWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C20000000000000000000008 /* KeylessWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A1000000000000000000004C /* OnnxModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* OnnxModel.swift */; };
 		A1000000000000000000004D /* PersianPhonemizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* PersianPhonemizer.swift */; };
 		A1000000000000000000004E /* PersianSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* PersianSpeech.swift */; };
@@ -46,7 +41,6 @@
 		A1000000000000000000000C /* DictationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* DictationBridge.swift */; };
 		A1000000000000000000000D /* KeyboardViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* KeyboardViewController.swift */; };
 		A1000000000000000000000E /* PersianSTTKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* PersianSTTKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		A10000000000000000000009 /* DictateIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* DictateIntent.swift */; };
 		A100000000000000000000A0 /* ReadAloudIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000000000000000000A0 /* ReadAloudIntent.swift */; };
 		A100000000000000000000A1 /* Speaker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000000000000000000A1 /* Speaker.swift */; };
 		A10000000000000000000006 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* Models */; };
@@ -85,13 +79,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		C90000000000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = A60000000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = C40000000000000000000001;
-			remoteInfo = KeylessWidgets;
-		};
 		A90000000000000000000001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = A60000000000000000000001 /* Project object */;
@@ -116,7 +103,6 @@
 			dstSubfolderSpec = 13;
 			files = (
 				A1000000000000000000000E /* PersianSTTKeyboard.appex in Embed Foundation Extensions */,
-				C10000000000000000000008 /* KeylessWidgets.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -135,13 +121,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		C20000000000000000000001 /* KeylessWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeylessWidgets.swift; sourceTree = "<group>"; };
-		C20000000000000000000002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		C20000000000000000000003 /* DictationActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationActivity.swift; sourceTree = "<group>"; };
-		C20000000000000000000004 /* BackgroundDictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundDictation.swift; sourceTree = "<group>"; };
 		C20000000000000000000005 /* UsageStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStats.swift; sourceTree = "<group>"; };
 		C20000000000000000000006 /* UsageReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageReport.swift; sourceTree = "<group>"; };
-		C20000000000000000000008 /* KeylessWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = KeylessWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000042 /* OnnxModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnnxModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* PersianPhonemizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianPhonemizer.swift; sourceTree = "<group>"; };
 		A20000000000000000000044 /* PersianSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianSpeech.swift; sourceTree = "<group>"; };
@@ -165,7 +146,6 @@
 		A2000000000000000000000D /* PersianSTTKeyboard.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PersianSTTKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A2000000000000000000000E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A2000000000000000000000F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A20000000000000000000009 /* DictateIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictateIntent.swift; sourceTree = "<group>"; };
 		A200000000000000000000A0 /* ReadAloudIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadAloudIntent.swift; sourceTree = "<group>"; };
 		A200000000000000000000A1 /* Speaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Speaker.swift; sourceTree = "<group>"; };
 		A20000000000000000000006 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
@@ -205,13 +185,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		C50000000000000000000002 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		A50000000000000000000003 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -244,15 +217,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		C30000000000000000000001 /* KeylessWidgets */ = {
-			isa = PBXGroup;
-			children = (
-				C20000000000000000000001 /* KeylessWidgets.swift */,
-				C20000000000000000000002 /* Info.plist */,
-			);
-			path = KeylessWidgets;
-			sourceTree = "<group>";
-		};
 		A30000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
@@ -261,7 +225,6 @@
 				A30000000000000000000006 /* Shared */,
 				B30000000000000000000001 /* KeylessWatch */,
 				B30000000000000000000002 /* KeylessWatchWidget */,
-				C30000000000000000000001 /* KeylessWidgets */,
 				A30000000000000000000007 /* Frameworks */,
 				A30000000000000000000004 /* Products */,
 			);
@@ -278,7 +241,6 @@
 				A20000000000000000000021 /* PersonalModel.swift */,
 				A20000000000000000000033 /* ModelImporter.swift */,
 				A20000000000000000000005 /* AudioLoader.swift */,
-				A20000000000000000000009 /* DictateIntent.swift */,
 				A200000000000000000000A0 /* ReadAloudIntent.swift */,
 				A200000000000000000000A1 /* Speaker.swift */,
 				A2000000000000000000000A /* KeyboardSession.swift */,
@@ -291,7 +253,6 @@
 				A200000000000000000000E0 /* AutoPunctuation.swift */,
 				A200000000000000000000E1 /* EzafeTagger.swift */,
 				B20000000000000000000020 /* WatchLink.swift */,
-				C20000000000000000000004 /* BackgroundDictation.swift */,
 				C20000000000000000000006 /* UsageReport.swift */,
 				A20000000000000000000046 /* OnnxRuntime-Bridging-Header.h */,
 				A2000000000000000000000E /* Info.plist */,
@@ -308,7 +269,6 @@
 				A2000000000000000000000D /* PersianSTTKeyboard.appex */,
 				B20000000000000000000008 /* KeylessWatch.app */,
 				B20000000000000000000012 /* KeylessWatchWidget.appex */,
-				C20000000000000000000008 /* KeylessWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -344,7 +304,6 @@
 				A2000000000000000000003A /* KeyboardBackground.swift */,
 				A20000000000000000000041 /* PersonalDictionary.swift */,
 				A200000000000000000000C0 /* CrashReports.swift */,
-				C20000000000000000000003 /* DictationActivity.swift */,
 				C20000000000000000000005 /* UsageStats.swift */,
 			);
 			path = Shared;
@@ -384,23 +343,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		C40000000000000000000001 /* KeylessWidgets */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = C70000000000000000000001 /* Build configuration list for PBXNativeTarget "KeylessWidgets" */;
-			buildPhases = (
-				C50000000000000000000001 /* Sources */,
-				C50000000000000000000002 /* Frameworks */,
-				C50000000000000000000003 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = KeylessWidgets;
-			productName = KeylessWidgets;
-			productReference = C20000000000000000000008 /* KeylessWidgets.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 		A40000000000000000000001 /* PersianSTT */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A70000000000000000000002 /* Build configuration list for PBXNativeTarget "PersianSTT" */;
@@ -415,7 +357,6 @@
 			);
 			dependencies = (
 				A9000000000000000000000A /* PBXTargetDependency */,
-				C90000000000000000000002 /* PBXTargetDependency */,
 			);
 			name = PersianSTT;
 			productName = PersianSTT;
@@ -498,9 +439,6 @@
 					B40000000000000000000002 = {
 						CreatedOnToolsVersion = 16.0;
 					};
-					C40000000000000000000001 = {
-						CreatedOnToolsVersion = 16.0;
-					};
 				};
 			};
 			buildConfigurationList = A70000000000000000000001 /* Build configuration list for PBXProject "PersianSTT" */;
@@ -521,19 +459,11 @@
 				A40000000000000000000002 /* PersianSTTKeyboard */,
 				B40000000000000000000001 /* KeylessWatch */,
 				B40000000000000000000002 /* KeylessWatchWidget */,
-				C40000000000000000000001 /* KeylessWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		C50000000000000000000003 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		A50000000000000000000002 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -619,15 +549,6 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		C50000000000000000000001 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				C10000000000000000000001 /* KeylessWidgets.swift in Sources */,
-				C10000000000000000000003 /* DictationActivity.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		A50000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -648,7 +569,6 @@
 				A10000000000000000000021 /* PersonalModel.swift in Sources */,
 				A10000000000000000000035 /* ModelImporter.swift in Sources */,
 				A10000000000000000000005 /* AudioLoader.swift in Sources */,
-				A10000000000000000000009 /* DictateIntent.swift in Sources */,
 				A100000000000000000000A0 /* ReadAloudIntent.swift in Sources */,
 				A100000000000000000000A1 /* Speaker.swift in Sources */,
 				A1000000000000000000000A /* KeyboardSession.swift in Sources */,
@@ -666,8 +586,6 @@
 				A1000000000000000000004A /* PersonalDictionary.swift in Sources */,
 				A100000000000000000000C0 /* CrashReports.swift in Sources */,
 				B10000000000000000000020 /* WatchLink.swift in Sources */,
-				C10000000000000000000013 /* DictationActivity.swift in Sources */,
-				C10000000000000000000004 /* BackgroundDictation.swift in Sources */,
 				C10000000000000000000005 /* UsageStats.swift in Sources */,
 				C10000000000000000000006 /* UsageReport.swift in Sources */,
 			);
@@ -717,11 +635,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		C90000000000000000000002 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = C40000000000000000000001 /* KeylessWidgets */;
-			targetProxy = C90000000000000000000001 /* PBXContainerItemProxy */;
-		};
 		A9000000000000000000000A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = A40000000000000000000002 /* PersianSTTKeyboard */;
@@ -735,60 +648,6 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		C80000000000000000000001 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = KeylessWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "کیلس";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = ir.nikpendar.PersianSTT.Widgets;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = WIDGET_EXTENSION;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Debug;
-		};
-		C80000000000000000000002 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = KeylessWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "کیلس";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = 0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = ir.nikpendar.PersianSTT.Widgets;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = WIDGET_EXTENSION;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Release;
-		};
 		A80000000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1065,15 +924,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C70000000000000000000001 /* Build configuration list for PBXNativeTarget "KeylessWidgets" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C80000000000000000000001 /* Debug */,
-				C80000000000000000000002 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		A70000000000000000000001 /* Build configuration list for PBXProject "PersianSTT" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

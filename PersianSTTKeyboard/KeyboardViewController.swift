@@ -194,6 +194,11 @@ final class KeyboardViewController: UIInputViewController {
     /// The simulator test hosts the keyboard inside the app, where it types into this instead.
     var testProxy: UITextDocumentProxy?
     private var proxy: UITextDocumentProxy { testProxy ?? textDocumentProxy }
+    /// On screen, with a text proxy that still works. iOS keeps keyboards it has put away
+    /// (their views stay in memory), and reading or writing through such a keyboard's proxy
+    /// crashed it (report of 2026-11-03), so late work (a word list loaded, a dictation
+    /// finished) checks this first.
+    private var isOnScreen: Bool { testProxy != nil || (isViewLoaded && view.window != nil) }
 
     /// Each text field gets its own keyboard. UIKit keeps the view of one it has let go of, with
     /// everything in it (about 2 MB a text field), until the extension runs out of memory and iOS
@@ -606,6 +611,13 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func handle(_ message: String) {
+        guard isOnScreen else {
+            // A dictation that ends after the keyboard was put away has no text field to go to.
+            log.info("transcript message dropped: keyboard not on screen")
+            liveText = ""
+            if message.first.map(String.init) == DictationBridge.finalPrefix { state = .ready }
+            return
+        }
         guard state == .recording || state == .transcribing, let kind = message.first.map(String.init) else {
             log.info("transcript message dropped in state \(String(describing: self.state), privacy: .public)")
             return
@@ -711,6 +723,10 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Swaps the provisional text for `text`, deleting only the part that changed.
     private func replaceLiveText(with text: String) {
+        guard isOnScreen else {
+            liveText = ""
+            return
+        }
         // Punctuation and line breaks join the text before them.
         let joins = text.first.map { $0 == "\n" || ".،؟!:؛)»,?".contains($0) } ?? true
         let target = text.isEmpty ? "" : (joins ? "" : livePrefix) + text
@@ -2324,9 +2340,8 @@ final class KeyboardViewController: UIInputViewController {
     /// the next ones, ranked by the word before. After a space, the likeliest next words.
     /// After a glide, the glided word sits in the middle with its other readings beside it.
     private func updateSuggestions() {
-        // The word lists load in the background; when one finishes after iOS has put this
-        // keyboard away, its text proxy is gone and reading it crashed (report of 2026-11-03).
-        guard isViewLoaded, view.window != nil else { return }
+        // The word lists load in the background and may finish after iOS put this keyboard away.
+        guard isOnScreen else { return }
         guard options.suggestionBar, layer == .letters, state != .recording, state != .transcribing,
               state != .starting else {
             suggestionBar.show([nil, nil, nil])
