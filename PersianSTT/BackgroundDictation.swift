@@ -42,9 +42,20 @@ final class BackgroundDictation {
             end()
             return ""
         }
+        log.info("background dictation requested, keyboard session \(KeyboardSession.shared.isActive ? "on" : "off", privacy: .public)")
         guard !KeyboardSession.shared.isCapturing else {
             log.info("background dictation refused: the keyboard is dictating")
             return ""
+        }
+        // The session holds the microphone with voice processing; a second engine would get
+        // nothing. It stops for this dictation and starts again after it.
+        let resumeSession = KeyboardSession.shared.isActive
+        if resumeSession { KeyboardSession.shared.stop() }
+        defer {
+            if resumeSession {
+                KeyboardSession.shared.start()
+                log.info("keyboard session after background dictation: \(KeyboardSession.shared.isActive ? "on" : "off", privacy: .public)")
+            }
         }
         guard await AVAudioApplication.requestRecordPermission() else {
             log.error("background dictation: no microphone permission")
@@ -190,11 +201,9 @@ final class BackgroundDictation {
 
     private func startAudio() throws {
         let session = AVAudioSession.sharedInstance()
-        if !KeyboardSession.shared.isActive {
-            try session.setCategory(.playAndRecord, mode: .default,
-                                    options: [.mixWithOthers, .defaultToSpeaker, .allowBluetooth])
-            try session.setActive(true)
-        }
+        try session.setCategory(.playAndRecord, mode: .default,
+                                options: [.mixWithOthers, .defaultToSpeaker, .allowBluetooth])
+        try session.setActive(true)
         collector.begin()
         let input = audio.inputNode
         let inFormat = input.outputFormat(forBus: 0)
@@ -228,9 +237,7 @@ final class BackgroundDictation {
     private func stopAudio() {
         audio.inputNode.removeTap(onBus: 0)
         audio.stop()
-        if !KeyboardSession.shared.isActive {
-            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     // MARK: - Live Activity

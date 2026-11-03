@@ -28,8 +28,9 @@ struct DictationActivityAttributes: ActivityAttributes {
 /// ("Keyless dictation"), the Control Center or lock screen button and the home screen widget.
 /// The text is saved in the app's history and comes back as the result, so a shortcut can copy
 /// it, send it or add it to a note. A second run while one is recording ends it.
-/// On iOS 17 it is a plain intent, without the right to record in the background.
-struct KeylessDictationIntent: AppIntent {
+/// LiveActivityIntent: iOS runs it in the app, not in the widget extension that shows the
+/// button (the extension's copy does nothing). On iOS 17 it cannot record in the background.
+struct KeylessDictationIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "دیکته با کیلس"
     static let description = IntentDescription("بدون باز کردن برنامه، حتی با گوشی قفل، صدا را ضبط و به متن فارسی تبدیل می‌کند و متن را برمی‌گرداند.")
     static let openAppWhenRun = false
