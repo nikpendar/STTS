@@ -48,6 +48,16 @@ struct PersonalDictionary: Codable, Equatable {
             .map { Self.key($0.heard) })
     }
 
+    /// Written forms the recognizer favours while decoding (`ShenavaStream.setBoost`): entries
+    /// made only of letters (names, terms), not the starters, marks, emoji or numbers.
+    var boostWords: [String] {
+        let starters = Set(Self.starters.map(\.written))
+        let letters = CharacterSet.letters.union(.nonBaseCharacters)
+            .union(CharacterSet(charactersIn: "\u{200C}\u{200D} "))
+        return entries.map { $0.written.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !starters.contains($0) && $0.unicodeScalars.allSatisfy(letters.contains) }
+    }
+
     /// The key two spellings of the same words share.
     static func key(_ text: String) -> String {
         var out = ""

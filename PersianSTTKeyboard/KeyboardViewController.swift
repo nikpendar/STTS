@@ -293,7 +293,8 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         if loadStarted > 0 {
-            log.info("keyboard opened in \(Int((CACurrentMediaTime() - loadStarted) * 1000)) ms")
+            let ms = Int((CACurrentMediaTime() - loadStarted) * 1000)
+            log.info("keyboard opened in \(ms) ms")
             loadStarted = 0
         }
         // A word list that finished loading while the keyboard was not on screen.

@@ -797,7 +797,7 @@ private struct DictionaryPage: View {
     @State private var suggestions: [DictionarySuggestions.Suggestion] = []
 
     private var canAdd: Bool {
-        !PersonalDictionary.key(heard).isEmpty && !written.trimmingCharacters(in: .whitespaces).isEmpty
+        !written.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
@@ -807,8 +807,8 @@ private struct DictionaryPage: View {
 
     @ViewBuilder private var sections: some View {
         Section {
-            TextField("آنچه مدل می‌نویسد", text: $heard)
             TextField("درستش", text: $written)
+            TextField("آنچه مدل می‌نویسد (اختیاری)", text: $heard)
             Button {
                 add(heard: heard, written: written)
                 heard = ""
@@ -820,7 +820,7 @@ private struct DictionaryPage: View {
         } header: {
             Text("واژه‌ی تازه").font(.app(.footnote))
         } footer: {
-            Text("نام‌ها و اصطلاح‌هایی که مدل اشتباه می‌نویسد، بعد از تشخیص با نوشته‌ی درست جایگزین می‌شوند. فاصله و نیم‌فاصله و ی و ک عربی در مقایسه مهم نیستند و فقط کلمه‌ی کامل جایگزین می‌شود.")
+            Text("مدل هنگام تشخیص گفتار نام‌ها و اصطلاح‌های شما را به واژه‌های نزدیک دیگر ترجیح می‌دهد. اگر باز هم شکل دیگری نوشت، آن شکل را در «آنچه مدل می‌نویسد» بگذارید تا بعد از تشخیص با نوشته‌ی درست جایگزین شود. فاصله و نیم‌فاصله و ی و ک عربی در مقایسه مهم نیستند و فقط کلمه‌ی کامل جایگزین می‌شود.")
                 .font(.app(.footnote))
         }
 
@@ -882,7 +882,11 @@ private struct DictionaryPage: View {
     private func add(heard: String, written: String) {
         let key = PersonalDictionary.key(heard)
         let written = written.trimmingCharacters(in: .whitespaces)
-        if let index = dictionary.entries.firstIndex(where: { PersonalDictionary.key($0.heard) == key }) {
+        // Without what the model writes, the word is only favoured in recognition; one entry a word.
+        let same: (PersonalDictionary.Entry) -> Bool = key.isEmpty
+            ? { PersonalDictionary.key($0.heard).isEmpty && PersonalDictionary.key($0.written) == PersonalDictionary.key(written) }
+            : { PersonalDictionary.key($0.heard) == key }
+        if let index = dictionary.entries.firstIndex(where: same) {
             dictionary.entries[index].written = written
         } else {
             dictionary.entries.insert(.init(heard: heard.trimmingCharacters(in: .whitespaces), written: written), at: 0)

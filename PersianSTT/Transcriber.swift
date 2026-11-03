@@ -65,6 +65,7 @@ final class SpeechEngine: @unchecked Sendable {
                       let stream = try? ShenavaStream(model: self.model, resources: self.resources, computeUnits: .cpuOnly)
                 else { return continuation.resume(returning: false) }
                 log.error("speech model moved to the CPU after a failed prediction")
+                self.applyBoost(to: stream)
                 self.stream = stream
                 self.computeUnits = .cpuOnly
                 continuation.resume(returning: true)
@@ -72,9 +73,22 @@ final class SpeechEngine: @unchecked Sendable {
         }
     }
 
+    /// How much the personal dictionary's words are favoured while decoding (a logit margin;
+    /// 0 is off), chosen with the biasing benchmark (bias-eval.yml).
+    static let boostStrength: Float = 2
+
+    /// The personal dictionary's words, read again for each dictation (on `queue`).
+    private func applyBoost(to stream: ShenavaStream) {
+        let words = PersonalDictionary.saved.boostWords
+        stream.setBoost(words: words, strength: Self.boostStrength)
+    }
+
     /// Starts a new dictation.
     func begin() async {
-        _ = try? await run { $0.reset() }
+        _ = try? await run { stream in
+            stream.reset()
+            self.applyBoost(to: stream)
+        }
     }
 
     /// Feeds the next piece of the recording; returns the text so far when it changed.
@@ -91,7 +105,7 @@ final class SpeechEngine: @unchecked Sendable {
             try stream.accept(samples)
             try stream.finish()
             let memory = MemoryFootprint.megabytes
-            log.info("dictation done, memory \(Int(memory.now)) MB (peak \(Int(memory.peak)) MB)")
+            log.info("dictation done, memory \(Int(memory.now)) MB (peak \(Int(memory.peak)) MB), dictionary boost chose \(stream.boostedTokens) tokens since load")
             return stream.text
         }
     }
@@ -101,6 +115,7 @@ final class SpeechEngine: @unchecked Sendable {
     func transcribe(_ samples: [Float]) async throws -> String {
         try await run { stream in
             stream.reset()
+            self.applyBoost(to: stream)
             try stream.accept(samples)
             try stream.finish()
             return stream.text

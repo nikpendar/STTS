@@ -3,6 +3,8 @@
 // check of a fine-tuned model use the app's own code. macOS only (Core ML).
 // Usage: shenava-check <model (.mlmodelc, or .mlmodel/.aar compiled as the app imports it)> <sidecars dir>
 //        <clips dir> [cpu|all]
+// Contextual biasing (the personal dictionary's words): BOOST_WORDS=<file, a word per line> and
+// BOOST=<strength> in the environment.
 import AVFoundation
 import CoreML
 import Foundation
@@ -18,6 +20,12 @@ if ModelArchive.extensions.contains(modelURL.pathExtension.lowercased()) {
     modelURL = try await ModelArchive.compile(modelURL)
 }
 let stream = try ShenavaStream(model: modelURL, resources: URL(fileURLWithPath: args[2]), computeUnits: units)
+let env = ProcessInfo.processInfo.environment
+if let path = env["BOOST_WORDS"], let strength = Float(env["BOOST"] ?? ""), strength > 0 {
+    let words = try String(contentsOfFile: path, encoding: .utf8).split(whereSeparator: \.isNewline).map(String.init)
+    stream.setBoost(words: words, strength: strength)
+    print("BOOST words=\(words.count) strength=\(strength)")
+}
 let clips = URL(fileURLWithPath: args[3])
 let files = try FileManager.default.contentsOfDirectory(at: clips, includingPropertiesForKeys: nil)
     .filter { $0.pathExtension == "wav" }.sorted { $0.path < $1.path }
@@ -40,6 +48,7 @@ for url in files {
     try text.write(to: URL(fileURLWithPath: url.path + ".txt"), atomically: true, encoding: .utf8)
 }
 let memory = MemoryFootprint.megabytes
+print("BOOSTED tokens=\(stream.boostedTokens)")
 print(String(format: "TIMING clips=%d steps=%d mean_step_ms=%.1f audio_s=%.1f compute_s=%.1f footprint_mb=%.0f footprint_peak_mb=%.0f",
              files.count, stream.steps, stream.computeSeconds * 1000 / Double(max(stream.steps, 1)), audioSeconds,
              stream.computeSeconds, memory.now, memory.peak))

@@ -71,6 +71,21 @@ final class ShenavaStream {
     private var previous: Int
     private var lastTokenStep = 0
 
+    /// Contextual biasing (the personal dictionary's words): a token that starts or continues
+    /// one of these words gets `boostStrength` added to its score when it is close to the best,
+    /// so the model's near-misses («بندار» for «پندار») come out as the user's word.
+    /// `boostPrefixes` holds every prefix of every word (normalized, `boostKey`).
+    private var boostWords: Set<String> = []
+    private var boostPrefixes: Set<String> = []
+    private(set) var boostStrength: Float = 0
+    /// Each token's text, normalized, and whether it starts a word (▁).
+    private var pieceKeys: [String] = []
+    private var pieceStartsWord: [Bool] = []
+    /// The word being written, while it is a prefix of a boosted word.
+    private var partialWord: String?
+    /// Tokens the boost chose over the model's best, for the logs and the benchmark.
+    private(set) var boostedTokens = 0
+
     /// The text so far, with a pause mark where the speaker paused.
     private(set) var text = ""
     private(set) var steps = 0
@@ -152,7 +167,102 @@ final class ShenavaStream {
         cacheTime = emptyTime
         previous = blank
         lastTokenStep = steps
+        partialWord = nil
         text = ""
+    }
+
+    /// Words to favour (empty or strength 0 turns biasing off). Multi-word entries count word
+    /// by word; spaces and ZWNJ inside a word do not matter (`boostKey`).
+    func setBoost(words: [String], strength: Float) {
+        boostWords = Set(words.flatMap { $0.split(whereSeparator: { $0.isWhitespace }) }
+            .map { Self.boostKey(String($0)) }
+            .filter { $0.count >= 2 })
+        boostPrefixes = []
+        for word in boostWords {
+            var prefix = ""
+            for character in word {
+                prefix.append(character)
+                boostPrefixes.insert(prefix)
+            }
+        }
+        boostStrength = boostWords.isEmpty ? 0 : strength
+        if pieceKeys.isEmpty {
+            pieceKeys = tokens.map { Self.boostKey($0.replacingOccurrences(of: "▁", with: "")) }
+            pieceStartsWord = tokens.map { $0.hasPrefix("▁") }
+        }
+        partialWord = nil
+    }
+
+    /// Spelling-blind key: Arabic ي ى ك as Persian, no ZWNJ, tatweel or diacritics, lower case.
+    static func boostKey(_ text: String) -> String {
+        var out = String.UnicodeScalarView()
+        for scalar in text.lowercased().unicodeScalars {
+            switch scalar.value {
+            case 0x200C, 0x200D, 0x0640, 0x20, 0xA0: continue
+            case 0x064B...0x065F, 0x0670: continue
+            case 0x064A, 0x0649: out.append("\u{06CC}")
+            case 0x0643: out.append("\u{06A9}")
+            default: out.append(scalar)
+            }
+        }
+        return String(out)
+    }
+
+    /// Whether token `k` starts or continues a boosted word after the text so far.
+    private func continuesBoostedWord(_ k: Int) -> Bool {
+        let piece = pieceKeys[k]
+        guard !piece.isEmpty else { return false }
+        if pieceStartsWord[k] {
+            if boostPrefixes.contains(piece) { return true }
+            // The model may split a word the user writes as one («نیک پندار»).
+            if let partialWord, !partialWord.isEmpty, !boostWords.contains(partialWord), boostPrefixes.contains(partialWord + piece) { return true }
+            return false
+        }
+        guard let partialWord else { return false }
+        return boostPrefixes.contains(partialWord + piece)
+    }
+
+    private func updatePartialWord(after k: Int) {
+        guard boostStrength > 0, k < pieceKeys.count else { return }
+        let piece = pieceKeys[k]
+        if pieceStartsWord[k], piece.isEmpty {
+            // A lone word start (▁): the next pieces begin the word.
+            partialWord = ""
+        } else if pieceStartsWord[k] {
+            if let partialWord, !partialWord.isEmpty, !boostWords.contains(partialWord), boostPrefixes.contains(partialWord + piece) {
+                self.partialWord = partialWord + piece
+            } else {
+                partialWord = boostPrefixes.contains(piece) ? piece : nil
+            }
+        } else {
+            partialWord = partialWord.map { $0 + piece }.flatMap { boostPrefixes.contains($0) ? $0 : nil }
+        }
+    }
+
+    /// The model's best token, or a boosted one within `boostStrength` of it.
+    /// Only where the model writes a letter: a boost over silence (blank) would add words.
+    private func boostedChoice(_ logits: MLMultiArray, from start: Int, count: Int, best: Int) -> Int {
+        guard best != blank else { return best }
+        let bestValue = value(logits, start + best)
+        var choice = best
+        var choiceScore = bestValue + (best < pieceKeys.count && continuesBoostedWord(best) ? boostStrength : 0)
+        let floor = bestValue - boostStrength
+        for i in 0..<min(count, pieceKeys.count) where i != best && i != blank && i != previous && !skipped.contains(i) {
+            let v = value(logits, start + i)
+            guard v > floor, v + boostStrength > choiceScore, continuesBoostedWord(i) else { continue }
+            choice = i
+            choiceScore = v + boostStrength
+        }
+        if choice != best { boostedTokens += 1 }
+        return choice
+    }
+
+    private func value(_ array: MLMultiArray, _ index: Int) -> Float {
+        switch array.dataType {
+        case .float32: return array.dataPointer.bindMemory(to: Float.self, capacity: array.count)[index]
+        case .float16: return Float(array.dataPointer.bindMemory(to: Float16.self, capacity: array.count)[index])
+        default: return array[index].floatValue
+        }
     }
 
     /// Feeds 16 kHz mono samples; runs every model step the new audio completes.
@@ -242,8 +352,10 @@ final class ShenavaStream {
             guard let logits = out.featureValue(for: "logits")?.multiArrayValue else { continue }
             let vocabSize = logits.shape.last?.intValue ?? logits.count
             for frame in 0..<(logits.count / vocabSize) {
-                let k = argmax(logits, from: frame * vocabSize, count: vocabSize)
+                var k = argmax(logits, from: frame * vocabSize, count: vocabSize)
+                if boostStrength > 0 { k = boostedChoice(logits, from: frame * vocabSize, count: vocabSize, best: k) }
                 if k != previous, k != blank, k < tokens.count, !skipped.contains(k) {
+                    updatePartialWord(after: k)
                     var piece = tokens[k].replacingOccurrences(of: "▁", with: " ")
                     if !text.isEmpty, steps - lastTokenStep >= pauseSteps {
                         text.append(DictationBridge.pauseMark)
