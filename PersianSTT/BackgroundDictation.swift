@@ -108,6 +108,7 @@ final class BackgroundDictation {
         }
         stopAudio()
         if cancelled {
+            _ = collector.end()
             await endActivity(phase: .failed, text: "", note: "", immediately: true)
             return ""
         }
@@ -116,6 +117,7 @@ final class BackgroundDictation {
         let samples = collector.end()
         let seconds = Double(samples.count) / AudioLoader.sampleRate
         guard let speech, heardSpeech else {
+            log.info("background dictation: nothing heard or no model")
             await endActivity(phase: .failed, text: speech == nil ? "مدل گفتار نصب نیست." : "صدایی شنیده نشد.", note: "")
             return ""
         }

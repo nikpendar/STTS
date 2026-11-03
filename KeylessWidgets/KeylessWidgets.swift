@@ -85,6 +85,7 @@ private struct OrbWidgetView: View {
                 Button(intent: KeylessDictationIntent()) { Orb(size: 82) }
                     .buttonStyle(.plain)
             } else {
+                // iOS 17 cannot record from the background: the app's dictation, which copies.
                 Link(destination: URL(string: "persianstt://dictate")!) { Orb(size: 82) }
             }
             Text("دیکته")

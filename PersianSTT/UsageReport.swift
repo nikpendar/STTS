@@ -94,20 +94,24 @@ struct UsageReportPage: View {
         } footer: {
             Text("در مقایسه با تایپ روی گوشی (حدود ۳۰ کلمه در دقیقه): زمان تایپ کلمه‌های دیکته‌شده منهای زمان گفتنشان، به‌علاوه‌ی حرف‌هایی که پیشنهادها لازم نکردند.")
         }
-        Section("صدا") {
+        Section {
             row("کلمه‌های نوشته‌شده با صدا", number(stats.voiceWords), symbol: "waveform", color: .red)
             row("تعداد دیکته‌ها", number(stats.dictations), symbol: "mic.fill", color: .orange)
             row("مدت صحبت", duration(stats.voiceSeconds), symbol: "timer", color: .orange)
             row("دیکته‌هایی که خودتان اصلاح کردید", number(stats.voiceFixes), symbol: "pencil", color: .pink)
             row("کلمه‌های اصلاح‌شده در دیکته‌ها", number(stats.voiceWordsFixed), symbol: "text.badge.xmark", color: .pink)
+        } header: {
+            Text("صدا")
         }
-        Section("تایپ") {
+        Section {
             row("کلمه‌های نوشته‌شده با کشیدن", number(stats.glideWords), symbol: "scribble", color: .blue)
             row("طول خط‌های کشیده‌شده", meters(stats.glideMeters), symbol: "ruler.fill", color: .blue)
             row("غلط‌هایی که خودکار اصلاح شد", number(stats.autoCorrections), symbol: "checkmark.circle.fill", color: .teal)
             row("اصلاح‌هایی که برگرداندید", number(stats.autoCorrectionsUndone), symbol: "arrow.uturn.backward.circle.fill", color: .gray)
             row("کلمه‌های انتخاب‌شده از پیشنهادها", number(stats.predictionsPicked), symbol: "text.word.spacing", color: .purple)
             row("حرف‌هایی که لازم نشد تایپ کنید", number(stats.lettersSaved), symbol: "character.cursor.ibeam", color: .purple)
+        } header: {
+            Text("تایپ")
         } footer: {
             if let since = AppUsage.since {
                 Text("از \(since.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(Locale(identifier: "fa_IR")))). آمار کیبورد هر بار که کیبورد بسته می‌شود به‌روز می‌شود.")
