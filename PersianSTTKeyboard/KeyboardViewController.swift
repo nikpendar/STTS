@@ -277,6 +277,8 @@ final class KeyboardViewController: UIInputViewController {
     /// let through at once.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        // A word list that finished loading while the keyboard was not on screen.
+        updateSuggestions()
         var view: UIView? = self.view.window
         while let current = view {
             current.gestureRecognizers?.forEach { $0.delaysTouchesBegan = false }
@@ -2322,7 +2324,9 @@ final class KeyboardViewController: UIInputViewController {
     /// the next ones, ranked by the word before. After a space, the likeliest next words.
     /// After a glide, the glided word sits in the middle with its other readings beside it.
     private func updateSuggestions() {
-        guard isViewLoaded else { return }
+        // The word lists load in the background; when one finishes after iOS has put this
+        // keyboard away, its text proxy is gone and reading it crashed (report of 2026-11-03).
+        guard isViewLoaded, view.window != nil else { return }
         guard options.suggestionBar, layer == .letters, state != .recording, state != .transcribing,
               state != .starting else {
             suggestionBar.show([nil, nil, nil])
