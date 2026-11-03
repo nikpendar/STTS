@@ -30,7 +30,7 @@ jobs:
             printf '%s\t%s\n' "$file" "$raw" >> fleurs/refs.tsv
           done
           awk '{ s += $1 } END { printf "%.1f", s }' durations > fleurs/audio_seconds
-          tail -n +81 test.tsv | cut -f3 > fleurs/extra.txt
+          tail -n +81 test.tsv | cut -f3 > fleurs/extra.sentences
           echo "fleurs: $(wc -l < fleurs/refs.tsv) clips, $(cat fleurs/audio_seconds) s"
       - name: Common Voice 17 fa test, 80 spread
         run: |
@@ -85,7 +85,7 @@ jobs:
             ./shenava-check compiled/*.mlmodelc PersianSTT/Models "$ds" all > /dev/null
             mkdir -p "base-$ds" && cp "$ds"/*.txt "base-$ds/" && rm "$ds"/*.txt
           done
-          python3 scripts/bias_lists.py lists fleurs/extra.txt fleurs/refs.tsv:base-fleurs cv17/refs.tsv:base-cv17
+          python3 scripts/bias_lists.py lists fleurs/extra.sentences fleurs/refs.tsv:base-fleurs cv17/refs.tsv:base-cv17
           cp lists/*.txt result/
           echo "| run | FLEURS WER | CV WER | dictionary words recognized (% found/said) | boosted tokens |" > result/table.md
           echo "|---|---|---|---|---|" >> result/table.md
