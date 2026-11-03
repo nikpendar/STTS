@@ -92,6 +92,12 @@ struct ContentView: View {
                     NavigationLink { page("راه‌اندازی کیبورد") { setupSection } } label: {
                         SettingLabel("راه‌اندازی کیبورد", symbol: "keyboard", color: .gray)
                     }
+                    NavigationLink { page("گزارش کارکرد") { UsageReportPage() } } label: {
+                        SettingLabel("گزارش کارکرد", symbol: "chart.bar.fill", color: .indigo)
+                    }
+                    NavigationLink { page("دیکته‌های سیری و ویجت") { DictationHistoryPage() } } label: {
+                        SettingLabel("دیکته‌های سیری و ویجت", symbol: "clock.arrow.circlepath", color: .orange)
+                    }
                     NavigationLink { page("گزارش خرابی‌ها") { CrashReportsPage() } } label: {
                         SettingLabel("گزارش خرابی‌ها", symbol: "ladybug.fill", color: .orange)
                     }
@@ -123,9 +129,13 @@ struct ContentView: View {
             dictionary.save()
             KeyboardBackground.handToKeyboard(style.backgroundImage)
             syncTraining()
-            if !onboardingDone { showingGuide = true }
+            if !onboardingDone { showingGuide = true } else { BackgroundDictation.askForNotifications() }
         }
         .onOpenURL { url in
+            if url.host == "dictate" {
+                // The home screen widget on iOS 17: the dictation that copies the text.
+                model.requestQuickDictation()
+            }
             if url.host == "session" {
                 // Straight to the session, whatever page was open, and a sign that it started.
                 navigationID = UUID()

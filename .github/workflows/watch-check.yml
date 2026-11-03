@@ -1,4 +1,4 @@
-# Compiles the Apple Watch app (KeylessWatch + its complication) and the iOS app with WatchLink,
+# Compiles the Apple Watch app (KeylessWatch + its complication) and the iOS app with its widgets,
 # unsigned, to check the code; uploads nothing. The watch IPA itself comes from build.yml
 # (config.env BUILD_WATCH=1).
 name: Watch app compile check
@@ -6,13 +6,14 @@ name: Watch app compile check
 on:
   workflow_dispatch:
   push:
-    branches: [claude/project-thread-eej871]
+    branches: [claude/project-thread-eej871, batch-1021c]
     paths:
       - KeylessWatch/**
       - KeylessWatchWidget/**
-      - PersianSTT/WatchLink.swift
-      - PersianSTT/PersianSTTApp.swift
-      - PersianSTT/KeyboardSession.swift
+      - KeylessWidgets/**
+      - PersianSTT/**
+      - PersianSTTKeyboard/**
+      - Shared/**
       - PersianSTT.xcodeproj/**
       - .github/workflows/watch-check.yml
 
@@ -45,3 +46,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             TRAINING_REPO="$TRAINING_REPO" build 2>&1 | tee ios.txt \
             || { grep -E "error:" ios.txt | head -20 | sed 's/^/::error::/'; exit 1; }
+          plutil -p build/Release-iphoneos/PersianSTT.app/PlugIns/KeylessWidgets.appex/Info.plist
+          grep -c "warning:" ios.txt || true
+          grep -E "(DictationActivity|BackgroundDictation|UsageStats|UsageReport|KeylessWidgets).*warning:" ios.txt | sort -u | head -20 | sed 's/^/::warning::/' || true

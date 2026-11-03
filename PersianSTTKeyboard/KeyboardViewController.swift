@@ -161,6 +161,10 @@ final class KeyboardViewController: UIInputViewController {
     private var lastInsertion: (text: String, time: CFTimeInterval)?
     /// The last ZWNJ a space put in by itself, which backspace right after takes back.
     private var lastAutoZWNJ: (inserted: String, original: String)?
+    /// `lastAutoZWNJ` was a typo correction (for the report's undone corrections).
+    private var lastChangeWasTypo = false
+    /// Seconds the last dictation recorded, for the report (`UsageStats`).
+    private var lastRecordedSeconds: Double = 0
     /// Typed text whose automatic ZWNJ the user took back, which is left alone from then on.
     private var zwnjDeclined = Set(UserDefaults.standard.stringArray(forKey: "zwnjDeclined") ?? [])
     /// The last letter typed by a tap, for a joining letter tapped twice typing ZWNJ.
@@ -306,6 +310,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         finishEdits()
+        UsageStats.publish()
         settingsPanel?.removeFromSuperview()
         if touchSaveScheduled { touchModel.save() }
         // A locked recording pauses, as when iOS takes the microphone: when this keyboard comes
@@ -516,6 +521,7 @@ final class KeyboardViewController: UIInputViewController {
         state = .transcribing
         // A first guess, until the app's own estimate arrives.
         let recorded = Date().timeIntervalSince(recordingStart)
+        lastRecordedSeconds = recorded
         isLocked = false
         orb.lock = nil
         setLockedKeys(false)
@@ -617,6 +623,17 @@ final class KeyboardViewController: UIInputViewController {
             noteNumberJoin(result)
             cancelTimeout()
             state = .ready
+            let words = result.steps.reduce(0) { count, step in
+                if case .text(let text) = step { return count + text.split(whereSeparator: \.isWhitespace).count }
+                return count
+            }
+            let seconds = lastRecordedSeconds
+            UsageStats.record {
+                $0.voiceWords += words
+                $0.voiceSeconds += seconds
+                $0.dictations += 1
+            }
+            UsageStats.publish()
             // Corrections of a dictation that also edited the text could not be matched to its recording.
             if parts.count == 2, !result.hasEdits, !dictationEdited, case .text(let text)? = result.steps.first {
                 let id = String(parts[0])
@@ -849,6 +866,13 @@ final class KeyboardViewController: UIInputViewController {
                                     corrected: SpokenNumbers.words(in: corrected))
             log.info("sending correction for \(correction.id, privacy: .public)")
             correction.send()
+            let before = correction.original.split(whereSeparator: \.isWhitespace)
+            let after = Set(correction.corrected.split(whereSeparator: \.isWhitespace))
+            let changed = max(1, before.filter { !after.contains($0) }.count)
+            UsageStats.record {
+                $0.voiceFixes += 1
+                $0.voiceWordsFixed += changed
+            }
         }
         if spokenForms.count > 20 { spokenForms.removeAll() }
         editsTimer?.invalidate()
@@ -2088,6 +2112,7 @@ final class KeyboardViewController: UIInputViewController {
         insert(new + " ")
         lexicon.learn(new, after: context)
         lastAutoZWNJ = (new + " ", old + " ")
+        lastChangeWasTypo = false
         haptic(.correction)
         if !suggestionBar.isHidden { suggestionBar.flashCorrection(new) }
         return true
@@ -2109,6 +2134,8 @@ final class KeyboardViewController: UIInputViewController {
         insert(new + " ")
         lexicon.learn(new, after: context)
         lastAutoZWNJ = (new + " ", word + " ")
+        lastChangeWasTypo = true
+        UsageStats.record { $0.autoCorrections += 1 }
         haptic(.correction)
         if !suggestionBar.isHidden { suggestionBar.flashCorrection(new) }
         return true
@@ -2135,6 +2162,7 @@ final class KeyboardViewController: UIInputViewController {
         }
         if let change = lastAutoZWNJ, (proxy.documentContextBeforeInput ?? "").hasSuffix(change.inserted) {
             lastAutoZWNJ = nil
+            if lastChangeWasTypo { UsageStats.record { $0.autoCorrectionsUndone += 1 } }
             zwnjDeclined.insert(String(change.original.dropLast()))
             if zwnjDeclined.count > 300 { zwnjDeclined.remove(zwnjDeclined.first!) }
             UserDefaults.standard.set(Array(zwnjDeclined), forKey: "zwnjDeclined")
@@ -2346,6 +2374,7 @@ final class KeyboardViewController: UIInputViewController {
             lastGlide = (item.text, prefix + item.text, others)
             insert(item.text)
             lexicon.learn(item.text)
+            UsageStats.record { $0.predictionsPicked += 1 }
             return
         }
         let word = currentWord()
@@ -2355,6 +2384,11 @@ final class KeyboardViewController: UIInputViewController {
         for _ in 0..<word.count { deleteBackward() }
         lexicon.learn(item.text, after: context, confirmed: item.literal)
         insert(item.text + " ")
+        let spared = max(0, item.text.count - word.count)
+        UsageStats.record {
+            $0.predictionsPicked += 1
+            $0.lettersSaved += spared
+        }
         lastSpace = (CACurrentMediaTime(), 0)
     }
 
@@ -2525,6 +2559,11 @@ final class KeyboardViewController: UIInputViewController {
         wordTouches.removeAll()
         insert(prefix + word)
         lexicon.learn(word, after: typingContext(before: word))
+        let length = Double(GlideDecoder.length(path))
+        UsageStats.record {
+            $0.glideWords += 1
+            $0.glidePoints += length
+        }
         log.info("glide: \(words.count) readings")
     }
 

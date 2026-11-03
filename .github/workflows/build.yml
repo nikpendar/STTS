@@ -87,10 +87,15 @@ jobs:
           # so Info.plist gets English names and the Persian ones move to InfoPlist.strings.
           APP=Payload/PersianSTT.app
           KB=$APP/PlugIns/PersianSTTKeyboard.appex
+          # The widgets (home screen orb, Live Activity, Control Center buttons).
+          WG=$APP/PlugIns/KeylessWidgets.appex
+          ls "$WG"
           plutil -replace CFBundleDisplayName -string "PersianSTT" "$APP/Info.plist"
           plutil -replace CFBundleDisplayName -string "Persian Dictation" "$KB/Info.plist"
+          plutil -replace CFBundleDisplayName -string "Keyless Widgets" "$WG/Info.plist"
           for lang in Base en fa; do
-            mkdir -p "$APP/$lang.lproj" "$KB/$lang.lproj"
+            mkdir -p "$APP/$lang.lproj" "$KB/$lang.lproj" "$WG/$lang.lproj"
+            printf '"CFBundleDisplayName" = "%s";\n' "کیلس" > "$WG/$lang.lproj/InfoPlist.strings"
             printf '"CFBundleDisplayName" = "%s";\n' "کیلس" > "$APP/$lang.lproj/InfoPlist.strings"
             printf '"CFBundleDisplayName" = "%s";\n' "کیلس" > "$KB/$lang.lproj/InfoPlist.strings"
           done
@@ -110,6 +115,7 @@ jobs:
           # Ad-hoc sign nested code (keyboard, app) so the bundle has the usual signed layout;
           # AltServer replaces these signatures with the Apple ID's.
           codesign --force --sign - Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex
+          codesign --force --sign - Payload/PersianSTT.app/PlugIns/KeylessWidgets.appex
           codesign --force --sign - Payload/PersianSTT.app
           codesign -dv Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex 2>&1 | head -5
           zip -qry KeylessShenava.ipa Payload
