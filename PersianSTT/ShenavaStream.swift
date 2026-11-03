@@ -78,6 +78,9 @@ final class ShenavaStream {
     private var boostWords: Set<String> = []
     private var boostPrefixes: Set<String> = []
     private(set) var boostStrength: Float = 0
+    /// Letters of a dictionary word the model must have written itself before the boost helps
+    /// with the rest (0: from the first piece). Boosting word starts touched too many words.
+    var boostMinPrefix = 3
     /// Each token's text, normalized, and whether it starts a word (▁).
     private var pieceKeys: [String] = []
     private var pieceStartsWord: [Bool] = []
@@ -213,12 +216,12 @@ final class ShenavaStream {
         let piece = pieceKeys[k]
         guard !piece.isEmpty else { return false }
         if pieceStartsWord[k] {
-            if boostPrefixes.contains(piece) { return true }
+            if boostMinPrefix == 0, boostPrefixes.contains(piece) { return true }
             // The model may split a word the user writes as one («نیک پندار»).
-            if let partialWord, !partialWord.isEmpty, !boostWords.contains(partialWord), boostPrefixes.contains(partialWord + piece) { return true }
+            if let partialWord, partialWord.count >= max(boostMinPrefix, 1), !boostWords.contains(partialWord), boostPrefixes.contains(partialWord + piece) { return true }
             return false
         }
-        guard let partialWord else { return false }
+        guard let partialWord, partialWord.count >= boostMinPrefix else { return false }
         return boostPrefixes.contains(partialWord + piece)
     }
 

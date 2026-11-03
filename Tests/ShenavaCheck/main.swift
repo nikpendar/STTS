@@ -23,8 +23,9 @@ let stream = try ShenavaStream(model: modelURL, resources: URL(fileURLWithPath: 
 let env = ProcessInfo.processInfo.environment
 if let path = env["BOOST_WORDS"], let strength = Float(env["BOOST"] ?? ""), strength > 0 {
     let words = try String(contentsOfFile: path, encoding: .utf8).split(whereSeparator: \.isNewline).map(String.init)
+    stream.boostMinPrefix = Int(env["BOOST_MIN"] ?? "") ?? stream.boostMinPrefix
     stream.setBoost(words: words, strength: strength)
-    print("BOOST words=\(words.count) strength=\(strength)")
+    print("BOOST words=\(words.count) strength=\(strength) min_prefix=\(stream.boostMinPrefix)")
 }
 let clips = URL(fileURLWithPath: args[3])
 let files = try FileManager.default.contentsOfDirectory(at: clips, includingPropertiesForKeys: nil)
