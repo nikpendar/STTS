@@ -154,6 +154,10 @@ enum BundledInkModel {
         (model as? DigitalInkRecognitionModel)?.modelIdentifier.languageTag.hasPrefix("fa") ?? false
     }
 
+    private static func encoding(_ method: Method) -> String {
+        method_getTypeEncoding(method).map { String(cString: $0) } ?? ""
+    }
+
     private static func replace() -> Bool {
         guard let cls = NSClassFromString("MLKDigitalInkRecognitionModelManager") else { return false }
         let files: [(String, String)] = [("modelFileHandleForModel:error:", "model"),
@@ -162,15 +166,15 @@ enum BundledInkModel {
         var methods: [(Method, String)] = []
         for (name, file) in files {
             guard let method = class_getInstanceMethod(cls, NSSelectorFromString(name)) else { return false }
-            let types = String(cString: method_getTypeEncoding(method))
+            let types = encoding(method)
             NSLog("handwriting bundled model: %@ %@", name, types)
             // An object back, taking an object and an error pointer.
             guard types.hasPrefix("@"), types.contains("^@") else { return false }
             methods.append((method, file))
         }
         guard let downloaded = class_getInstanceMethod(cls, NSSelectorFromString("isModelDownloaded:")) else { return false }
-        NSLog("handwriting bundled model: isModelDownloaded: %@", String(cString: method_getTypeEncoding(downloaded)))
-        guard String(cString: method_getTypeEncoding(downloaded)).hasPrefix("B") else { return false }
+        NSLog("handwriting bundled model: isModelDownloaded: %@", encoding(downloaded))
+        guard encoding(downloaded).hasPrefix("B") else { return false }
 
         typealias Opener = @convention(c) (AnyObject, Selector, AnyObject, OpaquePointer?) -> AnyObject?
         for (method, file) in methods {
