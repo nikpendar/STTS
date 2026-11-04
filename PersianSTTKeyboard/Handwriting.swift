@@ -206,6 +206,7 @@ enum BundledInkModel {
 final class HandwritingPadView: UIView {
     var onInsert: ((String) -> Void)?
     var onSpace: (() -> Void)?
+    /// Deletes the word before the cursor.
     var onDelete: (() -> Void)?
     var onClose: (() -> Void)?
     /// The text before the cursor, for the recognizer's context.
@@ -277,7 +278,7 @@ final class HandwritingPadView: UIView {
             candidateRow.addArrangedSubview(button)
             candidateButtons.append(button)
         }
-        for (button, symbol, label) in [(spaceButton, "space", "فاصله"), (deleteButton, "delete.left", "پاک کردن"),
+        for (button, symbol, label) in [(spaceButton, "space", "فاصله"), (deleteButton, "delete.right", "پاک کردن کلمه"),
                                         (closeButton, "keyboard", "صفحه‌کلید")] {
             button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)), for: .normal)
             button.accessibilityLabel = label
@@ -321,10 +322,10 @@ final class HandwritingPadView: UIView {
         candidateRow.frame = CGRect(x: 8, y: 0, width: bounds.width - 16, height: row)
         let buttonsY = bounds.height - 46
         let buttonWidth = (bounds.width - 16 - 2 * 8) / 3
-        // Right to left: close, space, delete (delete on the left, as backspace on the letters is right).
-        closeButton.frame = CGRect(x: bounds.width - 8 - buttonWidth, y: buttonsY, width: buttonWidth, height: 40)
+        // Right to left: delete (a word at a time), space, back to the keyboard.
+        deleteButton.frame = CGRect(x: bounds.width - 8 - buttonWidth, y: buttonsY, width: buttonWidth, height: 40)
         spaceButton.frame = CGRect(x: 8 + buttonWidth + 8, y: buttonsY, width: buttonWidth, height: 40)
-        deleteButton.frame = CGRect(x: 8, y: buttonsY, width: buttonWidth, height: 40)
+        closeButton.frame = CGRect(x: 8, y: buttonsY, width: buttonWidth, height: 40)
         paper.frame = CGRect(x: 8, y: row + 2, width: bounds.width - 16, height: buttonsY - row - 8)
         status.frame = paper.frame.insetBy(dx: 20, dy: 20)
     }

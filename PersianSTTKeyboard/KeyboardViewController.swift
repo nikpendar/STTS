@@ -2518,7 +2518,7 @@ final class KeyboardViewController: UIInputViewController {
             self.insert(gap + text)
         }
         pad.onSpace = { [weak self] in self?.insert(" ") }
-        pad.onDelete = { [weak self] in self?.deleteBackward() }
+        pad.onDelete = { [weak self] in self?.deleteWordBackward() }
         pad.onClose = { [weak self] in self?.hideHandwriting(animated: true) }
         pad.textBefore = { [weak self] in self?.proxy.documentContextBeforeInput ?? "" }
         view.addSubview(pad)
