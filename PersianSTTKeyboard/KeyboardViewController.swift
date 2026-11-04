@@ -154,7 +154,7 @@ final class KeyboardViewController: UIInputViewController {
     /// The handwriting pad (from holding the emoji key); made when opened, let go when closed,
     /// so its recognizer is in memory only while it is used.
     private var handwritingPad: HandwritingPadView?
-    /// Typed shortcuts («آدف» → the shop's address): the personal dictionary's entries and the
+    /// Typed shortcuts («آدف» → the shop's address): the app's shortcuts page and the
     /// iPhone's own text replacements (Settings › Keyboard › Text Replacement), by `PersonalDictionary.key`.
     private var shortcuts: [String: String] = [:]
     private var systemShortcuts: [String: String] = [:]
@@ -2427,19 +2427,11 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    /// The dictionary's one-word entries (not the spoken punctuation it starts with) and the
-    /// system's text replacements; the user's own entries win.
+    /// The shortcuts set in the app (`TypedShortcuts`) and the system's text replacements; the
+    /// app's win. The personal dictionary is for dictation only.
     private func loadShortcuts() {
-        let starters = Set(PersonalDictionary.starters.map { PersonalDictionary.key($0.heard) })
         var found = systemShortcuts
-        for entry in dictionary.entries {
-            let key = PersonalDictionary.key(entry.heard)
-            let written = entry.written.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !key.isEmpty, !written.isEmpty, !starters.contains(key),
-                  !entry.heard.trimmingCharacters(in: .whitespaces).contains(" "),
-                  key != PersonalDictionary.key(written) else { continue }
-            found[key] = written
-        }
+        for (key, text) in TypedShortcuts.load().byKey { found[key] = text }
         shortcuts = found
         guard systemShortcuts.isEmpty else { return }
         requestSupplementaryLexicon { [weak self] lexicon in

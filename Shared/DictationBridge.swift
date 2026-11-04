@@ -379,6 +379,37 @@ extension PersonalDictionary: SharedSetting {
     static let defaultsKey = "personalDictionary"
 }
 
+/// Typed shortcuts («آدف» → the shop's address), set in the app on their own page and used by
+/// the keyboard only when typing; dictation uses the personal dictionary instead.
+struct TypedShortcuts: SharedSetting, Equatable {
+    struct Entry: Codable, Identifiable, Equatable {
+        var id = UUID()
+        /// What is typed: one word.
+        var shortcut: String
+        /// What it becomes.
+        var text: String
+    }
+
+    var entries: [Entry] = []
+
+    static let standard = TypedShortcuts()
+    static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.typedShortcuts")
+    static let defaultsKey = "typedShortcuts"
+
+    /// The shortcuts by `PersonalDictionary.key`, one-word ones only.
+    var byKey: [String: String] {
+        var found: [String: String] = [:]
+        for entry in entries {
+            let typed = entry.shortcut.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = entry.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let key = PersonalDictionary.key(typed)
+            guard !key.isEmpty, !text.isEmpty, !typed.contains(" "), key != PersonalDictionary.key(text) else { continue }
+            found[key] = text
+        }
+        return found
+    }
+}
+
 /// Keyboard features that can be turned off in the app.
 struct KeyboardOptions: SharedSetting, Equatable {
     /// The row of suggestions above the keys; off, the keys move up under a thin margin.

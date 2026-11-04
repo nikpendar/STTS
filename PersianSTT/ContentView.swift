@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var style = KeyStyle.saved
     @State private var options = KeyboardOptions.saved
     @State private var dictionary = PersonalDictionary.saved
+    @State private var shortcuts = TypedShortcuts.saved
     @State private var photoItem: PhotosPickerItem?
     /// Replaced to bring the app back to its first page, the session.
     @State private var navigationID = UUID()
@@ -61,6 +62,13 @@ struct ContentView: View {
                             Text(dictionary.entries.isEmpty ? "" : "\(dictionary.entries.count)")
                         } label: {
                             SettingLabel("واژه‌نامه‌ی شخصی", symbol: "character.book.closed.fill", color: .teal)
+                        }
+                    }
+                    NavigationLink { page("میان‌برهای تایپ") { ShortcutsPage(shortcuts: $shortcuts) } } label: {
+                        LabeledContent {
+                            Text(shortcuts.entries.isEmpty ? "" : "\(shortcuts.entries.count)")
+                        } label: {
+                            SettingLabel("میان‌برهای تایپ", symbol: "text.insert", color: .indigo)
                         }
                     }
                     NavigationLink { typingPage } label: {
@@ -113,6 +121,7 @@ struct ContentView: View {
         .onChange(of: style) { _, new in new.save() }
         .onChange(of: options) { _, new in new.save() }
         .onChange(of: dictionary) { _, new in new.save() }
+        .onChange(of: shortcuts) { _, new in new.save() }
         // Rewrites the shared pasteboard copies, which a reinstall or reboot can clear.
         .onAppear {
             style.save()
@@ -124,6 +133,7 @@ struct ContentView: View {
             options = KeyboardOptions.load()
             options.save()
             dictionary.save()
+            shortcuts.save()
             KeyboardBackground.handToKeyboard(style.backgroundImage)
             syncTraining()
             if !onboardingDone { showingGuide = true }
@@ -790,6 +800,61 @@ private struct SetupStep: View {
 
 /// The personal dictionary: what the model writes and how it should be written, each pair
 /// editable in place, and pairs the user keeps correcting in dictations offered to add.
+/// Typed shortcuts: a word typed in the keyboard that becomes a longer text on space. Separate
+/// from the personal dictionary, which is for dictation.
+private struct ShortcutsPage: View {
+    @Binding var shortcuts: TypedShortcuts
+    @State private var shortcut = ""
+    @State private var text = ""
+
+    private var canAdd: Bool {
+        let typed = shortcut.trimmingCharacters(in: .whitespaces)
+        return !typed.isEmpty && !typed.contains(" ") && !text.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        Section {
+            TextField("میان‌بر، یک کلمه (مثل آدف)", text: $shortcut)
+            TextField("متن کامل", text: $text)
+            Button {
+                shortcuts.entries.insert(.init(shortcut: shortcut.trimmingCharacters(in: .whitespaces),
+                                               text: text.trimmingCharacters(in: .whitespaces)), at: 0)
+                shortcut = ""
+                text = ""
+            } label: {
+                Label("افزودن", systemImage: "plus.circle.fill")
+            }
+            .disabled(!canAdd)
+        } header: {
+            Text("میان‌بر تازه").font(.app(.footnote))
+        } footer: {
+            Text("در کیبورد میان‌بر را بنویسید: متن کاملش وسط نوار پیشنهاد می‌آید و با فاصله جایش می‌نشیند؛ پاک کردن بلافاصله میان‌بر را برمی‌گرداند. فقط در تایپ کار می‌کند، نه در گفتار. میان‌برهای «جایگزینی متن» تنظیمات آیفون (عمومی › صفحه‌کلید) هم کار می‌کنند. کیبورد میان‌بر تازه را دفعه‌ی بعد که باز شود می‌خواند.")
+                .font(.app(.footnote))
+        }
+
+        if !shortcuts.entries.isEmpty {
+            Section {
+                ForEach($shortcuts.entries) { $entry in
+                    HStack(spacing: 8) {
+                        TextField("میان‌بر", text: $entry.shortcut)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: 90)
+                        Image(systemName: "arrow.left")
+                            .font(.footnote)
+                            .foregroundStyle(.tertiary)
+                        TextField("متن کامل", text: $entry.text)
+                    }
+                }
+                .onDelete { shortcuts.entries.remove(atOffsets: $0) }
+            } header: {
+                Text("میان‌برهای شما").font(.app(.footnote))
+            } footer: {
+                Text("برای پاک کردن، ردیف را به کنار بکشید.").font(.app(.footnote))
+            }
+        }
+    }
+}
+
 private struct DictionaryPage: View {
     @Binding var dictionary: PersonalDictionary
     @State private var heard = ""
@@ -820,7 +885,7 @@ private struct DictionaryPage: View {
         } header: {
             Text("واژه‌ی تازه").font(.app(.footnote))
         } footer: {
-            Text("مدل هنگام تشخیص گفتار نام‌ها و اصطلاح‌های شما را به واژه‌های نزدیک دیگر ترجیح می‌دهد. اگر باز هم شکل دیگری نوشت، آن شکل را در «آنچه مدل می‌نویسد» بگذارید تا بعد از تشخیص با نوشته‌ی درست جایگزین شود. فاصله و نیم‌فاصله و ی و ک عربی در مقایسه مهم نیستند و فقط کلمه‌ی کامل جایگزین می‌شود. هر ردیف تک‌کلمه‌ای میان‌بر تایپ هم هست: «آدف» را بنویسید و فاصله بزنید تا متن کاملش بیاید (پاک کردن، میان‌بر را برمی‌گرداند). میان‌برهای «جایگزینی متن» تنظیمات آیفون هم کار می‌کنند.")
+            Text("مدل هنگام تشخیص گفتار نام‌ها و اصطلاح‌های شما را به واژه‌های نزدیک دیگر ترجیح می‌دهد. اگر باز هم شکل دیگری نوشت، آن شکل را در «آنچه مدل می‌نویسد» بگذارید تا بعد از تشخیص با نوشته‌ی درست جایگزین شود. فاصله و نیم‌فاصله و ی و ک عربی در مقایسه مهم نیستند و فقط کلمه‌ی کامل جایگزین می‌شود. این واژه‌نامه فقط برای گفتار است؛ مثلاً «شکلک لبخند» در «آنچه مدل می‌نویسد» و 😊 در «درستش». میان‌بر تایپ صفحه‌ی جدای خودش را دارد.")
                 .font(.app(.footnote))
         }
 
