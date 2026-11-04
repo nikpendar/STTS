@@ -7,7 +7,7 @@ name: Punctuation on speech
 on:
   push:
     branches: [batch-1021c]
-    paths: [.github/workflows/punct-speech.yml, scripts/punct_paragraphs.py, scripts/punct_score.py, Tests/PunctEval/**, PersianSTT/AutoPunctuation.swift]
+    paths: [.github/workflows/punct-speech.yml, scripts/punct_paragraphs.py, scripts/punct_score.py, Tests/PunctEval/**, Tests/ShenavaCheck/**, PersianSTT/AutoPunctuation.swift]
   workflow_dispatch:
 
 jobs:

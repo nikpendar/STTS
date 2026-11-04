@@ -40,7 +40,8 @@ for url in files {
     stream.reset()
     var i = 0
     while i < samples.count {
-        try stream.accept(Array(samples[i..<min(i + 1600, samples.count)]))
+        // A command-line tool has no run loop to drain Core ML's autoreleased buffers.
+        try autoreleasepool { try stream.accept(Array(samples[i..<min(i + 1600, samples.count)])) }
         i += 1600
     }
     try stream.finish()

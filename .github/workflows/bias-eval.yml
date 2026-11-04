@@ -10,7 +10,7 @@ name: Biasing benchmark
 on:
   push:
     branches: [batch-1021c]
-    paths: [.github/workflows/bias-eval.yml, scripts/bias_lists.py, scripts/bias_recall.py, Tests/ShenavaCheck/main.swift]
+    paths: [.github/workflows/bias-eval.yml, scripts/bias_lists.py, scripts/bias_recall.py]
   workflow_dispatch:
 
 jobs:
