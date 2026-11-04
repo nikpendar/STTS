@@ -17,7 +17,10 @@ jobs:
           find . -type d | head -60
           find . -type f -size +50k ! -name "*.h" > bins.txt
           cat bins.txt
-          echo "=== URLs"
-          xargs -a bins.txt strings -n 8 | grep -Eo 'https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%{}-]+' | sort -u
+          echo "=== sizes"
+          for f in fa.20191215.compact.fst.zip indy_lstm.arabic.5x272.tflite.20191215.zip; do
+            curl -sSIL https://dl.google.com/handwriting/models/$f | grep -Ei '^(HTTP|content-length|last-modified)'
+          done
           echo "=== hints"
-          xargs -a bins.txt strings -n 6 | grep -Ei 'gstatic|dl\.google|digitalink|handwriting|ink_|\.zip|manifest|backgroundSession|sharedContainer|NSURLSessionConfiguration|MLKModelDownload|com\.google\.mlkit' | sort -u | head -300
+          xargs -a bins.txt strings -n 6 > all.txt
+          grep -Ei 'backgroundSession|sharedContainer|URLSessionConfiguration|appex|extension|isModelDownloaded|ModelDownload|Library/|Application Support|Caches|ml_kit|mlkit' all.txt | grep -v handwriting/models | sort -u | head -150 || true
