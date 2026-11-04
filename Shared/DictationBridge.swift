@@ -407,8 +407,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var keySounds = true
     /// Taptic feedback: keys, corrected words, emoji categories, holds and menus.
     var haptics = true
-    /// The red cursor dot between the Persian letters (`TrackPointView`).
-    var trackPoint = true
 
     static let standard = KeyboardOptions()
     static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardOptions")
@@ -432,6 +430,5 @@ struct KeyboardOptions: SharedSetting, Equatable {
         touchResets = try container.decodeIfPresent(Int.self, forKey: .touchResets) ?? 0
         keySounds = try container.decodeIfPresent(Bool.self, forKey: .keySounds) ?? true
         haptics = try container.decodeIfPresent(Bool.self, forKey: .haptics) ?? true
-        trackPoint = try container.decodeIfPresent(Bool.self, forKey: .trackPoint) ?? true
     }
 }
