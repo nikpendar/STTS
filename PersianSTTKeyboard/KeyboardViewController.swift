@@ -151,6 +151,23 @@ final class KeyboardViewController: UIInputViewController {
     }
     /// The user's own words, put into each dictation (set in the app).
     private var dictionary = PersonalDictionary.standard
+    /// The red cursor dot between four letters (`TrackPointView`), and the joystick it grows into.
+    private let trackPoint = TrackPointView()
+    private var cursorPad: CursorPadView?
+    /// The text on either side of the cursor while the pad is open, kept here as the cursor
+    /// moves (the proxy's context catches up only later), and the part selected.
+    private var cursorBefore = ""
+    private var cursorAfter = ""
+    private var selection = ""
+    /// The selection lies before the cursor (it was moved forward to make it).
+    private var selectionForward = true
+    private var selecting = false
+    /// The four keys whose corners the dot sits on.
+    private var chamferedKeys: [KeyView] = []
+    /// Typed shortcuts («آدف» → the shop's address): the personal dictionary's entries and the
+    /// iPhone's own text replacements (Settings › Keyboard › Text Replacement), by `PersonalDictionary.key`.
+    private var shortcuts: [String: String] = [:]
+    private var systemShortcuts: [String: String] = [:]
     /// Key width the typo search's neighbouring keys were taken at, for English and for Persian.
     private var neighboursWidths: [Bool: CGFloat] = [:]
     /// The last space typed, for two spaces typing a full stop and three a comma: 0 after the
@@ -319,6 +336,7 @@ final class KeyboardViewController: UIInputViewController {
         // the app's were read here.
         applyOptions(KeyboardOptions.load())
         dictionary = PersonalDictionary.load()
+        loadShortcuts()
         if options.touchResets != UserDefaults.standard.integer(forKey: "touchResets") {
             UserDefaults.standard.set(options.touchResets, forKey: "touchResets")
             touchModel = TouchModel()
@@ -334,6 +352,8 @@ final class KeyboardViewController: UIInputViewController {
         finishEdits()
         UsageStats.publish()
         settingsPanel?.removeFromSuperview()
+        trackPoint.cancel()
+        closeCursorPad(animated: false)
         if touchSaveScheduled { touchModel.save() }
         // A locked recording pauses, as when iOS takes the microphone: when this keyboard comes
         // back it goes on after a tap on the orb, and the app ends it if it stays paused.
@@ -361,6 +381,12 @@ final class KeyboardViewController: UIInputViewController {
 
     override func selectionDidChange(_ textInput: UITextInput?) {
         super.selectionDidChange(textInput)
+        // Moved by the user in the app while the pad is open and still: start from there.
+        if let cursorPad, !cursorPad.isPushing, selection.isEmpty {
+            cursorBefore = proxy.documentContextBeforeInput ?? ""
+            cursorAfter = proxy.documentContextAfterInput ?? ""
+            refreshLens()
+        }
         if edits.isTracking { report(edits.documentChanged(documentContext)) }
         updateSuggestions()
         updateAutoShift()
@@ -1513,6 +1539,11 @@ final class KeyboardViewController: UIInputViewController {
         keyMenu.isHidden = true
         menuShield.isHidden = true
         menuShield.addTarget(self, action: #selector(closeMenu), for: .touchDown)
+        trackPoint.onTap = { [weak self] point in self?.tapThroughTrackPoint(at: point) }
+        trackPoint.onPushBegan = { [weak self] in self?.openCursorPad() }
+        trackPoint.onPush = { [weak self] point in self?.cursorPad?.movePush(to: point) }
+        trackPoint.onPushEnded = { [weak self] in self?.cursorPad?.endPush() }
+        keysView.addSubview(trackPoint)
         keysView.addSubview(menuShield)
         keysView.addSubview(keyMenu)
         keysView.addSubview(keyPopup)
@@ -1886,6 +1917,7 @@ final class KeyboardViewController: UIInputViewController {
         }
         keysView.frame = CGRect(x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
         glideTrail.frame = keysView.bounds
+        if let cursorPad, cursorPad.frame != keysView.frame { closeCursorPad(animated: false) }
         menuShield.frame = keysView.bounds
         settingsPanel?.frame = keysView.bounds
         if keyPopup.frame != keysView.bounds {
@@ -1962,6 +1994,8 @@ final class KeyboardViewController: UIInputViewController {
                 x += keyWidth
             }
         }
+
+        layoutTrackPoint(top: top, row: row, unit: unit, left: left)
 
         // Bottom row, left to right, in elevenths of the width: 123 two, emoji two, space five
         // (held, it dictates), return two at the right edge, its arrow mirrored in Persian.
@@ -2121,6 +2155,10 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         let word = currentWord()
+        if applyShortcut(word) {
+            lastSpace = (now, 1)
+            return
+        }
         if applyAutoCorrection(word) {
             lastSpace = (now, 1)
             return
@@ -2384,6 +2422,11 @@ final class KeyboardViewController: UIInputViewController {
             lastGlide = nil
         }
         let word = currentWord()
+        if let text = shortcut(for: word) {
+            // The shortcut's text in the middle, the typed word kept on the side.
+            suggestionBar.show([SuggestionBar.Item(text: word, literal: true), SuggestionBar.Item(text: text, shortcut: true), nil])
+            return
+        }
         let lexicon = lexicon
         guard lexicon.isLoaded else {
             suggestionBar.show([nil, nil, nil])
@@ -2407,6 +2450,55 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    /// The dictionary's one-word entries (not the spoken punctuation it starts with) and the
+    /// system's text replacements; the user's own entries win.
+    private func loadShortcuts() {
+        let starters = Set(PersonalDictionary.starters.map { PersonalDictionary.key($0.heard) })
+        var found = systemShortcuts
+        for entry in dictionary.entries {
+            let key = PersonalDictionary.key(entry.heard)
+            let written = entry.written.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty, !written.isEmpty, !starters.contains(key),
+                  !entry.heard.trimmingCharacters(in: .whitespaces).contains(" "),
+                  key != PersonalDictionary.key(written) else { continue }
+            found[key] = written
+        }
+        shortcuts = found
+        guard systemShortcuts.isEmpty else { return }
+        requestSupplementaryLexicon { [weak self] lexicon in
+            var system: [String: String] = [:]
+            for entry in lexicon.entries where entry.userInput != entry.documentText {
+                let key = PersonalDictionary.key(entry.userInput)
+                if !key.isEmpty, !entry.userInput.contains(" ") { system[key] = entry.documentText }
+            }
+            DispatchQueue.main.async {
+                guard let self, !system.isEmpty else { return }
+                self.systemShortcuts = system
+                self.loadShortcuts()
+            }
+        }
+    }
+
+    /// The text a typed shortcut stands for.
+    private func shortcut(for word: String) -> String? {
+        guard !word.isEmpty, !shortcuts.isEmpty, layer == .letters else { return nil }
+        return shortcuts[PersonalDictionary.key(word)]
+    }
+
+    /// A space after a shortcut puts its text in; backspace right after puts the shortcut back,
+    /// and that word is left alone from then on.
+    private func applyShortcut(_ word: String) -> Bool {
+        guard let text = shortcut(for: word), !zwnjDeclined.contains(word) else { return false }
+        commitTouches(typed: word, as: word)
+        for _ in 0..<word.count { deleteBackward() }
+        insert(text + " ")
+        lastAutoZWNJ = (text + " ", word + " ")
+        lastChangeWasTypo = false
+        haptic(.correction)
+        if !suggestionBar.isHidden { suggestionBar.flashCorrection(text) }
+        return true
+    }
+
     private func pick(_ item: SuggestionBar.Item) {
         if item.replacesGlide, let glide = lastGlide, item.text == glide.word {
             lastGlide = nil
@@ -2425,10 +2517,10 @@ final class KeyboardViewController: UIInputViewController {
         }
         let word = currentWord()
         let context = typingContext(before: word)
-        commitTouches(typed: word, as: item.text)
+        commitTouches(typed: word, as: item.shortcut ? word : item.text)
         lastGlide = nil
         for _ in 0..<word.count { deleteBackward() }
-        lexicon.learn(item.text, after: context, confirmed: item.literal)
+        if !item.shortcut { lexicon.learn(item.text, after: context, confirmed: item.literal) }
         insert(item.text + " ")
         let spared = max(0, item.text.count - word.count)
         UsageStats.record {
@@ -2436,6 +2528,208 @@ final class KeyboardViewController: UIInputViewController {
             $0.lettersSaved += spared
         }
         lastSpace = (CACurrentMediaTime(), 0)
+    }
+
+    // MARK: - TrackPoint
+
+    /// Persian letters only: their second and third rows line up cell by cell, so the dot sits
+    /// on the corner of four keys, and those corners are cut on a slant to make room.
+    private func layoutTrackPoint(top: CGFloat, row: CGFloat, unit: CGFloat, left: CGFloat) {
+        let shown = options.trackPoint && layer == .letters && !isEnglish && emojiSearch == nil && !isCompact
+            && characterKeys.count > 2 && characterKeys[1].count > 6 && characterKeys[2].count > 6
+        trackPoint.isHidden = !shown
+        let keys = shown ? [characterKeys[1][5], characterKeys[1][6], characterKeys[2][5], characterKeys[2][6]] : []
+        let corners: [UIRectCorner] = [.bottomRight, .bottomLeft, .topRight, .topLeft]
+        for key in chamferedKeys where !keys.contains(where: { $0 === key }) { key.chamfer = [] }
+        for (key, corner) in zip(keys, corners) { key.chamfer = corner }
+        chamferedKeys = keys
+        guard shown else { return }
+        let side: CGFloat = 30
+        trackPoint.frame = CGRect(x: left + 6 * unit - side / 2, y: top + 2 * row - side / 2, width: side, height: side)
+        keysView.bringSubviewToFront(trackPoint)
+        for view in [keyPopup, menuShield, keyMenu] { keysView.bringSubviewToFront(view) }
+        if let settingsPanel, settingsPanel.superview != nil { keysView.bringSubviewToFront(settingsPanel) }
+    }
+
+    /// A tap on the dot that did not push: the key under it types, as if the dot were not there.
+    private func tapThroughTrackPoint(at point: CGPoint) {
+        guard let key = letterKey(at: point) ?? chamferedKeys.min(by: {
+            hypot($0.center.x - point.x, $0.center.y - point.y) < hypot($1.center.x - point.x, $1.center.y - point.y)
+        }) else { return }
+        key.sendActions(for: .touchDown)
+        key.sendActions(for: .touchUpInside)
+    }
+
+    private func openCursorPad() {
+        guard cursorPad == nil, state != .recording, state != .starting else { return }
+        keyPopup.hide()
+        let pad = CursorPadView(frame: keysView.frame)
+        pad.textColor = keyStyle.textColor
+        pad.onStep = { [weak self] forward in self?.stepCursor(forward: forward) ?? false }
+        pad.onLine = { [weak self] down in self?.moveLine(down: down) }
+        pad.isRightToLeft = { [weak self] in self?.cursorIsRightToLeft() ?? true }
+        pad.onAction = { [weak self] action in self?.cursorAction(action) }
+        pad.onClose = { [weak self] in self?.closeCursorPad(animated: true) }
+        cursorBefore = proxy.documentContextBeforeInput ?? ""
+        cursorAfter = proxy.documentContextAfterInput ?? ""
+        selection = ""
+        selecting = false
+        pad.canPaste = hasFullAccess && UIPasteboard.general.hasStrings
+        view.addSubview(pad)
+        cursorPad = pad
+        pad.appear(from: trackPoint.center)
+        pad.beginPush(at: trackPoint.center)
+        refreshLens()
+        UIView.animate(withDuration: 0.2) { self.keysView.alpha = 0.08 }
+        haptic(.impact(.light))
+    }
+
+    private func closeCursorPad(animated: Bool) {
+        guard let pad = cursorPad else { return }
+        cursorPad = nil
+        pad.stopLink()
+        selection = ""
+        selecting = false
+        let done = {
+            pad.removeFromSuperview()
+        }
+        if animated {
+            UIView.animate(withDuration: 0.2, animations: {
+                pad.alpha = 0
+                self.keysView.alpha = 1
+            }, completion: { _ in done() })
+        } else {
+            keysView.alpha = 1
+            done()
+        }
+        updateSuggestions()
+        updateAutoShift()
+    }
+
+    private func refreshLens() {
+        cursorPad?.selecting = selecting
+        cursorPad?.showText(before: cursorBefore, after: cursorAfter, selected: selection, selectedForward: selectionForward)
+    }
+
+    /// One character along the text; false at either end of what the app handed over.
+    private func stepCursor(forward: Bool) -> Bool {
+        let character: Character
+        if forward {
+            guard let c = cursorAfter.first else { return false }
+            character = c
+            proxy.adjustTextPosition(byCharacterOffset: c.utf16.count)
+            cursorAfter.removeFirst()
+            cursorBefore.append(c)
+        } else {
+            guard let c = cursorBefore.last else { return false }
+            character = c
+            proxy.adjustTextPosition(byCharacterOffset: -c.utf16.count)
+            cursorBefore.removeLast()
+            cursorAfter.insert(c, at: cursorAfter.startIndex)
+        }
+        if selecting {
+            if selection.isEmpty { selectionForward = forward }
+            if forward == selectionForward {
+                if forward { selection.append(character) } else { selection.insert(character, at: selection.startIndex) }
+            } else if selectionForward {
+                selection.removeLast()
+            } else {
+                selection.removeFirst()
+            }
+        }
+        haptic(.category)
+        refreshLens()
+        return true
+    }
+
+    /// To the same place on the line above or below, where the text has line breaks; a word
+    /// at a time where it does not (a wrapped line's breaks are the app's, out of the keyboard's sight).
+    private func moveLine(down: Bool) {
+        let before = Array(cursorBefore), after = Array(cursorAfter)
+        let column = before.count - 1 - (before.lastIndex(of: "\n") ?? -1)
+        var steps = 0
+        if !down, let lineStart = before.lastIndex(of: "\n") {
+            let previousStart = (before[..<lineStart].lastIndex(of: "\n") ?? -1) + 1
+            let previousLength = lineStart - previousStart
+            steps = column + 1 + max(0, previousLength - column)
+        } else if down, let lineEnd = after.firstIndex(of: "\n") {
+            let nextEnd = after[(lineEnd + 1)...].firstIndex(of: "\n") ?? after.count
+            steps = lineEnd + 1 + min(column, nextEnd - lineEnd - 1)
+        } else if down {
+            // The end of the next word.
+            var i = 0
+            while i < after.count, after[i] == " " { i += 1 }
+            while i < after.count, after[i] != " ", after[i] != "\n" { i += 1 }
+            steps = i
+        } else {
+            var i = before.count
+            while i > 0, before[i - 1] == " " { i -= 1 }
+            while i > 0, before[i - 1] != " ", before[i - 1] != "\n" { i -= 1 }
+            steps = before.count - i
+        }
+        for _ in 0..<steps where stepCursor(forward: down) {}
+    }
+
+    /// Right on screen is back in the text when the nearest letter is Persian or Arabic.
+    private func cursorIsRightToLeft() -> Bool {
+        func direction(_ c: Character) -> Bool? {
+            guard let scalar = c.unicodeScalars.first, c.isLetter else { return nil }
+            switch scalar.value {
+            case 0x0590...0x08FF, 0xFB1D...0xFDFF, 0xFE70...0xFEFF: return true
+            default: return false
+            }
+        }
+        for c in cursorBefore.suffix(30).reversed() { if let rtl = direction(c) { return rtl } }
+        for c in cursorAfter.prefix(30) { if let rtl = direction(c) { return rtl } }
+        return !isEnglish
+    }
+
+    private func cursorAction(_ action: CursorPadView.Action) {
+        switch action {
+        case .select:
+            selecting.toggle()
+            if !selecting { selection = "" }
+            haptic(.impact(.light))
+        case .copy, .cut:
+            guard !selection.isEmpty else { return }
+            guard hasFullAccess else {
+                showStatus("برای کپی، دسترسی کامل کیبورد را روشن کنید", transient: true)
+                return
+            }
+            UIPasteboard.general.string = selection
+            cursorPad?.canPaste = true
+            if action == .cut { deleteSelection() } else {
+                showStatus("کپی شد", transient: true)
+                selecting = false
+                selection = ""
+            }
+            haptic(.impact(.medium))
+        case .delete:
+            deleteSelection()
+            haptic(.impact(.medium))
+        case .paste:
+            guard hasFullAccess, let text = UIPasteboard.general.string, !text.isEmpty else { return }
+            if !selection.isEmpty { deleteSelection() }
+            proxy.insertText(text)
+            cursorBefore += text
+            haptic(.impact(.light))
+        }
+        refreshLens()
+    }
+
+    private func deleteSelection() {
+        guard !selection.isEmpty else { return }
+        let count = selection.count
+        if !selectionForward {
+            // The selection lies after the cursor: move past it, then delete back.
+            proxy.adjustTextPosition(byCharacterOffset: selection.utf16.count)
+            cursorAfter.removeFirst(min(count, cursorAfter.count))
+        } else {
+            cursorBefore.removeLast(min(count, cursorBefore.count))
+        }
+        for _ in 0..<count { proxy.deleteBackward() }
+        selection = ""
+        selecting = false
     }
 
     // MARK: - TapMap
@@ -2767,6 +3061,7 @@ final class KeyboardViewController: UIInputViewController {
             updateSuggestions()
         }
         if new.numberRow != old.numberRow || new.suggestionBar != old.suggestionBar { heightChanged() }
+        if new.trackPoint != old.trackPoint { view.setNeedsLayout() }
     }
 
     /// The keyboard grows or shrinks at once, as when the dictation orb gives way to the keys.
@@ -2837,6 +3132,7 @@ extension KeyboardViewController: UIGestureRecognizerDelegate {
               lexicon.isLoaded else { return false }
         let point = glidePan.location(in: keysView)
         let moved = glidePan.translation(in: keysView)
+        if !trackPoint.isHidden, hypot(point.x - moved.x - trackPoint.center.x, point.y - moved.y - trackPoint.center.y) < 16 { return false }
         return letterKey(at: CGPoint(x: point.x - moved.x, y: point.y - moved.y)) != nil
     }
 }
@@ -3133,6 +3429,7 @@ private final class KeyView: UIControl {
         let corner = knurled ? inner.height / 2 : 6
         face.layer.cornerRadius = corner
         highlight.layer.cornerRadius = corner
+        updateChamfer(corner: corner)
         labelClip.frame = inner
         // Words (ABC, 123, status messages) keep off the edges and shrink to fit. Letters all
         // keep the chosen size: one wider than the key (ص ض س ش when large) sits against the
@@ -3172,6 +3469,65 @@ private final class KeyView: UIControl {
         // Low landscape rows: a tall image shrinks instead of spilling out of the key.
         let size = imageView.image?.size ?? .zero
         imageView.contentMode = size.width > inner.width || size.height > inner.height ? .scaleAspectFit : .center
+    }
+
+    /// Corners cut off on a slant, where the TrackPoint sits between four keys.
+    var chamfer: UIRectCorner = [] {
+        didSet { if chamfer != oldValue { setNeedsLayout() } }
+    }
+    private var chamferOutline: CAShapeLayer?
+
+    private func updateChamfer(corner radius: CGFloat) {
+        guard !chamfer.isEmpty else {
+            face.layer.mask = nil
+            highlight.layer.mask = nil
+            chamferOutline?.removeFromSuperlayer()
+            chamferOutline = nil
+            return
+        }
+        let r = face.bounds
+        let cut = min(9, r.width / 3, r.height / 3)
+        let k = radius * 0.55
+        let path = UIBezierPath()
+        // Clockwise from the top left: a slant where asked, a rounded corner elsewhere.
+        func turn(_ c: UIRectCorner, _ p: CGPoint, from: CGPoint, to: CGPoint) {
+            let inFrom = CGPoint(x: p.x + (from.x - p.x) * (chamfer.contains(c) ? cut : radius) / max(1, hypot(from.x - p.x, from.y - p.y)),
+                                 y: p.y + (from.y - p.y) * (chamfer.contains(c) ? cut : radius) / max(1, hypot(from.x - p.x, from.y - p.y)))
+            let inTo = CGPoint(x: p.x + (to.x - p.x) * (chamfer.contains(c) ? cut : radius) / max(1, hypot(to.x - p.x, to.y - p.y)),
+                               y: p.y + (to.y - p.y) * (chamfer.contains(c) ? cut : radius) / max(1, hypot(to.x - p.x, to.y - p.y)))
+            if path.isEmpty { path.move(to: inFrom) } else { path.addLine(to: inFrom) }
+            if chamfer.contains(c) {
+                path.addLine(to: inTo)
+            } else {
+                path.addCurve(to: inTo, controlPoint1: CGPoint(x: inFrom.x + (p.x - inFrom.x) * k / max(radius, 0.1), y: inFrom.y + (p.y - inFrom.y) * k / max(radius, 0.1)),
+                              controlPoint2: CGPoint(x: inTo.x + (p.x - inTo.x) * k / max(radius, 0.1), y: inTo.y + (p.y - inTo.y) * k / max(radius, 0.1)))
+            }
+        }
+        let tl = CGPoint(x: r.minX, y: r.minY), tr = CGPoint(x: r.maxX, y: r.minY)
+        let br = CGPoint(x: r.maxX, y: r.maxY), bl = CGPoint(x: r.minX, y: r.maxY)
+        turn(.topLeft, tl, from: bl, to: tr)
+        turn(.topRight, tr, from: tl, to: br)
+        turn(.bottomRight, br, from: tr, to: bl)
+        turn(.bottomLeft, bl, from: br, to: tl)
+        path.close()
+        for view in [face, highlight] {
+            let mask = (view.layer.mask as? CAShapeLayer) ?? CAShapeLayer()
+            mask.path = path.cgPath
+            view.layer.mask = mask
+        }
+        // The face's own border is cut off at the slant: drawn along the cut shape instead.
+        if face.layer.borderWidth > 0 {
+            let outline = chamferOutline ?? CAShapeLayer()
+            outline.fillColor = UIColor.clear.cgColor
+            outline.strokeColor = face.layer.borderColor
+            outline.lineWidth = face.layer.borderWidth * 2
+            outline.path = path.cgPath
+            if outline.superlayer == nil { face.layer.addSublayer(outline) }
+            chamferOutline = outline
+        } else {
+            chamferOutline?.removeFromSuperlayer()
+            chamferOutline = nil
+        }
     }
 
     override var isHighlighted: Bool {
@@ -3958,7 +4314,7 @@ private final class DictationOrbView: UIControl {
 /// The app's font has no Latin letters: Latin text set in it falls back to the system font on
 /// the Persian font's taller line and sits high in a key. Text without Persian letters or digits
 /// is set in the system font.
-private func keyFont(for text: String?, size: CGFloat) -> UIFont {
+func keyFont(for text: String?, size: CGFloat) -> UIFont {
     let persian = text?.unicodeScalars.contains { (0x0600...0x06FF).contains($0.value) || (0xFB50...0xFEFF).contains($0.value) }
     return persian == false ? .systemFont(ofSize: size) : AppFont.font(ofSize: size)
 }
@@ -4195,6 +4551,8 @@ private final class SuggestionBar: UIView {
         var literal = false
         /// A reading of the last glide, which replaces the glided word.
         var replacesGlide = false
+        /// A typed shortcut's text: not taught to the lexicon.
+        var shortcut = false
     }
 
     var onPick: ((Item) -> Void)?
@@ -4516,7 +4874,8 @@ private final class KeyboardSettingsPanel: UIView {
         ("بازخورد کلیدها", [Row(title: "بزرگ‌نمایی حرف هنگام تایپ", key: \.keyPreview),
                             Row(title: "صدای کلیدها", key: \.keySounds),
                             Row(title: "لرزش (هپتیک)", key: \.haptics)]),
-        ("لمس", [Row(title: "یادگیری محل لمس", key: \.learnTouches)]),
+        ("لمس", [Row(title: "یادگیری محل لمس", key: \.learnTouches),
+                 Row(title: "دکمه‌ی قرمز مکان‌نما", key: \.trackPoint)]),
     ]
 
     private let backdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))

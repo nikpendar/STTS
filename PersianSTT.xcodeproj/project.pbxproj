@@ -46,6 +46,8 @@
 		A10000000000000000000006 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* Models */; };
 		A10000000000000000000030 /* Lexicon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* Lexicon.swift */; };
 		A10000000000000000000031 /* Lexicon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* Lexicon.swift */; };
+		D10000000000000000000001 /* TrackPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* TrackPoint.swift */; };
+		D10000000000000000000002 /* TrackPoint.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* TrackPoint.swift */; };
 		A10000000000000000000032 /* GlideTyping.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GlideTyping.swift */; };
 		A10000000000000000000033 /* GlideTyping.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GlideTyping.swift */; };
 		A10000000000000000000034 /* fa_words.txt in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* fa_words.txt */; };
@@ -151,6 +153,7 @@
 		A20000000000000000000006 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Models; sourceTree = "<group>"; };
 		A20000000000000000000008 /* PersianSTT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PersianSTT.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000030 /* Lexicon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lexicon.swift; sourceTree = "<group>"; };
+		D20000000000000000000001 /* TrackPoint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackPoint.swift; sourceTree = "<group>"; };
 		A20000000000000000000031 /* GlideTyping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlideTyping.swift; sourceTree = "<group>"; };
 		A2000000000000000000003E /* GlideDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlideDecoder.swift; sourceTree = "<group>"; };
 		A2000000000000000000003F /* EmojiPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmojiPanel.swift; sourceTree = "<group>"; };
@@ -280,6 +283,7 @@
 				A20000000000000000000022 /* EditTracker.swift */,
 				A20000000000000000000030 /* Lexicon.swift */,
 				A20000000000000000000031 /* GlideTyping.swift */,
+				D20000000000000000000001 /* TrackPoint.swift */,
 				A2000000000000000000003E /* GlideDecoder.swift */,
 				A2000000000000000000003F /* EmojiPanel.swift */,
 				A20000000000000000000032 /* fa_words.txt */,
@@ -580,6 +584,7 @@
 				A10000000000000000000022 /* EditTracker.swift in Sources */,
 				A10000000000000000000030 /* Lexicon.swift in Sources */,
 				A10000000000000000000032 /* GlideTyping.swift in Sources */,
+				D10000000000000000000001 /* TrackPoint.swift in Sources */,
 				A10000000000000000000036 /* VoiceCommands.swift in Sources */,
 				A1000000000000000000003C /* TouchModel.swift in Sources */,
 				A1000000000000000000003E /* KeyboardBackground.swift in Sources */,
@@ -604,6 +609,7 @@
 				A1000000000000000000000C /* DictationBridge.swift in Sources */,
 				A10000000000000000000031 /* Lexicon.swift in Sources */,
 				A10000000000000000000033 /* GlideTyping.swift in Sources */,
+				D10000000000000000000002 /* TrackPoint.swift in Sources */,
 				A10000000000000000000037 /* VoiceCommands.swift in Sources */,
 				A1000000000000000000003D /* TouchModel.swift in Sources */,
 				A1000000000000000000003F /* KeyboardBackground.swift in Sources */,
