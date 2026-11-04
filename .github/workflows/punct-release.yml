@@ -5,10 +5,9 @@
 # (Tests/Punct) and publishes the files as the release punct-albert6, where setup.sh downloads them.
 name: Punctuation model
 
+# Run by hand only: the trained model's artifact (run 40508002388) has expired, so a new
+# training run's id must be given.
 on:
-  push:
-    branches: [batch-1021c]
-    paths: [.github/workflows/punct-release.yml, scripts/punct/release.py, PersianSTT/AutoPunctuation.swift, Tests/Punct/**, Shared/PersonalDictionary.swift]
   workflow_dispatch:
     inputs:
       run:
