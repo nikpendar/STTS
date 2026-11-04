@@ -100,7 +100,7 @@ final class TrackPointView: UIView {
 /// The dot's face: the dictation orb's turning colours, in reds, with a soft rubber shine.
 final class TrackPointFace: UIView {
     private let gradient = CAGradientLayer()
-    private let mask = CAShapeLayer()
+    private let faceMask = CAShapeLayer()
     private let shine = CAGradientLayer()
     var pressed = false {
         didSet {
@@ -117,7 +117,7 @@ final class TrackPointFace: UIView {
         gradient.startPoint = CGPoint(x: 0.5, y: 0.5)
         gradient.endPoint = CGPoint(x: 0.5, y: 0)
         gradient.colors = Self.colors
-        gradient.mask = mask
+        gradient.mask = faceMask
         layer.addSublayer(gradient)
         shine.type = .radial
         shine.colors = [UIColor.white.withAlphaComponent(0.55).cgColor, UIColor.white.withAlphaComponent(0).cgColor]
@@ -153,9 +153,9 @@ final class TrackPointFace: UIView {
         let side = hypot(bounds.width, bounds.height)
         gradient.bounds = CGRect(x: 0, y: 0, width: side, height: side)
         gradient.position = CGPoint(x: bounds.midX, y: bounds.midY)
-        mask.frame = gradient.bounds
+        faceMask.frame = gradient.bounds
         let inset = (side - bounds.width) / 2
-        mask.path = UIBezierPath(ovalIn: CGRect(x: inset, y: (side - bounds.height) / 2, width: bounds.width, height: bounds.height)).cgPath
+        faceMask.path = UIBezierPath(ovalIn: CGRect(x: inset, y: (side - bounds.height) / 2, width: bounds.width, height: bounds.height)).cgPath
         shine.frame = bounds
         let round = UIBezierPath(ovalIn: bounds).cgPath
         let shineMask = CAShapeLayer()
