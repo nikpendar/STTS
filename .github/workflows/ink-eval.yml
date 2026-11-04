@@ -85,6 +85,7 @@ jobs:
           xcrun simctl launch "$DEVICE" ir.nikpendar.PersianSTT -inkBenchmark "$PWD/samples.json" -inkOut "$PWD/ink-en.json" -inkLanguage en-US
           for i in $(seq 1 60); do [ -s ink-en.json ] && break; sleep 5; done
           head -c 600 ink-en.json || true; echo
+          xcrun simctl spawn "$DEVICE" log show --last 5m --style compact --predicate 'process == "PersianSTT"' | grep -viE "UIKit|CoreAnalytics|RunningBoard|BackBoard|FrontBoard|LaunchServices" | tail -80 || true
           xcrun simctl terminate "$DEVICE" ir.nikpendar.PersianSTT || true
           OUT="$PWD/ink-out.json"
           xcrun simctl launch "$DEVICE" ir.nikpendar.PersianSTT -inkBenchmark "$PWD/samples.json" -inkOut "$OUT"
