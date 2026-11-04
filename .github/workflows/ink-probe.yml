@@ -16,10 +16,16 @@ jobs:
           done
           for b in MLKitDigitalInkRecognition MLKitMDD MLKitCommon; do strings -n 5 $(find . -type f -name $b) > $b.txt; done
           cat MLKitDigitalInkRecognition-8.0.0/Frameworks/MLKitDigitalInkRecognition.framework/MLKitDigitalInkRecognition_resource.bundle/manifest.json | head -c 3000; echo
-          for b in MLKitDigitalInkRecognition MLKitMDD MLKitCommon; do
-            echo "=== $b"
-            grep -Ei 'Application Support|NSApplicationSupport|NSCachesDirectory|NSDocument|NSLibrary|com\.google|mlkit/|models/|digitalink|digital_ink|\.fst|indy_|tflite|modelsDirectory|modelPath|localModel|LocalModel|isModelDownloaded|downloadedModels|unzip|SSZip|@"[a-z_]+/%@' $b.txt | grep -v 'dl.google.com/handwriting/models' | grep -v descriptor | sort -u | head -200 || true
-          done
+          R=MLKitDigitalInkRecognition-8.0.0/Frameworks/MLKitDigitalInkRecognition.framework/MLKitDigitalInkRecognition_resource.bundle
+          echo "=== fa packs"
+          jq -c '.packs[] | select(.name|test("(^|_)fa_|arabic"))' $R/manifest.json
+          echo "=== packmapping fa"
+          strings -n 3 $R/packmapping.pb | grep -n -B2 -A4 -E '^fa$|^fa[^a-z]|arabic' | head -60
+          echo "=== dir words"
+          grep -Ei '^(handwriting|models?|downloads?|superpacks?|com\.google\.mlkit\.handwriting|digitalink|\.unzipped|tmp|[a-z_]*handwriting[a-z_]*)$' MLKitDigitalInkRecognition.txt | sort -u
+          grep -n -B3 -A3 '^\.unzipped$' MLKitDigitalInkRecognition.txt | head -40
+          grep -Ei 'file group|filegroup|fileGroup' MLKitDigitalInkRecognition.txt MLKitMDD.txt | grep -v '^\S*:[-+]\[' | sort -u | head -40
+          grep -Ei 'Application Support|Caches|NSSearchPath|URLsForDirectory|google-mlkit|mlkit_|mdd' MLKitMDD.txt | sort -u | head -60
           mkdir out; cp *.txt out/
       - uses: actions/upload-artifact@v4
         with: { name: strings, path: out }
