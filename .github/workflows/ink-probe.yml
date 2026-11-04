@@ -1,31 +1,20 @@
-# Finds how ML Kit stores the handwriting model on the device.
+# Lists what of ML Kit is inside the built IPA.
 name: ink-probe
 on:
   push:
     branches: [batch-1021c]
     paths: [.github/workflows/ink-probe.yml]
+permissions: { actions: read, contents: read }
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          for u in https://dl.google.com/dl/cpdc/95473d50497208d4/MLKitDigitalInkRecognition-8.0.0.tar.gz \
-                   https://dl.google.com/dl/cpdc/b14ff2c7cc91cb0f/MLKitMDD-10.0.0.tar.gz \
-                   https://dl.google.com/dl/cpdc/00f258dabdb58dfa/MLKitCommon-14.0.0.tar.gz; do
-            n=$(basename $u .tar.gz); mkdir -p $n; curl -sSL $u | tar xz -C $n
-          done
-          for b in MLKitDigitalInkRecognition MLKitMDD MLKitCommon; do strings -n 5 $(find . -type f -name $b) > $b.txt; done
-          cat MLKitDigitalInkRecognition-8.0.0/Frameworks/MLKitDigitalInkRecognition.framework/MLKitDigitalInkRecognition_resource.bundle/manifest.json | head -c 3000; echo
-          R=MLKitDigitalInkRecognition-8.0.0/Frameworks/MLKitDigitalInkRecognition.framework/MLKitDigitalInkRecognition_resource.bundle
-          echo "=== fa packs"
-          jq -c '.packs[] | select(.name|test("(^|_)fa_|arabic"))' $R/manifest.json
-          echo "=== packmapping fa"
-          strings -n 3 $R/packmapping.pb | grep -n -B2 -A4 -E '^fa$|^fa[^a-z]|arabic' | head -60
-          echo "=== dir words"
-          grep -Ei '^(handwriting|models?|downloads?|superpacks?|com\.google\.mlkit\.handwriting|digitalink|\.unzipped|tmp|[a-z_]*handwriting[a-z_]*)$' MLKitDigitalInkRecognition.txt | sort -u
-          grep -n -B3 -A3 '^\.unzipped$' MLKitDigitalInkRecognition.txt | head -40
-          grep -Ei 'file group|filegroup|fileGroup' MLKitDigitalInkRecognition.txt MLKitMDD.txt | grep -v '^\S*:[-+]\[' | sort -u | head -40
-          grep -Ei 'Application Support|Caches|NSSearchPath|URLsForDirectory|google-mlkit|mlkit_|mdd' MLKitMDD.txt | sort -u | head -60
-          mkdir out; cp *.txt out/
-      - uses: actions/upload-artifact@v4
-        with: { name: strings, path: out }
+      - env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh run download 41811326455 -R ${{ github.repository }} -n KeylessShenava -D ipa
+          ls -la ipa
+          unzip -l ipa/*.ipa | grep -iE "appex/[^/]*$|mlkit|resource.bundle|manifest.json|packmapping|GoogleService|Info.plist$" | head -40
+          mkdir x && cd x && unzip -q ../ipa/*.ipa
+          K=$(find . -name "*.appex" -maxdepth 4 | head -1); echo "$K"
+          plutil() { python3 -c "import plistlib,sys,json;print(json.dumps(plistlib.load(open(sys.argv[1],'rb')),indent=1,default=str))" "$1"; }
+          plutil "$K/Info.plist" | head -80
