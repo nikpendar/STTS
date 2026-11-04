@@ -2,15 +2,17 @@
 # PersianSTTKeyboard/Handwriting.swift) on 300 Persian words written as pen strokes. No public set
 # of Persian online handwriting exists, so the strokes are synthetic (scripts/ink_samples.py: words
 # in Nastaliq, Ruqaa and a plain sans traced into strokes): a check that it reads Persian, and of
-# its speed and memory, not its accuracy on a real hand. Runs in the app (launch argument
-# -inkBenchmark) on the simulator, which ML Kit supports only as Intel code (Rosetta). Also builds
-# the device app with the recognizer in the keyboard, as build.yml does. Changes nothing.
+# its speed and memory, not its accuracy on a real hand. ML Kit cannot download its models in the
+# simulator here (Intel code under Rosetta: "Download failed" for English and Persian alike, runs
+# 41805224152 and 41806258966), so the reading itself runs on the phone: hold the handwriting pad's
+# keyboard button (150 of these words, PersianSTTKeyboard/ink_samples.json). This builds the
+# samples and the device app with the recognizer in the keyboard, as build.yml does.
 name: Handwriting check
 
 on:
   push:
     branches: [batch-1021c]
-    paths: [.github/workflows/ink-eval.yml, scripts/ink_samples.py, Podfile, PersianSTTKeyboard/Handwriting.swift, PersianSTT/InkBenchmark.swift]
+    paths: [.github/workflows/ink-eval.yml, scripts/ink_samples.py, Podfile, PersianSTTKeyboard/Handwriting.swift]
   workflow_dispatch:
 
 jobs:
@@ -53,67 +55,3 @@ jobs:
           strings "$KB" | grep -c DigitalInkRecogni
           ls -l "$KB" build/Release-iphoneos/PersianSTT.app/PersianSTT
           du -sh build/Release-iphoneos/PersianSTT.app
-
-  simulator:
-    needs: samples
-    runs-on: macos-15
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
-        with:
-          name: ink-samples
-      - name: Select Xcode
-        run: |
-          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
-          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
-          softwareupdate --install-rosetta --agree-to-license > /dev/null 2>&1 || true
-      - name: Build the app for the simulator (Intel), with the recognizer in it
-        run: |
-          bash ./setup.sh sidecars
-          INK_IN_APP=1 pod install --repo-update
-          xcodebuild -workspace PersianSTT.xcworkspace -scheme PersianSTT -configuration Release -sdk iphonesimulator \
-            -destination "generic/platform=iOS Simulator" ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO SYMROOT="$PWD/build" \
-            CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || { grep -E "error:|BUILD FAILED" build.log | head -n 40; exit 1; }
-      - name: Recognize
-        run: |
-          DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
-          xcrun simctl boot "$DEVICE"
-          xcrun simctl bootstatus "$DEVICE" -b
-          xcrun simctl install "$DEVICE" build/Release-iphonesimulator/PersianSTT.app
-          # English first: a download that fails for both is the simulator's, not the Persian model's.
-          xcrun simctl launch "$DEVICE" ir.nikpendar.PersianSTT -inkBenchmark "$PWD/samples.json" -inkOut "$PWD/ink-en.json" -inkLanguage en-US
-          for i in $(seq 1 60); do [ -s ink-en.json ] && break; sleep 5; done
-          head -c 600 ink-en.json || true; echo
-          xcrun simctl spawn "$DEVICE" log show --last 5m --style compact --predicate 'process == "PersianSTT"' | grep -viE "UIKit|CoreAnalytics|RunningBoard|BackBoard|FrontBoard|LaunchServices" | tail -80 || true
-          xcrun simctl terminate "$DEVICE" ir.nikpendar.PersianSTT || true
-          OUT="$PWD/ink-out.json"
-          xcrun simctl launch "$DEVICE" ir.nikpendar.PersianSTT -inkBenchmark "$PWD/samples.json" -inkOut "$OUT"
-          for i in $(seq 1 180); do [ -s "$OUT" ] && break; sleep 5; done
-          xcrun simctl spawn "$DEVICE" log show --last 10m --predicate 'eventMessage CONTAINS[c] "mlkit" OR eventMessage CONTAINS[c] "handwriting"' | tail -40 || true
-          [ -s "$OUT" ] || { echo "::error::no result"; xcrun simctl spawn "$DEVICE" log show --last 5m --predicate 'process == "PersianSTT"' | tail -50; exit 1; }
-          set -o pipefail
-          python3 - "$OUT" <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
-          import json, sys, unicodedata
-          r = json.load(open(sys.argv[1]))
-          if "error" in r:
-              print("error:", r["error"], r.get("detail", "")); sys.exit(1)
-          def norm(s):
-              return unicodedata.normalize("NFKC", s).replace("ي", "ی").replace("ك", "ک").replace("‌", "").replace(" ", "")
-          res = r["results"]
-          top1 = sum(1 for x in res if x["readings"] and norm(x["readings"][0]) == norm(x["word"]))
-          top4 = sum(1 for x in res if any(norm(t) == norm(x["word"]) for t in x["readings"][:4]))
-          ms = sorted(x["ms"] for x in res)
-          print(f"| words | first reading right | in the first four | median ms | slowest ms | memory before / loaded / after / peak MB | ready s |")
-          print(f"|---|---|---|---|---|---|---|")
-          print(f"| {len(res)} | {100 * top1 / len(res):.1f}% | {100 * top4 / len(res):.1f}% | {ms[len(ms) // 2]:.0f} | {ms[-1]:.0f} | "
-                f"{r['memory_before_mb']:.0f} / {r['memory_loaded_mb']:.0f} / {r['memory_after_mb']:.0f} / {r['memory_peak_mb']:.0f} | {r['ready_seconds']:.1f} |")
-          for x in res[:15]:
-              print(f"- {x['word']}: {' / '.join(x['readings'][:4])}")
-          PY
-      - uses: actions/upload-artifact@v5
-        if: always()
-        with:
-          name: ink-result
-          path: ink-out.json
-          if-no-files-found: ignore

@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		C10000000000000000000005 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000005 /* UsageStats.swift */; };
 		C10000000000000000000015 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000005 /* UsageStats.swift */; };
-		D10000000000000000000010 /* InkBenchmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000010 /* InkBenchmark.swift */; };
 		C10000000000000000000006 /* UsageReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000006 /* UsageReport.swift */; };
 		A1000000000000000000004C /* OnnxModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* OnnxModel.swift */; };
 		A1000000000000000000004D /* PersianPhonemizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* PersianPhonemizer.swift */; };
@@ -58,6 +57,7 @@
 		A10000000000000000000035 /* ModelImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* ModelImporter.swift */; };
 		A10000000000000000000036 /* VoiceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* VoiceCommands.swift */; };
 		A10000000000000000000037 /* VoiceCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* VoiceCommands.swift */; };
+		D10000000000000000000020 /* ink_samples.json in Resources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000020 /* ink_samples.json */; };
 		A10000000000000000000038 /* fa_bigrams.bin in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* fa_bigrams.bin */; };
 		A10000000000000000000039 /* en_words.txt in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000036 /* en_words.txt */; };
 		A1000000000000000000003A /* en_bigrams.bin in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000037 /* en_bigrams.bin */; };
@@ -127,7 +127,6 @@
 
 /* Begin PBXFileReference section */
 		C20000000000000000000005 /* UsageStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStats.swift; sourceTree = "<group>"; };
-		D20000000000000000000010 /* InkBenchmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InkBenchmark.swift; sourceTree = "<group>"; };
 		C20000000000000000000006 /* UsageReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageReport.swift; sourceTree = "<group>"; };
 		A20000000000000000000042 /* OnnxModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnnxModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* PersianPhonemizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianPhonemizer.swift; sourceTree = "<group>"; };
@@ -172,6 +171,7 @@
 		A200000000000000000000C0 /* CrashReports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrashReports.swift; sourceTree = "<group>"; };
 		A20000000000000000000041 /* PersonalDictionary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalDictionary.swift; sourceTree = "<group>"; };
 		A2000000000000000000003A /* KeyboardBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardBackground.swift; sourceTree = "<group>"; };
+		D20000000000000000000020 /* ink_samples.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ink_samples.json; sourceTree = "<group>"; };
 		A20000000000000000000035 /* fa_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = fa_bigrams.bin; sourceTree = "<group>"; };
 		A20000000000000000000036 /* en_words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = en_words.txt; sourceTree = "<group>"; };
 		A20000000000000000000037 /* en_bigrams.bin */ = {isa = PBXFileReference; lastKnownFileType = file; path = en_bigrams.bin; sourceTree = "<group>"; };
@@ -262,7 +262,6 @@
 				A200000000000000000000E1 /* EzafeTagger.swift */,
 				B20000000000000000000020 /* WatchLink.swift */,
 				C20000000000000000000006 /* UsageReport.swift */,
-				D20000000000000000000010 /* InkBenchmark.swift */,
 				A20000000000000000000046 /* OnnxRuntime-Bridging-Header.h */,
 				A2000000000000000000000E /* Info.plist */,
 				A200000000000000000000D0 /* PrivacyInfo.xcprivacy */,
@@ -300,6 +299,7 @@
 				A20000000000000000000039 /* TouchModel.swift */,
 				A2000000000000000000003D /* KeyboardMetrics.swift */,
 				A20000000000000000000035 /* fa_bigrams.bin */,
+				D20000000000000000000020 /* ink_samples.json */,
 				A20000000000000000000036 /* en_words.txt */,
 				A20000000000000000000037 /* en_bigrams.bin */,
 				A2000000000000000000000F /* Info.plist */,
@@ -492,6 +492,7 @@
 				A10000000000000000000034 /* fa_words.txt in Resources */,
 				A10000000000000000000049 /* emoji_names.txt in Resources */,
 				A10000000000000000000038 /* fa_bigrams.bin in Resources */,
+				D10000000000000000000020 /* ink_samples.json in Resources */,
 				A10000000000000000000039 /* en_words.txt in Resources */,
 				A1000000000000000000003A /* en_bigrams.bin in Resources */,
 				A100000000000000000000D1 /* PrivacyInfo.xcprivacy in Resources */,
@@ -601,7 +602,6 @@
 				B10000000000000000000020 /* WatchLink.swift in Sources */,
 				C10000000000000000000005 /* UsageStats.swift in Sources */,
 				C10000000000000000000006 /* UsageReport.swift in Sources */,
-				D10000000000000000000010 /* InkBenchmark.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

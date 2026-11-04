@@ -10,8 +10,10 @@ a check that the recognizer reads Persian at all and of its speed and memory, no
 accuracy on a user's own hand.
 
 Usage: ink_samples.py <fa_words.txt> <out.json> <count> <font.ttf> [font.ttf ...]
+(INK_STEP=n keeps every nth point: the keyboard's own copy, ink_samples.json, uses 3.)
 """
 import json
+import os
 import random
 import sys
 
@@ -173,12 +175,14 @@ def trace(mask):
     dots = sorted([p for p in parts if p[1] < big * 0.15], key=lambda p: -p[0])
     ordered = [s for p in bodies for s in p[2]] + [s for p in dots for s in p[2]]
     # A writing pace: 8 ms a point, 120 ms between strokes.
+    step = int(os.environ.get("INK_STEP", "1"))
     out, t = [], 0
     for stroke in ordered:
         points = []
-        for x, y in stroke:
-            points.append([float(x), float(y), t])
-            t += 8
+        kept = stroke[::step] + ([stroke[-1]] if (len(stroke) - 1) % step else [])
+        for x, y in kept:
+            points.append([int(x), int(y), t])
+            t += 8 * step
         out.append(points)
         t += 120
     return out

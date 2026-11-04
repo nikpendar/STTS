@@ -14,9 +14,9 @@ final class InkRecognizer {
 
     enum State: Equatable { case unavailable, downloading, ready, failed(String) }
     private(set) var state = State.unavailable
-    /// The recognizer's language (BCP 47); the benchmark also tries others.
+    /// The recognizer's language (BCP 47).
     var language = "fa"
-    /// The download's error in full, for the benchmark's report.
+    /// The download's error in full, for the log.
     private(set) var lastError: String?
     var onState: ((State) -> Void)?
 
@@ -166,7 +166,9 @@ final class HandwritingPadView: UIView {
         layer.addSublayer(ink)
         status.font = keyFont(for: "دست‌خط", size: 15)
         status.textAlignment = .center
-        status.numberOfLines = 2
+        status.numberOfLines = 3
+        status.adjustsFontSizeToFitWidth = true
+        status.minimumScaleFactor = 0.7
         status.textColor = textColor.withAlphaComponent(0.6)
         status.isUserInteractionEnabled = false
         addSubview(status)
@@ -201,6 +203,10 @@ final class HandwritingPadView: UIView {
         closeButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onClose?() }, for: .touchUpInside)
         recognizer.onState = { [weak self] state in self?.show(state) }
         show(.unavailable)
+        // Hidden: holding the keyboard button runs the self-test on this phone.
+        let hold = UILongPressGestureRecognizer(target: self, action: #selector(selfTestHeld(_:)))
+        hold.minimumPressDuration = 1.5
+        closeButton.addGestureRecognizer(hold)
     }
 
     required init?(coder: NSCoder) {
@@ -364,5 +370,87 @@ final class HandwritingPadView: UIView {
     override func removeFromSuperview() {
         stop()
         super.removeFromSuperview()
+    }
+
+    // MARK: Self-test
+
+    /// The handwriting check on the phone itself: the 150 synthetic words in ink_samples.json
+    /// (scripts/ink_samples.py), read one after another. Shows how many came out right, the time
+    /// of each and the keyboard's memory before, with the recognizer loaded, and at its peak.
+    @objc private func selfTestHeld(_ press: UILongPressGestureRecognizer) {
+        guard press.state == .began, !testing else { return }
+        guard recognizer.state == .ready else {
+            status.text = "سنجش: اول مدل باید آماده باشد"
+            return
+        }
+        guard let url = Bundle.main.url(forResource: "ink_samples", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let samples = try? JSONDecoder().decode([TestSample].self, from: data) else {
+            status.text = "سنجش: نمونه‌ها پیدا نشد"
+            return
+        }
+        testing = true
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        testResults = []
+        runTest(samples, index: 0, memoryLoaded: Self.memory().now)
+    }
+
+    private struct TestSample: Decodable {
+        let word: String
+        let strokes: [[[Double]]]
+        let width: Double
+        let height: Double
+    }
+
+    private var testing = false
+    private var testResults: [(right: Bool, inFour: Bool, ms: Double)] = []
+
+    private func runTest(_ samples: [TestSample], index: Int, memoryLoaded: Double) {
+        guard index < samples.count, superview != nil else {
+            finishTest(memoryLoaded: memoryLoaded)
+            return
+        }
+        let sample = samples[index]
+        status.text = "سنجش \(index + 1) از \(samples.count)…"
+        let strokes = sample.strokes.map { $0.map { InkRecognizer.Point(x: Float($0[0]), y: Float($0[1]), t: Int($0[2])) } }
+        let started = CACurrentMediaTime()
+        recognizer.recognize(strokes, before: "", area: CGSize(width: sample.width, height: sample.height)) { [weak self] texts in
+            guard let self else { return }
+            let key = { (t: String) in t.replacingOccurrences(of: "\u{200C}", with: "").replacingOccurrences(of: " ", with: "")
+                .replacingOccurrences(of: "ي", with: "ی").replacingOccurrences(of: "ك", with: "ک") }
+            let word = key(sample.word)
+            self.testResults.append((texts.first.map(key) == word, texts.prefix(4).contains { key($0) == word },
+                                     (CACurrentMediaTime() - started) * 1000))
+            self.runTest(samples, index: index + 1, memoryLoaded: memoryLoaded)
+        }
+    }
+
+    private func finishTest(memoryLoaded: Double) {
+        testing = false
+        let n = max(1, testResults.count)
+        let right = testResults.filter(\.right).count, four = testResults.filter(\.inFour).count
+        let times = testResults.map(\.ms).sorted()
+        let median = times.isEmpty ? 0 : times[times.count / 2]
+        let memory = Self.memory()
+        let digits = { (v: Double) in String(format: "%.0f", v).map { c -> Character in
+            c.wholeNumberValue.map { Character(String(UnicodeScalar(0x06F0 + $0)!)) } ?? c } }
+        let text = "سنجش \(String(digits(Double(testResults.count)))) کلمه: درست \(String(digits(Double(100 * right / n))))٪، در چهار پیشنهاد \(String(digits(Double(100 * four / n))))٪\n"
+            + "میانه \(String(digits(median))) میلی‌ثانیه، حافظه \(String(digits(memoryLoaded))) / \(String(digits(memory.peak))) مگابایت"
+        status.text = text
+        NSLog("handwriting self-test: %d words, right %d, in four %d, median %.0f ms, slowest %.0f ms, memory loaded %.0f MB, now %.0f MB, peak %.0f MB",
+              testResults.count, right, four, median, times.last ?? 0, memoryLoaded, memory.now, memory.peak)
+    }
+
+    /// The keyboard's memory in MB (as Xcode and iOS's limit count it), now and at its peak.
+    static func memory() -> (now: Double, peak: Double) {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return (0, 0) }
+        return (Double(info.phys_footprint) / 1e6, Double(info.ledger_phys_footprint_peak) / 1e6)
     }
 }
