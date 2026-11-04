@@ -49,6 +49,33 @@ final class AutoPunctuation: @unchecked Sendable {
         #endif
     }
 
+    /// How the tagger's scores become marks (Tests/PunctEval measures the choices).
+    struct Tuning {
+        /// Added to the comma and full stop scores of a word the speaker paused after.
+        var pauseBias: Float = 0
+        /// A question mark stays without a question word in its sentence only when its score
+        /// is this far above the next best; .infinity: never.
+        var questionMargin: Float = 0
+        /// The last word ends the text with a full stop when the tagger gives it none or a comma.
+        var endPeriod = false
+    }
+
+    nonisolated(unsafe) static var tuning = Tuning()
+
+    /// Words that make a sentence a question (written and spoken forms).
+    static let questionWords: Set<String> = [
+        "آیا", "چرا", "چه", "چی", "چیه", "چیست", "چطور", "چطوری", "چگونه", "کی", "کیه", "کیست", "کجا", "کجاست",
+        "کجای", "کدام", "کدوم", "چند", "چندتا", "چقدر", "مگه", "مگر", "واسه‌چی", "برای‌چی", "چندم",
+    ]
+
+    private static let questionKeys = Set(questionWords.map(questionKey))
+
+    /// A word without ZWNJ and marks, for `questionWords`.
+    private static func questionKey(_ word: String) -> String {
+        String(modelWord(word).unicodeScalars.filter { $0 != "\u{200C}" && !CharacterSet.punctuationCharacters.contains($0) }
+            .map(Character.init))
+    }
+
     /// The mark after each word, as the tagger's labels: none, comma, full stop, question mark.
     private static let marks = ["", "،", ".", "؟"]
     /// Model inputs are at most 128 pieces, with [CLS] and [SEP].
@@ -92,7 +119,8 @@ final class AutoPunctuation: @unchecked Sendable {
             }
         }
         if !current.isEmpty { words.append((current, "")) }
-        guard !words.isEmpty, let labels = labels(for: words.map(\.word)) else { return text }
+        let pauses = words.map { $0.after.contains(DictationBridge.pauseMark) }
+        guard !words.isEmpty, let labels = labels(for: words.map(\.word), pauses: pauses) else { return text }
 
         var out = leading
         for (index, item) in words.enumerated() {
@@ -118,12 +146,44 @@ final class AutoPunctuation: @unchecked Sendable {
     }
 
     /// Each word's label (0 none, 1 comma, 2 full stop, 3 question mark), nil without the model.
-    func labels(for words: [String]) -> [Int]? {
+    /// `pauses`: the speaker paused after the word (`Tuning.pauseBias`).
+    func labels(for words: [String], pauses: [Bool] = []) -> [Int]? {
+        guard let scores = scores(for: words) else { return nil }
+        return Self.choose(scores: scores, words: words, pauses: pauses, tuning: Self.tuning)
+    }
+
+    /// The marks from the tagger's scores, by `tuning`.
+    static func choose(scores: [[Float]], words: [String], pauses: [Bool], tuning: Tuning) -> [Int] {
+        var labels: [Int] = []
+        var sentenceAsks = false
+        for (index, raw) in scores.enumerated() {
+            var s = raw
+            if index < pauses.count, pauses[index], s.count > 2 {
+                s[1] += tuning.pauseBias
+                s[2] += tuning.pauseBias
+            }
+            var best = s.indices.max { s[$0] < s[$1] } ?? 0
+            if questionKeys.contains(questionKey(words[index])) {
+                sentenceAsks = true
+            }
+            if best == 3, !sentenceAsks {
+                let others = s.enumerated().filter { $0.offset != 3 }.map(\.element).max() ?? -.infinity
+                if s[3] - others < tuning.questionMargin { best = 2 }
+            }
+            if tuning.endPeriod, index == scores.count - 1, best < 2 { best = 2 }
+            if best >= 2 { sentenceAsks = false }
+            labels.append(best < marks.count ? best : 0)
+        }
+        return labels
+    }
+
+    /// The tagger's four scores for each word, nil without the model.
+    func scores(for words: [String]) -> [[Float]]? {
         lock.lock()
         defer { lock.unlock() }
         guard let ready = loaded() else { return nil }
         let (model, tokenizer) = ready
-        var labels = [Int](repeating: 0, count: words.count)
+        var labels = [[Float]](repeating: [0, 0, 0, 0], count: words.count)
         var start = 0
         while start < words.count {
             // As many words as fit in one input.
@@ -197,8 +257,8 @@ final class AutoPunctuation: @unchecked Sendable {
         }
     }
 
-    /// The label of each word: the tagger's best label on the word's last piece.
-    private func predict(model: MLModel, tokenizer: PunctTokenizer, pieces: [[Int32]]) -> [Int]? {
+    /// The scores of each word: the tagger's on the word's last piece.
+    private func predict(model: MLModel, tokenizer: PunctTokenizer, pieces: [[Int32]]) -> [[Float]]? {
         var ids: [Int32] = [tokenizer.cls]
         var last: [Int] = []
         for p in pieces {
@@ -220,16 +280,7 @@ final class AutoPunctuation: @unchecked Sendable {
             }
             let classes = logits.shape.last?.intValue ?? 4
             return last.map { position in
-                var best = 0
-                var bestValue = -Float.infinity
-                for c in 0..<classes {
-                    let value = logits[position * classes + c].floatValue
-                    if value > bestValue {
-                        bestValue = value
-                        best = c
-                    }
-                }
-                return best < Self.marks.count ? best : 0
+                (0..<min(classes, Self.marks.count)).map { logits[position * classes + $0].floatValue }
             }
         } catch {
             log.error("punctuation failed: \(error.localizedDescription, privacy: .public)")
