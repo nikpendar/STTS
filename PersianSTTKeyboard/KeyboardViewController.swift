@@ -154,6 +154,9 @@ final class KeyboardViewController: UIInputViewController {
     /// The red cursor dot between four letters (`TrackPointView`), and the joystick it grows into.
     private let trackPoint = TrackPointView()
     private var cursorPad: CursorPadView?
+    /// The handwriting pad (from holding the emoji key); made when opened, let go when closed,
+    /// so its recognizer is in memory only while it is used.
+    private var handwritingPad: HandwritingPadView?
     /// The text on either side of the cursor while the pad is open, kept here as the cursor
     /// moves (the proxy's context catches up only later), and the part selected.
     private var cursorBefore = ""
@@ -354,6 +357,7 @@ final class KeyboardViewController: UIInputViewController {
         settingsPanel?.removeFromSuperview()
         trackPoint.cancel()
         closeCursorPad(animated: false)
+        hideHandwriting(animated: false)
         if touchSaveScheduled { touchModel.save() }
         // A locked recording pauses, as when iOS takes the microphone: when this keyboard comes
         // back it goes on after a tap on the orb, and the app ends it if it stays paused.
@@ -1530,6 +1534,7 @@ final class KeyboardViewController: UIInputViewController {
 
         keyMenu.items = [
             KeyMenuView.Item(title: "شکلک", symbol: "face.smiling") { [weak self] in self?.toggleEmoji() },
+            KeyMenuView.Item(title: "دست‌خط", symbol: "scribble") { [weak self] in self?.showHandwriting() },
             KeyMenuView.Item(title: "تنظیمات", symbol: "gearshape") { [weak self] in self?.showSettings() },
         ]
         keyMenu.onSelect = { [weak self] item in
@@ -1918,6 +1923,7 @@ final class KeyboardViewController: UIInputViewController {
         keysView.frame = CGRect(x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
         glideTrail.frame = keysView.bounds
         if let cursorPad, cursorPad.frame != keysView.frame { closeCursorPad(animated: false) }
+        handwritingPad?.frame = keysView.frame
         menuShield.frame = keysView.bounds
         settingsPanel?.frame = keysView.bounds
         if keyPopup.frame != keysView.bounds {
@@ -2528,6 +2534,56 @@ final class KeyboardViewController: UIInputViewController {
             $0.lettersSaved += spared
         }
         lastSpace = (CACurrentMediaTime(), 0)
+    }
+
+    // MARK: - Handwriting
+
+    private func showHandwriting() {
+        guard handwritingPad == nil else { return }
+        closeCursorPad(animated: false)
+        endEmojiSearch(backToEmoji: false)
+        if layer == .emoji {
+            layer = .letters
+            buildCharacterKeys()
+        }
+        let pad = HandwritingPadView(frame: keysView.frame)
+        pad.textColor = keyStyle.textColor
+        pad.onInsert = { [weak self] text in
+            guard let self else { return }
+            // A word after a word: one space between, as typing would leave it.
+            let before = self.proxy.documentContextBeforeInput ?? ""
+            let gap = before.isEmpty || before.hasSuffix(" ") || before.hasSuffix("\n") ? "" : " "
+            self.insert(gap + text)
+        }
+        pad.onSpace = { [weak self] in self?.insert(" ") }
+        pad.onDelete = { [weak self] in self?.deleteBackward() }
+        pad.onClose = { [weak self] in self?.hideHandwriting(animated: true) }
+        pad.textBefore = { [weak self] in self?.proxy.documentContextBeforeInput ?? "" }
+        view.addSubview(pad)
+        handwritingPad = pad
+        pad.alpha = 0
+        UIView.animate(withDuration: 0.2) {
+            pad.alpha = 1
+            self.keysView.alpha = 0
+        }
+        pad.start()
+    }
+
+    private func hideHandwriting(animated: Bool) {
+        guard let pad = handwritingPad else { return }
+        handwritingPad = nil
+        pad.commitPending()
+        pad.stop()
+        if animated {
+            UIView.animate(withDuration: 0.2, animations: {
+                pad.alpha = 0
+                self.keysView.alpha = 1
+            }, completion: { _ in pad.removeFromSuperview() })
+        } else {
+            keysView.alpha = 1
+            pad.removeFromSuperview()
+        }
+        updateSuggestions()
     }
 
     // MARK: - TrackPoint

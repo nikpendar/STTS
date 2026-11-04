@@ -20,6 +20,7 @@ on:
     paths-ignore:
       - ".github/workflows/benchmark.yml"
       - ".github/workflows/hf-search.yml"
+      - ".github/workflows/ink-eval.yml"
       - ".github/workflows/screenshots.yml"
       - ".github/workflows/keyboard-test.yml"
       - ".github/workflows/live-test.yml"
@@ -63,15 +64,22 @@ jobs:
           retention-days: 90
           compression-level: 0
 
+      # The keyboard's handwriting recognizer (Google ML Kit, Podfile).
+      - name: Handwriting library
+        run: pod install --repo-update
+
       - name: Build
         run: |
           # Settings the app is built with (TRAINING_REPO), from config.env.
           set -a; . ./config.env; set +a
-          xcodebuild -project PersianSTT.xcodeproj -target PersianSTT \
-            -configuration Release -sdk iphoneos \
+          xcodebuild -workspace PersianSTT.xcworkspace -scheme PersianSTT \
+            -configuration Release -sdk iphoneos -destination generic/platform=iOS \
+            SYMROOT="$PWD/build" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             TRAINING_REPO="$TRAINING_REPO" \
             build
+          # The recognizer is in the keyboard.
+          strings build/Release-iphoneos/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard | grep -c DigitalInkRecogni || { echo "::error::ML Kit not linked"; exit 1; }
           plutil -p build/Release-iphoneos/PersianSTT.app/Info.plist | grep TrainingRepository
 
       - name: Package IPA

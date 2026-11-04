@@ -28,6 +28,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         CrashReports.shared.start()
         // The Apple Watch app sends recordings here, and may be what launched the app.
         WatchLink.shared.start()
+        if let samples = UserDefaults.standard.string(forKey: "inkBenchmark") {
+            InkBenchmark.run(input: samples, output: UserDefaults.standard.string(forKey: "inkOut") ?? samples + ".out.json")
+        }
         return true
     }
 
