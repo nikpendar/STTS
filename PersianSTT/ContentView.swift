@@ -22,6 +22,8 @@ struct ContentView: View {
     @State private var options = KeyboardOptions.saved
     @State private var dictionary = PersonalDictionary.saved
     @State private var shortcuts = TypedShortcuts.saved
+    /// The «خواندن متن» page in the main list.
+    static let showsReadAloud = false
     @State private var photoItem: PhotosPickerItem?
     /// Replaced to bring the app back to its first page, the session.
     @State private var navigationID = UUID()
@@ -54,8 +56,11 @@ struct ContentView: View {
                     NavigationLink { speechPage } label: {
                         SettingLabel("گفتار", symbol: "waveform", color: .red)
                     }
-                    NavigationLink { ReadAloudPage() } label: {
-                        SettingLabel("خواندن متن", symbol: "speaker.wave.2.fill", color: .mint)
+                    // Hidden until the Persian voice is finished (Rooz, 2026-11-04).
+                    if Self.showsReadAloud {
+                        NavigationLink { ReadAloudPage() } label: {
+                            SettingLabel("خواندن متن", symbol: "speaker.wave.2.fill", color: .mint)
+                        }
                     }
                     NavigationLink { page("واژه‌نامه‌ی شخصی") { DictionaryPage(dictionary: $dictionary) } } label: {
                         LabeledContent {
