@@ -137,6 +137,11 @@ struct TouchModel: Codable, Equatable {
     }
     #endif
 
+    /// Touches learned for a layout (each key counts at most `keyLimit`).
+    func touches(layout: String) -> Int {
+        Int(keys.filter { $0.key.hasPrefix(layout) }.values.reduce(0) { $0 + $1.count })
+    }
+
     /// How many touches a key's own mean is built on.
     func touches(key: String, layout: String) -> Double { keys[layout + key]?.count ?? 0 }
 }

@@ -993,6 +993,7 @@ private struct TapMapPage: View {
             .pickerStyle(.segmented)
             map(model)
                 .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
+            LabeledContent("لمس‌های یادگرفته", value: "\(model.touches(layout: english ? "en.p" : "fa.p"))")
         } footer: {
             Text(model.isEmpty
                  ? "هر حرف وسط کلید خودش است. با تایپ کردن، کیبورد یاد می‌گیرد هر کلید را کجا می‌زنید و حرف‌ها کم‌کم به همان‌جا جابه‌جا می‌شوند."
