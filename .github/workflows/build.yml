@@ -68,6 +68,10 @@ jobs:
       - name: Handwriting library
         run: pod install --repo-update
 
+      # Its Persian files inside the keyboard: ML Kit's own download fails on the phone.
+      - name: Handwriting model
+        run: bash scripts/ink_model.sh
+
       - name: Build
         run: |
           # Settings the app is built with (TRAINING_REPO), from config.env.
@@ -80,6 +84,7 @@ jobs:
             build
           # The recognizer is in the keyboard.
           strings build/Release-iphoneos/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard | grep -c DigitalInkRecogni || { echo "::error::ML Kit not linked"; exit 1; }
+          ls -l build/Release-iphoneos/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/HandwritingModel/lm || { echo "::error::handwriting model missing"; exit 1; }
           plutil -p build/Release-iphoneos/PersianSTT.app/Info.plist | grep TrainingRepository
 
       - name: Package IPA

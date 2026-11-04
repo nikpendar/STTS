@@ -43,6 +43,11 @@ final class InkRecognizer {
         }
         let model = DigitalInkRecognitionModel(modelIdentifier: identifier)
         self.model = model
+        // The Persian model inside the keyboard (build.yml): nothing to download.
+        if language == "fa", BundledInkModel.install() {
+            makeRecognizer()
+            return
+        }
         let manager = ModelManager.modelManager()
         if manager.isModelDownloaded(model) {
             makeRecognizer()
@@ -110,6 +115,86 @@ final class InkRecognizer {
 
     deinit { close() }
 }
+
+#if canImport(MLKitDigitalInkRecognition)
+/// ML Kit's Persian handwriting files carried in the keyboard (folder HandwritingModel, filled by
+/// build.yml from the files ML Kit itself would download: recospec, model, lm), so the pad
+/// works without the download, which fails on the phone and in the simulator alike
+/// ("com.google.mlkit 2 Download failed"). ML Kit has no public way to take its handwriting
+/// model from a file, so its model manager is pointed at these files: the three methods that
+/// open the Persian files, and the check whether the model is there. Other languages go on
+/// to ML Kit's own code.
+enum BundledInkModel {
+    /// The folder with the files: the keyboard's, or a test's (launch argument -inkModelDir).
+    static var directory: URL? {
+        if let path = UserDefaults.standard.string(forKey: "inkModelDir") { return URL(fileURLWithPath: path) }
+        return Bundle.main.url(forResource: "HandwritingModel", withExtension: nil)
+    }
+
+    static func file(_ name: String) -> URL? {
+        guard let url = directory?.appendingPathComponent(name),
+              FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return url
+    }
+
+    static var isPresent: Bool { ["recospec", "model", "lm"].allSatisfy { file($0) != nil } }
+
+    private static var installed: Bool?
+
+    /// Points ML Kit at the files; false when they or ML Kit's methods are not there.
+    static func install() -> Bool {
+        if let installed { return installed }
+        let done = isPresent && replace()
+        installed = done
+        NSLog("handwriting bundled model: %@", done ? "in use" : (isPresent ? "ML Kit methods not found" : "not in this build"))
+        return done
+    }
+
+    private static func isPersian(_ model: AnyObject) -> Bool {
+        (model as? DigitalInkRecognitionModel)?.modelIdentifier.languageTag.hasPrefix("fa") ?? false
+    }
+
+    private static func replace() -> Bool {
+        guard let cls = NSClassFromString("MLKDigitalInkRecognitionModelManager") else { return false }
+        let files: [(String, String)] = [("modelFileHandleForModel:error:", "model"),
+                                          ("languageModelFileHandleForModel:error:", "lm"),
+                                          ("recospecFileHandleForModel:error:", "recospec")]
+        var methods: [(Method, String)] = []
+        for (name, file) in files {
+            guard let method = class_getInstanceMethod(cls, NSSelectorFromString(name)) else { return false }
+            let types = String(cString: method_getTypeEncoding(method))
+            NSLog("handwriting bundled model: %@ %@", name, types)
+            // An object back, taking an object and an error pointer.
+            guard types.hasPrefix("@"), types.contains("^@") else { return false }
+            methods.append((method, file))
+        }
+        guard let downloaded = class_getInstanceMethod(cls, NSSelectorFromString("isModelDownloaded:")) else { return false }
+        NSLog("handwriting bundled model: isModelDownloaded: %@", String(cString: method_getTypeEncoding(downloaded)))
+        guard String(cString: method_getTypeEncoding(downloaded)).hasPrefix("B") else { return false }
+
+        typealias Opener = @convention(c) (AnyObject, Selector, AnyObject, OpaquePointer?) -> AnyObject?
+        for (method, file) in methods {
+            let original = unsafeBitCast(method_getImplementation(method), to: Opener.self)
+            let selector = method_getName(method)
+            let block: @convention(block) (AnyObject, AnyObject, OpaquePointer?) -> AnyObject? = { manager, model, error in
+                if isPersian(model), let url = BundledInkModel.file(file), let handle = try? FileHandle(forReadingFrom: url) {
+                    return handle
+                }
+                return original(manager, selector, model, error)
+            }
+            method_setImplementation(method, imp_implementationWithBlock(block))
+        }
+        typealias Check = @convention(c) (AnyObject, Selector, AnyObject) -> Bool
+        let original = unsafeBitCast(method_getImplementation(downloaded), to: Check.self)
+        let selector = method_getName(downloaded)
+        let block: @convention(block) (AnyObject, AnyObject) -> Bool = { manager, model in
+            isPersian(model) || original(manager, selector, model)
+        }
+        method_setImplementation(downloaded, imp_implementationWithBlock(block))
+        return true
+    }
+}
+#endif
 
 /// The handwriting pad over the keys (from holding the emoji key): words written with a finger
 /// turn into text a moment after the finger lifts. The readings line up at the top: the first
@@ -245,7 +330,7 @@ final class HandwritingPadView: UIView {
         case .unavailable:
             status.text = InkRecognizer.isBuiltIn ? "" : "دست‌خط در این نسخه نیست"
         case .downloading:
-            status.text = "دانلود مدل دست‌خط فارسی (یک بار، حدود ۲۰ مگابایت)…"
+            status.text = "دانلود مدل دست‌خط فارسی (یک بار، حدود ۱۳ مگابایت)…"
         case .ready:
             status.text = strokes.isEmpty && pending.isEmpty ? "اینجا بنویسید" : ""
         case .failed(let message):

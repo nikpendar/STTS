@@ -12,7 +12,7 @@ name: Handwriting check
 on:
   push:
     branches: [batch-1021c]
-    paths: [.github/workflows/ink-eval.yml, scripts/ink_samples.py, Podfile, PersianSTTKeyboard/Handwriting.swift]
+    paths: [.github/workflows/ink-eval.yml, scripts/ink_samples.py, scripts/ink_model.sh, Podfile, PersianSTTKeyboard/Handwriting.swift, PersianSTT/InkBenchmark.swift]
   workflow_dispatch:
 
 jobs:
@@ -47,6 +47,7 @@ jobs:
         run: |
           bash ./setup.sh sidecars
           pod install --repo-update
+          bash scripts/ink_model.sh
           xcodebuild -workspace PersianSTT.xcworkspace -scheme PersianSTT -configuration Release -sdk iphoneos \
             -destination generic/platform=iOS SYMROOT="$PWD/build" \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build > build.log 2>&1 \
@@ -55,3 +56,58 @@ jobs:
           strings "$KB" | grep -c DigitalInkRecogni
           ls -l "$KB" build/Release-iphoneos/PersianSTT.app/PersianSTT
           du -sh build/Release-iphoneos/PersianSTT.app
+
+  # The recognizer reading the samples in the simulator (Intel code under Rosetta), with the
+  # Persian files the keyboard carries (ML Kit's own download fails here, as on the phone).
+  simulator:
+    needs: samples
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: ink-samples
+      - name: Select Xcode
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          softwareupdate --install-rosetta --agree-to-license > /dev/null 2>&1 || true
+      - name: Build the app for the simulator (Intel), with the recognizer in it
+        run: |
+          bash ./setup.sh sidecars
+          INK_IN_APP=1 pod install --repo-update
+          bash scripts/ink_model.sh "$PWD/inkmodel"
+          xcodebuild -workspace PersianSTT.xcworkspace -scheme PersianSTT -configuration Release -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" ARCHS=x86_64 ONLY_ACTIVE_ARCH=NO SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO build > build.log 2>&1 || { grep -E "error:|BUILD FAILED" build.log | head -n 40; exit 1; }
+      - name: Recognize
+        run: |
+          DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone 1[5-7] ' | grep -v Plus | head -n1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')"
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" build/Release-iphonesimulator/PersianSTT.app
+          OUT="$PWD/ink-out.json"
+          xcrun simctl launch "$DEVICE" ir.nikpendar.PersianSTT -inkBenchmark "$PWD/samples.json" -inkOut "$OUT" -inkModelDir "$PWD/inkmodel"
+          for i in $(seq 1 120); do [ -s "$OUT" ] && break; sleep 5; done
+          xcrun simctl spawn "$DEVICE" log show --last 10m --style compact --predicate 'process == "PersianSTT" AND (eventMessage CONTAINS[c] "handwriting" OR eventMessage CONTAINS[c] "mlkit")' | tail -40 || true
+          [ -s "$OUT" ] || { echo "::error::no result"; xcrun simctl spawn "$DEVICE" log show --last 5m --style compact --predicate 'process == "PersianSTT"' | tail -60; ls ~/Library/Logs/DiagnosticReports | tail; exit 1; }
+          set -o pipefail
+          python3 - "$OUT" <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json, sys, unicodedata
+          r = json.load(open(sys.argv[1]))
+          if "error" in r:
+              print("error:", r["error"], r.get("detail", "")); sys.exit(1)
+          def norm(s):
+              return unicodedata.normalize("NFKC", s).replace("ي", "ی").replace("ك", "ک").replace("\u200c", "").replace(" ", "")
+          res = r["results"]
+          top1 = sum(1 for x in res if x["readings"] and norm(x["readings"][0]) == norm(x["word"]))
+          top4 = sum(1 for x in res if any(norm(t) == norm(x["word"]) for t in x["readings"][:4]))
+          ms = sorted(x["ms"] for x in res)
+          print(f"| words | first reading right | in the first four | median ms | slowest ms | memory before / loaded / after / peak MB | ready s |")
+          print(f"|---|---|---|---|---|---|---|")
+          print(f"| {len(res)} | {100 * top1 / len(res):.1f}% | {100 * top4 / len(res):.1f}% | {ms[len(ms) // 2]:.0f} | {ms[-1]:.0f} | "
+                f"{r['memory_before_mb']:.0f} / {r['memory_loaded_mb']:.0f} / {r['memory_after_mb']:.0f} / {r['memory_peak_mb']:.0f} | {r['ready_seconds']:.1f} |")
+          for x in res[:15]:
+              print(f"- {x['word']}: {' / '.join(x['readings'][:4])}")
+          PY

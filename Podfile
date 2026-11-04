@@ -7,8 +7,10 @@ project 'PersianSTT.xcodeproj'
 install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 use_frameworks! :linkage => :static
 
-# The app hosts the keyboard (CocoaPods asks for the host) and has no pods of its own.
+# The app hosts the keyboard (CocoaPods asks for the host); it gets the recognizer only for the
+# simulator check in ink-eval.yml (INK_IN_APP=1).
 target 'PersianSTT' do
+  pod 'MLKitDigitalInkRecognition', '8.0.0' if ENV['INK_IN_APP'] == '1'
 end
 
 target 'PersianSTTKeyboard' do
