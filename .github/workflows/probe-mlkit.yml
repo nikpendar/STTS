@@ -8,23 +8,42 @@ jobs:
     steps:
       - name: Frameworks and slices
         run: |
-          pod --version || true
-          for spec in MLKitDigitalInkRecognition/8.0.0; do :; done
-          mkdir w && cd w
-          cat > Podfile <<'P'
-          platform :ios, '17.0'
-          target 'Probe' do
-            use_frameworks! :linkage => :static
-            pod 'GoogleMLKit/DigitalInkRecognition'
-          end
+          python3 - <<'P' > specs.txt
+          import hashlib, json, urllib.request
+          seen = set()
+          todo = [("MLKitDigitalInkRecognition", "8.0.0")]
+          def latest(name):
+              h = hashlib.md5(name.encode()).hexdigest()
+              txt = urllib.request.urlopen(f"https://cdn.cocoapods.org/all_pods_versions_{h[0]}_{h[1]}_{h[2]}.txt").read().decode()
+              for line in txt.splitlines():
+                  parts = line.split("/")
+                  if parts[0] == name:
+                      vs = parts[1:]
+                      vs.sort(key=lambda v: [int(x) if x.isdigit() else 0 for x in v.replace("-", ".").split(".")])
+                      return vs
+          while todo:
+              name, want = todo.pop()
+              base = name.split("/")[0]
+              if base in seen: continue
+              seen.add(base)
+              vs = latest(base)
+              if want.startswith("~>"):
+                  pre = want[2:].strip().split(".")[0]
+                  v = [x for x in vs if x.split(".")[0] == pre][-1]
+              elif want[0].isdigit(): v = want
+              else: v = vs[-1]
+              h = hashlib.md5(base.encode()).hexdigest()
+              d = json.load(urllib.request.urlopen(f"https://cdn.jsdelivr.net/cocoa/Specs/{h[0]}/{h[1]}/{h[2]}/{base}/{v}/{base}.podspec.json"))
+              src = d.get("source", {})
+              print(base, v, src.get("http") or src.get("git"), "deps:", json.dumps(d.get("dependencies")))
+              for dep, req in (d.get("dependencies") or {}).items():
+                  todo.append((dep, req[0] if isinstance(req, list) and req else (req or "")))
           P
-          pod repo update > /dev/null 2>&1 || true
-          pod spec cat GoogleMLKit/DigitalInkRecognition 2>/dev/null | head -40 || true
-          for n in MLKitDigitalInkRecognition MLKitCommon MLKitMDD; do
-            pod spec cat $n | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["name"], d["version"], d["source"], d.get("dependencies"), d.get("vendored_frameworks"))'
-            url=$(pod spec cat $n | python3 -c 'import json,sys; print(json.load(sys.stdin)["source"]["http"])')
+          cat specs.txt
+          mkdir w && cd w
+          grep -E "https://dl.google.com" ../specs.txt | while read n v url rest; do
             mkdir -p $n && curl -sSL "$url" | tar xz -C $n
-            find $n -name "*.framework" -maxdepth 3 | while read f; do b="$f/$(basename "$f" .framework)"; lipo -info "$b"; du -sh "$f"; done
-            find $n -name "*.xcframework" -maxdepth 3 | while read f; do ls "$f"; done
-            find $n -name "*.bundle" | head
+            find $n -name "*.framework" -maxdepth 4 | while read f; do b="$f/$(basename "$f" .framework)"; [ -f "$b" ] && lipo -info "$b"; du -sh "$f"; done
+            find $n -name "*.xcframework" -maxdepth 4 | while read f; do echo "XC $f: $(ls "$f")"; done
+            find $n -name "*.bundle" -maxdepth 6 | while read f; do du -sh "$f"; done
           done
