@@ -14,6 +14,8 @@ final class InkRecognizer {
 
     enum State: Equatable { case unavailable, downloading, ready, failed(String) }
     private(set) var state = State.unavailable
+    /// The recognizer's language (BCP 47); the benchmark also tries others.
+    var language = "fa"
     /// The download's error in full, for the benchmark's report.
     private(set) var lastError: String?
     var onState: ((State) -> Void)?
@@ -35,7 +37,7 @@ final class InkRecognizer {
     /// Loads the model (downloading it the first time).
     func prepare() {
         #if canImport(MLKitDigitalInkRecognition)
-        guard let identifier = DigitalInkRecognitionModelIdentifier(forLanguageTag: "fa") else {
+        guard let identifier = DigitalInkRecognitionModelIdentifier(forLanguageTag: language) else {
             set(.failed("مدل فارسی دست‌خط پیدا نشد"))
             return
         }

@@ -23,6 +23,7 @@ enum InkBenchmark {
         }
         let before = MemoryFootprint.megabytes.now
         let recognizer = InkRecognizer()
+        recognizer.language = UserDefaults.standard.string(forKey: "inkLanguage") ?? "fa"
         Self.recognizer = recognizer
         let started = Date()
         recognizer.onState = { state in
@@ -37,7 +38,7 @@ enum InkBenchmark {
                            "ready_seconds": Date().timeIntervalSince(started), "results": results], to: output)
                 }
             case .failed(let message):
-                write(["error": message, "detail": recognizer.lastError ?? ""], to: output)
+                write(["error": message, "detail": recognizer.lastError ?? "", "language": recognizer.language], to: output)
             case .unavailable:
                 write(["error": "ML Kit is not in this build", "built_in": InkRecognizer.isBuiltIn], to: output)
             case .downloading:

@@ -81,6 +81,11 @@ jobs:
           xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install "$DEVICE" build/Release-iphonesimulator/PersianSTT.app
+          # English first: a download that fails for both is the simulator's, not the Persian model's.
+          xcrun simctl launch "$DEVICE" ir.nikpendar.PersianSTT -inkBenchmark "$PWD/samples.json" -inkOut "$PWD/ink-en.json" -inkLanguage en-US
+          for i in $(seq 1 60); do [ -s ink-en.json ] && break; sleep 5; done
+          head -c 600 ink-en.json || true; echo
+          xcrun simctl terminate "$DEVICE" ir.nikpendar.PersianSTT || true
           OUT="$PWD/ink-out.json"
           xcrun simctl launch "$DEVICE" ir.nikpendar.PersianSTT -inkBenchmark "$PWD/samples.json" -inkOut "$OUT"
           for i in $(seq 1 180); do [ -s "$OUT" ] && break; sleep 5; done
