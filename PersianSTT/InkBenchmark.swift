@@ -37,7 +37,7 @@ enum InkBenchmark {
                            "ready_seconds": Date().timeIntervalSince(started), "results": results], to: output)
                 }
             case .failed(let message):
-                write(["error": message], to: output)
+                write(["error": message, "detail": recognizer.lastError ?? ""], to: output)
             case .unavailable:
                 write(["error": "ML Kit is not in this build", "built_in": InkRecognizer.isBuiltIn], to: output)
             case .downloading:

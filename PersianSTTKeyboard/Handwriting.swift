@@ -14,6 +14,8 @@ final class InkRecognizer {
 
     enum State: Equatable { case unavailable, downloading, ready, failed(String) }
     private(set) var state = State.unavailable
+    /// The download's error in full, for the benchmark's report.
+    private(set) var lastError: String?
     var onState: ((State) -> Void)?
 
     static var isBuiltIn: Bool {
@@ -50,8 +52,10 @@ final class InkRecognizer {
             self?.makeRecognizer()
         })
         observers.append(center.addObserver(forName: .mlkitModelDownloadDidFail, object: nil, queue: .main) { [weak self] note in
-            let error = note.userInfo?[ModelDownloadUserInfoKey.error.rawValue] as? Error
-            self?.set(.failed(error?.localizedDescription ?? "دانلود مدل دست‌خط نشد"))
+            let error = note.userInfo?[ModelDownloadUserInfoKey.error.rawValue] as? NSError
+            NSLog("handwriting model download failed: %@", String(describing: error))
+            self?.lastError = error.map { "\($0.domain) \($0.code) \($0.userInfo)" }
+            self?.set(.failed("دانلود مدل دست‌خط نشد"))
         })
         manager.download(model, conditions: ModelDownloadConditions(allowsCellularAccess: true, allowsBackgroundDownloading: false))
         #else

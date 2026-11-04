@@ -7,15 +7,14 @@ project 'PersianSTT.xcodeproj'
 install! 'cocoapods', :warn_for_unused_master_specs_repo => false
 use_frameworks! :linkage => :static
 
-target 'PersianSTTKeyboard' do
-  pod 'MLKitDigitalInkRecognition', '8.0.0'
+# The app hosts the keyboard (CocoaPods asks for the host); it gets the recognizer itself only
+# for the handwriting benchmark (launch argument -inkBenchmark).
+target 'PersianSTT' do
+  pod 'MLKitDigitalInkRecognition', '8.0.0' if ENV['INK_IN_APP'] == '1'
 end
 
-# The handwriting benchmark runs the recognizer in the app (launch argument -inkBenchmark).
-if ENV['INK_IN_APP'] == '1'
-  target 'PersianSTT' do
-    pod 'MLKitDigitalInkRecognition', '8.0.0'
-  end
+target 'PersianSTTKeyboard' do
+  pod 'MLKitDigitalInkRecognition', '8.0.0'
 end
 
 post_install do |installer|

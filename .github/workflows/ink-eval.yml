@@ -84,12 +84,14 @@ jobs:
           OUT="$PWD/ink-out.json"
           xcrun simctl launch "$DEVICE" ir.nikpendar.PersianSTT -inkBenchmark "$PWD/samples.json" -inkOut "$OUT"
           for i in $(seq 1 180); do [ -s "$OUT" ] && break; sleep 5; done
+          xcrun simctl spawn "$DEVICE" log show --last 10m --predicate 'eventMessage CONTAINS[c] "mlkit" OR eventMessage CONTAINS[c] "handwriting"' | tail -40 || true
           [ -s "$OUT" ] || { echo "::error::no result"; xcrun simctl spawn "$DEVICE" log show --last 5m --predicate 'process == "PersianSTT"' | tail -50; exit 1; }
+          set -o pipefail
           python3 - "$OUT" <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
           import json, sys, unicodedata
           r = json.load(open(sys.argv[1]))
           if "error" in r:
-              print("error:", r["error"]); sys.exit(1)
+              print("error:", r["error"], r.get("detail", "")); sys.exit(1)
           def norm(s):
               return unicodedata.normalize("NFKC", s).replace("ي", "ی").replace("ك", "ک").replace("‌", "").replace(" ", "")
           res = r["results"]
