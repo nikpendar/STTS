@@ -14,7 +14,8 @@ jobs:
                    https://dl.google.com/dl/cpdc/00f258dabdb58dfa/MLKitCommon-14.0.0.tar.gz; do
             n=$(basename $u .tar.gz); mkdir -p $n; curl -sSL $u | tar xz -C $n
           done
-          find . -type f -path "*ios-arm64/*" ! -name "*.h" ! -name "*.plist" ! -name "*.modulemap" > bins.txt
+          find . -type d | head -60
+          find . -type f -size +50k ! -name "*.h" > bins.txt
           cat bins.txt
           echo "=== URLs"
           xargs -a bins.txt strings -n 8 | grep -Eo 'https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%{}-]+' | sort -u
