@@ -52,12 +52,12 @@ final class AutoPunctuation: @unchecked Sendable {
     /// How the tagger's scores become marks (Tests/PunctEval measures the choices).
     struct Tuning {
         /// Added to the comma and full stop scores of a word the speaker paused after.
-        var pauseBias: Float = 0
+        var pauseBias: Float = 1
         /// A question mark stays without a question word in its sentence only when its score
         /// is this far above the next best; .infinity: never.
-        var questionMargin: Float = 0
+        var questionMargin: Float = 4
         /// The last word ends the text with a full stop when the tagger gives it none or a comma.
-        var endPeriod = false
+        var endPeriod = true
     }
 
     nonisolated(unsafe) static var tuning = Tuning()

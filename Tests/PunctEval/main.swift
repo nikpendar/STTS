@@ -18,10 +18,10 @@ let files = try FileManager.default.contentsOfDirectory(at: clips, includingProp
     .filter { $0.pathExtension == "pause" }.sorted { $0.path < $1.path }
 
 typealias Tuning = AutoPunctuation.Tuning
-var variants: [(String, Tuning)] = [("base", Tuning())]
-variants.append(("end", Tuning(endPeriod: true)))
+var variants: [(String, Tuning)] = [("base", Tuning(pauseBias: 0, questionMargin: 0, endPeriod: false))]
+variants.append(("end", Tuning(pauseBias: 0, questionMargin: 0, endPeriod: true)))
 for m: Float in [2, 4, .infinity] {
-    variants.append(("q\(m == .infinity ? "word" : String(Int(m)))", Tuning(questionMargin: m, endPeriod: true)))
+    variants.append(("q\(m == .infinity ? "word" : String(Int(m)))", Tuning(pauseBias: 0, questionMargin: m, endPeriod: true)))
 }
 for b: Float in [1, 2, 3, 5] {
     variants.append(("pause\(Int(b))-qword", Tuning(pauseBias: b, questionMargin: .infinity, endPeriod: true)))
