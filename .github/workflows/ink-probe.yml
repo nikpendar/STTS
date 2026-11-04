@@ -1,0 +1,22 @@
+# Finds where ML Kit downloads the handwriting model from (strings in its binaries).
+name: ink-probe
+on:
+  push:
+    branches: [batch-1021c]
+    paths: [.github/workflows/ink-probe.yml]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for u in https://dl.google.com/dl/cpdc/95473d50497208d4/MLKitDigitalInkRecognition-8.0.0.tar.gz \
+                   https://dl.google.com/dl/cpdc/b14ff2c7cc91cb0f/MLKitMDD-10.0.0.tar.gz \
+                   https://dl.google.com/dl/cpdc/00f258dabdb58dfa/MLKitCommon-14.0.0.tar.gz; do
+            n=$(basename $u .tar.gz); mkdir -p $n; curl -sSL $u | tar xz -C $n
+          done
+          find . -type f -path "*ios-arm64/*" ! -name "*.h" ! -name "*.plist" ! -name "*.modulemap" > bins.txt
+          cat bins.txt
+          echo "=== URLs"
+          xargs -a bins.txt strings -n 8 | grep -Eo 'https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%{}-]+' | sort -u
+          echo "=== hints"
+          xargs -a bins.txt strings -n 6 | grep -Ei 'gstatic|dl\.google|digitalink|handwriting|ink_|\.zip|manifest|backgroundSession|sharedContainer|NSURLSessionConfiguration|MLKModelDownload|com\.google\.mlkit' | sort -u | head -300
