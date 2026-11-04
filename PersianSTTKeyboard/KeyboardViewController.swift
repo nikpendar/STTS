@@ -389,7 +389,7 @@ final class KeyboardViewController: UIInputViewController {
         if let cursorPad, !cursorPad.isPushing, selection.isEmpty {
             cursorBefore = proxy.documentContextBeforeInput ?? ""
             cursorAfter = proxy.documentContextAfterInput ?? ""
-            refreshLens()
+            refreshCursorPad()
         }
         if edits.isTracking { report(edits.documentChanged(documentContext)) }
         updateSuggestions()
@@ -2635,7 +2635,7 @@ final class KeyboardViewController: UIInputViewController {
         cursorPad = pad
         pad.appear(from: trackPoint.center)
         pad.beginPush(at: trackPoint.center)
-        refreshLens()
+        refreshCursorPad()
         UIView.animate(withDuration: 0.2) { self.keysView.alpha = 0.08 }
         haptic(.impact(.light))
     }
@@ -2662,7 +2662,7 @@ final class KeyboardViewController: UIInputViewController {
         updateAutoShift()
     }
 
-    private func refreshLens() {
+    private func refreshCursorPad() {
         cursorPad?.selecting = selecting
         cursorPad?.showText(before: cursorBefore, after: cursorAfter, selected: selection, selectedForward: selectionForward)
     }
@@ -2694,7 +2694,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         haptic(.category)
-        refreshLens()
+        refreshCursorPad()
         return true
     }
 
@@ -2770,7 +2770,7 @@ final class KeyboardViewController: UIInputViewController {
             cursorBefore += text
             haptic(.impact(.light))
         }
-        refreshLens()
+        refreshCursorPad()
     }
 
     private func deleteSelection() {

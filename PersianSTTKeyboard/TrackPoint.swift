@@ -2,7 +2,7 @@ import UIKit
 
 /// The red cursor dot in the middle of the letters, after the old ThinkPad TrackPoint. Pushing
 /// it moves the text cursor: the keys fade, the dot grows into a joystick (`CursorPadView`), and
-/// a jelly lens shows the text around the cursor. A plain tap on it types the key under it.
+/// buttons select, copy, cut, delete and paste. A plain tap on it types the key under it.
 final class TrackPointView: UIView {
     /// A tap that did not move: the point, in the superview, for the key under the dot.
     var onTap: ((CGPoint) -> Void)?
@@ -166,9 +166,8 @@ final class TrackPointFace: UIView {
     }
 }
 
-/// Over the faded keys while the TrackPoint is pushed: the joystick where the dot was, the
-/// jelly lens with the text around the cursor above it, and buttons to select, copy, cut,
-/// delete and paste. It stays after the finger lifts, for those buttons; a tap on an empty
+/// Over the faded keys while the TrackPoint is pushed: the joystick where the dot was, and
+/// buttons to select, copy, cut, delete and paste. It stays after the finger lifts, for those buttons; a tap on an empty
 /// part, or «تمام», closes it.
 final class CursorPadView: UIView {
     /// Move the cursor by one character: true forward in the text (later), false back.
@@ -183,13 +182,14 @@ final class CursorPadView: UIView {
     enum Action { case select, copy, cut, delete, paste }
 
     var textColor = UIColor.label {
-        didSet { buttons.forEach { $0.setTitleColor(textColor, for: .normal) }; lens.textColor = textColor }
+        didSet { buttons.forEach { $0.setTitleColor(textColor, for: .normal) } }
     }
 
-    /// The text around the cursor, and the part selected (before or after it).
+    /// The part selected: the keyboard cannot mark it in the app, so its length is on «انتخاب».
     func showText(before: String, after: String, selected: String, selectedForward: Bool) {
-        lens.show(before: before, after: after, selected: selected, selectedForward: selectedForward)
         let has = !selected.isEmpty
+        let count = selected.count.formatted(.number.locale(Locale(identifier: "fa")))
+        buttons.first?.setTitle(has ? "انتخاب \(count)" : "انتخاب", for: .normal)
         for (button, action) in zip(buttons, actions) where [.copy, .cut, .delete].contains(action) {
             button.isEnabled = has
             button.alpha = has ? 1 : 0.35
@@ -206,7 +206,6 @@ final class CursorPadView: UIView {
 
     private let base = UIView()
     private let knob = TrackPointFace()
-    private let lens = JellyLensView()
     private let actions: [Action] = [.select, .copy, .cut, .delete, .paste]
     private var buttons: [UIButton] = []
     private var selectButton: UIButton { buttons[0] }
@@ -244,8 +243,6 @@ final class CursorPadView: UIView {
         addSubview(base)
         knob.isUserInteractionEnabled = false
         addSubview(knob)
-        lens.isUserInteractionEnabled = false
-        addSubview(lens)
         let titles = ["انتخاب", "کپی", "برش", "حذف", "چسباندن"]
         let symbols = ["selection.pin.in.out", "doc.on.doc", "scissors", "delete.left", "doc.on.clipboard"]
         for (index, action) in actions.enumerated() {
@@ -282,11 +279,6 @@ final class CursorPadView: UIView {
         base.frame = CGRect(x: stickCenter.x - b / 2, y: stickCenter.y - b / 2, width: b, height: b)
         base.layer.cornerRadius = b / 2
         placeKnob()
-        // The lens over the stick, in the strip above the keys (an extension draws only inside).
-        let lensWidth = min(bounds.width - 32, 260)
-        let lensHeight: CGFloat = 46
-        let lensY = max(4, min(base.frame.minY - lensHeight - 8, bounds.height - lensHeight))
-        lens.frame = CGRect(x: (bounds.width - lensWidth) / 2, y: lensY, width: lensWidth, height: lensHeight)
         // The buttons in a column on either side of the stick: selection on the right, the rest
         // on the left (for the right thumb on the stick, the left one on the buttons).
         let buttonWidth = min(96, (bounds.width - b) / 2 - 24)
@@ -321,7 +313,7 @@ final class CursorPadView: UIView {
         let start = TrackPointView.diameter / Self.knobDiameter
         knob.transform = CGAffineTransform(scaleX: start, y: start)
         base.transform = CGAffineTransform(scaleX: 0.2, y: 0.2)
-        let others = buttons + [doneButton, lens]
+        let others = buttons + [doneButton]
         others.forEach { $0.alpha = 0 }
         alpha = 1
         UIView.animate(withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.62, initialSpringVelocity: 0.5) {
@@ -332,7 +324,6 @@ final class CursorPadView: UIView {
             others.forEach { $0.alpha = 1 }
             self.canPaste = self.canPaste
         }
-        lens.wobble(1)
     }
 
     // MARK: Pushing
@@ -356,7 +347,6 @@ final class CursorPadView: UIView {
     func endPush() {
         pushStart = nil
         stopLink()
-        lens.wobble(0.8)
         UIView.animate(withDuration: 0.3, delay: 0, usingSpringWithDamping: 0.5, initialSpringVelocity: 0.8) {
             self.push = .zero
             self.placeKnob()
@@ -386,7 +376,6 @@ final class CursorPadView: UIView {
         let strength = hypot(dx, dy)
         turnAngle += CGFloat(dx * dt * 8)
         knob.turn(to: turnAngle)
-        lens.stretch(CGVector(dx: push.dx, dy: push.dy))
         // A dead zone in the middle, then faster the farther it is pushed, as the TrackPoint.
         guard strength > 0.18 else {
             carried = 0
@@ -453,7 +442,6 @@ final class CursorPadView: UIView {
 
     override func removeFromSuperview() {
         stopLink()
-        lens.stopLink()
         super.removeFromSuperview()
     }
 }
@@ -461,176 +449,9 @@ final class CursorPadView: UIView {
 /// Holds its target weakly, so a display link does not keep a view alive.
 private final class WeakTarget: NSObject {
     weak var pad: CursorPadView?
-    weak var lens: JellyLensView?
     init(_ pad: CursorPadView) { self.pad = pad }
-    init(lens: JellyLensView) { self.lens = lens }
 
     @objc func tick(_ link: CADisplayLink) {
-        if let pad { pad.tick(link) } else if let lens { lens.tick(link) } else { link.invalidate() }
-    }
-}
-
-/// A soft bubble over the joystick with the text around the cursor, after the jelly look of
-/// Siri: its edge wobbles when touched and stretches the way the stick is pushed, then settles.
-/// The keyboard cannot see the app's own text on screen, so the lens shows the text as the app
-/// hands it over (`documentContextBeforeInput`), not a magnified picture.
-final class JellyLensView: UIView {
-    var textColor = UIColor.label {
-        didSet { label.textColor = textColor }
-    }
-    private let shape = CAShapeLayer()
-    private let rim = CAShapeLayer()
-    private let label = UILabel()
-    private var link: CADisplayLink?
-    private var energy: CGFloat = 0
-    private var stretchVector = CGVector.zero
-    private var phase: CGFloat = 0
-    private var lastFrame: CFTimeInterval = 0
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        backgroundColor = .clear
-        shape.fillColor = UIColor.systemBackground.withAlphaComponent(0.92).cgColor
-        shape.shadowColor = UIColor.black.cgColor
-        shape.shadowOpacity = 0.18
-        shape.shadowRadius = 8
-        shape.shadowOffset = CGSize(width: 0, height: 3)
-        layer.addSublayer(shape)
-        rim.fillColor = UIColor.clear.cgColor
-        rim.strokeColor = UIColor.systemRed.withAlphaComponent(0.4).cgColor
-        rim.lineWidth = 1.2
-        layer.addSublayer(rim)
-        label.textAlignment = .center
-        label.lineBreakMode = .byClipping
-        addSubview(label)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        label.frame = bounds.insetBy(dx: 16, dy: 4)
-        drawShape()
-    }
-
-    func show(before: String, after: String, selected: String, selectedForward: Bool) {
-        // About a dozen characters each side, on the cursor's line.
-        func line(_ s: Substring) -> Substring { s.split(separator: "\n", omittingEmptySubsequences: false).last ?? "" }
-        let left = line(Substring(before.suffix(14)))
-        let right = Substring(after.prefix(14)).split(separator: "\n", omittingEmptySubsequences: false).first ?? ""
-        let font = keyFont(for: before + after, size: 19)
-        let text = NSMutableAttributedString()
-        let plain: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: textColor]
-        var marked = plain
-        marked[.backgroundColor] = UIColor.systemRed.withAlphaComponent(0.25)
-        let caret = NSAttributedString(string: "\u{2009}|\u{2009}", attributes: [.font: UIFont.systemFont(ofSize: 21, weight: .bold), .foregroundColor: UIColor.systemRed])
-        let leftText = String(left), rightText = String(right)
-        if !selected.isEmpty, selectedForward, leftText.hasSuffix(selected.suffix(leftText.count)) {
-            let n = min(selected.count, leftText.count)
-            text.append(NSAttributedString(string: String(leftText.dropLast(n)), attributes: plain))
-            text.append(NSAttributedString(string: String(leftText.suffix(n)), attributes: marked))
-            text.append(caret)
-            text.append(NSAttributedString(string: rightText, attributes: plain))
-        } else if !selected.isEmpty, !selectedForward {
-            let n = min(selected.count, rightText.count)
-            text.append(NSAttributedString(string: leftText, attributes: plain))
-            text.append(caret)
-            text.append(NSAttributedString(string: String(rightText.prefix(n)), attributes: marked))
-            text.append(NSAttributedString(string: String(rightText.dropFirst(n)), attributes: plain))
-        } else {
-            text.append(NSAttributedString(string: leftText, attributes: plain))
-            text.append(caret)
-            text.append(NSAttributedString(string: rightText, attributes: plain))
-        }
-        label.attributedText = text
-    }
-
-    /// A poke: the edge wobbles with `amount` (0...1) and settles.
-    func wobble(_ amount: CGFloat) {
-        energy = max(energy, amount)
-        startLink()
-    }
-
-    /// The stick's push: the bubble leans that way.
-    func stretch(_ vector: CGVector) {
-        let moved = hypot(vector.dx - stretchVector.dx, vector.dy - stretchVector.dy)
-        stretchVector = vector
-        if moved > 0.02 { wobble(min(1, energy + moved * 0.6)) }
-    }
-
-    private func startLink() {
-        guard link == nil, window != nil else { drawShape(); return }
-        let link = CADisplayLink(target: WeakTarget(lens: self), selector: #selector(WeakTarget.tick(_:)))
-        link.add(to: .main, forMode: .common)
-        self.link = link
-        lastFrame = 0
-    }
-
-    func stopLink() {
-        link?.invalidate()
-        link = nil
-    }
-
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        if window == nil { stopLink() }
-    }
-
-    fileprivate func tick(_ link: CADisplayLink) {
-        let dt = lastFrame == 0 ? 1.0 / 60 : CGFloat(min(0.1, link.timestamp - lastFrame))
-        lastFrame = link.timestamp
-        phase += dt * 9
-        // Settles in about a second; stays still once calm and unpushed.
-        energy *= pow(0.12, dt)
-        if energy < 0.01, hypot(stretchVector.dx, stretchVector.dy) < 0.01 {
-            energy = 0
-            drawShape()
-            stopLink()
-            return
-        }
-        drawShape()
-    }
-
-    /// A rounded capsule whose edge points move with the wobble and lean with the push.
-    private func drawShape() {
-        let rect = bounds.insetBy(dx: 4, dy: 3)
-        guard rect.width > 0, rect.height > 0 else { return }
-        let count = 36
-        let cx = rect.midX, cy = rect.midY
-        let a = rect.width / 2, b = rect.height / 2
-        var points: [CGPoint] = []
-        for i in 0..<count {
-            let t = CGFloat(i) / CGFloat(count) * 2 * .pi
-            // A superellipse: a capsule with soft ends.
-            let c = cos(t), s = sin(t)
-            let n: CGFloat = 0.45
-            var x = a * copysign(pow(abs(c), n), c)
-            var y = b * copysign(pow(abs(s), n), s)
-            let wave = energy * (2.4 * sin(3 * t + phase) + 1.4 * sin(5 * t - phase * 1.3))
-            let lean = stretchVector.dx * c * 5 + stretchVector.dy * s * 4
-            let grow = wave + lean
-            let len = max(1, hypot(x, y))
-            x += x / len * grow
-            y += y / len * grow
-            points.append(CGPoint(x: cx + x, y: cy + y))
-        }
-        let path = UIBezierPath()
-        // A smooth closed curve through the points (Catmull-Rom).
-        for i in 0..<count {
-            let p0 = points[(i - 1 + count) % count], p1 = points[i], p2 = points[(i + 1) % count], p3 = points[(i + 2) % count]
-            if i == 0 { path.move(to: p1) }
-            let c1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6)
-            let c2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
-            path.addCurve(to: p2, controlPoint1: c1, controlPoint2: c2)
-        }
-        path.close()
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        shape.path = path.cgPath
-        shape.shadowPath = path.cgPath
-        rim.path = path.cgPath
-        CATransaction.commit()
+        if let pad { pad.tick(link) } else { link.invalidate() }
     }
 }
