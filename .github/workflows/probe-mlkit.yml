@@ -1,0 +1,30 @@
+name: Probe ML Kit
+on:
+  push:
+    branches: [probe-mlkit]
+jobs:
+  probe:
+    runs-on: macos-15
+    steps:
+      - name: Frameworks and slices
+        run: |
+          pod --version || true
+          for spec in MLKitDigitalInkRecognition/8.0.0; do :; done
+          mkdir w && cd w
+          cat > Podfile <<'P'
+          platform :ios, '17.0'
+          target 'Probe' do
+            use_frameworks! :linkage => :static
+            pod 'GoogleMLKit/DigitalInkRecognition'
+          end
+          P
+          pod repo update > /dev/null 2>&1 || true
+          pod spec cat GoogleMLKit/DigitalInkRecognition 2>/dev/null | head -40 || true
+          for n in MLKitDigitalInkRecognition MLKitCommon MLKitMDD; do
+            pod spec cat $n | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["name"], d["version"], d["source"], d.get("dependencies"), d.get("vendored_frameworks"))'
+            url=$(pod spec cat $n | python3 -c 'import json,sys; print(json.load(sys.stdin)["source"]["http"])')
+            mkdir -p $n && curl -sSL "$url" | tar xz -C $n
+            find $n -name "*.framework" -maxdepth 3 | while read f; do b="$f/$(basename "$f" .framework)"; lipo -info "$b"; du -sh "$f"; done
+            find $n -name "*.xcframework" -maxdepth 3 | while read f; do ls "$f"; done
+            find $n -name "*.bundle" | head
+          done
