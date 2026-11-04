@@ -2,7 +2,7 @@
 # Puts ML Kit's Persian handwriting files in a folder (default PersianSTTKeyboard/HandwritingModel),
 # unzipped, under the names Handwriting.swift (BundledInkModel) reads: recospec, model, lm. These
 # are the files ML Kit downloads itself for "fa" (its manifest.json and packmapping.pb), checked
-# against the manifest's SHA-1. Not in git: build.yml and ink-eval.yml run this.
+# against the manifest's SHA-1. Not in git: build.yml runs this.
 set -euo pipefail
 OUT="${1:-PersianSTTKeyboard/HandwritingModel}"
 BASE=https://dl.google.com/handwriting/models
