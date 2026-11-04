@@ -68,7 +68,7 @@ jobs:
       - name: Transcribe, punctuate, score
         run: |
           for ds in fleurs cv17; do
-            KEEP_PAUSES=1 ./shenava-check compiled/*.mlmodelc PersianSTT/Models "$ds" all | grep TIMING
+            KEEP_PAUSES=1 ./shenava-check compiled/*.mlmodelc PersianSTT/Models "$ds" cpu | grep TIMING
             ./punct-eval PersianSTT/Models/Punct "$ds" "$ds.jsonl"
           done
           cat fleurs.jsonl cv17.jsonl > all.jsonl
