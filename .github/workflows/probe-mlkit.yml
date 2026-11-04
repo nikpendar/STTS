@@ -8,42 +8,13 @@ jobs:
     steps:
       - name: Frameworks and slices
         run: |
-          python3 - <<'P' > specs.txt
-          import hashlib, json, urllib.request
-          seen = set()
-          todo = [("MLKitDigitalInkRecognition", "8.0.0")]
-          def latest(name):
-              h = hashlib.md5(name.encode()).hexdigest()
-              txt = urllib.request.urlopen(f"https://cdn.cocoapods.org/all_pods_versions_{h[0]}_{h[1]}_{h[2]}.txt").read().decode()
-              for line in txt.splitlines():
-                  parts = line.split("/")
-                  if parts[0] == name:
-                      vs = parts[1:]
-                      vs.sort(key=lambda v: [int(x) if x.isdigit() else 0 for x in v.replace("-", ".").split(".")])
-                      return vs
-          while todo:
-              name, want = todo.pop()
-              base = name.split("/")[0]
-              if base in seen: continue
-              seen.add(base)
-              vs = latest(base)
-              if want.startswith("~>"):
-                  pre = want[2:].strip().split(".")[0]
-                  v = [x for x in vs if x.split(".")[0] == pre][-1]
-              elif want[0].isdigit(): v = want
-              else: v = vs[-1]
-              h = hashlib.md5(base.encode()).hexdigest()
-              d = json.load(urllib.request.urlopen(f"https://cdn.jsdelivr.net/cocoa/Specs/{h[0]}/{h[1]}/{h[2]}/{base}/{v}/{base}.podspec.json"))
-              src = d.get("source", {})
-              print(base, v, src.get("http") or src.get("git"), "deps:", json.dumps(d.get("dependencies")))
-              for dep, req in (d.get("dependencies") or {}).items():
-                  todo.append((dep, req[0] if isinstance(req, list) and req else (req or "")))
-          P
-          cat specs.txt
           mkdir w && cd w
-          grep -E "https://dl.google.com" ../specs.txt | while read n v url rest; do
-            mkdir -p $n && curl -sSL "$url" | tar xz -C $n
-            find $n -name "*.framework" -maxdepth 4 | while read f; do b="$f/$(basename "$f" .framework)"; [ -f "$b" ] && lipo -info "$b"; du -sh "$f"; done
-            find $n -name "*.xcframework" -maxdepth 4 | while read f; do echo "XC $f: $(ls "$f")"; done
-            find $n -name "*.bundle" -maxdepth 6 | while read f; do du -sh "$f"; done
+          for url in https://dl.google.com/dl/cpdc/95473d50497208d4/MLKitDigitalInkRecognition-8.0.0.tar.gz \
+                     https://dl.google.com/dl/cpdc/b14ff2c7cc91cb0f/MLKitMDD-10.0.0.tar.gz \
+                     https://dl.google.com/dl/cpdc/00f258dabdb58dfa/MLKitCommon-14.0.0.tar.gz; do
+            n=$(basename "$url" .tar.gz); mkdir -p "$n"; curl -sSL "$url" | tar xz -C "$n"
+            find "$n" -maxdepth 4 | head -20
+            find "$n" -name "*.framework" -maxdepth 4 | while read f; do b="$f/$(basename "$f" .framework)"; [ -f "$b" ] && { lipo -info "$b"; file "$b"; ls -la "$b"; }; du -sh "$f"; done
+            find "$n" -name "*.bundle" | while read f; do du -sh "$f"; ls "$f" | head; done
+            find "$n" -name "PrivacyInfo.xcprivacy" | head
           done
