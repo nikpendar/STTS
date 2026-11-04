@@ -2,11 +2,11 @@
 # PersianSTTKeyboard/Handwriting.swift) on 300 Persian words written as pen strokes. No public set
 # of Persian online handwriting exists, so the strokes are synthetic (scripts/ink_samples.py: words
 # in Nastaliq, Ruqaa and a plain sans traced into strokes): a check that it reads Persian, and of
-# its speed and memory, not its accuracy on a real hand. ML Kit cannot download its models in the
-# simulator here (Intel code under Rosetta: "Download failed" for English and Persian alike, runs
-# 41805224152 and 41806258966), so the reading itself runs on the phone: hold the handwriting pad's
-# keyboard button (150 of these words, PersianSTTKeyboard/ink_samples.json). This builds the
-# samples and the device app with the recognizer in the keyboard, as build.yml does.
+# its speed and memory, not its accuracy on a real hand. ML Kit's own model download fails here
+# and on the phone ("Download failed", runs 41805224152 and 41806258966), so the keyboard carries
+# the Persian files (scripts/ink_model.sh, BundledInkModel); the simulator job reads the samples
+# with them (Intel code under Rosetta). The phone has the same reading as a self-test: hold the
+# handwriting pad's keyboard button (150 words, PersianSTTKeyboard/ink_samples.json).
 name: Handwriting check
 
 on:
