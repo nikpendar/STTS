@@ -4277,6 +4277,18 @@ private enum KeyIcons {
         }.withRenderingMode(.alwaysTemplate)
     }
 
+    /// An SF Symbol as drawn left to right, as a template that no layout direction flips.
+    private static func leftToRight(_ name: String, size: CGFloat = 19, weight: UIImage.SymbolWeight = .regular) -> UIImage {
+        let traits = UITraitCollection(layoutDirection: .leftToRight)
+        guard let symbol = UIImage(systemName: name, compatibleWith: traits)?
+            .applyingSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: size, weight: weight)) else {
+            return UIImage()
+        }
+        return UIGraphicsImageRenderer(size: symbol.size).image { _ in
+            symbol.withTintColor(.black).draw(at: .zero)
+        }.withRenderingMode(.alwaysTemplate)
+    }
+
     /// The space bar: a globe between arrows, for swiping between Persian and English.
     /// The space bar's mic, as on iOS: in a filled orange circle while the app's session is on,
     /// an outline in the key's colour once it has ended (holding space then opens the app).
