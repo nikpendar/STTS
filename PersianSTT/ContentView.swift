@@ -52,15 +52,10 @@ struct ContentView: View {
 
                 if needsModel { modelSection }
 
+                // Voice.
                 Section {
                     NavigationLink { speechPage } label: {
                         SettingLabel("گفتار", symbol: "waveform", color: .red)
-                    }
-                    // Hidden until the Persian voice is finished (Rooz, 2026-11-04).
-                    if Self.showsReadAloud {
-                        NavigationLink { ReadAloudPage() } label: {
-                            SettingLabel("خواندن متن", symbol: "speaker.wave.2.fill", color: .mint)
-                        }
                     }
                     NavigationLink { page("واژه‌نامه‌ی شخصی") { DictionaryPage(dictionary: $dictionary) } } label: {
                         LabeledContent {
@@ -69,22 +64,6 @@ struct ContentView: View {
                             SettingLabel("واژه‌نامه‌ی شخصی", symbol: "character.book.closed.fill", color: .teal)
                         }
                     }
-                    NavigationLink { page("میان‌برهای تایپ") { ShortcutsPage(shortcuts: $shortcuts) } } label: {
-                        LabeledContent {
-                            Text(shortcuts.entries.isEmpty ? "" : "\(shortcuts.entries.count)")
-                        } label: {
-                            SettingLabel("میان‌برهای تایپ", symbol: "text.insert", color: .indigo)
-                        }
-                    }
-                    NavigationLink { typingPage } label: {
-                        SettingLabel("تایپ و پیشنهاد کلمه", symbol: "character.cursor.ibeam", color: .blue)
-                    }
-                    NavigationLink { appearancePage } label: {
-                        SettingLabel("ظاهر دکمه‌ها", symbol: "paintpalette.fill", color: .pink)
-                    }
-                }
-
-                Section {
                     // A build with the model inside has nothing to import.
                     if !needsModel, Transcriber.bundledModel == nil {
                         NavigationLink { page("مدل گفتار") { modelSection } } label: {
@@ -102,6 +81,36 @@ struct ContentView: View {
                             SettingLabel("یادگیری از اصلاح‌ها", symbol: "brain.head.profile", color: .green)
                         }
                     }
+                } header: {
+                    Text("صدا").font(.app(.footnote))
+                }
+
+                // Typing.
+                Section {
+                    NavigationLink { typingPage } label: {
+                        SettingLabel("تایپ و پیشنهاد کلمه", symbol: "character.cursor.ibeam", color: .blue)
+                    }
+                    NavigationLink { page("میان‌برهای تایپ") { ShortcutsPage(shortcuts: $shortcuts) } } label: {
+                        LabeledContent {
+                            Text(shortcuts.entries.isEmpty ? "" : "\(shortcuts.entries.count)")
+                        } label: {
+                            SettingLabel("میان‌برهای تایپ", symbol: "text.insert", color: .indigo)
+                        }
+                    }
+                    NavigationLink { appearancePage } label: {
+                        SettingLabel("ظاهر دکمه‌ها", symbol: "paintpalette.fill", color: .pink)
+                    }
+                } header: {
+                    Text("تایپ").font(.app(.footnote))
+                }
+
+                Section {
+                    // Hidden until the Persian voice is finished (Rooz, 2026-11-04).
+                    if Self.showsReadAloud {
+                        NavigationLink { ReadAloudPage() } label: {
+                            SettingLabel("خواندن متن", symbol: "speaker.wave.2.fill", color: .mint)
+                        }
+                    }
                     NavigationLink { page("راه‌اندازی کیبورد") { setupSection } } label: {
                         SettingLabel("راه‌اندازی کیبورد", symbol: "keyboard", color: .gray)
                     }
@@ -112,6 +121,8 @@ struct ContentView: View {
                         SettingLabel("گزارش خرابی‌ها", symbol: "ladybug.fill", color: .orange)
                     }
                     privacyLink
+                } header: {
+                    Text("سایر").font(.app(.footnote))
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -179,13 +190,8 @@ struct ContentView: View {
     private var speechPage: some View {
         page("گفتار") {
             Section {
-                Toggle(isOn: $options.autoPunctuation) {
-                    SettingLabel("نشانه‌گذاری خودکار", symbol: "textformat.abc.dottedunderline", color: .orange)
-                }
-            } header: {
-                Text("متن دیکته").font(.app(.footnote))
             } footer: {
-                Text("بعد از هر دیکته، ویرگول، نقطه و علامت سؤال خودکار گذاشته می‌شود. عددها با رقم نوشته می‌شوند: «بیست و سه» ← ۲۳؛ «یک» و «نه» و «ده» تنها، کلمه می‌مانند مگر «نه تا». برای نوشتن نشانه با گفتن، در واژه‌نامه‌ی شخصی بنویسید: «نقطه» ← «.».").font(.app(.footnote))
+                Text("عددها با رقم نوشته می‌شوند: «بیست و سه» ← ۲۳؛ «یک» و «نه» و «ده» تنها، کلمه می‌مانند مگر «نه تا». برای نوشتن نشانه با گفتن، در واژه‌نامه‌ی شخصی بنویسید: «نقطه» ← «.».").font(.app(.footnote))
             }
 
             Section {
@@ -301,6 +307,9 @@ struct ContentView: View {
             Section {
                 Toggle(isOn: $options.keyPreview) {
                     SettingLabel("بزرگ‌نمایی حرف هنگام تایپ", symbol: "character.magnify", color: .purple)
+                }
+                Toggle(isOn: $options.tiltLetters) {
+                    SettingLabel("حروف سه‌بعدی با چرخش گوشی", symbol: "cube.transparent", color: .teal)
                 }
                 Toggle(isOn: $options.keySounds) {
                     SettingLabel("صدای کلیدها", symbol: "speaker.wave.2.fill", color: .pink)
@@ -820,7 +829,9 @@ private struct ShortcutsPage: View {
     var body: some View {
         Section {
             TextField("میان‌بر، یک کلمه (مثل آدف)", text: $shortcut)
+                .rightAligned()
             TextField("متن کامل", text: $text)
+                .rightAligned()
             Button {
                 shortcuts.entries.insert(.init(shortcut: shortcut.trimmingCharacters(in: .whitespaces),
                                                text: text.trimmingCharacters(in: .whitespaces)), at: 0)
@@ -842,12 +853,14 @@ private struct ShortcutsPage: View {
                 ForEach($shortcuts.entries) { $entry in
                     HStack(spacing: 8) {
                         TextField("میان‌بر", text: $entry.shortcut)
+                            .rightAligned()
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: 90)
                         Image(systemName: "arrow.left")
                             .font(.footnote)
                             .foregroundStyle(.tertiary)
                         TextField("متن کامل", text: $entry.text)
+                            .rightAligned()
                     }
                 }
                 .onDelete { shortcuts.entries.remove(atOffsets: $0) }
@@ -878,7 +891,9 @@ private struct DictionaryPage: View {
     @ViewBuilder private var sections: some View {
         Section {
             TextField("درستش", text: $written)
+                .rightAligned()
             TextField("آنچه مدل می‌نویسد (اختیاری)", text: $heard)
+                .rightAligned()
             Button {
                 add(heard: heard, written: written)
                 heard = ""
@@ -899,11 +914,13 @@ private struct DictionaryPage: View {
                 ForEach($dictionary.entries) { $entry in
                     HStack(spacing: 8) {
                         TextField("آنچه مدل می‌نویسد", text: $entry.heard)
+                            .rightAligned()
                             .foregroundStyle(.secondary)
                         Image(systemName: "arrow.left")
                             .font(.footnote)
                             .foregroundStyle(.tertiary)
                         TextField("درستش", text: $entry.written)
+                            .rightAligned()
                     }
                 }
                 .onDelete { dictionary.entries.remove(atOffsets: $0) }
@@ -1141,5 +1158,13 @@ extension Font {
         default: uiStyle = .body
         }
         return .custom(name, size: UIFont.preferredFont(forTextStyle: uiStyle).pointSize, relativeTo: style)
+    }
+}
+
+extension View {
+    /// Persian text fields start on the right: under the right-to-left layout SwiftUI still
+    /// starts them on the left.
+    func rightAligned() -> some View {
+        multilineTextAlignment(.trailing).environment(\.layoutDirection, .leftToRight)
     }
 }

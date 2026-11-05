@@ -100,13 +100,10 @@ final class WatchLink: NSObject, WCSessionDelegate, @unchecked Sendable {
             guard !text.isEmpty else {
                 return send(id: id, error: "صدایی شنیده نشد.")
             }
-            // As in the keyboard: punctuation from the app, then numbers, ZWNJ and the personal dictionary.
+            // As in the keyboard: numbers, ZWNJ and the personal dictionary.
             let options = KeyboardOptions.load()
             let dictionary = PersonalDictionary.saved
-            let punctuated = options.autoPunctuation
-                ? AutoPunctuation.shared.punctuate(text, quiet: dictionary.symbolWords)
-                : text
-            let written = VoiceCommands.process(punctuated, punctuation: false, commands: false,
+            let written = VoiceCommands.process(text, punctuation: false, commands: false,
                                                 zwnj: options.autoZWNJ, dictionary: dictionary).text
             log.info("watch dictation: \(Double(samples.count) / AudioLoader.sampleRate, format: .fixed(precision: 1)) s of audio in \(Date().timeIntervalSince(started), format: .fixed(precision: 1)) s")
             send(id: id, text: written)

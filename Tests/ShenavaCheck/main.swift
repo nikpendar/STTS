@@ -48,10 +48,6 @@ for url in files {
     let text = stream.text.split(separator: DictationBridge.pauseMark).map { $0.trimmingCharacters(in: .whitespaces) }
         .joined(separator: " ")
     try text.write(to: URL(fileURLWithPath: url.path + ".txt"), atomically: true, encoding: .utf8)
-    // With the pauses (DictationBridge.pauseMark), for the punctuation check (Tests/PunctEval).
-    if env["KEEP_PAUSES"] == "1" {
-        try stream.text.write(to: URL(fileURLWithPath: url.path + ".pause"), atomically: true, encoding: .utf8)
-    }
 }
 let memory = MemoryFootprint.megabytes
 print("BOOSTED tokens=\(stream.boostedTokens)")

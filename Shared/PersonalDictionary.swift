@@ -41,13 +41,6 @@ struct PersonalDictionary: Codable, Equatable {
     /// Marks that sit right after the word before them, with no space: «۲۰٪», «سلام،».
     private static let closing: Set<Character> = [".", "،", ",", ":", "؛", ";", "٪", "%", "!", "؟", "?", ")", "»"]
 
-    /// Heard words whose written form has no letters or digits (marks, symbols, emoji): after
-    /// them and before them, automatic punctuation adds nothing (`AutoPunctuation`).
-    var symbolWords: Set<String> {
-        Set(entries.filter { !$0.written.unicodeScalars.contains { Self.wordScalars.contains($0) } }
-            .map { Self.key($0.heard) })
-    }
-
     /// Written forms the recognizer favours while decoding (`ShenavaStream.setBoost`): entries
     /// made only of letters (names, terms), not the starters, marks, emoji or numbers.
     var boostWords: [String] {

@@ -131,9 +131,6 @@ final class KeyboardSession: ObservableObject {
         }
         // Loads the model now if nothing has yet, so the first dictation does not wait for it.
         _ = Transcriber.shared
-        if KeyboardOptions.load().autoPunctuation {
-            Task.detached(priority: .utility) { AutoPunctuation.shared.preload() }
-        }
         Task {
             await PersonalModel.shared.upload()
             await PersonalModel.shared.check(automatic: true)
@@ -524,14 +521,8 @@ final class KeyboardSession: ObservableObject {
                     recent.append((dictation, samples, DictationBridge.removingPauseMarks(text)))
                     if recent.count > 8 { recent.removeFirst() }
                 }
-                // Commas, full stops and question marks (`AutoPunctuation`), off the main thread.
-                let served = KeyboardOptions.load().autoPunctuation
-                    ? await Task.detached(priority: .userInitiated) { [quiet = PersonalDictionary.saved.symbolWords] in
-                        AutoPunctuation.shared.punctuate(text, quiet: quiet)
-                    }.value
-                    : text
                 guard id == dictationID else { return }
-                server.publish(DictationBridge.finalPrefix + dictation + "\n" + served)
+                server.publish(DictationBridge.finalPrefix + dictation + "\n" + text)
                 DictationBridge.post(DictationBridge.done)
             } catch {
                 guard id == dictationID else { return }

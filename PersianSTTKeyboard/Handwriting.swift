@@ -94,7 +94,12 @@ final class InkRecognizer {
         let context = DigitalInkRecognitionContext(preContext: String(before.suffix(20)),
                                                    writingArea: WritingArea(width: Float(area.width), height: Float(area.height)))
         recognizer.recognize(ink: ink, context: context) { result, _ in
-            let texts = result?.candidates.map(\.text) ?? []
+            // After a word in the context the readings start with a space; the keyboard adds its own.
+            var texts: [String] = []
+            for candidate in result?.candidates ?? [] {
+                let text = candidate.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !text.isEmpty, !texts.contains(text) { texts.append(text) }
+            }
             DispatchQueue.main.async { completion(texts) }
         }
         #else
@@ -203,9 +208,20 @@ enum BundledInkModel {
 final class HandwritingPadView: UIView {
     var onInsert: ((String) -> Void)?
     var onSpace: (() -> Void)?
-    /// Deletes the word before the cursor.
+    /// Deletes the character before the cursor.
     var onDelete: (() -> Void)?
+    var onReturn: (() -> Void)?
+    /// Leaves the pad for the emoji panel.
+    var onEmoji: (() -> Void)?
     var onClose: (() -> Void)?
+
+    /// The keyboard's own return and emoji images.
+    var returnImage: UIImage? {
+        didSet { returnButton.setImage(returnImage, for: .normal) }
+    }
+    var emojiImage: UIImage? {
+        didSet { emojiButton.setImage(emojiImage, for: .normal) }
+    }
     /// The text before the cursor, for the recognizer's context.
     var textBefore: (() -> String)?
 
@@ -225,6 +241,8 @@ final class HandwritingPadView: UIView {
     private let spaceButton = UIButton(type: .system)
     private let deleteButton = UIButton(type: .system)
     private let closeButton = UIButton(type: .system)
+    private let emojiButton = UIButton(type: .system)
+    private let returnButton = UIButton(type: .system)
     private let paper = UIView()
 
     private var strokes: [InkRecognizer.Stroke] = []
@@ -275,8 +293,9 @@ final class HandwritingPadView: UIView {
             candidateRow.addArrangedSubview(button)
             candidateButtons.append(button)
         }
-        for (button, symbol, label) in [(spaceButton, "space", "فاصله"), (deleteButton, "delete.right", "پاک کردن کلمه"),
-                                        (closeButton, "keyboard", "صفحه‌کلید")] {
+        for (button, symbol, label) in [(spaceButton, "space", "فاصله"), (deleteButton, "delete.right", "پاک کردن"),
+                                        (closeButton, "keyboard", "صفحه‌کلید"), (emojiButton, "face.smiling", "شکلک"),
+                                        (returnButton, "return", "خط بعد")] {
             button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)), for: .normal)
             button.accessibilityLabel = label
             button.tintColor = .label
@@ -288,6 +307,8 @@ final class HandwritingPadView: UIView {
         spaceButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onSpace?() }, for: .touchUpInside)
         deleteButton.addAction(UIAction { [weak self] _ in self?.deleteTapped() }, for: .touchUpInside)
         closeButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onClose?() }, for: .touchUpInside)
+        emojiButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onEmoji?() }, for: .touchUpInside)
+        returnButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onReturn?() }, for: .touchUpInside)
         recognizer.onState = { [weak self] state in self?.show(state) }
         show(.unavailable)
     }
@@ -314,11 +335,15 @@ final class HandwritingPadView: UIView {
         let row: CGFloat = 38
         candidateRow.frame = CGRect(x: 8, y: 0, width: bounds.width - 16, height: row)
         let buttonsY = bounds.height - 46
-        let buttonWidth = (bounds.width - 16 - 2 * 8) / 3
-        // Right to left: delete (a word at a time), space, back to the keyboard.
-        deleteButton.frame = CGRect(x: bounds.width - 8 - buttonWidth, y: buttonsY, width: buttonWidth, height: 40)
-        spaceButton.frame = CGRect(x: 8 + buttonWidth + 8, y: buttonsY, width: buttonWidth, height: 40)
-        closeButton.frame = CGRect(x: 8, y: buttonsY, width: buttonWidth, height: 40)
+        // Left to right: back to the keyboard, emoji, space (twice as wide), return, delete.
+        let gap: CGFloat = 6
+        let unit = (bounds.width - 16 - 4 * gap) / 6
+        var x: CGFloat = 8
+        for (button, width) in [(closeButton, unit), (emojiButton, unit), (spaceButton, 2 * unit),
+                                (returnButton, unit), (deleteButton, unit)] {
+            button.frame = CGRect(x: x, y: buttonsY, width: width, height: 40)
+            x += width + gap
+        }
         paper.frame = CGRect(x: 8, y: row + 2, width: bounds.width - 16, height: buttonsY - row - 8)
         status.frame = paper.frame.insetBy(dx: 20, dy: 20)
     }
@@ -348,6 +373,10 @@ final class HandwritingPadView: UIView {
             commitPending()
             started = touch.timestamp
             path = UIBezierPath()
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            ink.setAffineTransform(.identity)
+            CATransaction.commit()
         }
         status.text = ""
         current = []
@@ -397,6 +426,7 @@ final class HandwritingPadView: UIView {
         fade.duration = 0.25
         ink.add(fade, forKey: "fade")
         ink.opacity = 0.25
+        moveInkAside()
         recognizer.recognize(word, before: textBefore?() ?? "", area: paperArea.size) { [weak self] texts in
             guard let self, mine == self.generation else { return }
             self.pending = Array(texts.prefix(4))
@@ -428,9 +458,28 @@ final class HandwritingPadView: UIView {
         onInsert?(text)
     }
 
+    /// The faded word slides to the paper's right edge (and shrinks if it is wider than half the
+    /// paper), leaving room for the next one.
+    private func moveInkAside() {
+        guard let box = ink.path?.boundingBoxOfPath, !box.isNull, box.width > 0 else { return }
+        let area = paper.frame
+        let scale = min(1, area.width * 0.45 / box.width)
+        let right = area.maxX - 12
+        // The ink layer has no size at the pad's origin, so its transform works in pad points.
+        let move = CGAffineTransform(translationX: right, y: box.midY)
+            .scaledBy(x: scale, y: scale)
+            .translatedBy(x: -box.maxX, y: -box.midY)
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.3)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+        ink.setAffineTransform(move)
+        CATransaction.commit()
+    }
+
     private func clearInk() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
+        ink.setAffineTransform(.identity)
         ink.path = nil
         CATransaction.commit()
         path = UIBezierPath()

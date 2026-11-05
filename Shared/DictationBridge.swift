@@ -418,10 +418,10 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var predictNextWord = true
     /// Offer the listed word a typed one is probably a misspelling of.
     var correctTypos = true
-    /// Commas, full stops and question marks put into each dictation by the app (`AutoPunctuation`).
-    var autoPunctuation = true
     /// Each pressed key shows its letter enlarged above it.
     var keyPreview = true
+    /// Letters drawn raised off the keys, shifting as the phone tilts (Rooz, 2026-11-05).
+    var tiltLetters = true
     /// Two spaces in a row type a full stop, three a comma.
     var doubleSpacePunctuation = true
     /// A row of digits above the letters.
@@ -451,8 +451,8 @@ struct KeyboardOptions: SharedSetting, Equatable {
         suggestionBar = try container.decodeIfPresent(Bool.self, forKey: .suggestionBar) ?? true
         predictNextWord = try container.decodeIfPresent(Bool.self, forKey: .predictNextWord) ?? true
         correctTypos = try container.decodeIfPresent(Bool.self, forKey: .correctTypos) ?? true
-        autoPunctuation = try container.decodeIfPresent(Bool.self, forKey: .autoPunctuation) ?? true
         keyPreview = try container.decodeIfPresent(Bool.self, forKey: .keyPreview) ?? true
+        tiltLetters = try container.decodeIfPresent(Bool.self, forKey: .tiltLetters) ?? true
         doubleSpacePunctuation = try container.decodeIfPresent(Bool.self, forKey: .doubleSpacePunctuation) ?? true
         numberRow = try container.decodeIfPresent(Bool.self, forKey: .numberRow) ?? false
         digitsOnLetters = try container.decodeIfPresent(Bool.self, forKey: .digitsOnLetters) ?? false
