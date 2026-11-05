@@ -2567,7 +2567,8 @@ final class KeyboardViewController: UIInputViewController {
             self.insert(gap + text)
         }
         pad.onSpace = { [weak self] in self?.insert(" ") }
-        pad.onDelete = { [weak self] in self?.deleteBackward() }
+        pad.onDeleteDown = { [weak self] in self?.backspaceDown() }
+        pad.onDeleteUp = { [weak self] in self?.backspaceUp() }
         pad.onReturn = { [weak self] in self?.insertReturn() }
         pad.onEmoji = { [weak self] in
             guard let self else { return }
@@ -2593,6 +2594,8 @@ final class KeyboardViewController: UIInputViewController {
     private func hideHandwriting(animated: Bool) {
         guard let pad = handwritingPad else { return }
         handwritingPad = nil
+        // A delete held on the pad stops with it.
+        backspaceUp()
         pad.commitPending()
         pad.stop()
         if animated {

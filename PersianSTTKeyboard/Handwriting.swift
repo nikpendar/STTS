@@ -208,8 +208,10 @@ enum BundledInkModel {
 final class HandwritingPadView: UIView {
     var onInsert: ((String) -> Void)?
     var onSpace: (() -> Void)?
-    /// Deletes the character before the cursor.
-    var onDelete: (() -> Void)?
+    /// The delete button pressed and let go, as the keyboard's backspace: one character, and
+    /// held, more and more, then words.
+    var onDeleteDown: (() -> Void)?
+    var onDeleteUp: (() -> Void)?
     var onReturn: (() -> Void)?
     /// Leaves the pad for the emoji panel.
     var onEmoji: (() -> Void)?
@@ -308,7 +310,9 @@ final class HandwritingPadView: UIView {
             addSubview(button)
         }
         spaceButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onSpace?() }, for: .touchUpInside)
-        deleteButton.addAction(UIAction { [weak self] _ in self?.deleteTapped() }, for: .touchUpInside)
+        deleteButton.addAction(UIAction { [weak self] _ in self?.deleteDown() }, for: .touchDown)
+        deleteButton.addAction(UIAction { [weak self] _ in self?.onDeleteUp?() },
+                               for: [.touchUpInside, .touchUpOutside, .touchCancel])
         closeButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onClose?() }, for: .touchUpInside)
         emojiButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onEmoji?() }, for: .touchUpInside)
         returnButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onReturn?() }, for: .touchUpInside)
@@ -491,7 +495,7 @@ final class HandwritingPadView: UIView {
         path = UIBezierPath()
     }
 
-    private func deleteTapped() {
+    private func deleteDown() {
         if !strokes.isEmpty || !pending.isEmpty {
             // Unwritten ink or readings not yet in: thrown away.
             recognizeTimer?.invalidate()
@@ -501,7 +505,7 @@ final class HandwritingPadView: UIView {
             showCandidates()
             clearInk()
         } else {
-            onDelete?()
+            onDeleteDown?()
         }
     }
 
