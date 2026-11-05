@@ -190,11 +190,6 @@ struct ContentView: View {
     private var speechPage: some View {
         page("گفتار") {
             Section {
-            } footer: {
-                Text("عددها با رقم نوشته می‌شوند: «بیست و سه» ← ۲۳؛ «یک» و «نه» و «ده» تنها، کلمه می‌مانند مگر «نه تا». برای نوشتن نشانه با گفتن، در واژه‌نامه‌ی شخصی بنویسید: «نقطه» ← «.».").font(.app(.footnote))
-            }
-
-            Section {
                 Toggle(isOn: $noiseSuppression) {
                     SettingLabel("حذف نویز", symbol: "waveform.badge.minus", color: .green)
                 }

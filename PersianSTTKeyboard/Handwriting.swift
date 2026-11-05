@@ -335,12 +335,12 @@ final class HandwritingPadView: UIView {
         let row: CGFloat = 38
         candidateRow.frame = CGRect(x: 8, y: 0, width: bounds.width - 16, height: row)
         let buttonsY = bounds.height - 46
-        // Left to right: back to the keyboard, emoji, space (twice as wide), return, delete.
+        // Left to right: back to the keyboard, emoji, return, space (twice as wide), delete.
         let gap: CGFloat = 6
         let unit = (bounds.width - 16 - 4 * gap) / 6
         var x: CGFloat = 8
-        for (button, width) in [(closeButton, unit), (emojiButton, unit), (spaceButton, 2 * unit),
-                                (returnButton, unit), (deleteButton, unit)] {
+        for (button, width) in [(closeButton, unit), (emojiButton, unit), (returnButton, unit),
+                                (spaceButton, 2 * unit), (deleteButton, unit)] {
             button.frame = CGRect(x: x, y: buttonsY, width: width, height: 40)
             x += width + gap
         }

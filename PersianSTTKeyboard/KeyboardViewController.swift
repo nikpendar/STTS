@@ -24,6 +24,7 @@ final class KeyboardViewController: UIInputViewController {
                 orb.accessibilityLabel = nil
             }
             render()
+            updateTilt()
             if (oldValue == .noSession || oldValue == .checking) != (state == .noSession || state == .checking) {
                 updateSpaceImage()
             }
@@ -234,6 +235,10 @@ final class KeyboardViewController: UIInputViewController {
         options = KeyboardOptions.load()
         updatePrimaryLanguage()
         log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) loaded")
+        // The emoji key's face follows light and dark mode.
+        registerForTraitChanges([UITraitUserInterfaceStyle.self]) { (controller: KeyboardViewController, _: UITraitCollection) in
+            if controller.layer != .emoji { controller.emojiKey.image = controller.emojiIcon }
+        }
         // Both orientations' sizes are worked out (and kept) on the first run after install.
         _ = (portraitMetrics, landscapeMetrics)
         buildUI()
@@ -345,6 +350,7 @@ final class KeyboardViewController: UIInputViewController {
         UsageStats.publish()
         settingsPanel?.removeFromSuperview()
         hideHandwriting(animated: false)
+        emojiReturnsToHandwriting = false
         motion?.stopDeviceMotionUpdates()
         if touchSaveScheduled { touchModel.save() }
         // A locked recording pauses, as when iOS takes the microphone: when this keyboard comes
@@ -1441,7 +1447,11 @@ final class KeyboardViewController: UIInputViewController {
         view.semanticContentAttribute = .forceRightToLeft
 
         emojiPanel.isHidden = true
-        emojiPanel.onPick = { [weak self] emoji in self?.insert(emoji) }
+        emojiPanel.onPick = { [weak self] emoji in
+            guard let self else { return }
+            self.insert(emoji)
+            if self.emojiReturnsToHandwriting { self.backToHandwriting() }
+        }
         emojiPanel.onCategoryChange = { [weak self] in self?.haptic(.category) }
         keysView.addSubview(emojiPanel)
         emojiSearchKey.accessibilityIdentifier = "emojiSearchKey"
@@ -1611,7 +1621,8 @@ final class KeyboardViewController: UIInputViewController {
         }
         applyTilt()
         let onLetters = layer == .letters
-        layerKey.title = isEnglish ? (onLetters ? "123" : "ABC") : (onLetters ? "۱۲۳" : "الفبا")
+        layerKey.title = layer == .emoji && emojiReturnsToHandwriting ? "برگشت"
+            : isEnglish ? (onLetters ? "123" : "ABC") : (onLetters ? "۱۲۳" : "الفبا")
         shiftKey.isHidden = !(isEnglish && layer == .letters)
         moreKey.isHidden = !(layer == .symbols || layer == .moreSymbols)
         moreKey.title = layer == .moreSymbols ? (isEnglish ? "123" : "۱۲۳") : "#+="
@@ -1619,7 +1630,7 @@ final class KeyboardViewController: UIInputViewController {
         isCapsLock = false
         setShifted(false)
         updateAutoShift()
-        emojiKey.image = layer == .emoji ? KeyIcons.menuKey(symbol: "keyboard") : KeyIcons.emojiKey
+        emojiKey.image = layer == .emoji ? KeyIcons.menuKey(symbol: "keyboard") : emojiIcon
         // A key hidden while it was pressed (emoji, 123) comes back unpressed.
         for key in [emojiKey, globeKey, layerKey, moreKey, shiftKey, returnKey, spaceKey] { key.isHighlighted = false }
         emojiKey.accessibilityLabel = layer == .emoji ? "حروف" : "شکلک"
@@ -2030,7 +2041,23 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    /// The emoji key's face for the current light or dark mode.
+    private var emojiIcon: UIImage? { KeyIcons.emojiKey(dark: traitCollection.userInterfaceStyle == .dark) }
+
+    /// The emoji panel was opened from the handwriting pad: picking an emoji, the back key in
+    /// place of الفبا, or the blue key after a search goes back to the pad (Rooz, 2026-11-05).
+    private var emojiReturnsToHandwriting = false
+
+    private func backToHandwriting() {
+        emojiReturnsToHandwriting = false
+        endEmojiSearch(backToEmoji: false)
+        layer = .letters
+        buildCharacterKeys()
+        showHandwriting()
+    }
+
     @objc private func toggleLayer() {
+        if layer == .emoji, emojiReturnsToHandwriting { return backToHandwriting() }
         endEmojiSearch(backToEmoji: false)
         layer = layer == .letters ? .symbols : .letters
         buildCharacterKeys()
@@ -2207,7 +2234,8 @@ final class KeyboardViewController: UIInputViewController {
 
     @objc private func insertReturn() {
         if emojiSearch != nil {
-            // The blue key: the search is done, back to the letters.
+            // The blue key: the search is done, back to the letters (or the handwriting pad).
+            if emojiReturnsToHandwriting { return backToHandwriting() }
             endEmojiSearch(backToEmoji: false)
             buildCharacterKeys()
             return
@@ -2507,6 +2535,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func showHandwriting() {
         guard handwritingPad == nil else { return }
+        emojiReturnsToHandwriting = false
         endEmojiSearch(backToEmoji: false)
         if layer == .emoji {
             layer = .letters
@@ -2525,12 +2554,14 @@ final class KeyboardViewController: UIInputViewController {
         pad.onDelete = { [weak self] in self?.deleteBackward() }
         pad.onReturn = { [weak self] in self?.insertReturn() }
         pad.onEmoji = { [weak self] in
-            self?.hideHandwriting(animated: false)
-            self?.toggleEmoji()
+            guard let self else { return }
+            self.hideHandwriting(animated: false)
+            self.emojiReturnsToHandwriting = true
+            self.toggleEmoji()
         }
         pad.onClose = { [weak self] in self?.hideHandwriting(animated: true) }
         pad.returnImage = returnKey.image
-        pad.emojiImage = KeyIcons.emojiKey
+        pad.emojiImage = emojiIcon
         pad.textBefore = { [weak self] in self?.proxy.documentContextBeforeInput ?? "" }
         view.addSubview(pad)
         handwritingPad = pad
@@ -2901,7 +2932,9 @@ final class KeyboardViewController: UIInputViewController {
     /// Starts or stops following the phone's tilt, as the option, Reduce Motion and the
     /// keyboard's visibility allow.
     private func updateTilt() {
-        let wanted = options.tiltLetters && !UIAccessibility.isReduceMotionEnabled && view.window != nil
+        // Not while dictating, which keeps the processor for the orb and the speech (Rooz, 2026-11-05).
+        let dictating = state == .starting || state == .recording || state == .transcribing
+        let wanted = options.tiltLetters && !UIAccessibility.isReduceMotionEnabled && view.window != nil && !dictating
         if wanted {
             if motion == nil { motion = CMMotionManager() }
             guard let motion, motion.isDeviceMotionAvailable, !motion.isDeviceMotionActive else { return }
@@ -2911,7 +2944,7 @@ final class KeyboardViewController: UIInputViewController {
                 // Held as when typing (top tilted away by about 35°) the letters sit centred.
                 var x = CGFloat(gravity.x), y = CGFloat(gravity.y + 0.57)
                 if self.view.bounds.width > self.view.bounds.height * 1.6 { (x, y) = (-CGFloat(gravity.y), CGFloat(gravity.x)) }
-                let next = CGPoint(x: max(-1, min(1, x * 2)), y: max(-1, min(1, y * 2)))
+                let next = CGPoint(x: max(-1, min(1, x * 2.6)), y: max(-1, min(1, y * 2.6)))
                 // Smoothed, and only redrawn when it moved enough to see.
                 let smooth = CGPoint(x: self.tilt.x + (next.x - self.tilt.x) * 0.35, y: self.tilt.y + (next.y - self.tilt.y) * 0.35)
                 guard abs(smooth.x - self.tilt.x) > 0.01 || abs(smooth.y - self.tilt.y) > 0.01 else { return }
@@ -2927,6 +2960,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private func applyTilt() {
         let depth: CGPoint? = options.tiltLetters && motion?.isDeviceMotionActive == true ? tilt : nil
+        keyPopup.depth = depth
         for row in characterKeys {
             for key in row { key.depth = depth }
         }
@@ -3024,6 +3058,8 @@ private final class KeyView: UIControl {
     private let content = UIView()
     private let face = UIView()
     private let label = UILabel()
+    /// The letter's shadow while it tilts (`depth`): a plain label, cheaper than a layer shadow.
+    private let shadowLabel = UILabel()
     /// Holds the label inside the drawn key: a letter wider than the key is cut off there.
     private let labelClip = UIView()
     private let imageView = UIImageView()
@@ -3046,25 +3082,23 @@ private final class KeyView: UIControl {
     }
 
     /// The phone's tilt (-1...1 each way) for a letter drawn raised off the key: it slides with
-    /// the tilt over a hard shadow that slides the other way, as if it stood out of the key.
-    /// nil: flat.
+    /// the tilt over a shadow that slides the other way, as if it stood out of the key. nil: flat.
     var depth: CGPoint? {
         didSet {
             guard depth != oldValue else { return }
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            if let depth {
-                label.transform = CGAffineTransform(translationX: depth.x * 1.6, y: depth.y * 1.6)
-                label.layer.shadowColor = UIColor.black.cgColor
-                label.layer.shadowOpacity = 0.32
-                label.layer.shadowRadius = 0.4
-                label.layer.shadowOffset = CGSize(width: -depth.x * 1.4, height: 1 - depth.y * 1.4)
-            } else {
-                label.transform = .identity
-                label.layer.shadowOpacity = 0
-            }
-            CATransaction.commit()
+            applyDepth()
         }
+    }
+
+    /// How far the letter and its shadow move at full tilt, in points.
+    static let letterTravel: CGFloat = 3.4
+    static let shadowTravel: CGFloat = 2.6
+
+    private func applyDepth() {
+        shadowLabel.isHidden = depth == nil || labelClip.isHidden
+        let d = depth ?? .zero
+        label.transform = CGAffineTransform(translationX: d.x * Self.letterTravel, y: d.y * Self.letterTravel)
+        shadowLabel.transform = CGAffineTransform(translationX: -d.x * Self.shadowTravel, y: 1.4 - d.y * Self.shadowTravel)
     }
 
     private func updateLabel() {
@@ -3080,6 +3114,10 @@ private final class KeyView: UIControl {
         imageView.isHidden = message != nil || (knurled && !imageOnGrip)
         trailingImageView.isHidden = message != nil || knurled
         labelClip.isHidden = knurled
+        shadowLabel.text = message == nil ? label.text : nil
+        shadowLabel.font = label.font
+        shadowLabel.textColor = UIColor.black.withAlphaComponent(0.4)
+        shadowLabel.isHidden = depth == nil || knurled
         if message != nil || storedTitle != nil { accessibilityLabel = message ?? storedTitle }
         // A new letter or size moves a wide letter against the key's right edge (`layoutSubviews`):
         // without this, it stayed where the old size put it until the key was next pressed.
@@ -3263,6 +3301,9 @@ private final class KeyView: UIControl {
         updateLabel()
         labelClip.clipsToBounds = true
         labelClip.isUserInteractionEnabled = false
+        shadowLabel.isHidden = true
+        shadowLabel.textAlignment = .center
+        labelClip.addSubview(shadowLabel)
         labelClip.addSubview(label)
         content.addSubview(labelClip)
 
@@ -3331,8 +3372,13 @@ private final class KeyView: UIControl {
             ? CGRect(x: labelClip.bounds.maxX - textWidth, y: 0, width: textWidth, height: labelClip.bounds.height)
             : room
         // Not `frame`: a tilting letter has a transform (`depth`).
-        label.bounds = CGRect(origin: .zero, size: place.size)
-        label.center = CGPoint(x: place.midX, y: place.midY)
+        for view in [label, shadowLabel] {
+            view.bounds = CGRect(origin: .zero, size: place.size)
+            view.center = CGPoint(x: place.midX, y: place.midY)
+        }
+        shadowLabel.adjustsFontSizeToFitWidth = label.adjustsFontSizeToFitWidth
+        shadowLabel.minimumScaleFactor = label.minimumScaleFactor
+        shadowLabel.lineBreakMode = label.lineBreakMode
         // Not `frame`: the image springs in with a transform.
         imageView.bounds = CGRect(origin: .zero, size: inner.size)
         imageView.center = CGPoint(x: inner.midX, y: inner.midY)
@@ -3474,7 +3520,20 @@ private final class KeyPopupView: UIView {
         present(on: key, foot: foot, card: card, cells: [card], items: [Item(text: title, label: title, image: image)],
                 style: style, fontSize: fontSize)
         select(index: nil, feedback: false)
+        // The enlarged letter tilts like the keys, further.
+        if let depth, let letter = labels.first {
+            letter.transform = CGAffineTransform(translationX: depth.x * KeyView.letterTravel * 1.6,
+                                                 y: depth.y * KeyView.letterTravel * 1.6)
+            letter.layer.shadowColor = UIColor.black.cgColor
+            letter.layer.shadowOpacity = 0.4
+            letter.layer.shadowRadius = 0
+            letter.layer.shadowOffset = CGSize(width: -depth.x * KeyView.shadowTravel * 2.6,
+                                               height: 2 - depth.y * KeyView.shadowTravel * 2.6)
+        }
     }
+
+    /// The phone's tilt for the enlarged letter (`KeyView.depth`), nil when flat.
+    var depth: CGPoint?
 
     /// A letter's forms start over the key, its own letter first, and run to the left, or to
     /// the right with `toTheRight`. With `anchor`, the items run left to right and the one at
@@ -3621,6 +3680,8 @@ private final class KeyPopupView: UIView {
             label.font = keyFont(for: items[index].label, size: fontSize)
             // A single letter is never shrunk: its card was made wide enough for it.
             label.adjustsFontSizeToFitWidth = items.count > 1
+            label.transform = .identity
+            label.layer.shadowOpacity = 0
             label.frame = cells[index]
             image.image = items[index].image
             image.frame = cells[index]
@@ -4176,52 +4237,43 @@ private enum KeyIcons {
     static let lockedEnd = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
     /// The emoji key's face, drawn once: always the outline.
     /// Three dots under the face: a long press opens the menu (emoji, settings).
-    /// In dark mode the symbol; in light mode (Rooz, 2026-11-05) a face drawn only in outline.
-    static let emojiKey: UIImage? = {
-        guard let symbol = menuKey(symbol: "face.smiling") else { return nil }
-        let asset = UIImageAsset()
-        asset.register(symbol, with: UITraitCollection(userInterfaceStyle: .dark))
-        asset.register(hollowFace(), with: UITraitCollection(userInterfaceStyle: .light))
-        asset.register(hollowFace(), with: UITraitCollection(userInterfaceStyle: .unspecified))
-        return asset.image(with: UITraitCollection(userInterfaceStyle: .light))
-    }()
+    /// In dark mode the symbol; in light mode (Rooz, 2026-11-05) a face drawn only in outline,
+    /// the symbol's size.
+    static let emojiKeyDark = menuKey(symbol: "face.smiling")
+    static let emojiKeyLight = hollowFace()
+    static func emojiKey(dark: Bool) -> UIImage? { dark ? emojiKeyDark : emojiKeyLight }
 
-    /// A smiling face in thin lines, the menu key's three dots under it.
-    private static func hollowFace() -> UIImage {
-        let side: CGFloat = 17, dot: CGFloat = 2.4, gap: CGFloat = 2.6, line: CGFloat = 1.3
-        let size = CGSize(width: side, height: side + 2 + dot)
+    /// A smiling face in thin lines, in the box of the symbol at the menu key's size, the menu
+    /// key's three dots under it.
+    private static func hollowFace() -> UIImage? {
+        guard let icon = UIImage(systemName: "face.smiling", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16)) else {
+            return nil
+        }
+        let dot: CGFloat = 2.4, gap: CGFloat = 2.6, line: CGFloat = 1.2
+        let size = CGSize(width: max(icon.size.width, 3 * dot + 2 * gap), height: icon.size.height + 2 + dot)
+        let side = min(icon.size.width, icon.size.height) - 1
+        let box = CGRect(x: (size.width - side) / 2, y: (icon.size.height - side) / 2, width: side, height: side)
         return UIGraphicsImageRenderer(size: size).image { _ in
             UIColor.black.setStroke()
             UIColor.black.setFill()
-            let face = UIBezierPath(ovalIn: CGRect(x: 0, y: 0, width: side, height: side).insetBy(dx: line / 2, dy: line / 2))
+            let face = UIBezierPath(ovalIn: box.insetBy(dx: line / 2, dy: line / 2))
             face.lineWidth = line
             face.stroke()
-            let c = CGPoint(x: side / 2, y: side / 2)
-            for x in [c.x - 3.1, c.x + 3.1] {
-                UIBezierPath(ovalIn: CGRect(x: x - 0.95, y: c.y - 3.4, width: 1.9, height: 2.4)).fill()
+            let c = CGPoint(x: box.midX, y: box.midY)
+            let unit = side / 16
+            for x in [c.x - 2.9 * unit, c.x + 2.9 * unit] {
+                UIBezierPath(ovalIn: CGRect(x: x - 0.9 * unit, y: c.y - 3.3 * unit, width: 1.8 * unit, height: 2.3 * unit)).fill()
             }
-            let smile = UIBezierPath(arcCenter: CGPoint(x: c.x, y: c.y + 0.2), radius: 4.4,
+            let smile = UIBezierPath(arcCenter: CGPoint(x: c.x, y: c.y + 0.2 * unit), radius: 4.2 * unit,
                                      startAngle: .pi * 0.18, endAngle: .pi * 0.82, clockwise: true)
             smile.lineWidth = line
             smile.lineCapStyle = .round
             smile.stroke()
-            let left = (side - (3 * dot + 2 * gap)) / 2
+            let left = (size.width - (3 * dot + 2 * gap)) / 2
             for i in 0..<3 {
                 UIBezierPath(ovalIn: CGRect(x: left + CGFloat(i) * (dot + gap), y: size.height - dot,
                                             width: dot, height: dot)).fill()
             }
-        }.withRenderingMode(.alwaysTemplate)
-    }
-
-    /// An SF Symbol as drawn left to right, as a template that no layout direction flips.
-    private static func leftToRight(_ name: String, size: CGFloat = 19, weight: UIImage.SymbolWeight = .regular) -> UIImage {
-        let traits = UITraitCollection(layoutDirection: .leftToRight)
-        guard let symbol = UIImage(systemName: name, compatibleWith: traits)?
-            .applyingSymbolConfiguration(UIImage.SymbolConfiguration(pointSize: size, weight: weight)) else {
-            return UIImage()
-        }
-        return UIGraphicsImageRenderer(size: symbol.size).image { _ in
-            symbol.withTintColor(.black).draw(at: .zero)
         }.withRenderingMode(.alwaysTemplate)
     }
 
