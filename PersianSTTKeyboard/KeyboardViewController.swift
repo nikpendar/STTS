@@ -2943,7 +2943,7 @@ final class KeyboardViewController: UIInputViewController {
     /// Since when the phone has lain flat, screen up: after a few seconds on a table the letters
     /// settle in the middle with no shadow, until it is picked up.
     private var flatSince: TimeInterval?
-    private static let restAfter: TimeInterval = 4
+    private var tuningReads = 0
 
     /// Starts or stops following the phone's tilt, as the option, Reduce Motion and the
     /// keyboard's visibility allow.
@@ -2953,18 +2953,34 @@ final class KeyboardViewController: UIInputViewController {
         let wanted = options.tiltLetters && !UIAccessibility.isReduceMotionEnabled && view.window != nil && !dictating
         if wanted {
             if motion == nil { motion = CMMotionManager() }
+            KeyView.tuning = TiltTuning.load()
             guard let motion, motion.isDeviceMotionAvailable, !motion.isDeviceMotionActive else { return }
             motion.deviceMotionUpdateInterval = 1.0 / 30
             motion.startDeviceMotionUpdates(to: .main) { [weak self] data, _ in
                 guard let self, let data else { return }
                 let gravity = data.gravity
-                // Held at 45° to the ground, as when typing, the letters sit in the middle with no shadow.
-                var x = CGFloat(gravity.x), y = CGFloat(gravity.y + 0.707)
-                if self.view.bounds.width > self.view.bounds.height * 1.6 { (x, y) = (-CGFloat(gravity.y), CGFloat(gravity.x)) }
-                var next = CGPoint(x: max(-1, min(1, x * 2.6)), y: max(-1, min(1, y * 2.6)))
+                // The app's numbers, read again about once a second while they are being tuned.
+                self.tuningReads += 1
+                if self.tuningReads % 30 == 0 {
+                    let tuning = TiltTuning.load()
+                    if tuning != KeyView.tuning {
+                        KeyView.tuning = tuning
+                        // Drawn again with the new numbers.
+                        for row in self.characterKeys { for key in row { key.depth = nil } }
+                        self.applyTilt()
+                    }
+                }
+                let tuning = KeyView.tuning
+                // Held at the set angle to the ground (45°), as when typing, the letters sit in the
+                // middle with no shadow. The top tipped towards the user moves them down.
+                let neutral = sin(tuning.neutralAngle * .pi / 180)
+                var x = CGFloat(gravity.x), y = -CGFloat(gravity.y + neutral)
+                if self.view.bounds.width > self.view.bounds.height * 1.6 { (x, y) = (-CGFloat(gravity.y), -CGFloat(gravity.x)) }
+                let gain = CGFloat(tuning.sensitivity)
+                var next = CGPoint(x: max(-1, min(1, x * gain)), y: max(-1, min(1, y * gain)))
                 if gravity.z < -0.95 {
                     if self.flatSince == nil { self.flatSince = data.timestamp }
-                    if data.timestamp - (self.flatSince ?? data.timestamp) > Self.restAfter { next = .zero }
+                    if data.timestamp - (self.flatSince ?? data.timestamp) > tuning.restAfter { next = .zero }
                 } else if gravity.z > -0.9 {
                     self.flatSince = nil
                 }
@@ -3086,7 +3102,7 @@ private final class KeyView: UIControl {
     /// moves and fades, cheaper than a layer shadow.
     private let shadowView = UIImageView()
     /// What the shadow image was drawn for: text, font size and the letter's box.
-    private var shadowDrawn: (text: String, size: CGFloat, box: CGSize)?
+    private var shadowDrawn: (text: String, size: CGFloat, box: CGSize, blur: CGFloat)?
     /// Holds the label inside the drawn key: a letter wider than the key is cut off there.
     private let labelClip = UIView()
     private let imageView = UIImageView()
@@ -3118,12 +3134,13 @@ private final class KeyView: UIControl {
         }
     }
 
-    /// How far the letter and its shadow move at full tilt, in points.
-    static let letterTravel: CGFloat = 3.4
-    static let shadowTravel: CGFloat = 2.6
-    /// The shadow's opacity at full tilt, and its blur.
-    static let shadowOpacity: CGFloat = 0.28
-    static let shadowBlur: CGFloat = 2.5
+    /// How far the letter and its shadow move, the shadow's opacity and blur (`TiltTuning`, set
+    /// in the app for now).
+    nonisolated(unsafe) static var tuning = TiltTuning.standard
+    static var letterTravel: CGFloat { CGFloat(tuning.letterTravel) }
+    static var shadowTravel: CGFloat { CGFloat(tuning.shadowTravel) }
+    static var shadowOpacity: CGFloat { CGFloat(tuning.shadowOpacity) }
+    static var shadowBlur: CGFloat { CGFloat(tuning.shadowBlur) }
 
     private func applyDepth() {
         let d = depth ?? .zero
@@ -3133,7 +3150,7 @@ private final class KeyView: UIControl {
         shadowView.isHidden = !show
         guard show else { return }
         drawShadow()
-        shadowView.alpha = distance * Self.shadowOpacity / 0.5
+        shadowView.alpha = min(1, distance * Self.shadowOpacity / 0.5)
         shadowView.transform = CGAffineTransform(translationX: -d.x * Self.shadowTravel, y: -d.y * Self.shadowTravel)
     }
 
@@ -3142,8 +3159,9 @@ private final class KeyView: UIControl {
     private func drawShadow() {
         guard let text = label.text, !text.isEmpty, let font = label.font else { return }
         let box = label.bounds.size
-        if let drawn = shadowDrawn, drawn.text == text, drawn.size == font.pointSize, drawn.box == box { return }
-        shadowDrawn = (text, font.pointSize, box)
+        if let drawn = shadowDrawn, drawn.text == text, drawn.size == font.pointSize, drawn.box == box,
+           drawn.blur == Self.shadowBlur { return }
+        shadowDrawn = (text, font.pointSize, box, Self.shadowBlur)
         let pad = Self.shadowBlur * 2
         let size = CGSize(width: box.width + 2 * pad, height: box.height + 2 * pad)
         let format = UIGraphicsImageRendererFormat.preferred()
