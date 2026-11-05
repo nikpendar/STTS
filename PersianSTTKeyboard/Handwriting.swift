@@ -214,6 +214,8 @@ final class HandwritingPadView: UIView {
     /// Leaves the pad for the emoji panel.
     var onEmoji: (() -> Void)?
     var onClose: (() -> Void)?
+    /// A button or reading tapped, or a word read: for the keyboard's haptics when they are on.
+    var onFeedback: (() -> Void)?
 
     /// The keyboard's own return and emoji images.
     var returnImage: UIImage? {
@@ -288,6 +290,7 @@ final class HandwritingPadView: UIView {
             button.titleLabel?.minimumScaleFactor = 0.6
             button.addAction(UIAction { [weak self, weak button] _ in
                 guard let self, let text = button?.title(for: .normal), !text.isEmpty else { return }
+                self.onFeedback?()
                 self.commit(text)
             }, for: .touchUpInside)
             candidateRow.addArrangedSubview(button)
@@ -309,6 +312,9 @@ final class HandwritingPadView: UIView {
         closeButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onClose?() }, for: .touchUpInside)
         emojiButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onEmoji?() }, for: .touchUpInside)
         returnButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onReturn?() }, for: .touchUpInside)
+        for button in [spaceButton, deleteButton, closeButton, emojiButton, returnButton] {
+            button.addAction(UIAction { [weak self] _ in self?.onFeedback?() }, for: .touchDown)
+        }
         recognizer.onState = { [weak self] state in self?.show(state) }
         show(.unavailable)
     }

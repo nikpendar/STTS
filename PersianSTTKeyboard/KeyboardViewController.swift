@@ -2576,6 +2576,7 @@ final class KeyboardViewController: UIInputViewController {
             self.toggleEmoji()
         }
         pad.onClose = { [weak self] in self?.hideHandwriting(animated: true) }
+        pad.onFeedback = { [weak self] in self?.haptic(.key) }
         pad.returnImage = returnKey.image
         pad.emojiImage = emojiIcon
         pad.textBefore = { [weak self] in self?.proxy.documentContextBeforeInput ?? "" }
