@@ -1,0 +1,85 @@
+# Dictation correction / rewrite student (research, nothing in the app): runs the kaggle/rw-*
+# folders changed by a push to this branch as private Kaggle notebooks (secrets KAGGLE_USERNAME /
+# KAGGLE_KEY), waits for each and prints its summary and the end of its log. Data stays on Kaggle;
+# later stages read earlier ones through kernel_sources.
+name: Rewrite student (Kaggle)
+
+on:
+  push:
+    branches: [claude/project-thread-uxoczw]
+    paths: [kaggle/rw-*/**]
+  workflow_dispatch:
+    inputs:
+      kernel:
+        description: Folder under kaggle/ (rw-...)
+        required: true
+      mode:
+        type: choice
+        options: [run, log]
+        default: run
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      kernels: ${{ steps.k.outputs.kernels }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: k
+        env:
+          INPUT: ${{ inputs.kernel }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$INPUT" ]; then list="$INPUT"
+          else
+            base="$BEFORE"; git cat-file -e "$base" 2>/dev/null || base=HEAD~1
+            list="$(git diff --name-only "$base" HEAD -- 'kaggle/rw-*' | cut -d/ -f2 | sort -u | while read d; do [ -f "kaggle/$d/kernel-metadata.json" ] && echo "$d"; done | tr '\n' ' ')"
+          fi
+          echo "kernels=$(printf '%s\n' $list | jq -R . | jq -sc 'map(select(length>0))')" >> "$GITHUB_OUTPUT"
+
+  run:
+    needs: plan
+    if: needs.plan.outputs.kernels != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        kernel: ${{ fromJson(needs.plan.outputs.kernels) }}
+    env:
+      KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+      KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+      KERNEL: ${{ matrix.kernel }}
+      MODE: ${{ inputs.mode || 'run' }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Kaggle tool
+        run: |
+          test -n "$KAGGLE_USERNAME" && test -n "$KAGGLE_KEY" || { echo "::error::KAGGLE secrets missing"; exit 1; }
+          pip install -q --upgrade kaggle && kaggle --version
+          sed -i "s#KAGGLE_USER/#$KAGGLE_USERNAME/#g" "kaggle/$KERNEL/kernel-metadata.json"
+          echo "ID=$(jq -r .id "kaggle/$KERNEL/kernel-metadata.json")" >> "$GITHUB_ENV"
+      - name: Push
+        if: env.MODE == 'run'
+        run: |
+          kaggle kernels push -p "kaggle/$KERNEL" | tee push.txt
+          grep -qiE "error|failed" push.txt && exit 1 || true
+      - name: Wait and log
+        run: |
+          [ "$MODE" = log ] || sleep 90
+          while true; do
+            S="$(kaggle kernels status "$ID" 2>&1 | tail -1)"; echo "$(date -u +%H:%M) $S"
+            case "$S" in *complete*|*COMPLETE*|*error*|*ERROR*|*cancel*|*CANCEL*) break;; esac
+            sleep 120
+          done
+          mkdir -p out && kaggle kernels output "$ID" -p out --file-pattern ".*\\.(log|txt)$" 2>&1 | tail -3 || true
+          ls -la out
+          echo "=== summary"; cat out/summary.txt 2>/dev/null || true
+          LOG="$(ls out/*.log 2>/dev/null | head -1)"
+          if [ -n "$LOG" ]; then
+            python3 -c "import json,sys; [print(''.join(f'[{e.get(\"time\",0):.0f}s] ' + l for l in e.get('data','').splitlines(True)),end='') for e in json.load(open(sys.argv[1]))]" "$LOG" > log.txt
+            echo "=== end of log"; tail -200 log.txt
+          fi
+          case "$S" in *complete*|*COMPLETE*) ;; *) exit 1;; esac
