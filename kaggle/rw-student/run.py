@@ -7,7 +7,8 @@
 # teacher, numbers kept, samples. Output: /kaggle/working/{adapter/, eval.jsonl, summary.txt}.
 import glob, json, math, os, random, re, subprocess, sys, time, unicodedata
 
-subprocess.run("pip install -q peft sacrebleu 2>&1 | tail -1", shell=True)
+# The image's torchao is older than peft accepts, and LoRA here does not need it.
+subprocess.run("pip uninstall -y -q torchao; pip install -q peft sacrebleu 2>&1 | tail -1", shell=True)
 import torch
 from peft import LoraConfig, get_peft_model
 from sacrebleu.metrics import CHRF
