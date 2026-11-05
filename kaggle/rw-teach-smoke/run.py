@@ -26,11 +26,25 @@ def sh(cmd):
     subprocess.run(cmd, shell=True, check=True)
 
 
-sh("nvidia-smi --query-gpu=name,memory.total --format=csv; nvcc --version | tail -1; nproc; free -g | head -2")
+sh("nvidia-smi | head -4; which nvcc; nvcc --version | tail -1; nproc; free -g | head -2")
+sh("ls -la /usr/local/ | grep -i cuda; find / -name 'libcuda.so*' -not -path '/proc/*' 2>/dev/null | head")
+# The image has the toolkit but no libcuda.so link for CMake's CUDA::cuda_driver: point it at the
+# toolkit's stub (linking only; the real driver library is used at run time).
+stub = subprocess.run("find / -path /proc -prune -o -name 'libcuda.so' -print 2>/dev/null | grep stubs | head -1",
+                      shell=True, capture_output=True, text=True).stdout.strip()
+if not stub:
+    real = subprocess.run("find / -path /proc -prune -o -name 'libcuda.so.1' -print 2>/dev/null | head -1",
+                          shell=True, capture_output=True, text=True).stdout.strip()
+    os.makedirs(f"{TMP}/cudalib", exist_ok=True)
+    if real and not os.path.exists(f"{TMP}/cudalib/libcuda.so"):
+        os.symlink(real, f"{TMP}/cudalib/libcuda.so")
+    stub = f"{TMP}/cudalib/libcuda.so"
+log("libcuda for linking:", stub)
 t = time.time()
 sh(f"git clone -q --depth 1 https://github.com/ggml-org/llama.cpp {TMP}/llama.cpp")
 sh(f"cd {TMP}/llama.cpp && cmake -B build -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=75 -DLLAMA_CURL=OFF "
-   f"-DCMAKE_BUILD_TYPE=Release > /dev/null && cmake --build build -j{os.cpu_count()} --target llama-server 2>&1 | tail -2")
+   f"-DCUDA_cuda_driver_LIBRARY={stub} -DCMAKE_LIBRARY_PATH={os.path.dirname(stub)} "
+   f"-DCMAKE_BUILD_TYPE=Release 2>&1 | grep -iE 'cuda|error' | head -20 && cmake --build build -j{os.cpu_count()} --target llama-server 2>&1 | grep -iE 'error|warning: no' | head; ls -la build/bin/llama-server")
 summary.append(log(f"llama.cpp build {time.time() - t:.0f} s"))
 
 from huggingface_hub import hf_hub_download

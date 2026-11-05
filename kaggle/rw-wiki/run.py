@@ -1,19 +1,19 @@
 # Stage 1b of the dictation-correction student: synthetic dictation from Persian Wikipedia
-# (CC BY-SA). Each written sentence (the target, punctuation and ZWNJ intact) gets a spoken-style
-# input as the speech model writes it (no ZWNJ, no punctuation, numbers in words), with one of:
+# (CC BY-SA). Each written sentence (the target, punctuation and ZWNJ intact) gets an input as
+# Shenava writes it (ZWNJ as a space, «می شود»; punctuation kept half of the time, as Shenava often
+# leaves it out; sentences with digits skipped, stub openings capped at 5), with one of:
 # self-correction («… نه ببخشید …», «یعنی نه»), a repeated word, a filler at the start, or nothing.
 # Output /kaggle/working/wiki.jsonl: {id, kind, ref, hyp}; summary.txt with counts and samples. CPU.
-import json, os, random, re, subprocess, time, unicodedata
+import json, os, random, re, time, unicodedata
 
-subprocess.run("pip install -q num2fawords", shell=True, check=True)
 from huggingface_hub import hf_hub_download, list_repo_files
-from num2fawords import words as fa_words
 import pandas as pd
 
 T0 = time.time()
 OUT = "/kaggle/working"
 N = int(os.environ.get("N", "40000"))
 random.seed(7)
+ZWNJ = "‌"
 
 files = sorted(f for f in list_repo_files("wikimedia/wikipedia", repo_type="dataset") if f.startswith("20231101.fa/"))
 print(len(files), "parquet files", flush=True)
@@ -22,30 +22,34 @@ print(len(files), "parquet files", flush=True)
 def spoken(text):
     text = unicodedata.normalize("NFKC", text)
     text = text.replace("ي", "ی").replace("ك", "ک")
-    text = re.sub(r"[۰-۹]", lambda m: str("۰۱۲۳۴۵۶۷۸۹".index(m.group())), text)
-    text = re.sub(r"\d+", lambda m: fa_words(int(m.group())) if len(m.group()) < 10 else m.group(), text)
-    text = re.sub("[ً-ٰٟـ]", "", text).replace("‌", "")
-    text = re.sub(r"[^\w\s]|_", " ", text)
+    text = re.sub("[ً-ْٰٔـ]", "", text).replace(ZWNJ, " ")
+    text = re.sub(r"[«»()\[\]\-\"]", " ", text)
+    if random.random() < 0.5:
+        text = re.sub("[،؛:.!؟]", " ", text)
     return " ".join(text.split())
 
 
-good = re.compile(r"^[؀-ۿ‌\s\d۰-۹،؛:.!؟«»()\-]+$")
-sentences = []
+good = re.compile("^[؀-ۿ‌\\s،؛:.!؟«»()\\-]+$")
+digits = re.compile("[0-9۰-۹٠-٩]")
+sentences, prefixes = [], {}
 for f in files:
     df = pd.read_parquet(hf_hub_download("wikimedia/wikipedia", f, repo_type="dataset"), columns=["text"])
     for doc in df["text"].sample(frac=1, random_state=1):
         for para in doc.split("\n"):
             for s in re.split(r"(?<=[.؟!])\s+", para.strip()):
                 n = len(s.split())
-                if 6 <= n <= 30 and s.endswith((".", "؟", "!")) and good.match(s) and "()" not in s:
-                    sentences.append(s)
-        if len(sentences) > N * 3:
+                if 6 <= n <= 30 and s.endswith((".", "؟", "!")) and good.match(s) and not digits.search(s) and "()" not in s:
+                    key = " ".join(s.split()[:3])
+                    prefixes[key] = prefixes.get(key, 0) + 1
+                    if prefixes[key] <= 5:
+                        sentences.append(s)
+        if len(sentences) > N * 2:
             break
-    if len(sentences) > N * 3:
+    if len(sentences) > N * 2:
         break
 random.shuffle(sentences)
 sentences = sentences[:N]
-vocab = [w for s in sentences[:5000] for w in spoken(s).split() if len(w) > 2]
+vocab = [w for s in sentences[:5000] for w in re.sub("[،؛:.!؟]", " ", spoken(s)).split() if len(w) > 2]
 CORRECT = ["نه ببخشید", "نه یعنی", "یعنی نه", "نه نه", "ببخشید"]
 FILL = ["خب", "ببین", "خب ببین", "اوم", "یعنی"]
 
