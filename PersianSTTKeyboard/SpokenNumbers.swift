@@ -173,7 +173,8 @@ enum SpokenNumbers {
         }
         // «سه چهار هزار و سیصد و پنجاه تومن» is a price.
         if let date, next.map({ !counters.contains($0) }) ?? true {
-            return date.map { format(padded: $0) }.joined(separator: "/")
+            // Written year first: in the line it reads year on the left, day on the right (Rooz, 2026-11-05).
+            return date.reversed().map { format(padded: $0) }.joined(separator: "/")
         }
         let cue = before.contains { identifierCues.contains($0) }
         let digits = plain.reduce(0) { $0 + $1.count }
@@ -308,6 +309,16 @@ enum SpokenNumbers {
 
     /// Digits in `text` (Persian, Arabic or Latin, with separators) written in words.
     static func words(in text: String) -> String {
+        // A date back in the order it was said: day, month, year.
+        let ns = text as NSString
+        if let match = dateWritten.firstMatch(in: text, range: NSRange(location: 0, length: ns.length)) {
+            let parts = (1...3).map { ns.substring(with: match.range(at: $0)) }
+            let said = parts.reversed().map { part in
+                spell(part.compactMap(\.wholeNumberValue).reduce(0) { $0 * 10 + $1 })
+            }.joined(separator: " ")
+            return words(in: ns.substring(to: match.range.location)) + said
+                + words(in: ns.substring(from: match.range.location + match.range.length))
+        }
         var out = ""
         var number = ""
         func flush() {
@@ -340,6 +351,9 @@ enum SpokenNumbers {
         flush()
         return out + trailing
     }
+
+    /// A date as written (`joined`): year/month/day.
+    private static let dateWritten = try! NSRegularExpression(pattern: "([۰-۹0-9]{4})/([۰-۹0-9]{1,2})/([۰-۹0-9]{1,2})")
 
     /// «۱۴۰۳» → «هزار و چهارصد و سه»; a number with a leading zero digit by digit; a decimal
     /// with «ممیز».

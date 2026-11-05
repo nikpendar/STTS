@@ -59,7 +59,7 @@ struct ContentView: View {
                     }
                     NavigationLink { page("واژه‌نامه‌ی شخصی") { DictionaryPage(dictionary: $dictionary) } } label: {
                         LabeledContent {
-                            Text(dictionary.entries.isEmpty ? "" : "\(dictionary.entries.count)")
+                            Text(dictionary.entries.isEmpty ? "" : dictionary.entries.count.formatted(.number.locale(Locale(identifier: "fa_IR"))))
                         } label: {
                             SettingLabel("واژه‌نامه‌ی شخصی", symbol: "character.book.closed.fill", color: .teal)
                         }
@@ -95,7 +95,7 @@ struct ContentView: View {
                     }
                     NavigationLink { page("میان‌برهای تایپ") { ShortcutsPage(shortcuts: $shortcuts) } } label: {
                         LabeledContent {
-                            Text(shortcuts.entries.isEmpty ? "" : "\(shortcuts.entries.count)")
+                            Text(shortcuts.entries.isEmpty ? "" : shortcuts.entries.count.formatted(.number.locale(Locale(identifier: "fa_IR"))))
                         } label: {
                             SettingLabel("میان‌برهای تایپ", symbol: "text.insert", color: .indigo)
                         }

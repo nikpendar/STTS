@@ -115,11 +115,11 @@ check("seven digits joined", text("دوازده سی و چهار پنجاه و �
 check("pieces with a comma", text("شماره صفر نهصد و دوازده، سیصد و چهل و پنج", punctuation: false), "شماره 0912345")
 check("two small numbers apart", text("سه چهار نفر"), "۳ ۴ نفر")
 check("years apart", text("سال هزار و چهارصد و دو هزار و چهارصد و سه"), "سال ۱۴۰۲ ۱۴۰۳")
-check("date", text("تاریخ دوازده پنج هزار و چهارصد و سه"), "تاریخ ۱۲/۰۵/۱۴۰۳")
-check("date without a cue", text("دوازده پنج هزار و چهارصد و سه"), "۱۲/۰۵/۱۴۰۳")
+check("date", text("تاریخ دوازده پنج هزار و چهارصد و سه"), "تاریخ ۱۴۰۳/۰۵/۱۲")
+check("date without a cue", text("دوازده پنج هزار و چهارصد و سه"), "۱۴۰۳/۰۵/۱۲")
 check("year first is no date", text("تاریخ هزار و چهارصد و سه پنج دوازده"), "تاریخ ۱۴۰۳ ۵ ۱۲")
 check("round price is no date", text("دوازده پنج هزار و سیصد تومن"), "۱۲ ۵۳۰۰ تومن")
-check("date day first", text("تاریخ دوازده پنج دو هزار و بیست و چهار"), "تاریخ ۱۲/۰۵/۲۰۲۴")
+check("date day first", text("تاریخ دوازده پنج دو هزار و بیست و چهار"), "تاریخ ۲۰۲۴/۰۵/۱۲")
 // Read slowly: the pieces come with pause marks (and marks automatic punctuation put there).
 func dictated(_ raw: String) -> String { VoiceCommands.process(raw, punctuation: false, commands: false).text }
 check("slow mobile", dictated("شماره‌ام صفر نهصد و دوازده" + pause + "سیصد و چهل و پنج" + pause + "شصت و هفت هشتاد و نه"),
@@ -127,7 +127,8 @@ check("slow mobile", dictated("شماره‌ام صفر نهصد و دوازده
 check("slow mobile with marks", dictated("صفر نهصد و دوازده." + pause + "سیصد و چهل و پنج،" + pause + "شصت و هفت"), "091234567")
 check("slow card", dictated("کارت شش هزار و سی و هفت" + pause + "نود و نه هفتاد و پنج" + pause + "یک دو سه چهار" + pause + "پنج شش هفت هشت"),
       "کارت 6037997512345678")
-check("slow date", dictated("تاریخ دوازده" + pause + "پنج" + pause + "هزار و چهارصد و سه"), "تاریخ ۱۲/۰۵/۱۴۰۳")
+check("date back to words", SpokenNumbers.words(in: "تاریخ ۱۴۰۳/۰۵/۱۲ بود"), "تاریخ دوازده پنج هزار و چهارصد و سه بود")
+check("slow date", dictated("تاریخ دوازده" + pause + "پنج" + pause + "هزار و چهارصد و سه"), "تاریخ ۱۴۰۳/۰۵/۱۲")
 check("small numbers in pauses apart", dictated("سه." + pause + "چهار نفر اومدن"), "۳. ۴ نفر اومدن")
 check("ص heard for صفر", dictated("شماره ص نهصد و دوازده سیصد و چهل و پنج"), "شماره 0912345")
 check("lone ص stays", dictated("حرف ص"), "حرف ص")

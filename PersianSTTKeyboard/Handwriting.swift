@@ -219,12 +219,9 @@ final class HandwritingPadView: UIView {
     /// A button or reading tapped, or a word read: for the keyboard's haptics when they are on.
     var onFeedback: (() -> Void)?
 
-    /// The keyboard's own return and emoji images.
+    /// The keyboard's own return image.
     var returnImage: UIImage? {
         didSet { returnButton.setImage(returnImage, for: .normal) }
-    }
-    var emojiImage: UIImage? {
-        didSet { emojiButton.setImage(emojiImage, for: .normal) }
     }
     /// The text before the cursor, for the recognizer's context.
     var textBefore: (() -> String)?
