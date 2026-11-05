@@ -4880,10 +4880,9 @@ private final class KeyboardSettingsPanel: UIView {
         addSubview(backdrop)
 
         titleLabel.text = "تنظیمات کیبورد"
-        // Larger and bold, so it stands apart from the rows below it.
-        let titleFont = AppFont.font(ofSize: 20)
-        titleLabel.font = titleFont.fontDescriptor.withSymbolicTraits(.traitBold).map { UIFont(descriptor: $0, size: 20) }
-            ?? .systemFont(ofSize: 20, weight: .bold)
+        // Larger, so it stands apart from the rows below it. The app's font has no bold face:
+        // asking for bold handed back another font.
+        titleLabel.font = AppFont.font(ofSize: 21)
         titleLabel.textAlignment = .right
         closeButton.setImage(UIImage(systemName: "keyboard.chevron.compact.down",
                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 18)), for: .normal)
@@ -5017,6 +5016,19 @@ private final class KeyboardSettingsPanel: UIView {
         appButton.tintColor = textColor
         let light = KeyboardBackground.luminance(textColor.resolvedColor(with: traitCollection)) > 0.5
         backdrop.effect = UIBlurEffect(style: light ? .systemThickMaterialDark : .systemThickMaterialLight)
+    }
+
+    /// The letters' colour is the system one unless chosen, and it resolves only once the panel
+    /// sits in the keyboard: before that it took the phone's dark mode and picked a dark
+    /// backdrop under dark letters.
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { applyColours() }
+    }
+
+    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+        super.traitCollectionDidChange(previous)
+        applyColours()
     }
 
     override func layoutSubviews() {
