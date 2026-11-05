@@ -2967,7 +2967,12 @@ final class KeyboardViewController: UIInputViewController {
                 // shadow. The top tipped towards the user moves them down.
                 let neutral = sin(Self.neutralAngle * .pi / 180)
                 var x = CGFloat(gravity.x), y = -CGFloat(gravity.y + neutral)
-                if self.view.bounds.width > self.view.bounds.height * 1.6 { (x, y) = (-CGFloat(gravity.y), -CGFloat(gravity.x)) }
+                if self.view.bounds.width > self.view.bounds.height * 1.6 {
+                    // Landscape, either way round: the screen's down is the side gravity pulls
+                    // along the phone's width, and 45° is the middle there too (Rooz, 2026-11-05).
+                    let side: Double = gravity.x >= 0 ? 1 : -1
+                    (x, y) = (CGFloat(side * gravity.y), CGFloat(side * gravity.x - neutral))
+                }
                 let gain = Self.tiltSensitivity
                 var next = CGPoint(x: max(-1, min(1, x * gain)), y: max(-1, min(1, y * gain)))
                 var resting = false
