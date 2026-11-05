@@ -165,6 +165,10 @@ final class KeyboardViewController: UIInputViewController {
     /// The last space typed, for two spaces typing a full stop and three a comma: 0 after the
     /// space a picked suggestion adds, 1 after a plain space, 2 after the full stop.
     private var lastSpace: (time: CFTimeInterval, step: Int)?
+    /// The space before the cursor was put there by the keyboard after a picked suggestion: a
+    /// mark typed next takes its place, as on iOS («سلام ؟» → «سلام؟ »).
+    private var autoSpace = false
+    private static let smartPunctuation: Set<String> = [".", "،", ",", "؟", "?", "!", ":", "؛", ";", "…"]
     private var editsTimer: Timer?
     /// The keyboard's last insertion, which the proxy's text can lag behind (`contextBefore`).
     private var lastInsertion: (text: String, time: CFTimeInterval)?
@@ -871,6 +875,15 @@ final class KeyboardViewController: UIInputViewController {
             editEmojiSearch(adding: text)
             return
         }
+        if autoSpace, !dictated, Self.smartPunctuation.contains(text),
+           proxy.documentContextBeforeInput?.hasSuffix(" ") == true {
+            deleteBackward()
+            insert(text + " ")
+            // Another mark right after joins it too («؟!»).
+            autoSpace = true
+            return
+        }
+        autoSpace = false
         lastSpace = nil
         lastAutoZWNJ = nil
         lastDoubleZWNJ = nil
@@ -888,6 +901,7 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     private func deleteBackward() {
+        autoSpace = false
         lastSpace = nil
         lastAutoZWNJ = nil
         lastDoubleZWNJ = nil
@@ -2504,6 +2518,7 @@ final class KeyboardViewController: UIInputViewController {
         if item.replacesGlide, let glide = lastGlide, item.text == glide.word {
             lastGlide = nil
             insert(" ")
+            autoSpace = true
             return
         }
         if item.replacesGlide, let glide = lastGlide {
@@ -2529,6 +2544,7 @@ final class KeyboardViewController: UIInputViewController {
             $0.lettersSaved += spared
         }
         lastSpace = (CACurrentMediaTime(), 0)
+        autoSpace = true
     }
 
     // MARK: - Handwriting
@@ -4206,6 +4222,8 @@ private final class DictationOrbView: UIControl {
 /// the Persian font's taller line and sits high in a key. Text without Persian letters or digits
 /// is set in the system font.
 func keyFont(for text: String?, size: CGFloat) -> UIFont {
+    // The app font draws these the wrong way up; the system font draws them as the text will show.
+    if text == "،" || text == "؛" { return .systemFont(ofSize: size) }
     let persian = text?.unicodeScalars.contains { (0x0600...0x06FF).contains($0.value) || (0xFB50...0xFEFF).contains($0.value) }
     return persian == false ? .systemFont(ofSize: size) : AppFont.font(ofSize: size)
 }
