@@ -410,29 +410,6 @@ struct TypedShortcuts: SharedSetting, Equatable {
     }
 }
 
-/// The tilting letters' numbers, set by hand in the app for now (Rooz, 2026-11-05) until the
-/// best ones are fixed in the code.
-struct TiltTuning: SharedSetting, Equatable {
-    /// How far a letter moves at full tilt, in points.
-    var letterTravel: Double = 3.4
-    /// How far its shadow moves the other way, in points.
-    var shadowTravel: Double = 2.6
-    /// The shadow's opacity at full tilt (0 in the middle).
-    var shadowOpacity: Double = 0.45
-    /// The shadow's blur, in points.
-    var shadowBlur: Double = 2.5
-    /// The phone's angle to the ground, in degrees, at which the letters sit in the middle.
-    var neutralAngle: Double = 45
-    /// How quickly a tilt reaches full travel: higher, a smaller turn of the phone.
-    var sensitivity: Double = 2.6
-    /// Seconds flat on a table before the letters rest in the middle.
-    var restAfter: Double = 4
-
-    static let standard = TiltTuning()
-    static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.tiltTuning")
-    static let defaultsKey = "tiltTuning"
-}
-
 /// Keyboard features that can be turned off in the app.
 struct KeyboardOptions: SharedSetting, Equatable {
     /// The row of suggestions above the keys; off, the keys move up under a thin margin.

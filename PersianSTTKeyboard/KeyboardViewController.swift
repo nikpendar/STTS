@@ -2944,7 +2944,11 @@ final class KeyboardViewController: UIInputViewController {
     /// Since when the phone has lain flat, screen up: after a few seconds on a table the letters
     /// settle in the middle with no shadow, until it is picked up.
     private var flatSince: TimeInterval?
-    private var tuningReads = 0
+    /// The angle to the ground (degrees) at which the letters sit in the middle, how quickly a
+    /// tilt reaches full travel, and seconds flat on a table before they rest (Rooz, 2026-11-05).
+    private static let neutralAngle: Double = 45
+    private static let tiltSensitivity: CGFloat = 2.6
+    private static let restAfter: TimeInterval = 4
 
     /// Starts or stops following the phone's tilt, as the option, Reduce Motion and the
     /// keyboard's visibility allow.
@@ -2954,40 +2958,32 @@ final class KeyboardViewController: UIInputViewController {
         let wanted = options.tiltLetters && !UIAccessibility.isReduceMotionEnabled && view.window != nil && !dictating
         if wanted {
             if motion == nil { motion = CMMotionManager() }
-            KeyView.tuning = TiltTuning.load()
             guard let motion, motion.isDeviceMotionAvailable, !motion.isDeviceMotionActive else { return }
             motion.deviceMotionUpdateInterval = 1.0 / 30
             motion.startDeviceMotionUpdates(to: .main) { [weak self] data, _ in
                 guard let self, let data else { return }
                 let gravity = data.gravity
-                // The app's numbers, read again about once a second while they are being tuned.
-                self.tuningReads += 1
-                if self.tuningReads % 30 == 0 {
-                    let tuning = TiltTuning.load()
-                    if tuning != KeyView.tuning {
-                        KeyView.tuning = tuning
-                        // Drawn again with the new numbers.
-                        for row in self.characterKeys { for key in row { key.depth = nil } }
-                        self.applyTilt()
-                    }
-                }
-                let tuning = KeyView.tuning
-                // Held at the set angle to the ground (45°), as when typing, the letters sit in the
-                // middle with no shadow. The top tipped towards the user moves them down.
-                let neutral = sin(tuning.neutralAngle * .pi / 180)
+                // Held at 45° to the ground, as when typing, the letters sit in the middle with no
+                // shadow. The top tipped towards the user moves them down.
+                let neutral = sin(Self.neutralAngle * .pi / 180)
                 var x = CGFloat(gravity.x), y = -CGFloat(gravity.y + neutral)
                 if self.view.bounds.width > self.view.bounds.height * 1.6 { (x, y) = (-CGFloat(gravity.y), -CGFloat(gravity.x)) }
-                let gain = CGFloat(tuning.sensitivity)
+                let gain = Self.tiltSensitivity
                 var next = CGPoint(x: max(-1, min(1, x * gain)), y: max(-1, min(1, y * gain)))
+                var resting = false
                 if gravity.z < -0.95 {
                     if self.flatSince == nil { self.flatSince = data.timestamp }
-                    if data.timestamp - (self.flatSince ?? data.timestamp) > tuning.restAfter { next = .zero }
+                    resting = data.timestamp - (self.flatSince ?? data.timestamp) > Self.restAfter
+                    if resting { next = .zero }
                 } else if gravity.z > -0.9 {
                     self.flatSince = nil
                 }
-                // Smoothed, and only redrawn when it moved enough to see.
-                let smooth = CGPoint(x: self.tilt.x + (next.x - self.tilt.x) * 0.35, y: self.tilt.y + (next.y - self.tilt.y) * 0.35)
-                guard abs(smooth.x - self.tilt.x) > 0.01 || abs(smooth.y - self.tilt.y) > 0.01 else { return }
+                // Smoothed: slowly into the middle on a table (about two seconds), quickly when
+                // picked up; only redrawn when it moved enough to see.
+                let rate: CGFloat = resting ? 0.06 : 0.35
+                var smooth = CGPoint(x: self.tilt.x + (next.x - self.tilt.x) * rate, y: self.tilt.y + (next.y - self.tilt.y) * rate)
+                if abs(next.x - smooth.x) < 0.01, abs(next.y - smooth.y) < 0.01 { smooth = next }
+                guard abs(smooth.x - self.tilt.x) > 0.002 || abs(smooth.y - self.tilt.y) > 0.002 else { return }
                 self.tilt = smooth
                 self.applyTilt()
             }
@@ -3135,13 +3131,12 @@ private final class KeyView: UIControl {
         }
     }
 
-    /// How far the letter and its shadow move, the shadow's opacity and blur (`TiltTuning`, set
-    /// in the app for now).
-    nonisolated(unsafe) static var tuning = TiltTuning.standard
-    static var letterTravel: CGFloat { CGFloat(tuning.letterTravel) }
-    static var shadowTravel: CGFloat { CGFloat(tuning.shadowTravel) }
-    static var shadowOpacity: CGFloat { CGFloat(tuning.shadowOpacity) }
-    static var shadowBlur: CGFloat { CGFloat(tuning.shadowBlur) }
+    /// How far the letter and its shadow move at full tilt (points), the shadow's opacity there
+    /// and its blur (points), as Rooz set them by hand on 2026-11-05.
+    static let letterTravel: CGFloat = 3.4
+    static let shadowTravel: CGFloat = 4
+    static let shadowOpacity: CGFloat = 0.3
+    static let shadowBlur: CGFloat = 3.5
 
     private func applyDepth() {
         let d = depth ?? .zero
@@ -4305,7 +4300,7 @@ private final class DictationOrbView: UIControl {
 /// is set in the system font.
 func keyFont(for text: String?, size: CGFloat) -> UIFont {
     // The app font draws these the wrong way up; the system font draws them as the text will show.
-    if text == "،" || text == "؛" { return .systemFont(ofSize: size) }
+    if let text, ["،", "؛", "٫", "٬"].contains(text) { return .systemFont(ofSize: size) }
     let persian = text?.unicodeScalars.contains { (0x0600...0x06FF).contains($0.value) || (0xFB50...0xFEFF).contains($0.value) }
     return persian == false ? .systemFont(ofSize: size) : AppFont.font(ofSize: size)
 }

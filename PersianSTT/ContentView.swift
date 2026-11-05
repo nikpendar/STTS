@@ -309,12 +309,6 @@ struct ContentView: View {
                 Toggle(isOn: $options.tiltLetters) {
                     SettingLabel("حروف سه‌بعدی با چرخش گوشی", symbol: "cube.transparent", color: .teal)
                 }
-                // For now: the numbers are tuned by hand, then fixed in the code (Rooz, 2026-11-05).
-                if options.tiltLetters {
-                    NavigationLink { page("تنظیم اثر سه‌بعدی") { TiltTuningPage() } } label: {
-                        SettingLabel("تنظیم اثر سه‌بعدی (موقت)", symbol: "slider.horizontal.3", color: .gray)
-                    }
-                }
                 Toggle(isOn: $options.keySounds) {
                     SettingLabel("صدای کلیدها", symbol: "speaker.wave.2.fill", color: .pink)
                 }
@@ -812,52 +806,6 @@ private struct SetupStep: View {
                 .background(Circle().fill(Color.accentColor))
             Text(text)
                 .font(.app(.subheadline))
-        }
-    }
-}
-
-/// The tilting letters' numbers by hand, with a field to try them in: the keyboard reads them
-/// again about once a second.
-private struct TiltTuningPage: View {
-    @State private var tuning = TiltTuning.saved
-    @State private var trial = ""
-
-    var body: some View {
-        Section {
-            TextField("اینجا با کیبورد کیلس امتحان کنید", text: $trial)
-                .rightAligned()
-        } footer: {
-            Text("عددها حدود یک ثانیه بعد در کیبورد دیده می‌شوند. وقتی به حالت دلخواه رسیدید، عددها را بفرستید تا در برنامه ثابت شوند.")
-                .font(.app(.footnote))
-        }
-        Section {
-            row("حرکت حرف", value: $tuning.letterTravel, range: 0...10, step: 0.2, unit: "نقطه")
-            row("حرکت سایه", value: $tuning.shadowTravel, range: 0...10, step: 0.2, unit: "نقطه")
-            row("پررنگی سایه", value: $tuning.shadowOpacity, range: 0...1, step: 0.02, unit: "")
-            row("محوی سایه", value: $tuning.shadowBlur, range: 0...8, step: 0.25, unit: "نقطه")
-        } header: {
-            Text("حرف و سایه").font(.app(.footnote))
-        }
-        Section {
-            row("زاویه‌ی وسط", value: $tuning.neutralAngle, range: 0...90, step: 1, unit: "درجه")
-            row("حساسیت به چرخش", value: $tuning.sensitivity, range: 0.5...6, step: 0.1, unit: "")
-            row("آرام شدن روی میز بعد از", value: $tuning.restAfter, range: 1...15, step: 1, unit: "ثانیه")
-        } header: {
-            Text("چرخش گوشی").font(.app(.footnote))
-        }
-        Section {
-            Button("برگرداندن عددهای پیش‌فرض") { tuning = .standard }
-        }
-        .onChange(of: tuning) { _, new in new.save() }
-    }
-
-    private func row(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, step: Double, unit: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            LabeledContent(title) {
-                Text("\(value.wrappedValue.formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier: "fa_IR")))) \(unit)")
-                    .monospacedDigit()
-            }
-            Slider(value: value, in: range, step: step)
         }
     }
 }
