@@ -418,7 +418,7 @@ struct TiltTuning: SharedSetting, Equatable {
     /// How far its shadow moves the other way, in points.
     var shadowTravel: Double = 2.6
     /// The shadow's opacity at full tilt (0 in the middle).
-    var shadowOpacity: Double = 0.28
+    var shadowOpacity: Double = 0.45
     /// The shadow's blur, in points.
     var shadowBlur: Double = 2.5
     /// The phone's angle to the ground, in degrees, at which the letters sit in the middle.

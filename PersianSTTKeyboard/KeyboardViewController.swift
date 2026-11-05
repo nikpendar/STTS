@@ -1,4 +1,5 @@
 import AudioToolbox
+import Accelerate
 import CoreMotion
 import UIKit
 import os
@@ -3150,33 +3151,58 @@ private final class KeyView: UIControl {
         shadowView.isHidden = !show
         guard show else { return }
         drawShadow()
-        shadowView.alpha = min(1, distance * Self.shadowOpacity / 0.5)
+        // Darker the further from the middle: full at two thirds of the way.
+        shadowView.alpha = Self.shadowOpacity * min(1, distance * 1.5)
         shadowView.transform = CGAffineTransform(translationX: -d.x * Self.shadowTravel, y: -d.y * Self.shadowTravel)
     }
 
-    /// The letter's shape blurred, in black at half opacity (`alpha` sets the rest), drawn when
-    /// the letter, its size or its box changed.
+    /// The letter's shape in black, blurred, drawn when the letter, its size, its box or the blur
+    /// changed; `alpha` sets how dark it shows.
     private func drawShadow() {
         guard let text = label.text, !text.isEmpty, let font = label.font else { return }
         let box = label.bounds.size
+        guard box.width > 0, box.height > 0 else { return }
         if let drawn = shadowDrawn, drawn.text == text, drawn.size == font.pointSize, drawn.box == box,
            drawn.blur == Self.shadowBlur { return }
         shadowDrawn = (text, font.pointSize, box, Self.shadowBlur)
-        let pad = Self.shadowBlur * 2
+        let pad = ceil(Self.shadowBlur * 2) + 1
         let size = CGSize(width: box.width + 2 * pad, height: box.height + 2 * pad)
         let format = UIGraphicsImageRendererFormat.preferred()
+        format.opaque = false
         let attributed = NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: UIColor.black])
         let textSize = attributed.size()
-        let scale = format.scale
-        shadowView.image = UIGraphicsImageRenderer(size: size, format: format).image { context in
-            // Only the shadow: the text itself is drawn far off to the left, its shadow moved back.
-            let far: CGFloat = 4000
-            context.cgContext.setShadow(offset: CGSize(width: far * scale, height: 0), blur: Self.shadowBlur * scale,
-                                        color: UIColor.black.withAlphaComponent(0.5).cgColor)
-            attributed.draw(at: CGPoint(x: (size.width - textSize.width) / 2 - far, y: (size.height - textSize.height) / 2))
+        let glyph = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            attributed.draw(at: CGPoint(x: (size.width - textSize.width) / 2, y: (size.height - textSize.height) / 2))
+        }
+        let radius = Int((Self.shadowBlur * format.scale).rounded())
+        if radius > 0, let image = glyph.cgImage, let soft = Self.blurred(image, radius: radius) {
+            shadowView.image = UIImage(cgImage: soft, scale: format.scale, orientation: .up)
+        } else {
+            shadowView.image = glyph
         }
         shadowView.bounds = CGRect(origin: .zero, size: size)
         shadowView.center = label.center
+    }
+
+    /// Two tent passes (close to a Gaussian) of `radius` pixels, with Accelerate on the CPU.
+    private static func blurred(_ image: CGImage, radius: Int) -> CGImage? {
+        guard let format = vImage_CGImageFormat(cgImage: image),
+              var source = try? vImage_Buffer(cgImage: image, format: format),
+              var target = try? vImage_Buffer(width: Int(source.width), height: Int(source.height), bitsPerPixel: 32) else {
+            return nil
+        }
+        defer {
+            source.free()
+            target.free()
+        }
+        let side = UInt32(radius * 2 + 1)
+        var clear: [UInt8] = [0, 0, 0, 0]
+        let flags = vImage_Flags(kvImageBackgroundColorFill)
+        guard vImageTentConvolve_ARGB8888(&source, &target, nil, 0, 0, side, side, &clear, flags) == kvImageNoError,
+              vImageTentConvolve_ARGB8888(&target, &source, nil, 0, 0, side, side, &clear, flags) == kvImageNoError else {
+            return nil
+        }
+        return try? source.createCGImage(format: format)
     }
 
     private func updateLabel() {
