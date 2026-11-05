@@ -92,7 +92,10 @@ final class PersonalModel: ObservableObject {
         removeModels(except: modelFile)
     }
 
-    private var uploadEnabled: Bool { UserDefaults.standard.bool(forKey: Self.uploadKey) }
+    /// Never in the build with the model inside, which has no switch for it.
+    private var uploadEnabled: Bool {
+        Transcriber.bundledModel == nil && UserDefaults.standard.bool(forKey: Self.uploadKey)
+    }
 
     /// owner/name of the private repository.
     private var repo: String {

@@ -74,11 +74,14 @@ struct ContentView: View {
                             }
                         }
                     }
-                    NavigationLink { page("یادگیری از اصلاح‌ها") { trainingSection } } label: {
-                        LabeledContent {
-                            Text(trainingUpload ? "روشن" : "خاموش")
-                        } label: {
-                            SettingLabel("یادگیری از اصلاح‌ها", symbol: "brain.head.profile", color: .green)
+                    // Nor learning from corrections in the build with the model inside (Rooz, 2026-11-05).
+                    if Transcriber.bundledModel == nil {
+                        NavigationLink { page("یادگیری از اصلاح‌ها") { trainingSection } } label: {
+                            LabeledContent {
+                                Text(trainingUpload ? "روشن" : "خاموش")
+                            } label: {
+                                SettingLabel("یادگیری از اصلاح‌ها", symbol: "brain.head.profile", color: .green)
+                            }
                         }
                     }
                 } header: {

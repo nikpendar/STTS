@@ -35,11 +35,11 @@ struct Onboarding: View {
 
     private enum Step { case language, welcome, keyboard, fullAccess, model, training, session }
 
-    /// A build with the model inside has nothing to import.
+    /// A build with the model inside has nothing to import and does not learn from corrections.
     private var steps: [Step] {
         Transcriber.bundledModel == nil
             ? [.language, .welcome, .keyboard, .fullAccess, .model, .training, .session]
-            : [.language, .welcome, .keyboard, .fullAccess, .training, .session]
+            : [.language, .welcome, .keyboard, .fullAccess, .session]
     }
 
     var body: some View {
