@@ -55,12 +55,20 @@ def nums(t):
     return set(re.findall(r"\d+", t))
 
 
+COLLOQUIAL = [" رو ", " رو.", "می‌تون", "نمی‌تون", "می‌خوای", "می‌خوام", " یه ", "کوچیک", " دیگه "]
+
+
 def ok(style, out, ref):
     if not out or len(out) > 3 * len(ref) + 40:
         return False
     if not nums(out) <= nums(ref) or (re.search("[A-Za-z]", out) and not re.search("[A-Za-z]", ref)):
         return False
     r = len(out) / max(len(ref), 1)
+    padded = f" {out} "
+    if style in ("formal", "summary") and any(m in padded for m in COLLOQUIAL):
+        return False  # the teacher sometimes slips into spoken forms; summary is written Persian
+    if style == "casual" and " را " in padded:
+        return False
     if style == "fix":
         a, b = plain(out), plain(ref)
         return dist(a, b) <= max(1, 0.04 * len(b))
