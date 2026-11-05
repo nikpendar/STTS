@@ -1085,7 +1085,7 @@ final class KeyboardViewController: UIInputViewController {
     private static let symbolRows: [[String]] = [
         ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"],
         ["-", "/", ":", "؛", "(", ")", "$", "@", "«", "»"],
-        [".", "،", "؟", "!", "٫", "﷼", "\u{064B}"],
+        [".", "،", "؟", "!", "٬", "﷼", "\u{064B}"],
     ]
     private static let persianMoreRows: [[String]] = [
         ["[", "]", "{", "}", "#", "%", "^", "*", "+", "="],
@@ -1705,6 +1705,7 @@ final class KeyboardViewController: UIInputViewController {
         suggestionBar.textColor = style.textColor
         emojiPanel.textColor = style.textColor
         emojiPanel.scale = emojiScale
+        styleSettingsPanel()
         emojiSearchView.textColor = style.textColor
         emojiSearchView.scale = emojiScale
         suggestionBar.fontSize = (19 * letterFontSize / CGFloat(KeyStyle.standardLetterSize)).rounded()
@@ -3049,12 +3050,25 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         panel.textColor = keyStyle.textColor
+        styleSettingsPanel()
         panel.options = options
         panel.frame = keysView.bounds
         keysView.addSubview(panel)
         keysView.bringSubviewToFront(panel)
         panel.alpha = 0
         UIView.animate(withDuration: 0.2) { panel.alpha = 1 }
+    }
+
+    /// The panel in the keyboard's own colour and with its rounded top corners (Rooz,
+    /// 2026-11-05): the chosen colour, the picture's average colour, or the colour iOS draws.
+    private func styleSettingsPanel() {
+        guard let panel = settingsPanel else { return }
+        let picture = backgroundImageView.isHidden ? nil : averageColour?.colour
+        panel.fill = keyStyle.backgroundColor ?? picture ?? Self.systemKeyboardBackground
+        panel.layer.cornerRadius = view.layer.cornerRadius
+        panel.layer.cornerCurve = .continuous
+        panel.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        panel.clipsToBounds = true
     }
 
     private func hideSettings() {
@@ -4849,6 +4863,10 @@ private final class KeyboardSettingsPanel: UIView {
     var textColor = UIColor.label {
         didSet { applyColours() }
     }
+    /// The keyboard's background, drawn solid under the panel.
+    var fill = UIColor.systemBackground {
+        didSet { applyColours() }
+    }
 
     private struct Row {
         let title: String
@@ -4868,7 +4886,6 @@ private final class KeyboardSettingsPanel: UIView {
         ("لمس", [Row(title: "یادگیری محل لمس", key: \.learnTouches)]),
     ]
 
-    private let backdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))
     private let header = UIView()
     private let titleLabel = UILabel()
     private let closeButton = UIButton(type: .system)
@@ -4882,7 +4899,6 @@ private final class KeyboardSettingsPanel: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         semanticContentAttribute = .forceRightToLeft
-        addSubview(backdrop)
 
         titleLabel.text = "تنظیمات کیبورد"
         // Larger, so it stands apart from the rows below it. The app's font has no bold face:
@@ -5019,13 +5035,11 @@ private final class KeyboardSettingsPanel: UIView {
         titleLabel.textColor = textColor
         closeButton.tintColor = textColor
         appButton.tintColor = textColor
-        let light = KeyboardBackground.luminance(textColor.resolvedColor(with: traitCollection)) > 0.5
-        backdrop.effect = UIBlurEffect(style: light ? .systemThickMaterialDark : .systemThickMaterialLight)
+        backgroundColor = fill.resolvedColor(with: traitCollection)
     }
 
-    /// The letters' colour is the system one unless chosen, and it resolves only once the panel
-    /// sits in the keyboard: before that it took the phone's dark mode and picked a dark
-    /// backdrop under dark letters.
+    /// The colours are the system ones unless chosen, and they resolve only once the panel sits
+    /// in the keyboard: before that they took the phone's dark mode.
     override func didMoveToWindow() {
         super.didMoveToWindow()
         if window != nil { applyColours() }
@@ -5038,7 +5052,6 @@ private final class KeyboardSettingsPanel: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        backdrop.frame = bounds
         // Content is at most 440 pt wide and centred, so in landscape titles sit near their switches.
         let inset: CGFloat = 16 + max(safeAreaInsets.left, safeAreaInsets.right)
         let width = min(bounds.width - 2 * inset, 440)
