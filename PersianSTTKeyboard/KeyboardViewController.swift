@@ -2942,9 +2942,6 @@ final class KeyboardViewController: UIInputViewController {
     private var motion: CMMotionManager?
     /// The last tilt the letters were given, -1...1 on each axis.
     private var tilt = CGPoint.zero
-    /// Since when the phone has lain flat, screen up: after a few seconds on a table the letters
-    /// settle in the middle with no shadow, until it is picked up.
-    private var flatSince: TimeInterval?
     private let motionInterval = 1.0 / 30
     /// The way the phone has been held lately (its gravity, slowly followed): the letters sit in
     /// the middle there, so typing lying down with the phone overhead centres them too (Rooz,
@@ -2953,10 +2950,9 @@ final class KeyboardViewController: UIInputViewController {
     /// Seconds over which the middle follows the hand: held still, the letters are back in the
     /// middle in about three times this.
     private static let followTime: Double = 1.5
-    /// How quickly a tilt reaches full travel, and seconds flat on a table before the letters
-    /// rest (Rooz, 2026-11-05).
+    /// How quickly a tilt reaches full travel (Rooz, 2026-11-05). No separate rest on a table:
+    /// the following middle covers it (Rooz, 2026-11-07).
     private static let tiltSensitivity: CGFloat = 2.6
-    private static let restAfter: TimeInterval = 4
 
     /// Starts or stops following the phone's tilt, as the option, Reduce Motion and the
     /// keyboard's visibility allow.
@@ -2990,18 +2986,9 @@ final class KeyboardViewController: UIInputViewController {
                     (x, y) = (CGFloat(side * dy), CGFloat(side * dx))
                 }
                 let gain = Self.tiltSensitivity
-                var next = CGPoint(x: max(-1, min(1, x * gain)), y: max(-1, min(1, y * gain)))
-                var resting = false
-                if gravity.z < -0.95 {
-                    if self.flatSince == nil { self.flatSince = data.timestamp }
-                    resting = data.timestamp - (self.flatSince ?? data.timestamp) > Self.restAfter
-                    if resting { next = .zero }
-                } else if gravity.z > -0.9 {
-                    self.flatSince = nil
-                }
-                // Smoothed: slowly into the middle on a table (about two seconds), quickly when
-                // picked up; only redrawn when it moved enough to see.
-                let rate: CGFloat = resting ? 0.06 : 0.35
+                let next = CGPoint(x: max(-1, min(1, x * gain)), y: max(-1, min(1, y * gain)))
+                // Smoothed, and only redrawn when it moved enough to see.
+                let rate: CGFloat = 0.35
                 var smooth = CGPoint(x: self.tilt.x + (next.x - self.tilt.x) * rate, y: self.tilt.y + (next.y - self.tilt.y) * rate)
                 if abs(next.x - smooth.x) < 0.01, abs(next.y - smooth.y) < 0.01 { smooth = next }
                 guard abs(smooth.x - self.tilt.x) > 0.002 || abs(smooth.y - self.tilt.y) > 0.002 else { return }
@@ -3011,7 +2998,6 @@ final class KeyboardViewController: UIInputViewController {
         } else {
             motion?.stopDeviceMotionUpdates()
             tilt = .zero
-            flatSince = nil
             applyTilt()
         }
     }
@@ -3136,6 +3122,9 @@ private final class KeyView: UIControl {
     private var shadowDrawn: (text: String, size: CGFloat, box: CGSize, blur: CGFloat)?
     /// Holds the label inside the drawn key: a letter wider than the key is cut off there.
     private let labelClip = UIView()
+    /// A faint light on the key's face that slides with the tilt, as on glass (Rooz,
+    /// 2026-11-07): drawn once at twice the face's size and only moved, never redrawn.
+    private let sheen = CAGradientLayer()
     private let imageView = UIImageView()
     private let highlight = UIView()
 
@@ -3176,6 +3165,13 @@ private final class KeyView: UIControl {
         let d = depth ?? .zero
         let distance = min(1, (d.x * d.x + d.y * d.y).squareRoot())
         label.transform = CGAffineTransform(translationX: d.x * Self.letterTravel, y: d.y * Self.letterTravel)
+        // The light sits on the side the letter leans to, away from its shadow; none in the middle.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let faceSize = face.bounds.size
+        sheen.position = CGPoint(x: faceSize.width * (0.5 + d.x * 0.5), y: faceSize.height * (0.5 + d.y * 0.5))
+        sheen.opacity = depth == nil ? 0 : Float(min(1, distance * 1.5))
+        CATransaction.commit()
         let show = depth != nil && !labelClip.isHidden && message == nil && distance > 0.02
         shadowView.isHidden = !show
         guard show else { return }
@@ -3411,6 +3407,13 @@ private final class KeyView: UIControl {
         content.isUserInteractionEnabled = false
         addSubview(content)
         face.layer.cornerRadius = 6
+        face.layer.masksToBounds = true
+        sheen.type = .radial
+        sheen.colors = [UIColor(white: 1, alpha: 0.22).cgColor, UIColor(white: 1, alpha: 0).cgColor]
+        sheen.startPoint = CGPoint(x: 0.5, y: 0.5)
+        sheen.endPoint = CGPoint(x: 1, y: 1)
+        sheen.opacity = 0
+        face.layer.addSublayer(sheen)
         content.addSubview(face)
         grip.isHidden = true
         grip.isUserInteractionEnabled = false
@@ -3488,6 +3491,10 @@ private final class KeyView: UIControl {
         let corner = knurled ? inner.height / 2 : 6
         face.layer.cornerRadius = corner
         highlight.layer.cornerRadius = corner
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        sheen.bounds = CGRect(x: 0, y: 0, width: inner.width * 2, height: inner.height * 2)
+        CATransaction.commit()
         labelClip.frame = inner
         // Words (ABC, 123, status messages) keep off the edges and shrink to fit. Letters all
         // keep the chosen size: one wider than the key (ص ض س ش when large) sits against the
@@ -4895,7 +4902,7 @@ private final class KeyboardSettingsPanel: UIView {
                           Row(title: "نیم‌فاصله‌ی خودکار", key: \.autoZWNJ),
                           Row(title: "دو فاصله: نقطه، سه فاصله: ویرگول", key: \.doubleSpacePunctuation)]),
         ("بازخورد کلیدها", [Row(title: "بزرگ‌نمایی حرف هنگام تایپ", key: \.keyPreview),
-                            Row(title: "حروف سه‌بعدی با چرخش گوشی", key: \.tiltLetters),
+                            Row(title: "کلیدهای سه‌بعدی", key: \.tiltLetters),
                             Row(title: "صدای کلیدها", key: \.keySounds),
                             Row(title: "لرزش (هپتیک)", key: \.haptics)]),
         ("لمس", [Row(title: "یادگیری محل لمس", key: \.learnTouches)]),

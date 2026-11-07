@@ -307,7 +307,7 @@ struct ContentView: View {
                     SettingLabel("بزرگ‌نمایی حرف هنگام تایپ", symbol: "character.magnify", color: .purple)
                 }
                 Toggle(isOn: $options.tiltLetters) {
-                    SettingLabel("حروف سه‌بعدی با چرخش گوشی", symbol: "cube.transparent", color: .teal)
+                    SettingLabel("کلیدهای سه‌بعدی", symbol: "cube.transparent", color: .teal)
                 }
                 Toggle(isOn: $options.keySounds) {
                     SettingLabel("صدای کلیدها", symbol: "speaker.wave.2.fill", color: .pink)
