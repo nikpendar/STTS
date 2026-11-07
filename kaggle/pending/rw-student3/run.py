@@ -6,6 +6,10 @@
 # a tenth of CV test): fix -> word error vs the correct text before/after; every style -> chrF vs the
 # teacher, numbers kept, samples. Round 2 also reads kaggle/rw-teach2 (dictated messages with
 # self-corrections, Wikipedia paragraphs) and scores each held-out set (asr, mono, para) separately.
+# Round 3 reads kaggle/rw-teach3 instead of rw-teach (round-1 sentences rewritten with better rules,
+# plus real errors on CV train/other and phone-like degraded audio), adds the degraded held-out set
+# (noisy) and reports fix with a guard: when the output strays too far from the input with no
+# self-correction in it, or brings in Latin text, the input is kept as it is.
 # Output: /kaggle/working/{adapter/, eval.jsonl, summary.txt}.
 import glob, json, math, os, random, re, subprocess, sys, time, unicodedata
 
@@ -19,6 +23,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 T0 = time.time()
 BASE = os.environ.get("BASE", "Qwen/Qwen3-1.7B")
 TRAIN_H = float(os.environ.get("TRAIN_H", "8.0"))
+MAX_TRAIN = int(os.environ.get("MAX_TRAIN", "120000"))
 EVAL_N = int(os.environ.get("EVAL_N", "300"))
 OUT = "/kaggle/working"
 STYLES = {"fix": "فقط اصلاح", "formal": "رسمی", "casual": "خودمانی", "summary": "خلاصه"}
@@ -80,12 +85,12 @@ def ok(style, out, ref):
     return 0.5 <= r <= 1.8
 
 
-paths = sorted(glob.glob("/kaggle/input/**/teach.jsonl", recursive=True) + glob.glob("/kaggle/input/**/teach2.jsonl", recursive=True))
+paths = sorted(glob.glob("/kaggle/input/**/teach3.jsonl", recursive=True) + glob.glob("/kaggle/input/**/teach2.jsonl", recursive=True))
 if not paths:
     sys.exit("no teacher data found")
 recs = [json.loads(l) for p in paths for l in open(p, encoding="utf-8")]
 log("teacher files", paths)
-train, held, kept, dropped = [], {"asr": [], "mono": [], "para": []}, {k: 0 for k in STYLES}, {k: 0 for k in STYLES}
+train, held, kept, dropped = [], {"asr": [], "noisy": [], "mono": [], "para": []}, {k: 0 for k in STYLES}, {k: 0 for k in STYLES}
 for r in recs:
     if r["src"] == "wiki":
         r["fix"] = r["ref"]
@@ -148,6 +153,7 @@ for r in held["asr"]:
     if h is not None:
         held["slip"].append(dict(r, hyp=h, slip=0))
 random.shuffle(train)
+train = train[:MAX_TRAIN]
 log(f"{len(recs)} teacher rows, {len(train)} training examples, kept {kept}, dropped {dropped}, held out { {k: len(v) for k, v in held.items()} }")
 
 tok = AutoTokenizer.from_pretrained(BASE)
@@ -225,9 +231,21 @@ model.gradient_checkpointing_disable()
 model.config.use_cache = True
 MARK = re.compile("نه ببخشید|یعنی نه|نه نه|ببخشید|منظورم")
 random.Random(5).shuffle(held["asr"])
-sets = {"asr": held["asr"][:EVAL_N], "slip": [r for r in held["slip"] if r["id"] not in {x["id"] for x in held["asr"][:EVAL_N]}][:EVAL_N],
+random.Random(5).shuffle(held["noisy"])
+sets = {"asr": held["asr"][:EVAL_N], "noisy": held["noisy"][:EVAL_N], "slip": [r for r in held["slip"] if r["id"] not in {x["id"] for x in held["asr"][:EVAL_N]}][:EVAL_N],
         "para": held["para"][:120]}
 chrf = CHRF(word_order=2)
+
+
+def guard(inp, out):
+    """Fix mode safety net: keep the input when the output strays too far from it."""
+    a, b = words(inp), words(out)
+    if not b or (re.search("[A-Za-z]", out) and not re.search("[A-Za-z]", inp)):
+        return inp
+    if not MARK.search(inp) and dist(a, b) > max(2, 0.3 * len(a)):
+        return inp
+    return out
+
 lines = [f"base {BASE}, {done}/{steps} steps, {len(train)} examples, kept {kept}, dropped {dropped}"]
 evalf = open(f"{OUT}/eval.jsonl", "w", encoding="utf-8")
 for name, rows in sets.items():
@@ -254,6 +272,10 @@ for name, rows in sets.items():
     after = sum(dist(words(r["ref"]), words(o)) for r, o in results["fix"])
     lines.append(f"[fix] word errors vs intended text (ZWNJ as space, marks ignored): input {100 * before / ref_words:.1f}% -> "
                  f"student {100 * after / ref_words:.1f}%")
+    guarded = [guard(r["hyp"], o) for r, o in results["fix"]]
+    g_after = sum(dist(words(r["ref"]), words(g)) for (r, _), g in zip(results["fix"], guarded))
+    kept_in = sum(g == r["hyp"] for (r, _), g in zip(results["fix"], guarded))
+    lines.append(f"[fix + guard] word errors {100 * g_after / ref_words:.1f}%, input kept unchanged {kept_in} of {len(guarded)}")
     if name == "slip":
         sc = [(r, o) for r, o in results["fix"] if r.get("slip") in (0, 1, 3)]
         if sc:
