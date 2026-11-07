@@ -1,0 +1,129 @@
+Process:         PersianSTTKeyboard [19559]
+Path:            /Users/runner/Library/Developer/CoreSimulator/Devices/65843E8B-86FE-4B1E-9EE7-C6E8BB8778F5/data/Containers/Bundle/Application/2A10E1D2-DF02-43F8-BC8D-8E6C1037A6FE/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard
+Load Address:    0x1042b0000
+Identifier:      ir.nikpendar.PersianSTT.Keyboard
+Version:         0.1 (1)
+Code Type:       ARM64
+Platform:        iOS Simulator
+Parent Process:  launchd_sim [14150]
+Target Type:     corpse
+
+Date/Time:       2026-11-07 01:16:51.559 +0000
+Launch Time:     2026-11-07 01:13:18.998 +0000
+OS Version:      macOS 15.8.2 (24H232)
+Report Version:  7
+Analysis Tool:   /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/bin/leaks
+Analysis Tool Version:  iOS Simulator 26.2 (23C54)
+
+Physical footprint:         55.6M
+Physical footprint (peak):  58.2M
+Idle exit:                  untracked
+----
+
+leaks Report Version: 4.0
+Process 19559: 139053 nodes malloced for 19371 KB
+Process 19559: 93 leaks for 5152 total leaked bytes.
+
+    93 (5.03K) << TOTAL >>
+
+      24 (1.33K) ROOT CYCLE: <NSMutableDictionary 0x600000235180> [32]  item count: 1
+         23 (1.30K) ROOT CYCLE: <NSMutableDictionary (Storage) 0x600000c4bb40> [48]
+            21 (1.19K) ROOT CYCLE: <__NSMallocBlock__ 0x600001719840> [64]  UIKitCore  __79-[_UIViewServiceLegacyClientSession registerDeputyClass:withConnectionHandler:]_b..."
+               17 (1.05K) __strong [capture] --> ROOT CYCLE: <_UIViewServiceLegacyClientSession 0x600001719bc0> [64]
+                  10 (672 bytes) _deputyManager --> ROOT CYCLE: <_UIViewServiceDeputyManager 0x600001719c40> [64]
+                     _connectionHandlers --> CYCLE BACK TO <NSMutableDictionary 0x600000235180> [32]  item count: 1
+                     4 (256 bytes) _invalidationInvocation --> ROOT CYCLE: <_UIAsyncInvocation 0x600000c4b960> [48]
+                        1 (48 bytes) __strong _invocationBlock --> ROOT CYCLE: <__NSMallocBlock__ 0x600000c4b900> [48]  UIKitCore  __35-[_UIViewServiceDeputyManager init]_block_invoke  0x1867e3828
+                        2 (160 bytes) _observer --> <_UIAsyncInvocationObserver 0x6000002f3f20> [32]
+                           1 (128 bytes) __strong _completionQueueManagementQueue --> <dispatch_queue_t (serial) 0x600002c26780> [128]  "Async Observer Queue Management" (from UIKitCore)
+                     2 (192 bytes) _queue --> <dispatch_queue_t (serial) 0x600002c1ee00> [128]  "com.apple.uikit._UIViewServiceDeputyManager 0x600001719c40"
+                        1 (64 bytes) 0x600001719c80 [64]  length: 58  "com.apple.uikit._UIViewServiceDeputyManager 0x600001719c40"
+                     1 (96 bytes) _connectionHandlersLock --> <NSLock 0x60000260b840> [96]
+                     2 (64 bytes) _deputies --> <NSMutableSet 0x6000002351a0> [32]  item count: 0
+                        1 (32 bytes) <NSMutableSet (Storage) 0x600000232c60> [32]
+                  4 (256 bytes) _invalidationInvocation --> ROOT CYCLE: <_UIAsyncInvocation 0x600000c4ba50> [48]
+                     1 (48 bytes) __strong _invocationBlock --> ROOT CYCLE: <__NSMallocBlock__ 0x600000c4ba80> [48]  UIKitCore  __67+[_UIViewServiceLegacyClientSession sessionWithConnection:manager:]_block_invoke ..."
+                     2 (160 bytes) _observer --> <_UIAsyncInvocationObserver 0x6000002f0660> [32]
+                        1 (128 bytes) __strong _completionQueueManagementQueue --> <dispatch_queue_t (serial) 0x600002c27000> [128]  "Async Observer Queue Management" (from UIKitCore)
+                  1 (48 bytes) _terminationHandler --> <__NSMallocBlock__ 0x600000c47600> [48]  UIKitCore  __68-[_UIViewServiceSessionManager configureLegacySessionForConnection:]_block_invoke..."
+                  1 (32 bytes) _uniqueIdentifier --> <NSUUID 0x600000235100> [32]
+               2 (64 bytes) __strong [capture] --> <__NSMallocBlock__ 0x600000c473f0> [48]  UIKitCore  __71-[_UIViewServiceLegacyClientSession _registerSessionForDefaultDeputies]_block_inv..."
+                  1 (16 bytes) __strong [capture] --> <_UIWeakReference 0x600000009250> [16]
+               1 (16 bytes) __strong [capture] --> <_UIWeakReference 0x6000000092c0> [16]
+            1 (64 bytes) <CFString 0x600001719880> [64]  length: 33  "_UIViewServiceTextEffectsOperator"
+
+      24 (1.33K) ROOT CYCLE: <NSMutableDictionary 0x6000003147a0> [32]  item count: 1
+         23 (1.30K) ROOT CYCLE: <NSMutableDictionary (Storage) 0x600000e354d0> [48]
+            21 (1.19K) ROOT CYCLE: <__NSMallocBlock__ 0x6000017e4980> [64]  UIKitCore  __79-[_UIViewServiceLegacyClientSession registerDeputyClass:withConnectionHandler:]_b..."
+               17 (1.05K) __strong [capture] --> ROOT CYCLE: <_UIViewServiceLegacyClientSession 0x6000017e6640> [64]
+                  10 (672 bytes) _deputyManager --> ROOT CYCLE: <_UIViewServiceDeputyManager 0x6000017e7e00> [64]
+                     _connectionHandlers --> CYCLE BACK TO <NSMutableDictionary 0x6000003147a0> [32]  item count: 1
+                     4 (256 bytes) _invalidationInvocation --> ROOT CYCLE: <_UIAsyncInvocation 0x600000e36190> [48]
+                        1 (48 bytes) __strong _invocationBlock --> ROOT CYCLE: <__NSMallocBlock__ 0x600000e34ba0> [48]  UIKitCore  __35-[_UIViewServiceDeputyManager init]_block_invoke  0x1867e3828
+                        2 (160 bytes) _observer --> <_UIAsyncInvocationObserver 0x60000026b3a0> [32]
+                           1 (128 bytes) __strong _completionQueueManagementQueue --> <dispatch_queue_t (serial) 0x600002c5a800> [128]  "Async Observer Queue Management" (from UIKitCore)
+                     2 (192 bytes) _queue --> <dispatch_queue_t (serial) 0x600002c07c80> [128]  "com.apple.uikit._UIViewServiceDeputyManager 0x6000017e7e00"
+                        1 (64 bytes) 0x6000017e6280 [64]  length: 58  "com.apple.uikit._UIViewServiceDeputyManager 0x6000017e7e00"
+                     1 (96 bytes) _connectionHandlersLock --> <NSLock 0x600002678540> [96]
+                     2 (64 bytes) _deputies --> <NSMutableSet 0x6000003147c0> [32]  item count: 0
+                        1 (32 bytes) <NSMutableSet (Storage) 0x6000002e8840> [32]
+                  4 (256 bytes) _invalidationInvocation --> ROOT CYCLE: <_UIAsyncInvocation 0x600000e364c0> [48]
+                     1 (48 bytes) __strong _invocationBlock --> ROOT CYCLE: <__NSMallocBlock__ 0x600000e36520> [48]  UIKitCore  __67+[_UIViewServiceLegacyClientSession sessionWithConnection:manager:]_block_invoke ..."
+                     2 (160 bytes) _observer --> <_UIAsyncInvocationObserver 0x6000002687a0> [32]
+                        1 (128 bytes) __strong _completionQueueManagementQueue --> <dispatch_queue_t (serial) 0x600002c5be80> [128]  "Async Observer Queue Management" (from UIKitCore)
+                  1 (48 bytes) _terminationHandler --> <__NSMallocBlock__ 0x600000e35fb0> [48]  UIKitCore  __68-[_UIViewServiceSessionManager configureLegacySessionForConnection:]_block_invoke..."
+                  1 (32 bytes) _uniqueIdentifier --> <NSUUID 0x600000314500> [32]
+               2 (64 bytes) __strong [capture] --> <__NSMallocBlock__ 0x600000e35b90> [48]  UIKitCore  __71-[_UIViewServiceLegacyClientSession _registerSessionForDefaultDeputies]_block_inv..."
+                  1 (16 bytes) __strong [capture] --> <_UIWeakReference 0x600000020ef0> [16]
+               1 (16 bytes) __strong [capture] --> <_UIWeakReference 0x600000021680> [16]
+            1 (64 bytes) <CFString 0x6000017e4f00> [64]  length: 33  "_UIViewServiceTextEffectsOperator"
+
+      24 (1.33K) ROOT CYCLE: <NSMutableDictionary 0x60000033ae80> [32]  item count: 1
+         23 (1.30K) ROOT CYCLE: <NSMutableDictionary (Storage) 0x600000e55110> [48]
+            21 (1.19K) ROOT CYCLE: <__NSMallocBlock__ 0x600001800b80> [64]  UIKitCore  __79-[_UIViewServiceLegacyClientSession registerDeputyClass:withConnectionHandler:]_b..."
+               17 (1.05K) __strong [capture] --> ROOT CYCLE: <_UIViewServiceLegacyClientSession 0x600001805780> [64]
+                  10 (672 bytes) _deputyManager --> ROOT CYCLE: <_UIViewServiceDeputyManager 0x600001805580> [64]
+                     _connectionHandlers --> CYCLE BACK TO <NSMutableDictionary 0x60000033ae80> [32]  item count: 1
+                     4 (256 bytes) _invalidationInvocation --> ROOT CYCLE: <_UIAsyncInvocation 0x600000e55560> [48]
+                        1 (48 bytes) __strong _invocationBlock --> ROOT CYCLE: <__NSMallocBlock__ 0x600000e554a0> [48]  UIKitCore  __35-[_UIViewServiceDeputyManager init]_block_invoke  0x1867e3828
+                        2 (160 bytes) _observer --> <_UIAsyncInvocationObserver 0x60000028f5a0> [32]
+                           1 (128 bytes) __strong _completionQueueManagementQueue --> <dispatch_queue_t (serial) 0x600002c46280> [128]  "Async Observer Queue Management" (from UIKitCore)
+                     2 (192 bytes) _queue --> <dispatch_queue_t (serial) 0x600002c41500> [128]  "com.apple.uikit._UIViewServiceDeputyManager 0x600001805580"
+                        1 (64 bytes) 0x6000018055c0 [64]  length: 58  "com.apple.uikit._UIViewServiceDeputyManager 0x600001805580"
+                     1 (96 bytes) _connectionHandlersLock --> <NSLock 0x60000266dd40> [96]
+                     2 (64 bytes) _deputies --> <NSMutableSet 0x60000033ad00> [32]  item count: 0
+                        1 (32 bytes) <NSMutableSet (Storage) 0x600000339a40> [32]
+                  4 (256 bytes) _invalidationInvocation --> ROOT CYCLE: <_UIAsyncInvocation 0x600000e55260> [48]
+                     1 (48 bytes) __strong _invocationBlock --> ROOT CYCLE: <__NSMallocBlock__ 0x600000e553e0> [48]  UIKitCore  __67+[_UIViewServiceLegacyClientSession sessionWithConnection:manager:]_block_invoke ..."
+                     2 (160 bytes) _observer --> <_UIAsyncInvocationObserver 0x6000002cc7c0> [32]
+                        1 (128 bytes) __strong _completionQueueManagementQueue --> <dispatch_queue_t (serial) 0x600002c13d00> [128]  "Async Observer Queue Management" (from UIKitCore)
+                  1 (48 bytes) _terminationHandler --> <__NSMallocBlock__ 0x600000e4f0f0> [48]  UIKitCore  __68-[_UIViewServiceSessionManager configureLegacySessionForConnection:]_block_invoke..."
+                  1 (32 bytes) _uniqueIdentifier --> <NSUUID 0x60000033acc0> [32]
+               2 (64 bytes) __strong [capture] --> <__NSMallocBlock__ 0x600000e4d7d0> [48]  UIKitCore  __71-[_UIViewServiceLegacyClientSession _registerSessionForDefaultDeputies]_block_inv..."
+                  1 (16 bytes) __strong [capture] --> <_UIWeakReference 0x6000000255d0> [16]
+               1 (16 bytes) __strong [capture] --> <_UIWeakReference 0x6000000282f0> [16]
+            1 (64 bytes) <CFString 0x600001800e40> [64]  length: 33  "_UIViewServiceTextEffectsOperator"
+
+      21 (1.05K) ROOT CYCLE: <NSMutableDictionary 0x6000002769c0> [32]  item count: 1
+         20 (1.02K) ROOT CYCLE: <NSMutableDictionary (Storage) 0x600000e162b0> [48]
+            18 (928 bytes) ROOT CYCLE: <__NSMallocBlock__ 0x600001764e80> [64]  UIKitCore  __79-[_UIViewServiceLegacyClientSession registerDeputyClass:withConnectionHandler:]_b..."
+               14 (784 bytes) __strong [capture] --> ROOT CYCLE: <_UIViewServiceLegacyClientSession 0x6000017e8dc0> [64]
+                  8 (512 bytes) _deputyManager --> ROOT CYCLE: <_UIViewServiceDeputyManager 0x6000017e88c0> [64]
+                     _connectionHandlers --> CYCLE BACK TO <NSMutableDictionary 0x6000002769c0> [32]  item count: 1
+                     3 (128 bytes) _invalidationInvocation --> ROOT CYCLE: <_UIAsyncInvocation 0x600000e16790> [48]
+                        1 (48 bytes) __strong _invocationBlock --> ROOT CYCLE: <__NSMallocBlock__ 0x600000e16760> [48]  UIKitCore  __35-[_UIViewServiceDeputyManager init]_block_invoke  0x1867e3828
+                        1 (32 bytes) _observer --> <_UIAsyncInvocationObserver 0x60000032c160> [32]
+                     2 (192 bytes) _queue --> <dispatch_queue_t (serial) 0x600002c1ff00> [128]  "com.apple.uikit._UIViewServiceDeputyManager 0x6000017e88c0"
+                        1 (64 bytes) 0x6000017e8d00 [64]  length: 58  "com.apple.uikit._UIViewServiceDeputyManager 0x6000017e88c0"
+                     1 (96 bytes) _connectionHandlersLock --> <NSLock 0x600002633f00> [96]
+                     1 (32 bytes) _deputies --> <NSMutableSet 0x6000002776e0> [32]  item count: 0
+                  3 (128 bytes) _invalidationInvocation --> ROOT CYCLE: <_UIAsyncInvocation 0x600000e17c00> [48]
+                     1 (48 bytes) __strong _invocationBlock --> ROOT CYCLE: <__NSMallocBlock__ 0x600000e17ea0> [48]  UIKitCore  __67+[_UIViewServiceLegacyClientSession sessionWithConnection:manager:]_block_invoke ..."
+                     1 (32 bytes) _observer --> <_UIAsyncInvocationObserver 0x60000032c3e0> [32]
+                  1 (48 bytes) _terminationHandler --> <__NSMallocBlock__ 0x600000e20210> [48]  UIKitCore  __68-[_UIViewServiceSessionManager configureLegacySessionForConnection:]_block_invoke..."
+                  1 (32 bytes) _uniqueIdentifier --> <NSUUID 0x600000275020> [32]
+               2 (64 bytes) __strong [capture] --> <__NSMallocBlock__ 0x600000e19680> [48]  UIKitCore  __71-[_UIViewServiceLegacyClientSession _registerSessionForDefaultDeputies]_block_inv..."
+                  1 (16 bytes) __strong [capture] --> <_UIWeakReference 0x600000022f10> [16]
+               1 (16 bytes) __strong [capture] --> <_UIWeakReference 0x60000001ec60> [16]
+            1 (64 bytes) <CFString 0x600001765000> [64]  length: 33  "_UIViewServiceTextEffectsOperator"
+

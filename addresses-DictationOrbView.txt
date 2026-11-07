@@ -1,0 +1,32 @@
+Process:         PersianSTTKeyboard [19559]
+Path:            /Users/runner/Library/Developer/CoreSimulator/Devices/65843E8B-86FE-4B1E-9EE7-C6E8BB8778F5/data/Containers/Bundle/Application/2A10E1D2-DF02-43F8-BC8D-8E6C1037A6FE/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex/PersianSTTKeyboard
+Load Address:    0x1042b0000
+Identifier:      ir.nikpendar.PersianSTT.Keyboard
+Version:         0.1 (1)
+Code Type:       ARM64
+Platform:        iOS Simulator
+Parent Process:  launchd_sim [14150]
+Target Type:     corpse
+
+Date/Time:       2026-11-07 01:21:40.107 +0000
+Launch Time:     2026-11-07 01:13:18.998 +0000
+OS Version:      macOS 15.8.2 (24H232)
+Report Version:  7
+Analysis Tool:   /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/bin/heap
+Analysis Tool Version:  iOS Simulator 26.2 (23C54)
+
+Physical footprint:         55.6M
+Physical footprint (peak):  58.2M
+Idle exit:                  untracked
+----
+
+Process 19559: 5 zones
+
+All zones: 139053 nodes malloced - Sizes: 1648KB[1] 1552KB[1] 640KB[1] 320KB[1] 224KB[1] 128KB[3] 112KB[1] 80KB[1] 48KB[4] 32KB[1] 30.5KB[1] 27KB[4] 24KB[2] 18KB[1] 17KB[4] 16KB[28] 15.5KB[2] 15KB[4] 14.5KB[1] 14KB[1] 13.5KB[6] 12.5KB[3] 12KB[11] 11.5KB[1] 11KB[3] 10.5KB[2] 10KB[9] 9.5KB[1] 9KB[2] 8.5KB[4] 8KB[73] 7.5KB[3] 7KB[1] 6.5KB[3] 6KB[20] 5.5KB[2] 5KB[7] 4.5KB[10] 4KB[48] 3.5KB[57] 3KB[38] 2.5KB[100] 2KB[268] 1.5KB[101] 1KB[91] 1008[14] 992[3] 976[5] 960[47] 944[3] 928[1] 912[3] 896[9] 880[11] 864[3] 848[3] 832[12] 816[145] 800[57] 784[15] 768[18] 752[22] 736[4] 720[3] 704[4] 688[5] 672[13] 656[109] 640[24] 624[7] 608[63] 592[19] 576[21] 560[33] 544[43] 528[46] 512[499] 496[184] 480[168] 464[261] 448[350] 432[229] 416[1486] 400[103] 384[124] 368[61] 352[99] 336[117] 320[150] 304[1226] 288[213] 272[192] 256[551] 240[943] 224[942] 208[3902] 204[2] 192[2329] 176[350] 160[567] 144[640] 128[1725] 120[2] 112[4884] 104[4] 96[3038] 88[2] 85[6] 80[5252] 79[2] 76[2] 72[4] 68[2] 67[2] 65[2] 64[13875] 60[4] 56[2] 52[4] 48[47099] 44[4] 40[10] 39[2] 36[6] 35[4] 33[2] 32[38321] 31[2] 30[2] 29[2] 28[38] 26[2] 24[24] 20[4] 16[7271] 12[10] 8[32] 4[18] 1[8] 
+
+Found:  4701 ObjC classes  607 Swift classes  79 C++ classes  166 CFTypes
+Type names for non-objects could be derived from allocation backtraces if the process used MallocStackLogging
+
+Active blocks in all zones that match pattern 'DictationOrbView':
+0x104b2aaf0: DictationOrbView (672 bytes)
+

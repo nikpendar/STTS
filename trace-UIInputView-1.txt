@@ -1,0 +1,19 @@
+Tracing: <UIInputView 0x104a3b200> [624]
+
+Found 2 roots referencing: <UIInputView 0x104a3b200> [624]
+
+This is a reverse reference tree showing how the specified block is referenced.
+The top node is the specified block, the next level down are blocks that reference that, and so on.
+The number at the start of each line is the number of paths-to-roots going through that node.
+
+    2 <UIInputView 0x104a3b200> [624]
+      1 <NSISEngine 0x104c50f80> [448]    +56: _delegate 0x104c50fb8
+      + 1 <NSISRestrictedToZeroMarkerVariable 0x60000173bac0> [64]    +24: _engines 0x60000173bad8
+      +   1 0x60000173b800 [64]    +16:  0x60000173b810
+      +     1 0x600002955ea0 [112]    +64:  0x600002955ee0
+      +       1 0x6000026bca20 [96]    +16:  0x6000026bca30
+      +         1 Region __DATA_DIRTY /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/lib/system/libdispatch.dylib __DATA_DIRTY __bss: '_dispatch_sources' + 304 0x1f26c6e10
+      1 <NSLayoutDimension 0x600001738b40> [64]     +8: _referenceItem 0x600001738b48
+        1 0x104c53b60 [384]   +208:  0x104c53c30
+          1 0x106b00000 [131072] +98024:  0x106b17ee8
+            1 Region libobjc.A.dylib __DATA __bss: 'objc::AssociationsManager::_mapStorage' 0x1f26c94c8
