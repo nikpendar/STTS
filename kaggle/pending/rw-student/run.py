@@ -100,6 +100,53 @@ for r in recs:
             kept[k] += 1
         else:
             dropped[k] += 1
+
+# Self-corrections («ساعت پنج نه ببخشید شش»): the speaker first says a wrong value of the same kind
+# (number, day, month, time of day, city, name), then the right one. Built from round-1 rows: the
+# wrong value and a correction phrase go into Shenava's text before a word of that kind; every
+# target stays as it was. Held-out speech rows get the same treatment for the self-correction test.
+KIND_WORDS = [
+    "یک دو سه چهار پنج شش هفت هشت نه ده یازده دوازده سیزده چهارده پانزده شانزده هفده هجده نوزده بیست سی چهل پنجاه شصت هفتاد هشتاد نود صد دویست سیصد پانصد هزار".split(),
+    "شنبه یکشنبه دوشنبه چهارشنبه پنجشنبه جمعه".split(),
+    "فروردین اردیبهشت خرداد تیر مرداد شهریور مهر آبان آذر دی بهمن اسفند ژانویه فوریه مارس آوریل مه ژوئن ژوئیه اوت سپتامبر اکتبر نوامبر دسامبر".split(),
+    "صبح ظهر عصر شب".split(),
+    "تهران مشهد اصفهان شیراز تبریز کرج اهواز قم رشت یزد کرمان همدان ارومیه زاهدان ساری".split(),
+    "علی رضا محمد حسین مریم سارا زهرا فاطمه امیر مهدی نرگس لیلا".split(),
+    "روز هفته ماه سال ساعت دقیقه".split(),
+]
+KIND_OF = {w: i for i, ws in enumerate(KIND_WORDS) for w in ws if w != "نه"}  # «نه» is also "no"
+FIXES = ["نه ببخشید", "نه یعنی", "یعنی نه", "نه نه", "ببخشید", "نه منظورم"]
+
+
+def slip(hyp, rnd):
+    w = hyp.split()
+    spots = [i for i, x in enumerate(w) if x.strip("،.؟!") in KIND_OF]
+    if not spots:
+        return None
+    i = rnd.choice(spots)
+    kind = KIND_WORDS[KIND_OF[w[i].strip("،.؟!")]]
+    wrong = rnd.choice([x for x in kind if x != w[i].strip("،.؟!") and x != "نه"])
+    return " ".join(w[:i] + [wrong, rnd.choice(FIXES)] + w[i:])
+
+
+rnd = random.Random(9)
+n_slip = 0
+for r in recs:
+    if r["split"] != "train" or r["src"] == "para" or rnd.random() > 0.35:
+        continue
+    h = slip(r["hyp"], rnd)
+    if h is None:
+        continue
+    for k in ("fix", rnd.choice(["formal", "casual", "summary"])):
+        if ok(k, r[k], r["ref"]):
+            train.append((k, h, r[k]))
+            n_slip += 1
+log(f"{n_slip} self-correction training examples")
+held["slip"] = []
+for r in held["asr"]:
+    h = slip(r["hyp"], rnd)
+    if h is not None:
+        held["slip"].append(dict(r, hyp=h, slip=0))
 random.shuffle(train)
 log(f"{len(recs)} teacher rows, {len(train)} training examples, kept {kept}, dropped {dropped}, held out { {k: len(v) for k, v in held.items()} }")
 
@@ -178,7 +225,8 @@ model.gradient_checkpointing_disable()
 model.config.use_cache = True
 MARK = re.compile("نه ببخشید|یعنی نه|نه نه|ببخشید|منظورم")
 random.Random(5).shuffle(held["asr"])
-sets = {"asr": held["asr"][:EVAL_N], "mono": held["mono"][:EVAL_N], "para": held["para"][:120]}
+sets = {"asr": held["asr"][:EVAL_N], "slip": [r for r in held["slip"] if r["id"] not in {x["id"] for x in held["asr"][:EVAL_N]}][:EVAL_N],
+        "para": held["para"][:120]}
 chrf = CHRF(word_order=2)
 lines = [f"base {BASE}, {done}/{steps} steps, {len(train)} examples, kept {kept}, dropped {dropped}"]
 evalf = open(f"{OUT}/eval.jsonl", "w", encoding="utf-8")
@@ -206,7 +254,7 @@ for name, rows in sets.items():
     after = sum(dist(words(r["ref"]), words(o)) for r, o in results["fix"])
     lines.append(f"[fix] word errors vs intended text (ZWNJ as space, marks ignored): input {100 * before / ref_words:.1f}% -> "
                  f"student {100 * after / ref_words:.1f}%")
-    if name == "mono":
+    if name == "slip":
         sc = [(r, o) for r, o in results["fix"] if r.get("slip") in (0, 1, 3)]
         if sc:
             w = sum(len(words(r["ref"])) for r, _ in sc)

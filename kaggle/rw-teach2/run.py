@@ -6,6 +6,8 @@
 #        repeats, fillers and restarts. A tenth is held out: the self-correction test set.
 #  para: Persian Wikipedia paragraphs of 3-5 sentences (CC BY-SA), spoken-style input with one slip;
 #        mostly for summaries of longer text. 5% held out.
+# First run (2026-11-07): mono rejected (odd invented content, corrections left in the intended text) and
+# paragraphs failed (answers cut at 1024 tokens per slot); now paragraphs only, 3072 tokens per slot.
 # Then the teacher writes fix / formal / casual / summary of the intended text (summary of a text of
 # 3+ sentences at most about half as long). Student input = the spoken text as Shenava writes it
 # (ZWNJ as a space, marks often missing). Output /kaggle/working/teach2.jsonl.
@@ -14,9 +16,10 @@ from concurrent.futures import ThreadPoolExecutor
 
 T0 = time.time()
 BUDGET_H = float(os.environ.get("BUDGET_H", "10.5"))
-MONO = int(os.environ.get("MONO", "6000"))
-PARA = int(os.environ.get("PARA", "2500"))
-SLOTS = 32
+MONO = int(os.environ.get("MONO", "0"))  # 6000 in the first run: invented messages were too odd to use
+PARA = int(os.environ.get("PARA", "1500"))
+SLOTS = 16  # 32 slots x 1024 tokens cut paragraph answers short in the first run
+CTX = 3072
 OUT = "/kaggle/working"
 TMP = "/kaggle/temp"
 REPO = "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF"
@@ -96,7 +99,7 @@ from huggingface_hub import hf_hub_download
 model = hf_hub_download(REPO, FILE, local_dir=f"{TMP}/model")
 log("model ready")
 env = dict(os.environ, LD_LIBRARY_PATH=BIN + ":" + os.environ.get("LD_LIBRARY_PATH", ""))
-server = subprocess.Popen(f"{BIN}/llama-server -m {model} -ngl 99 -c {SLOTS * 1024} -np {SLOTS} --split-mode layer "
+server = subprocess.Popen(f"{BIN}/llama-server -m {model} -ngl 99 -c {SLOTS * CTX} -np {SLOTS} --split-mode layer "
                           f"--jinja --port 8080 --log-disable", shell=True, env=env)
 for _ in range(600):
     try:
