@@ -4,8 +4,13 @@
 # structure kept, nothing added or changed), and for the new real speech-model errors of kaggle/rw-asr2
 # (CV train/other, partly degraded like phone audio). Each distinct correct sentence is asked once and
 # shared by all its recordings (CV sentences repeat). Held out: round-1 rows (src asr) and the degraded
-# held-out copies of rw-asr2 (src noisy). Output /kaggle/working/teach3.jsonl in the format of teach.jsonl.
-import glob, json, os, random, shutil, subprocess, sys, threading, time, urllib.request
+# held-out copies of rw-asr2 (src noisy).
+#  disfl: for DISFL sentences (half Common Voice, half Wikipedia) the teacher also writes how a person
+#  might really say it: «اه/اِم/چیزه» mid-sentence, restarts, a phrase replaced by another without any
+#  marker («این گوشی رو این موبایل رو اه این موبایل آیفون رو»). Kept only if every word of the correct
+#  sentence appears in it in order; targets stay the correct sentence's versions. A tenth held out.
+# Output /kaggle/working/teach3.jsonl in the format of teach.jsonl.
+import glob, json, os, random, re, shutil, subprocess, sys, threading, time, unicodedata, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 T0 = time.time()
@@ -15,6 +20,8 @@ TMP = "/kaggle/temp"
 SLOTS = int(os.environ.get("SLOTS", "32"))
 CLEAN = int(os.environ.get("CLEAN", "3000"))
 WIKI = int(os.environ.get("WIKI", "6000"))
+DISFL = int(os.environ.get("DISFL", "4000"))
+ZWNJ = "\u200c"
 REPO = "unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF"
 FILE = "Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf"
 random.seed(3)
@@ -46,7 +53,10 @@ rec_items = held + errs + clean + [dict(r, src="wiki", split="train") for r in w
 by_ref = {}
 for r in rec_items:  # one teacher call per distinct sentence, in this order of priority
     by_ref.setdefault(r["ref"].strip(), []).append(r)
-items = list(by_ref)
+cv_refs = sorted({r["ref"].strip() for r in asr2 if r["split"] == "train" and 5 <= len(r["ref"].split()) <= 25})
+random.shuffle(cv_refs)
+disfl_refs = cv_refs[:DISFL // 2] + [r["ref"] for r in wiki[WIKI:WIKI + DISFL - DISFL // 2]]
+items = [("disfl", i) for i in range(len(disfl_refs))] + [("ref", x) for x in by_ref]  # disfl first: it must not be cut by the budget
 log(f"{len(held)} held out, {len(errs)} with errors, {len(clean)} clean, {min(WIKI, len(wiki))} wiki; "
     f"{len(items)} distinct sentences for {len(rec_items)} rows")
 
@@ -102,6 +112,46 @@ SCHEMA = {"type": "object", "properties": {k: {"type": "string"} for k in ("fix"
           "required": ["fix", "formal", "casual", "summary"]}
 
 
+DISFL_SYSTEM = (
+    "تو برای آموزش یک مدل اصلاح دیکته‌ی فارسی داده می‌سازی. یک «متن» درست به تو داده می‌شود. بنویس که یک آدم واقعی وقتی همین را "
+    "با صدا و بی‌مقدمه دیکته می‌کند، ممکن است دقیقاً چه بگوید، و فقط یک شیء JSON با کلید spoken برگردان. "
+    "دو تا چهار مورد از این‌ها را در جاهای طبیعی بگذار: «اه»، «اِم»، «چیزه» یا «یعنی» وسط جمله؛ تکرار یک یا دو کلمه؛ "
+    "شروع دوباره‌ی یک عبارت؛ گفتن یک عبارت نیمه‌کاره یا کلمه‌ی دیگر و بعد عوض کردنش بدون هیچ «ببخشید» "
+    "(مثل «این گوشی رو این موبایل رو اه این موبایل آیفون رو»). "
+    "همه‌ی کلمه‌های متن باید به همان ترتیب و همان شکل در spoken بیایند؛ فقط چیزهای اضافه را بین آن‌ها بگذار. عدد را با حروف بنویس."
+)
+
+
+def shenava(text):
+    """How the speech model writes it: no ZWNJ, diacritics or quotes; marks often missing."""
+    text = unicodedata.normalize("NFKC", text).replace("ي", "ی").replace("ك", "ک")
+    text = re.sub("[\u064b-\u0652\u0670\u0654\u0640]", "", text).replace(ZWNJ, " ")
+    text = re.sub(r"[«»()\[\]\-\"…]", " ", text)
+    if random.random() < 0.6:
+        text = re.sub("[،؛:.!؟]", " ", text)
+    return " ".join(text.split())
+
+
+def bare(text):
+    return re.sub(r"[^\w\s]|_", " ", shenava(text).replace("ِ", "")).split()
+
+
+def contains_in_order(spoken, ref):
+    it = iter(bare(spoken))
+    return all(w in it for w in bare(ref))
+
+
+def ask_disfl(ref):
+    body = {"messages": [{"role": "system", "content": DISFL_SYSTEM}, {"role": "user", "content": "متن: " + ref}],
+            "temperature": 0.8, "top_p": 0.95, "max_tokens": 400,
+            "response_format": {"type": "json_schema", "json_schema": {"name": "out", "schema": {
+                "type": "object", "properties": {"spoken": {"type": "string"}}, "required": ["spoken"]}}}}
+    req = urllib.request.Request("http://127.0.0.1:8080/v1/chat/completions", json.dumps(body).encode(),
+                                 {"Content-Type": "application/json"})
+    r = json.load(urllib.request.urlopen(req, timeout=900))
+    return json.loads(r["choices"][0]["message"]["content"])["spoken"].strip(), r["usage"]["completion_tokens"]
+
+
 def ask(item):
     body = {"messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": "متن: " + item}],
             "temperature": 0.2, "top_p": 0.9, "max_tokens": 700,
@@ -114,21 +164,39 @@ def ask(item):
 
 lock = threading.Lock()
 out = open(f"{OUT}/teach3.jsonl", "w", encoding="utf-8")
-done = {"n": 0, "rows": 0, "tokens": 0, "failed": 0}
+done = {"n": 0, "rows": 0, "disfl": 0, "rejected": 0, "tokens": 0, "failed": 0}
 deadline = T0 + BUDGET_H * 3600
 
 
-def work(item):
+def work(job):
+    kind, item = job
     if time.time() > deadline:
         return
     try:
+        if kind == "disfl":
+            i, ref = item, disfl_refs[item]
+            spoken, n0 = ask_disfl(ref)
+            nb, nr = len(bare(spoken)), len(bare(ref))
+            if not contains_in_order(spoken, ref) or nb < nr + 2 or nb > 2 * nr + 8:
+                with lock:
+                    done["rejected"] += 1
+                return
+            v, n = ask(ref)
+            v = {k: v[k].strip() for k in SCHEMA["required"]}
+            rec = {"id": f"disfl-{i}", "src": "disfl", "split": "heldout" if i % 10 == 0 else "train", "spoken": spoken,
+                   "hyp": shenava(spoken), "ref": ref} | v
+            with lock:
+                out.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                done["disfl"] += 1
+                done["tokens"] += n0 + n
+            return
         v, n = ask(item)
         v = {k: v[k].strip() for k in SCHEMA["required"]}
     except Exception as e:  # noqa: BLE001
         with lock:
             done["failed"] += 1
             if done["failed"] <= 5:
-                log("failed", item[:60], repr(e)[:300])
+                log("failed", kind, str(item)[:60], repr(e)[:300])
         return
     with lock:
         for r in by_ref[item]:
@@ -148,10 +216,13 @@ with ThreadPoolExecutor(SLOTS * 2) as ex:
 out.close()
 server.terminate()
 dt = time.time() - t
-lines = [f"{done['n']} of {len(items)} sentences ({done.get('rows', 0)} rows) in {dt / 3600:.2f} h, {done['failed']} failed, "
+lines = [f"disfl: {done['disfl']} kept, {done['rejected']} rejected of {len(disfl_refs)}",
+         f"{done['n']} of {len(by_ref)} sentences ({done.get('rows', 0)} rows) in {dt / 3600:.2f} h, {done['failed']} failed, "
          f"{done['tokens'] / dt:.0f} output tokens/s",
          f"held out {len(held)}, errors {len(errs)}, clean {len(clean)}, wiki {min(WIKI, len(wiki))}", "--- samples"]
 recs = rows(f"{OUT}/teach3.jsonl")
+for r in random.sample([r for r in recs if r["src"] == "disfl"], min(8, done["disfl"])):
+    lines += [f"\ndisfl spoken: {r['spoken']}", f"hyp: {r['hyp']}", f"ref: {r['ref']}", f"[fix] {r['fix']}"]
 for r in random.sample(recs, min(12, len(recs))):
     lines += [f"\n{r['src']} hyp: {r['hyp']}", f"ref: {r['ref']}"] + [f"[{k}] {r[k]}" for k in SCHEMA["required"]]
 open(f"{OUT}/summary.txt", "w", encoding="utf-8").write("\n".join(lines) + "\n")

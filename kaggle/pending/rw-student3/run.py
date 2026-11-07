@@ -10,6 +10,7 @@
 # plus real errors on CV train/other and phone-like degraded audio), adds the degraded held-out set
 # (noisy) and reports fix with a guard: when the output strays too far from the input with no
 # self-correction in it, or brings in Latin text, the input is kept as it is.
+# Also scores the teacher-made disfluent dictation (fillers, restarts, unmarked rephrasing) as set disfl.
 # Output: /kaggle/working/{adapter/, eval.jsonl, summary.txt}.
 import glob, json, math, os, random, re, subprocess, sys, time, unicodedata
 
@@ -90,7 +91,7 @@ if not paths:
     sys.exit("no teacher data found")
 recs = [json.loads(l) for p in paths for l in open(p, encoding="utf-8")]
 log("teacher files", paths)
-train, held, kept, dropped = [], {"asr": [], "noisy": [], "mono": [], "para": []}, {k: 0 for k in STYLES}, {k: 0 for k in STYLES}
+train, held, kept, dropped = [], {"asr": [], "noisy": [], "disfl": [], "mono": [], "para": []}, {k: 0 for k in STYLES}, {k: 0 for k in STYLES}
 for r in recs:
     if r["src"] == "wiki":
         r["fix"] = r["ref"]
@@ -232,7 +233,7 @@ model.config.use_cache = True
 MARK = re.compile("نه ببخشید|یعنی نه|نه نه|ببخشید|منظورم")
 random.Random(5).shuffle(held["asr"])
 random.Random(5).shuffle(held["noisy"])
-sets = {"asr": held["asr"][:EVAL_N], "noisy": held["noisy"][:EVAL_N], "slip": [r for r in held["slip"] if r["id"] not in {x["id"] for x in held["asr"][:EVAL_N]}][:EVAL_N],
+sets = {"asr": held["asr"][:EVAL_N], "noisy": held["noisy"][:EVAL_N], "disfl": held["disfl"][:EVAL_N], "slip": [r for r in held["slip"] if r["id"] not in {x["id"] for x in held["asr"][:EVAL_N]}][:EVAL_N],
         "para": held["para"][:120]}
 chrf = CHRF(word_order=2)
 
@@ -276,6 +277,11 @@ for name, rows in sets.items():
     g_after = sum(dist(words(r["ref"]), words(g)) for (r, _), g in zip(results["fix"], guarded))
     kept_in = sum(g == r["hyp"] for (r, _), g in zip(results["fix"], guarded))
     lines.append(f"[fix + guard] word errors {100 * g_after / ref_words:.1f}%, input kept unchanged {kept_in} of {len(guarded)}")
+    if name == "disfl":
+        fill = re.compile(r"(^|\s)(اه|ام|اِم|چیزه)(?=\s|$|[،.؟!])")
+        left = sum(bool(fill.search(o)) for _, o in results["fix"])
+        exact = sum(words(o) == words(r["ref"]) for r, o in results["fix"])
+        lines.append(f"[disfluencies] fillers left in output {left} of {len(results['fix'])}, output = intended exactly {exact}")
     if name == "slip":
         sc = [(r, o) for r, o in results["fix"] if r.get("slip") in (0, 1, 3)]
         if sc:
