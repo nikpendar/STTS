@@ -148,6 +148,32 @@ for r in recs:
             train.append((k, h, r[k]))
             n_slip += 1
 log(f"{n_slip} self-correction training examples")
+
+
+# Cut-off words: the speaker starts a word, stops and says it whole («موبا موبایل», «می‌خوا می‌خواستم»);
+# the speech model writes the fragment as a short nonsense word. Inserted before 1-2 words of
+# Shenava's text; targets unchanged. Held-out speech rows get the same for the "cut" test set.
+def cut(hyp, rnd):
+    w = hyp.split()
+    spots = [i for i, x in enumerate(w) if len(x.strip("،.؟!")) >= 4]
+    if not spots:
+        return None
+    for i in sorted(rnd.sample(spots, min(len(spots), rnd.choice([1, 1, 2]))), reverse=True):
+        x = w[i].strip("،.؟!")
+        w.insert(i, x[:rnd.randint(2, len(x) - 2)])
+    return " ".join(w)
+
+
+n_cut = 0
+for r in recs:
+    if r["split"] != "train" or r["src"] == "para" or rnd.random() > 0.15:
+        continue
+    h = cut(r["hyp"], rnd)
+    if h is not None and ok("fix", r["fix"], r["ref"]):
+        train.append(("fix", h, r["fix"]))
+        n_cut += 1
+log(f"{n_cut} cut-off word training examples")
+held["cut"] = [dict(r, hyp=h) for r in held["asr"] for h in [cut(r["hyp"], rnd)] if h is not None]
 held["slip"] = []
 for r in held["asr"]:
     h = slip(r["hyp"], rnd)
@@ -233,7 +259,7 @@ model.config.use_cache = True
 MARK = re.compile("نه ببخشید|یعنی نه|نه نه|ببخشید|منظورم")
 random.Random(5).shuffle(held["asr"])
 random.Random(5).shuffle(held["noisy"])
-sets = {"asr": held["asr"][:EVAL_N], "noisy": held["noisy"][:EVAL_N], "disfl": held["disfl"][:EVAL_N], "slip": [r for r in held["slip"] if r["id"] not in {x["id"] for x in held["asr"][:EVAL_N]}][:EVAL_N],
+sets = {"asr": held["asr"][:EVAL_N], "noisy": held["noisy"][:EVAL_N], "disfl": held["disfl"][:EVAL_N], "cut": [r for r in held["cut"] if r["id"] not in {x["id"] for x in held["asr"][:EVAL_N]}][:EVAL_N], "slip": [r for r in held["slip"] if r["id"] not in {x["id"] for x in held["asr"][:EVAL_N]}][:EVAL_N],
         "para": held["para"][:120]}
 chrf = CHRF(word_order=2)
 
