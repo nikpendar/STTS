@@ -2945,9 +2945,16 @@ final class KeyboardViewController: UIInputViewController {
     /// Since when the phone has lain flat, screen up: after a few seconds on a table the letters
     /// settle in the middle with no shadow, until it is picked up.
     private var flatSince: TimeInterval?
-    /// The angle to the ground (degrees) at which the letters sit in the middle, how quickly a
-    /// tilt reaches full travel, and seconds flat on a table before they rest (Rooz, 2026-11-05).
-    private static let neutralAngle: Double = 45
+    private let motionInterval = 1.0 / 30
+    /// The way the phone has been held lately (its gravity, slowly followed): the letters sit in
+    /// the middle there, so typing lying down with the phone overhead centres them too (Rooz,
+    /// 2026-11-07). Nil until the first reading after the keyboard shows.
+    private var heldGravity: CMAcceleration?
+    /// Seconds over which the middle follows the hand: held still, the letters are back in the
+    /// middle in about three times this.
+    private static let followTime: Double = 1.5
+    /// How quickly a tilt reaches full travel, and seconds flat on a table before the letters
+    /// rest (Rooz, 2026-11-05).
     private static let tiltSensitivity: CGFloat = 2.6
     private static let restAfter: TimeInterval = 4
 
@@ -2960,19 +2967,27 @@ final class KeyboardViewController: UIInputViewController {
         if wanted {
             if motion == nil { motion = CMMotionManager() }
             guard let motion, motion.isDeviceMotionAvailable, !motion.isDeviceMotionActive else { return }
-            motion.deviceMotionUpdateInterval = 1.0 / 30
+            motion.deviceMotionUpdateInterval = motionInterval
+            heldGravity = nil
             motion.startDeviceMotionUpdates(to: .main) { [weak self] data, _ in
                 guard let self, let data else { return }
                 let gravity = data.gravity
-                // Held at 45° to the ground, as when typing, the letters sit in the middle with no
-                // shadow. The top tipped towards the user moves them down.
-                let neutral = sin(Self.neutralAngle * .pi / 180)
-                var x = CGFloat(gravity.x), y = -CGFloat(gravity.y + neutral)
+                // Held the way it has been lately, the letters sit in the middle with no shadow;
+                // only a turn away from that moves them. The top tipped towards the user moves
+                // them down.
+                var held = self.heldGravity ?? gravity
+                let follow = min(1, self.motionInterval / Self.followTime)
+                held.x += (gravity.x - held.x) * follow
+                held.y += (gravity.y - held.y) * follow
+                held.z += (gravity.z - held.z) * follow
+                self.heldGravity = held
+                let dx = gravity.x - held.x, dy = gravity.y - held.y
+                var x = CGFloat(dx), y = -CGFloat(dy)
                 if self.view.bounds.width > self.view.bounds.height * 1.6 {
                     // Landscape, either way round: the screen's down is the side gravity pulls
-                    // along the phone's width, and 45° is the middle there too (Rooz, 2026-11-05).
-                    let side: Double = gravity.x >= 0 ? 1 : -1
-                    (x, y) = (CGFloat(side * gravity.y), CGFloat(side * gravity.x - neutral))
+                    // along the phone's width.
+                    let side: Double = held.x >= 0 ? 1 : -1
+                    (x, y) = (CGFloat(side * dy), CGFloat(side * dx))
                 }
                 let gain = Self.tiltSensitivity
                 var next = CGPoint(x: max(-1, min(1, x * gain)), y: max(-1, min(1, y * gain)))
