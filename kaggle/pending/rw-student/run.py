@@ -4,7 +4,9 @@
 # numbers or Latin text, have odd lengths, or whose fix changes the words of the correct text are left
 # out; Wikipedia rows learn fix from the sentence itself. Evaluation on held-out speech (FLEURS test +
 # a tenth of CV test): fix -> word error vs the correct text before/after; every style -> chrF vs the
-# teacher, numbers kept, samples. Output: /kaggle/working/{adapter/, eval.jsonl, summary.txt}.
+# teacher, numbers kept, samples. Round 2 also reads kaggle/rw-teach2 (dictated messages with
+# self-corrections, Wikipedia paragraphs) and scores each held-out set (asr, mono, para) separately.
+# Output: /kaggle/working/{adapter/, eval.jsonl, summary.txt}.
 import glob, json, math, os, random, re, subprocess, sys, time, unicodedata
 
 # The image's torchao is older than peft accepts, and LoRA here does not need it.
@@ -78,18 +80,19 @@ def ok(style, out, ref):
     return 0.5 <= r <= 1.8
 
 
-path = glob.glob("/kaggle/input/**/teach.jsonl", recursive=True)
-if not path:
-    sys.exit("teach.jsonl not found")
-recs = [json.loads(l) for l in open(path[0], encoding="utf-8")]
-train, held, kept, dropped = [], [], {k: 0 for k in STYLES}, {k: 0 for k in STYLES}
+paths = sorted(glob.glob("/kaggle/input/**/teach.jsonl", recursive=True) + glob.glob("/kaggle/input/**/teach2.jsonl", recursive=True))
+if not paths:
+    sys.exit("no teacher data found")
+recs = [json.loads(l) for p in paths for l in open(p, encoding="utf-8")]
+log("teacher files", paths)
+train, held, kept, dropped = [], {"asr": [], "mono": [], "para": []}, {k: 0 for k in STYLES}, {k: 0 for k in STYLES}
 for r in recs:
     if r["src"] == "wiki":
         r["fix"] = r["ref"]
     if len(r["ref"].split()) < 8 and ok("fix", r["fix"], r["ref"]):
         r["summary"] = r["fix"]  # short sentences: a "summary" only invites made-up changes
     if r["split"] == "heldout":
-        held.append(r)
+        held[r["src"]].append(r)
         continue
     for k in STYLES:
         if ok(k, r[k], r["ref"]):
@@ -98,7 +101,7 @@ for r in recs:
         else:
             dropped[k] += 1
 random.shuffle(train)
-log(f"{len(recs)} teacher rows, {len(train)} training examples, kept {kept}, dropped {dropped}, held out {len(held)}")
+log(f"{len(recs)} teacher rows, {len(train)} training examples, kept {kept}, dropped {dropped}, held out { {k: len(v) for k, v in held.items()} }")
 
 tok = AutoTokenizer.from_pretrained(BASE)
 tok.padding_side = "left"
@@ -173,46 +176,61 @@ tok.save_pretrained(f"{OUT}/adapter")
 model.eval()
 model.gradient_checkpointing_disable()
 model.config.use_cache = True
-random.shuffle(held)
-held = held[:EVAL_N]
+MARK = re.compile("نه ببخشید|یعنی نه|نه نه|ببخشید|منظورم")
+random.Random(5).shuffle(held["asr"])
+sets = {"asr": held["asr"][:EVAL_N], "mono": held["mono"][:EVAL_N], "para": held["para"][:120]}
 chrf = CHRF(word_order=2)
-results = {k: [] for k in STYLES}
-t = time.time()
-for k in STYLES:
-    for i in range(0, len(held), 24):
-        chunk = held[i:i + 24]
-        enc = tok([prompt(k, r["hyp"]) for r in chunk], return_tensors="pt", padding=True, add_special_tokens=False).to("cuda")
-        with torch.no_grad(), torch.autocast("cuda", dtype=torch.float16):
-            gen = model.generate(**enc, max_new_tokens=200, do_sample=False, pad_token_id=tok.pad_token_id)
-        for r, g in zip(chunk, gen[:, enc["input_ids"].shape[1]:]):
-            results[k].append((r, tok.decode(g, skip_special_tokens=True).strip()))
-gen_s = (time.time() - t) / (len(held) * len(STYLES))
-
-lines = [f"base {BASE}, {done}/{steps} steps, {len(train)} examples, kept {kept}, dropped {dropped}",
-         f"held out sentences evaluated: {len(held)}, generation {gen_s * 1000:.0f} ms per sentence (batched, T4)"]
-with open(f"{OUT}/eval.jsonl", "w", encoding="utf-8") as f:
+lines = [f"base {BASE}, {done}/{steps} steps, {len(train)} examples, kept {kept}, dropped {dropped}"]
+evalf = open(f"{OUT}/eval.jsonl", "w", encoding="utf-8")
+for name, rows in sets.items():
+    if not rows:
+        continue
+    results = {k: [] for k in STYLES}
+    t = time.time()
+    for k in STYLES:
+        for i in range(0, len(rows), 16):
+            chunk = rows[i:i + 16]
+            enc = tok([prompt(k, r["hyp"]) for r in chunk], return_tensors="pt", padding=True, add_special_tokens=False).to("cuda")
+            with torch.no_grad(), torch.autocast("cuda", dtype=torch.float16):
+                gen = model.generate(**enc, max_new_tokens=400, do_sample=False, pad_token_id=tok.pad_token_id)
+            for r, g in zip(chunk, gen[:, enc["input_ids"].shape[1]:]):
+                results[k].append((r, tok.decode(g, skip_special_tokens=True).strip()))
+    gen_s = (time.time() - t) / (len(rows) * len(STYLES))
+    lines.append(f"\n##### set {name}: {len(rows)} held-out texts, {gen_s * 1000:.0f} ms per text (batched, T4)")
     for k, rs in results.items():
         for r, o in rs:
-            f.write(json.dumps({"style": k, "id": r["id"], "hyp": r["hyp"], "ref": r["ref"], "teacher": r[k], "student": o},
-                               ensure_ascii=False) + "\n")
-ref_words = sum(len(words(r["ref"])) for r, _ in results["fix"])
-before = sum(dist(words(r["ref"]), words(r["hyp"])) for r, _ in results["fix"])
-after = sum(dist(words(r["ref"]), words(o)) for r, o in results["fix"])
-teacher_fix = sum(dist(words(r["ref"]), words(r["fix"])) for r, _ in results["fix"])
-lines.append(f"[fix] word errors vs correct text (ZWNJ counted as a space, marks ignored): Shenava {100 * before / ref_words:.1f}% -> "
-             f"student {100 * after / ref_words:.1f}% (teacher's fix of the correct text {100 * teacher_fix / ref_words:.1f}%)")
-for k, rs in results.items():
-    score = chrf.corpus_score([o for _, o in rs], [[r[k] for r, _ in rs]]).score
-    base_score = chrf.corpus_score([r["hyp"] for r, _ in rs], [[r[k] for r, _ in rs]]).score
-    numbers = sum(nums(o) <= nums(r["ref"]) for r, o in rs) / len(rs)
-    ratio = sum(len(o) for _, o in rs) / max(1, sum(len(r[k]) for r, _ in rs))
-    lines.append(f"[{k}] chrF++ vs teacher {score:.1f} (Shenava text as is {base_score:.1f}), no new numbers {100 * numbers:.0f}%, "
-                 f"length vs teacher {ratio:.2f}")
-lines.append("--- samples")
-for k, rs in results.items():
-    lines.append(f"\n=== [{STYLES[k]}]")
-    for r, o in rs[:6]:
-        lines += [f"شنوا: {r['hyp']}", f"شاگرد: {o}", f"معلم: {r[k]}", f"درست: {r['ref']}", ""]
+            evalf.write(json.dumps({"set": name, "style": k, "id": r["id"], "hyp": r["hyp"], "ref": r["ref"], "teacher": r[k],
+                                    "student": o}, ensure_ascii=False) + "\n")
+    ref_words = sum(len(words(r["ref"])) for r, _ in results["fix"])
+    before = sum(dist(words(r["ref"]), words(r["hyp"])) for r, _ in results["fix"])
+    after = sum(dist(words(r["ref"]), words(o)) for r, o in results["fix"])
+    lines.append(f"[fix] word errors vs intended text (ZWNJ as space, marks ignored): input {100 * before / ref_words:.1f}% -> "
+                 f"student {100 * after / ref_words:.1f}%")
+    if name == "mono":
+        sc = [(r, o) for r, o in results["fix"] if r.get("slip") in (0, 1, 3)]
+        if sc:
+            w = sum(len(words(r["ref"])) for r, _ in sc)
+            b = sum(dist(words(r["ref"]), words(r["hyp"])) for r, _ in sc)
+            a2 = sum(dist(words(r["ref"]), words(o)) for r, o in sc)
+            left = sum(bool(MARK.search(o)) for _, o in sc)
+            exact = sum(words(o) == words(r["ref"]) for r, o in sc)
+            lines.append(f"[self-correction] {len(sc)} texts: word errors {100 * b / w:.1f}% -> {100 * a2 / w:.1f}%, "
+                         f"correction words left in output {left}, output = intended exactly {exact}")
+    for k, rs in results.items():
+        score = chrf.corpus_score([o for _, o in rs], [[r[k] for r, _ in rs]]).score
+        base_score = chrf.corpus_score([r["hyp"] for r, _ in rs], [[r[k] for r, _ in rs]]).score
+        numbers = sum(nums(o) <= nums(r["ref"]) for r, o in rs) / len(rs)
+        ratio = sum(len(o) for _, o in rs) / max(1, sum(len(r["ref"]) for r, _ in rs))
+        tratio = sum(len(r[k]) for r, _ in rs) / max(1, sum(len(r["ref"]) for r, _ in rs))
+        spoken = sum(any(m in f" {o} " for m in COLLOQUIAL) for _, o in rs) / len(rs)
+        lines.append(f"[{k}] chrF++ vs teacher {score:.1f} (input as is {base_score:.1f}), no new numbers {100 * numbers:.0f}%, "
+                     f"length / intended: student {ratio:.2f} teacher {tratio:.2f}, spoken forms in output {100 * spoken:.0f}%")
+    lines.append("--- samples")
+    for k, rs in results.items():
+        lines.append(f"\n=== {name} [{STYLES[k]}]")
+        for r, o in rs[:4]:
+            lines += [f"ورودی: {r['hyp']}", f"شاگرد: {o}", f"معلم: {r[k]}", f"منظور: {r['ref']}", ""]
+evalf.close()
 lines.append(f"hours {(time.time() - T0) / 3600:.1f}")
 open(f"{OUT}/summary.txt", "w", encoding="utf-8").write("\n".join(lines) + "\n")
 print("\n".join(lines))
