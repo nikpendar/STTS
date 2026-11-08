@@ -1,11 +1,11 @@
 # آواک (Avak): کیبورد دیکته‌ی آفلاین فارسی برای آیفون
 
-کیبورد فارسی و انگلیسی با دیکته‌ی فارسی که بدون اینترنت روی خود گوشی کار می‌کند. موتور گفتار مدل جریانی Shenava Koochik
+کیبورد فارسی و انگلیسی با دیکته‌ی فارسی که بدون اینترنت روی خود گوشی کار می‌کند. موتور گفتار مدل جریانی AvakScribe
 با Core ML است که هم‌زمان با صحبت متن می‌نویسد. برنامه خودش صفحه‌ی تنظیمات کیبورد است و میکروفون را برای کیبورد (تایپ صوتی) باز نگه می‌دارد.
 
 ## مدل گفتار
-[Shenava Koochik 1.0](https://huggingface.co/Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16) (Apache-2.0، ۱۱۵ میلیون
-پارامتر). برنامه آن را به‌صورت ML program در Core ML با وزن ۸ بیتی به کار می‌برد (`Koochik.aar`، ۱۰۷ مگابایت؛ نسخه‌ی
+AvakScribe بر پایه‌ی [Shenava Koochik 1.0](https://huggingface.co/Reza2kn/Shenava-Koochik-1.0-CoreML-iOS15-fp16) (Reza2kn، Apache-2.0، ۱۱۵ میلیون
+پارامتر). برنامه آن را به‌صورت ML program در Core ML با وزن ۸ بیتی به کار می‌برد (`AvakScribe.aar`، ۱۰۷ مگابایت؛ نسخه‌ی
 Hugging Face در قالب NeuralNetwork با وزن fp16 و ۲۱۲ مگابایت است). `.github/workflows/model.yml` آن را از فایل .nemo
 می‌سازد و در release به نام `koochik-mlp-int8` منتشر می‌کند. در سنجش، WER آن با نسخه‌ی fp16 برابر است، روی CPU حدود ۴۰٪
 حافظه‌ی کمتری می‌گیرد و دو برابر سریع‌تر است (`.github/workflows/compress-eval.yml`). این یک مدل CTC جریانی است که هر ۸۰ میلی‌ثانیه صدا را می‌گیرد، پس با پایان ضبط فقط کسری از
@@ -17,10 +17,10 @@ Hugging Face در قالب NeuralNetwork با وزن fp16 و ۲۱۲ مگابای
 [`whisper-final`](https://github.com/nikpendar/STTS/releases/tag/whisper-final).
 
 ## ساخت
-نیازی به Xcode نیست. هر push به `main` در GitHub Actions یک `AvakShenava.ipa` امضانشده (artifact به نام
-`AvakShenava`) می‌سازد (`.github/workflows/build.yml`). فایل را از بخش Artifacts همان اجرا دانلود و از zip خارج کنید.
+نیازی به Xcode نیست. هر push به `main` در GitHub Actions یک `Avak.ipa` امضانشده (artifact به نام
+`Avak`) می‌سازد (`.github/workflows/build.yml`). فایل را از بخش Artifacts همان اجرا دانلود و از zip خارج کنید.
 
-فایل مدل artifact جداگانه‌ای به نام `ShenavaModel` (فایل `Koochik.aar`، همان فایل release به نام `koochik-mlp-int8`) است (۹۰ روز نگه داشته می‌شود) و فقط یک بار
+فایل مدل artifact جداگانه‌ای به نام `AvakScribeModel` (فایل `AvakScribe.aar`، همان فایل release به نام `koochik-mlp-int8`) است (۹۰ روز نگه داشته می‌شود) و فقط یک بار
 لازم است. در برنامه با «وارد کردن مدل از Files»، یا با کشیدن فایل در Finder روی برنامه در بخش Files آیفون، وارد و روی گوشی
 کامپایل می‌شود و با نصب نسخه‌های بعدی می‌ماند. `setup.sh` فایل‌های همراه مدل (توکن‌ها و تنظیمات ویژگی صدا) را در
 `PersianSTT/Models` و خود مدل را در `build-model/` دانلود می‌کند.
@@ -124,9 +124,9 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 - `ReadAloudIntent.swift` و `Speaker.swift`: خواندن متن با کار Shortcuts و جای موتور صدای فارسی آفلاین
 - `PrivacyInfo.xcprivacy` (در برنامه و کیبورد): manifest حریم خصوصی App Store؛ متن سیاست حریم خصوصی در `docs/privacy.html`
 - `KeyboardSession.swift`: تایپ صوتی: میکروفون پس‌زمینه برای کیبورد، تشخیص گفتار و سکوت، فرستادن صدا به مدل هم‌زمان با ضبط
-- `ShenavaStream.swift`: ویژگی‌های صدا (log-mel مثل NeMo)، اجرای گام‌به‌گام مدل Core ML با cacheها، CTC حریصانه و علامت مکث
+- `ScribeStream.swift`: ویژگی‌های صدا (log-mel مثل NeMo)، اجرای گام‌به‌گام مدل Core ML با cacheها، CTC حریصانه و علامت مکث
 - `Transcriber.swift`: بارگذاری مدل (شخصی، وارد‌شده یا داخلی) روی Neural Engine یا CPU و صف اجرای آن
-- `ModelImporter.swift`: وارد کردن `Koochik.aar` (یا `Koochik.mlmodel` قدیمی) از Files و کامپایل آن روی گوشی
+- `ModelImporter.swift`: وارد کردن `AvakScribe.aar` (یا `AvakScribe.mlmodel` قدیمی) از Files و کامپایل آن روی گوشی
 - `PersonalModel.swift`: صف و ارسال اصلاح‌ها به مخزن خصوصی GitHub، دانلود و نصب مدل شخصی
 - `AudioLoader.swift`: خواندن فایل صوتی به نمونه‌های ۱۶ کیلوهرتز
 - `KeyboardPreview.swift` و `KeyboardTestView.swift`: نمایش کیبورد داخل برنامه برای آزمون‌های شبیه‌ساز
@@ -155,19 +155,19 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 سایر:
 - `training/`: آموزش و تبدیل مدل شخصی (`finetune.py`، `export_coreml.py`) و نمره‌دهی (`score.py`)
 - `Tests/KeyboardLogic`: آزمون پیشنهاد کلمه، اصلاح غلط تایپی، نیم‌فاصله، اعداد و فرمان‌های صوتی بدون شبیه‌ساز
-- `Tests/ShenavaCheck`: اجرای `ShenavaStream` برنامه روی پوشه‌ای از فایل‌های WAV در macOS
+- `Tests/ScribeCheck`: اجرای `ScribeStream` برنامه روی پوشه‌ای از فایل‌های WAV در macOS
 - `Tests/github_stub.py`: جایگزین GitHub در آزمون شبیه‌ساز برای ارسال اصلاح و دانلود مدل
 - `setup.sh`: دانلود مدل و فایل‌های همراهش برای ساخت؛ `scripts/mac-setup.sh`: آماده‌سازی ساخت با Xcode روی مک (مدل و فونت)
 - `scripts/`: ساخت فهرست‌های کلمات، آیکون برنامه (`make_icon.py`) و ابزار سنجش (`wer.py`، `prepare_cv.py`، `to_pcm16.py`، `join_clips.py`)
 
 ## Workflowها
-- `build.yml`: ساخت IPA با هر push به `main` (artifact `AvakShenava`) و مدل (artifact `ShenavaModel`)
+- `build.yml`: ساخت IPA با هر push به `main` (artifact `Avak`) و مدل (artifact `AvakScribeModel`)
 - `train.yml`: آموزش مدل شخصی از اصلاح‌ها (بالا)
 - `live-test.yml`: کیبورد داخل برنامه در شبیه‌ساز با سه جمله‌ی فارسی FLEURS: دیکته، متن زنده، اصلاح و آموزش، تایپ کشیدنی، منوها،
   پس‌زمینه و صفحه‌های تنظیمات؛ عکس‌ها در شاخه‌ی `live-test` (و با `ios=26` در `live-test-ios26`)
 - `keyboard-test.yml`: اکستنشن واقعی کیبورد در شبیه‌ساز، ثبت لاگ و حافظه
 - `live-test.yml` و `keyboard-test.yml` با ورودی `ios` روی iOS 17 (runner macOS 14)، 18 یا 26 اجرا می‌شوند
-- `model.yml`: ساخت و انتشار مدل ۸ بیتی `Koochik.aar` (release `koochik-mlp-int8`)؛ `compress-eval.yml`: سنجش نسخه‌های فشرده‌ی مدل
+- `model.yml`: ساخت و انتشار مدل ۸ بیتی `AvakScribe.aar` (release `koochik-mlp-int8`)؛ `compress-eval.yml`: سنجش نسخه‌های فشرده‌ی مدل
 - `screenshots.yml`: عکس صفحه‌های برنامه و حالت‌های کیبورد در شاخه‌ی `screenshots`
 - `logic-test.yml`: اجرای `Tests/KeyboardLogic` با هر تغییر در منطق کیبورد
 - `hf-search.yml`: جست‌وجوی مدل‌ها در Hugging Face

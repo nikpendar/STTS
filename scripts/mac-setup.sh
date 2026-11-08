@@ -13,8 +13,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 xcodebuild -version || { echo "Xcode is missing: install Xcode 26 or newer from the App Store." >&2; exit 1; }
 
-# From the koochik-mlp-int8 release and Hugging Face. Without them: copy Koochik.aar into build-model/ and the four sidecar
-# .json files (from any built AvakShenava.ipa: Payload/PersianSTT.app/Models/) into
+# From the koochik-mlp-int8 release and Hugging Face. Without them: copy AvakScribe.aar into build-model/ and the four sidecar
+# .json files (from any built Avak.ipa: Payload/PersianSTT.app/Models/) into
 # PersianSTT/Models/ first; setup.sh skips files already there.
 bash "$ROOT/setup.sh" model
 # setup.sh skips files already there, so this only compiles.

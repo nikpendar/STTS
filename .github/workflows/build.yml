@@ -1,9 +1,9 @@
-# Builds an unsigned AvakShenava.ipa on a GitHub macOS runner (no local Mac/Xcode needed).
+# Builds an unsigned Avak.ipa on a GitHub macOS runner (no local Mac/Xcode needed).
 # Install the resulting .ipa with AltServer (Option-click > Sideload .ipa). With a free Apple ID,
 # Sideloadly signs the keyboard extension with the app's profile and iOS kills it at launch.
-# The speech model, Shenava Koochik (Koochik.aar, a Core ML ML program with 8-bit weights, 107 MB,
-# from the release koochik-mlp-int8 that model.yml publishes), is the separate ShenavaModel artifact,
-# imported once in the app; AvakShenavaEmbedded.ipa is the same app with the model inside
+# The speech model, AvakScribe (AvakScribe.aar, a Core ML ML program with 8-bit weights, 107 MB,
+# from the release koochik-mlp-int8 that model.yml publishes), is the separate AvakScribeModel artifact,
+# imported once in the app; AvakEmbedded.ipa is the same app with the model inside
 # (no import, no model page). The Whisper version is archived on branch archive/whisper.
 name: Build unsigned IPA
 
@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       bundle_model:
-        description: "Put the model inside the IPA (about 110 MB) instead of the separate ShenavaModel artifact"
+        description: "Put the model inside the IPA (about 110 MB) instead of the separate AvakScribeModel artifact"
         type: boolean
         default: false
   push:
@@ -58,8 +58,8 @@ jobs:
 
       - uses: actions/upload-artifact@v5
         with:
-          name: ShenavaModel
-          path: build-model/Koochik.aar
+          name: AvakScribeModel
+          path: build-model/AvakScribe.aar
           retention-days: 90
           compression-level: 0
 
@@ -124,12 +124,12 @@ jobs:
           codesign --force --sign - Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex
           codesign --force --sign - Payload/PersianSTT.app
           codesign -dv Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex 2>&1 | head -5
-          zip -qry AvakShenava.ipa Payload
-          ls -lh AvakShenava.ipa
+          zip -qry Avak.ipa Payload
+          ls -lh Avak.ipa
           # The same app with the Apple Watch app inside (Watch/KeylessWatch.app), only when
           # config.env asks for it (BUILD_WATCH=1). A watch app installs only with a paid developer
           # account (TestFlight or Xcode); AltServer with a free Apple ID cannot sign it, so
-          # AvakShenava.ipa stays without it.
+          # Avak.ipa stays without it.
           BUILD_WATCH="$(sed -n 's/^BUILD_WATCH=//p' config.env)"
           if [ "$BUILD_WATCH" = 1 ]; then
             xcodebuild -project PersianSTT.xcodeproj -target KeylessWatch \
@@ -147,27 +147,27 @@ jobs:
             codesign --force --sign - "$W/KeylessWatch.app/PlugIns/KeylessWatchWidget.appex"
             codesign --force --sign - "$W/KeylessWatch.app"
             codesign --force --sign - "$WATCH_ROOT/Payload/PersianSTT.app"
-            (cd "$WATCH_ROOT" && zip -qry "$GITHUB_WORKSPACE/AvakShenavaWatch.ipa" Payload)
-            ls -lh AvakShenavaWatch.ipa
+            (cd "$WATCH_ROOT" && zip -qry "$GITHUB_WORKSPACE/AvakWatch.ipa" Payload)
+            ls -lh AvakWatch.ipa
           fi
           # The same app with the model compiled inside, where Transcriber finds it.
           # Only when config.env asks for it (BUILD_EMBEDDED=1).
           BUILD_EMBEDDED="$(sed -n 's/^BUILD_EMBEDDED=//p' config.env)"
-          if [ "$BUILD_EMBEDDED" = 1 ] && [ ! -d PersianSTT/Models/Koochik.mlmodelc ]; then
-            mkdir -p "$RUNNER_TEMP/Koochik.mlpackage"
-            aa extract -d "$RUNNER_TEMP/Koochik.mlpackage" -i build-model/Koochik.aar
-            xcrun coremlcompiler compile "$RUNNER_TEMP/Koochik.mlpackage" "$RUNNER_TEMP/compiled" \
+          if [ "$BUILD_EMBEDDED" = 1 ] && [ ! -d PersianSTT/Models/AvakScribe.mlmodelc ]; then
+            mkdir -p "$RUNNER_TEMP/AvakScribe.mlpackage"
+            aa extract -d "$RUNNER_TEMP/AvakScribe.mlpackage" -i build-model/AvakScribe.aar
+            xcrun coremlcompiler compile "$RUNNER_TEMP/AvakScribe.mlpackage" "$RUNNER_TEMP/compiled" \
               --deployment-target 17.0 --platform ios
-            cp -R "$RUNNER_TEMP/compiled/Koochik.mlmodelc" "$APP/Models/"
+            cp -R "$RUNNER_TEMP/compiled/AvakScribe.mlmodelc" "$APP/Models/"
             codesign --force --sign - Payload/PersianSTT.app
-            zip -qry AvakShenavaEmbedded.ipa Payload
-            ls -lh AvakShenavaEmbedded.ipa
+            zip -qry AvakEmbedded.ipa Payload
+            ls -lh AvakEmbedded.ipa
           fi
 
       - uses: actions/upload-artifact@v5
         with:
-          name: AvakShenava
-          path: AvakShenava.ipa
+          name: Avak
+          path: Avak.ipa
           compression-level: 0
 
       # Debug symbols of this build's app, keyboard and watch app: crash reports from the phone
@@ -185,15 +185,15 @@ jobs:
           retention-days: 90
 
       - uses: actions/upload-artifact@v5
-        if: hashFiles('AvakShenavaWatch.ipa') != ''
+        if: hashFiles('AvakWatch.ipa') != ''
         with:
-          name: AvakShenavaWatch
-          path: AvakShenavaWatch.ipa
+          name: AvakWatch
+          path: AvakWatch.ipa
           compression-level: 0
 
       - uses: actions/upload-artifact@v5
-        if: hashFiles('AvakShenavaEmbedded.ipa') != ''
+        if: hashFiles('AvakEmbedded.ipa') != ''
         with:
-          name: AvakShenavaEmbedded
-          path: AvakShenavaEmbedded.ipa
+          name: AvakEmbedded
+          path: AvakEmbedded.ipa
           compression-level: 0

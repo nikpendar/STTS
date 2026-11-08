@@ -1,6 +1,6 @@
-# Smaller speech model: compresses the weights of Shenava Koochik (212 MB, fp16) with Core ML weight
+# Smaller speech model: compresses the weights of AvakScribe (212 MB, fp16) with Core ML weight
 # quantization (8-bit linear, k-means palettes) and measures each version with the app's own
-# ShenavaStream on the same 80 FLEURS and 80 Common Voice 17 clips as the earlier Shenava benchmark:
+# ScribeStream on the same 80 FLEURS and 80 Common Voice 17 clips as the earlier speech model benchmark:
 # size (model, zipped download, compiled), WER, CER, speed and peak memory (CPU only and all units).
 # VARIANTS compress the published NeuralNetwork .mlmodel; PROGRAMS export the .nemo checkpoint again
 # as iOS17 ML programs (.mlpackage, training/export_variants.py), which can keep compressed weights
@@ -73,18 +73,18 @@ jobs:
           python-version: "3.12"
       - name: Base model
         run: |
-          KOOCHIK_FORMAT=neuralnetwork bash ./setup.sh model
-          ls -l build-model/Koochik.mlmodel
+          SCRIBE_FORMAT=neuralnetwork bash ./setup.sh model
+          ls -l build-model/AvakScribe.mlmodel
       - name: Compress
         run: |
           pip install -q coremltools numpy kmeans1d
           mkdir -p models
           for v in $VARIANTS; do
             echo "== $v"
-            python scripts/compress_model.py build-model/Koochik.mlmodel "models/Koochik-$v.mlmodel" "$v" 2>&1 | grep -vE "^(Quantizing layer|Failed to load|scikit-learn)"
-            (cd models && zip -q "Koochik-$v.zip" "Koochik-$v.mlmodel")
-            echo "$v $(stat -c %s models/Koochik-$v.mlmodel) $(stat -c %s models/Koochik-$v.zip)" | tee -a models/sizes.txt
-            rm "models/Koochik-$v.zip"
+            python scripts/compress_model.py build-model/AvakScribe.mlmodel "models/AvakScribe-$v.mlmodel" "$v" 2>&1 | grep -vE "^(Quantizing layer|Failed to load|scikit-learn)"
+            (cd models && zip -q "AvakScribe-$v.zip" "AvakScribe-$v.mlmodel")
+            echo "$v $(stat -c %s models/AvakScribe-$v.mlmodel) $(stat -c %s models/AvakScribe-$v.zip)" | tee -a models/sizes.txt
+            rm "models/AvakScribe-$v.zip"
           done
       - id: list
         run: echo "variants=$(python3 -c 'import json, os; print(json.dumps((os.environ["VARIANTS"] + " " + os.environ["PROGRAMS"]).split()))')" >> "$GITHUB_OUTPUT"
@@ -112,7 +112,7 @@ jobs:
         if: env.PROGRAMS != ''
         with:
           path: base.nemo
-          key: koochik-nemo-${{ env.NEMO_SHA256 }}
+          key: scribe-nemo-${{ env.NEMO_SHA256 }}
       - name: Export
         env:
           TQDM_DISABLE: "1"
@@ -123,11 +123,11 @@ jobs:
           echo "$NEMO_SHA256  base.nemo" | sha256sum -c -
           python training/export_variants.py base.nemo models $PROGRAMS 2>&1 | grep -E "^(mlp|nn)-|Error|error" || true
           for v in $PROGRAMS; do
-            m=models/Koochik-$v.mlpackage
+            m=models/AvakScribe-$v.mlpackage
             [ -d "$m" ] || { echo "::error::$v was not exported"; exit 1; }
-            (cd models && zip -qr "Koochik-$v.zip" "Koochik-$v.mlpackage")
-            echo "$v $(du -sb "$m" | cut -f1) $(stat -c %s models/Koochik-$v.zip)" | tee -a models/sizes-programs.txt
-            rm "models/Koochik-$v.zip"
+            (cd models && zip -qr "AvakScribe-$v.zip" "AvakScribe-$v.mlpackage")
+            echo "$v $(du -sb "$m" | cut -f1) $(stat -c %s models/AvakScribe-$v.zip)" | tee -a models/sizes-programs.txt
+            rm "models/AvakScribe-$v.zip"
           done
       - uses: actions/upload-artifact@v5
         with:
@@ -164,10 +164,10 @@ jobs:
       - name: Compile the model and the app's recognizer
         run: |
           bash ./setup.sh sidecars
-          m=$(ls -d "models/Koochik-${{ matrix.variant }}".ml* | head -1)
+          m=$(ls -d "models/AvakScribe-${{ matrix.variant }}".ml* | head -1)
           xcrun coremlcompiler compile "$m" compiled --deployment-target 17.0 --platform ios
           du -sk compiled/*.mlmodelc | awk '{ print $1 * 1024 }' > compiled_bytes
-          xcrun swiftc -O -o shenava-check PersianSTT/ShenavaStream.swift Tests/ShenavaCheck/main.swift
+          xcrun swiftc -O -o scribe-check PersianSTT/ScribeStream.swift Tests/ScribeCheck/main.swift
           sysctl -n machdep.cpu.brand_string hw.ncpu
       - name: Transcribe and score
         run: |
@@ -176,11 +176,11 @@ jobs:
           read -r _ mlmodel zipped < <(cat models/sizes*.txt | grep "^$v ")
           # Memory with all compute units (GPU in this VM; the iPhone also has the Neural Engine).
           mkdir -p fleurs10 && ls fleurs/*.wav | head -10 | xargs -I{} cp {} fleurs10/
-          ./shenava-check compiled/*.mlmodelc PersianSTT/Models fleurs10 all | tee result/run-all.log
+          ./scribe-check compiled/*.mlmodelc PersianSTT/Models fleurs10 all | tee result/run-all.log
           all_peak=$(sed -nE 's/.*footprint_peak_mb=([0-9.]+).*/\1/p' result/run-all.log)
           all_ms=$(sed -nE 's/.*mean_step_ms=([0-9.]+).*/\1/p' result/run-all.log)
           for ds in fleurs cv17; do
-            /usr/bin/time -l ./shenava-check compiled/*.mlmodelc PersianSTT/Models "$ds" cpu > "result/run-$ds.log" 2> "result/time-$ds.log"
+            /usr/bin/time -l ./scribe-check compiled/*.mlmodelc PersianSTT/Models "$ds" cpu > "result/run-$ds.log" 2> "result/time-$ds.log"
             cat "result/run-$ds.log"
             secs=$(sed -nE 's/.*compute_s=([0-9.]+).*/\1/p' "result/run-$ds.log")
             step_ms=$(sed -nE 's/.*mean_step_ms=([0-9.]+).*/\1/p' "result/run-$ds.log")

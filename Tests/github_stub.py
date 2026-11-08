@@ -86,7 +86,7 @@ class Handler(BaseHTTPRequestHandler):
             release = {
                 "tag_name": "v1",
                 "body": open(path, encoding="utf-8").read(),
-                "assets": [{"name": "Koochik-personal.aar",
+                "assets": [{"name": "AvakScribe-personal.aar",
                             "url": f"http://127.0.0.1:{port}/repos/stub/repo/releases/assets/1"}],
             }
             return self.reply(200, json.dumps(release).encode())

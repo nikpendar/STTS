@@ -1,7 +1,7 @@
-"""Exports a Shenava Koochik NeMo model as the app's streaming Core ML model: one cache-aware
+"""Exports a AvakScribe NeMo model as the app's streaming Core ML model: one cache-aware
 encoder step plus the CTC head, as an iOS17 ML program with 8-bit weights (the app's model since
-model.yml) or an iOS14 NeuralNetwork, with the interface of the published Koochik.mlmodel
-(ShenavaStream in the app):
+model.yml) or an iOS14 NeuralNetwork, with the interface of the published AvakScribe.mlmodel
+(ScribeStream in the app):
 
     processed_signal [1,80,17] + cache_last_channel [17,1,70,512] + cache_last_time [17,1,512,8]
         -> logits [1,1,1025] + the next caches

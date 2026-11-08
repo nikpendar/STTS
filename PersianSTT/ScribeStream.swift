@@ -4,7 +4,7 @@ import CoreML
 import Foundation
 import System
 
-enum ShenavaError: LocalizedError {
+enum ScribeError: LocalizedError {
     case missing(String)
     case unreadable(String)
 
@@ -16,17 +16,17 @@ enum ShenavaError: LocalizedError {
     }
 }
 
-/// Cache-aware streaming CTC recognizer for the Shenava Core ML step models (Koochik).
+/// Cache-aware streaming CTC recognizer for the AvakScribe Core ML step models.
 ///
 /// NeMo log-mel features (preemphasis 0.97, 512-point FFT of a 400-sample Hann window, hop 160,
 /// centred with reflect padding, Slaney mel, natural log), then one prediction per 8 new feature
 /// frames (80 ms) on 17 frames (9 carried over), with the encoder caches fed back each step, and
-/// greedy CTC over the per-step logits. Matches scripts/shenava_stream.py, the benchmark.
+/// greedy CTC over the per-step logits. Matches scripts/scribe_stream.py, the benchmark.
 ///
 /// `resources` holds the model's sidecars: tokens.json, preprocessor.json,
 /// mel_filters_slaney_80x257.json and manifest.json. A fine-tuned model keeps them.
 /// Not thread safe: use from one serial queue (`StreamWorker`).
-final class ShenavaStream {
+final class ScribeStream {
     let model: MLModel
     private let tokens: [String]
     private let blank: Int
@@ -97,7 +97,7 @@ final class ShenavaStream {
     init(model modelURL: URL, resources dir: URL, computeUnits: MLComputeUnits) throws {
         func json(_ name: String) throws -> Any {
             let url = dir.appendingPathComponent(name)
-            guard let data = try? Data(contentsOf: url) else { throw ShenavaError.missing(name) }
+            guard let data = try? Data(contentsOf: url) else { throw ScribeError.missing(name) }
             return try JSONSerialization.jsonObject(with: data)
         }
         let pre = try json("preprocessor.json") as? [String: Any] ?? [:]
@@ -118,7 +118,7 @@ final class ShenavaStream {
         })
         let filters = (try json("mel_filters_slaney_80x257.json") as? [[Double]] ?? []).map { $0.map(Float.init) }
         guard filters.count == 80, filters.allSatisfy({ $0.count == 257 }) else {
-            throw ShenavaError.missing("mel_filters_slaney_80x257.json")
+            throw ScribeError.missing("mel_filters_slaney_80x257.json")
         }
         melFilters = filters
         logGuard = Float(pre["log_zero_guard_value"] as? Double ?? 5.960464477539063e-08)
@@ -139,12 +139,12 @@ final class ShenavaStream {
 
         let config = MLModelConfiguration()
         config.computeUnits = computeUnits
-        guard FileManager.default.fileExists(atPath: modelURL.path) else { throw ShenavaError.missing(modelURL.lastPathComponent) }
+        guard FileManager.default.fileExists(atPath: modelURL.path) else { throw ScribeError.missing(modelURL.lastPathComponent) }
         model = try MLModel(contentsOf: modelURL, configuration: config)
 
         let inputs = model.modelDescription.inputDescriptionsByName
         func zeros(_ name: String) throws -> MLMultiArray {
-            guard let shape = inputs[name]?.multiArrayConstraint?.shape else { throw ShenavaError.missing(name) }
+            guard let shape = inputs[name]?.multiArrayConstraint?.shape else { throw ScribeError.missing(name) }
             let array = try MLMultiArray(shape: shape, dataType: .float32)
             memset(array.dataPointer, 0, array.count * MemoryLayout<Float>.size)
             return array
@@ -414,27 +414,27 @@ enum ModelArchive {
         guard (kind ?? file.pathExtension).lowercased() == "aar" else { return try await MLModel.compileModel(at: file) }
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: folder) }
-        let package = folder.appendingPathComponent("Koochik.mlpackage", isDirectory: true)
+        let package = folder.appendingPathComponent("AvakScribe.mlpackage", isDirectory: true)
         try FileManager.default.createDirectory(at: package, withIntermediateDirectories: true)
         try extract(file, to: package)
         return try await MLModel.compileModel(at: package)
     }
 
-    /// Unpacks an archive made with `aa archive -d Koochik.mlpackage -o Koochik.aar`.
+    /// Unpacks an archive made with `aa archive -d AvakScribe.mlpackage -o AvakScribe.aar`.
     static func extract(_ archive: URL, to folder: URL) throws {
         let name = archive.lastPathComponent
         guard let file = ArchiveByteStream.fileStream(path: FilePath(archive.path), mode: .readOnly, options: [],
                                                       permissions: FilePermissions(rawValue: 0o644)) else {
-            throw ShenavaError.unreadable(name)
+            throw ScribeError.unreadable(name)
         }
         defer { try? file.close() }
-        guard let decompressed = ArchiveByteStream.decompressionStream(readingFrom: file) else { throw ShenavaError.unreadable(name) }
+        guard let decompressed = ArchiveByteStream.decompressionStream(readingFrom: file) else { throw ScribeError.unreadable(name) }
         defer { try? decompressed.close() }
-        guard let decoded = ArchiveStream.decodeStream(readingFrom: decompressed) else { throw ShenavaError.unreadable(name) }
+        guard let decoded = ArchiveStream.decodeStream(readingFrom: decompressed) else { throw ScribeError.unreadable(name) }
         defer { try? decoded.close() }
         guard let extracted = ArchiveStream.extractStream(extractingTo: FilePath(folder.path),
                                                           flags: [.ignoreOperationNotPermitted]) else {
-            throw ShenavaError.unreadable(name)
+            throw ScribeError.unreadable(name)
         }
         defer { try? extracted.close() }
         _ = try ArchiveStream.process(readingFrom: decoded, writingTo: extracted)

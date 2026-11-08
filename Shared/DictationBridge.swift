@@ -55,7 +55,7 @@ enum DictationBridge {
     /// Separates the messages of one fetch; each starts with one of the prefixes above.
     static let separator: Character = "\u{1E}"
     /// Marks a pause inside a served transcript: the speech model writes it where the speaker
-    /// paused (`ShenavaStream`). The keyboard reads spoken commands by it (`VoiceCommands`) and
+    /// paused (`ScribeStream`). The keyboard reads spoken commands by it (`VoiceCommands`) and
     /// shows it as a space.
     static let pauseMark: Character = "\u{E000}"
 

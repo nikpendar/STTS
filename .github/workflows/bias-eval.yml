@@ -1,4 +1,4 @@
-# Contextual biasing (personal dictionary words favoured in decoding, ShenavaStream.setBoost):
+# Contextual biasing (personal dictionary words favoured in decoding, ScribeStream.setBoost):
 # the app's recognizer on the same 80 FLEURS and 80 Common Voice 17 clips as the model benchmarks,
 # without boost and with boost strengths 1, 2 and 4, once the model has written the first
 # 2 or 3 letters of a dictionary word itself (boosting from the first letter, run 41668388735,
@@ -62,16 +62,16 @@ jobs:
       - name: Model and recognizer
         run: |
           bash ./setup.sh model
-          mkdir -p "$RUNNER_TEMP/Koochik.mlpackage"
-          aa extract -d "$RUNNER_TEMP/Koochik.mlpackage" -i build-model/Koochik.aar
-          xcrun coremlcompiler compile "$RUNNER_TEMP/Koochik.mlpackage" compiled --deployment-target 17.0 --platform ios
-          xcrun swiftc -O -o shenava-check PersianSTT/ShenavaStream.swift Tests/ShenavaCheck/main.swift
+          mkdir -p "$RUNNER_TEMP/AvakScribe.mlpackage"
+          aa extract -d "$RUNNER_TEMP/AvakScribe.mlpackage" -i build-model/AvakScribe.aar
+          xcrun coremlcompiler compile "$RUNNER_TEMP/AvakScribe.mlpackage" compiled --deployment-target 17.0 --platform ios
+          xcrun swiftc -O -o scribe-check PersianSTT/ScribeStream.swift Tests/ScribeCheck/main.swift
       - name: Transcribe and score
         run: |
           mkdir -p result lists
           run() {  # label, word list or "", strength, letters the model writes before the boost
             for ds in fleurs cv17; do
-              BOOST_WORDS="$2" BOOST="$3" BOOST_MIN="${4:-3}" ./shenava-check compiled/*.mlmodelc PersianSTT/Models "$ds" all > "result/$1-$ds.log"
+              BOOST_WORDS="$2" BOOST="$3" BOOST_MIN="${4:-3}" ./scribe-check compiled/*.mlmodelc PersianSTT/Models "$ds" all > "result/$1-$ds.log"
               grep -E "BOOST|TIMING" "result/$1-$ds.log"
               python3 scripts/wer.py "$ds/refs.tsv" "$ds" "$1" 0 0 1 "result/$1-$ds.json" > /dev/null
               mkdir -p "result/hyp-$1-$ds" && mv "$ds"/*.txt "result/hyp-$1-$ds/"
@@ -84,7 +84,7 @@ jobs:
           }
           # The plain model first: its misses make the dictionary.
           for ds in fleurs cv17; do
-            ./shenava-check compiled/*.mlmodelc PersianSTT/Models "$ds" all > /dev/null
+            ./scribe-check compiled/*.mlmodelc PersianSTT/Models "$ds" all > /dev/null
             mkdir -p "base-$ds" && cp "$ds"/*.txt "base-$ds/" && rm "$ds"/*.txt
           done
           python3 scripts/bias_lists.py lists fleurs/extra.sentences fleurs/refs.tsv:base-fleurs cv17/refs.tsv:base-cv17

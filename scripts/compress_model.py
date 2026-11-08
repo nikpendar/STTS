@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compresses the weights of the Shenava Core ML model (a NeuralNetwork .mlmodel with fp16 weights).
+"""Compresses the weights of the AvakScribe Core ML model (a NeuralNetwork .mlmodel with fp16 weights).
 
 Usage: compress_model.py <in.mlmodel> <out.mlmodel> <mode>
 mode: fp16 (unchanged), linear8 (8-bit linear quantization), or palette<N> (N-bit lookup table from

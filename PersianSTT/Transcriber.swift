@@ -6,19 +6,19 @@ import os
 
 private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model")
 
-/// The speech model, Shenava Koochik: a streaming Core ML model that writes text while the user
-/// speaks (`ShenavaStream`). It runs on its own serial queue, off the main actor; every call is
+/// The speech model, AvakScribe: a streaming Core ML model that writes text while the user
+/// speaks (`ScribeStream`). It runs on its own serial queue, off the main actor; every call is
 /// one block on that queue, so a recording fed in pieces and a whole file never interleave.
 final class SpeechEngine: @unchecked Sendable {
     /// The Neural Engine, or the CPU alone where Core ML could not run the model there.
     private(set) var computeUnits: MLComputeUnits
     private let queue = DispatchQueue(label: "ir.nikpendar.PersianSTT.speech", qos: .userInitiated)
     /// Replaced (on `queue`) by a CPU-only stream when a prediction fails.
-    private var stream: ShenavaStream
+    private var stream: ScribeStream
     private let model: URL
     private let resources: URL
 
-    private init(stream: ShenavaStream, units: MLComputeUnits, model: URL, resources: URL) {
+    private init(stream: ScribeStream, units: MLComputeUnits, model: URL, resources: URL) {
         self.stream = stream
         computeUnits = units
         self.model = model
@@ -34,7 +34,7 @@ final class SpeechEngine: @unchecked Sendable {
             var lastError: Error?
             for units in [MLComputeUnits.cpuAndNeuralEngine, .cpuOnly] {
                 do {
-                    let stream = try ShenavaStream(model: model, resources: resources, computeUnits: units)
+                    let stream = try ScribeStream(model: model, resources: resources, computeUnits: units)
                     try stream.accept([Float](repeating: 0, count: 16_000))
                     try stream.finish()
                     stream.reset()
@@ -44,11 +44,11 @@ final class SpeechEngine: @unchecked Sendable {
                     lastError = error
                 }
             }
-            throw lastError ?? ShenavaError.missing(model.lastPathComponent)
+            throw lastError ?? ScribeError.missing(model.lastPathComponent)
         }.value
     }
 
-    private func run<T>(_ work: @escaping (ShenavaStream) throws -> T) async throws -> T {
+    private func run<T>(_ work: @escaping (ScribeStream) throws -> T) async throws -> T {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
                 continuation.resume(with: Result { try work(self.stream) })
@@ -62,7 +62,7 @@ final class SpeechEngine: @unchecked Sendable {
         await withCheckedContinuation { continuation in
             queue.async {
                 guard self.computeUnits != .cpuOnly,
-                      let stream = try? ShenavaStream(model: self.model, resources: self.resources, computeUnits: .cpuOnly)
+                      let stream = try? ScribeStream(model: self.model, resources: self.resources, computeUnits: .cpuOnly)
                 else { return continuation.resume(returning: false) }
                 log.error("speech model moved to the CPU after a failed prediction")
                 self.applyBoost(to: stream)
@@ -80,7 +80,7 @@ final class SpeechEngine: @unchecked Sendable {
     static let boostStrength: Float = 4
 
     /// The personal dictionary's words, read again for each dictation (on `queue`).
-    private func applyBoost(to stream: ShenavaStream) {
+    private func applyBoost(to stream: ScribeStream) {
         let words = PersonalDictionary.saved.boostWords
         stream.setBoost(words: words, strength: Self.boostStrength)
     }

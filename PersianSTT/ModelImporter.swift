@@ -4,8 +4,8 @@ import os
 
 private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model")
 
-/// The speech model (Shenava Koochik: Koochik.aar, a 107 MB ML program with 8-bit weights, or the
-/// older 212 MB Koochik.mlmodel) is not inside the app, so each build stays a few MB, but imported
+/// The speech model (AvakScribe: AvakScribe.aar, a 107 MB ML program with 8-bit weights, or the
+/// older 212 MB AvakScribe.mlmodel) is not inside the app, so each build stays a few MB, but imported
 /// once from Files and compiled on the phone into Application Support. Installing a new build over
 /// the app keeps it. A model file copied with Finder into the app's Documents folder
 /// (On My iPhone › آواک) is imported at the next launch.
@@ -21,7 +21,7 @@ final class ModelImporter: ObservableObject {
         case notModel
 
         var errorDescription: String? {
-            "این فایل مدل گفتار نیست. فایل Koochik.aar را انتخاب کنید (اگر zip است، اول در Files بازش کنید)."
+            "این فایل مدل گفتار نیست. فایل مدل گفتار با پسوند aar را انتخاب کنید (اگر zip است، اول در Files بازش کنید)."
         }
     }
 
@@ -36,8 +36,14 @@ final class ModelImporter: ObservableObject {
 
     /// The imported model, compiled.
     nonisolated static var installedModel: URL? {
-        let url = modelsDir.appendingPathComponent("Koochik.mlmodelc", isDirectory: true)
-        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        let url = modelsDir.appendingPathComponent("AvakScribe.mlmodelc", isDirectory: true)
+        let fm = FileManager.default
+        // Imported before the model was renamed (2026-11-08): moved, not imported again.
+        let earlier = modelsDir.appendingPathComponent("Koochik.mlmodelc", isDirectory: true)
+        if !fm.fileExists(atPath: url.path), fm.fileExists(atPath: earlier.path) {
+            try? fm.moveItem(at: earlier, to: url)
+        }
+        return fm.fileExists(atPath: url.path) ? url : nil
     }
 
     /// A model file put into Documents with Finder, not imported yet.
@@ -80,8 +86,8 @@ final class ModelImporter: ObservableObject {
         defer { try? FileManager.default.removeItem(at: compiled) }
         let fm = FileManager.default
         try fm.createDirectory(at: modelsDir, withIntermediateDirectories: true)
-        let target = modelsDir.appendingPathComponent("Koochik.mlmodelc", isDirectory: true)
-        let staging = modelsDir.appendingPathComponent("Koochik.mlmodelc.new", isDirectory: true)
+        let target = modelsDir.appendingPathComponent("AvakScribe.mlmodelc", isDirectory: true)
+        let staging = modelsDir.appendingPathComponent("AvakScribe.mlmodelc.new", isDirectory: true)
         try? fm.removeItem(at: staging)
         try fm.copyItem(at: compiled, to: staging)
         try? fm.removeItem(at: target)

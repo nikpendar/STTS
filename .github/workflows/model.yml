@@ -1,6 +1,6 @@
-# The app's speech model as an ML program: exports Shenava Koochik 1.0 (.nemo) as an iOS 17 Core ML
+# The app's speech model as an ML program: exports AvakScribe 1.0 (.nemo) as an iOS 17 Core ML
 # ML program with 8-bit weights (training/export_variants.py mlp-int8, 107 MB), packs the .mlpackage
-# folder into one file, Koochik.aar, checks it with the app's own code and publishes it as the release
+# folder into one file, AvakScribe.aar, checks it with the app's own code and publishes it as the release
 # koochik-mlp-int8 of this repository, where setup.sh (and so build.yml) downloads it.
 # Against the published fp16 NeuralNetwork: half the size, the same WER, less memory and faster
 # (.github/workflows/compress-eval.yml).
@@ -36,7 +36,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: base.nemo
-          key: koochik-nemo-${{ env.NEMO_SHA256 }}
+          key: scribe-nemo-${{ env.NEMO_SHA256 }}
       - name: Export
         env:
           TQDM_DISABLE: "1"
@@ -44,8 +44,8 @@ jobs:
           [ -s base.nemo ] || curl -fsSL --retry 3 "$NEMO_URL" -o base.nemo
           echo "$NEMO_SHA256  base.nemo" | sha256sum -c -
           python training/export_variants.py base.nemo models mlp-int8 2>&1 | grep -E "^mlp-|Error|error" || true
-          [ -d models/Koochik-mlp-int8.mlpackage ] || { echo "::error::not exported"; exit 1; }
-          du -sh models/Koochik-mlp-int8.mlpackage
+          [ -d models/AvakScribe-mlp-int8.mlpackage ] || { echo "::error::not exported"; exit 1; }
+          du -sh models/AvakScribe-mlp-int8.mlpackage
       - uses: actions/upload-artifact@v5
         with:
           name: mlpackage
@@ -63,30 +63,32 @@ jobs:
           path: models
       - name: Pack
         run: |
-          aa archive -d models/Koochik-mlp-int8.mlpackage -o Koochik.aar
-          ls -l Koochik.aar
-          shasum -a 256 Koochik.aar
-      # The app's import path: ModelArchive unpacks and compiles the .aar, ShenavaStream transcribes.
+          aa archive -d models/AvakScribe-mlp-int8.mlpackage -o AvakScribe.aar
+          ls -l AvakScribe.aar
+          shasum -a 256 AvakScribe.aar
+      # The app's import path: ModelArchive unpacks and compiles the .aar, ScribeStream transcribes.
       # Against the Hugging Face fp16 model on the same sentences: at most 1 point worse.
       - name: Check with the app's code on 40 FLEURS sentences
         run: |
           bash training/fleurs.sh
-          KOOCHIK_FORMAT=neuralnetwork bash ./setup.sh model
-          xcrun swiftc -O -o shenava-check PersianSTT/ShenavaStream.swift Tests/ShenavaCheck/main.swift
-          for m in Koochik.aar build-model/Koochik.mlmodel; do
+          SCRIBE_FORMAT=neuralnetwork bash ./setup.sh model
+          xcrun swiftc -O -o scribe-check PersianSTT/ScribeStream.swift Tests/ScribeCheck/main.swift
+          for m in AvakScribe.aar build-model/AvakScribe.mlmodel; do
             rm -rf check && cp -R fleurs-general check
-            ./shenava-check "$m" PersianSTT/Models check | tail -1
+            ./scribe-check "$m" PersianSTT/Models check | tail -1
             python3 training/score.py fleurs-general/refs.tsv check > "wer-$(basename "$m")"
           done
-          new=$(cat wer-Koochik.aar); old=$(cat wer-Koochik.mlmodel)
-          echo "::notice::FLEURS dev WER: Koochik.aar $new, Hugging Face fp16 $old"
+          new=$(cat wer-AvakScribe.aar); old=$(cat wer-AvakScribe.mlmodel)
+          echo "::notice::FLEURS dev WER: AvakScribe.aar $new, Hugging Face fp16 $old"
           python3 -c "import sys; sys.exit(0 if $new <= $old + 1 else 1)"
       - name: Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --latest=false \
-            --title "Speech model: Shenava Koochik ML program, 8-bit" \
-            --notes "Koochik.aar: Shenava Koochik 1.0 (Reza2kn, Apache-2.0) as an iOS 17 Core ML ML program with 8-bit weights, packed with aa. Import it in the app (Files) or let setup.sh download it."
+            --title "Speech model: AvakScribe ML program, 8-bit" \
+            --notes "AvakScribe.aar: AvakScribe, based on Shenava Koochik 1.0 (Reza2kn, Apache-2.0) as an iOS 17 Core ML ML program with 8-bit weights, packed with aa. Import it in the app (Files) or let setup.sh download it."
+          # The release file keeps its old name until a renamed release is published.
+          cp AvakScribe.aar Koochik.aar
           gh release upload "$TAG" Koochik.aar --clobber
           echo "::notice::https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/Koochik.aar"

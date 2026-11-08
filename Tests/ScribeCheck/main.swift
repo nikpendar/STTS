@@ -1,7 +1,7 @@
-// Runs the app's ShenavaStream on a folder of WAVs as the keyboard does (0.1 s at a time), and
+// Runs the app's ScribeStream on a folder of WAVs as the keyboard does (0.1 s at a time), and
 // writes <wav>.txt next to each, for scripts/wer.py: the benchmark and the training workflow's
 // check of a fine-tuned model use the app's own code. macOS only (Core ML).
-// Usage: shenava-check <model (.mlmodelc, or .mlmodel/.aar compiled as the app imports it)> <sidecars dir>
+// Usage: scribe-check <model (.mlmodelc, or .mlmodel/.aar compiled as the app imports it)> <sidecars dir>
 //        <clips dir> [cpu|all]
 // Contextual biasing (the personal dictionary's words): BOOST_WORDS=<file, a word per line> and
 // BOOST=<strength> in the environment.
@@ -19,7 +19,7 @@ var modelURL = URL(fileURLWithPath: args[1])
 if ModelArchive.extensions.contains(modelURL.pathExtension.lowercased()) {
     modelURL = try await ModelArchive.compile(modelURL)
 }
-let stream = try ShenavaStream(model: modelURL, resources: URL(fileURLWithPath: args[2]), computeUnits: units)
+let stream = try ScribeStream(model: modelURL, resources: URL(fileURLWithPath: args[2]), computeUnits: units)
 let env = ProcessInfo.processInfo.environment
 if let path = env["BOOST_WORDS"], let strength = Float(env["BOOST"] ?? ""), strength > 0 {
     let words = try String(contentsOfFile: path, encoding: .utf8).split(whereSeparator: \.isNewline).map(String.init)

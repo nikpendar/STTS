@@ -1,7 +1,7 @@
 # Learning from corrections, on GitHub's free runners: the app uploads each corrected dictation
 # (samples/<id>.wav and .json) to the user's private repository (TRAINING_REPO, default
 # nikpendar/keyless-training); every 4 hours this workflow counts them and, when enough are new,
-# fine-tunes Shenava Koochik on all of them (training/finetune.py, CPU), exports the app's Core
+# fine-tunes AvakScribe on all of them (training/finetune.py, CPU), exports the app's Core
 # ML model, checks it with the app's own code on macOS against the base model, and publishes it
 # as a release of that repository only if it transcribes the held-out samples better without
 # getting worse on general sentences (FLEURS). The app downloads it from there.
@@ -108,7 +108,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: base.nemo
-          key: koochik-nemo-${{ env.NEMO_SHA256 }}
+          key: scribe-nemo-${{ env.NEMO_SHA256 }}
 
       - name: Base model
         run: |
@@ -176,10 +176,10 @@ jobs:
         id: check
         run: |
           bash ./setup.sh model
-          cp build-model/Koochik.aar base.aar
+          cp build-model/AvakScribe.aar base.aar
           # The personal model travels as the base one does: its .mlpackage folder packed into one file.
-          aa archive -d out/Koochik-personal.mlpackage -o personal.aar
-          xcrun swiftc -O -o shenava-check PersianSTT/ShenavaStream.swift Tests/ShenavaCheck/main.swift
+          aa archive -d out/AvakScribe-personal.mlpackage -o personal.aar
+          xcrun swiftc -O -o scribe-check PersianSTT/ScribeStream.swift Tests/ScribeCheck/main.swift
           samples=data/samples
           [ "$SOURCE" = fleurs ] && samples=fleurs-samples
           for model in base personal; do
@@ -187,7 +187,7 @@ jobs:
             cut -f1 out/heldout.tsv | while read -r name; do cp "$samples/$name" "held-$model/"; done
             cp fleurs-general/*.wav "general-$model/"
             for set in held general; do
-              ./shenava-check "$model.aar" PersianSTT/Models "$set-$model" | tail -1
+              ./scribe-check "$model.aar" PersianSTT/Models "$set-$model" | tail -1
             done
           done
           held_base=$(python3 training/score.py out/heldout.tsv held-base)
@@ -215,7 +215,7 @@ jobs:
           if [ "$BETTER" = true ] || [ "$FORCE" = true ]; then
             last=$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null | tr -dc 0-9 || true)
             version=$(( ${last:-0} + 1 ))
-            file="Koochik-personal-v$version.aar"
+            file="AvakScribe-personal-v$version.aar"
             mv personal.aar "$file"
             body=$(python3 -c "import json, os, hashlib; print(json.dumps({'version': $version, 'size': os.path.getsize('$file'),
               'sha256': hashlib.sha256(open('$file', 'rb').read()).hexdigest(), 'wer_before': $HELD_BASE,

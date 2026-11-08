@@ -41,7 +41,7 @@ struct PersonalDictionary: Codable, Equatable {
     /// Marks that sit right after the word before them, with no space: «۲۰٪», «سلام،».
     private static let closing: Set<Character> = [".", "،", ",", ":", "؛", ";", "٪", "%", "!", "؟", "?", ")", "»"]
 
-    /// Written forms the recognizer favours while decoding (`ShenavaStream.setBoost`): entries
+    /// Written forms the recognizer favours while decoding (`ScribeStream.setBoost`): entries
     /// made only of letters (names, terms), not the starters, marks, emoji or numbers.
     var boostWords: [String] {
         let starters = Set(Self.starters.map(\.written))

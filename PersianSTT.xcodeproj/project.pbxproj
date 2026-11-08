@@ -22,7 +22,7 @@
 		A10000000000000000000045 /* GlideDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003E /* GlideDecoder.swift */; };
 		A10000000000000000000044 /* KeyboardMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003D /* KeyboardMetrics.swift */; };
 		A10000000000000000000043 /* KeyboardMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003D /* KeyboardMetrics.swift */; };
-		A10000000000000000000042 /* ShenavaStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003C /* ShenavaStream.swift */; };
+		A10000000000000000000042 /* ScribeStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003C /* ScribeStream.swift */; };
 		A10000000000000000000041 /* SpokenNumbers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003B /* SpokenNumbers.swift */; };
 		A10000000000000000000040 /* SpokenNumbers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003B /* SpokenNumbers.swift */; };
 		A10000000000000000000001 /* PersianSTTApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* PersianSTTApp.swift */; };
@@ -136,7 +136,7 @@
 		A20000000000000000000001 /* PersianSTTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianSTTApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* Transcriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Transcriber.swift; sourceTree = "<group>"; };
-		A2000000000000000000003C /* ShenavaStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShenavaStream.swift; sourceTree = "<group>"; };
+		A2000000000000000000003C /* ScribeStream.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScribeStream.swift; sourceTree = "<group>"; };
 		A20000000000000000000021 /* PersonalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000005 /* AudioLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLoader.swift; sourceTree = "<group>"; };
 		A20000000000000000000010 /* KeyboardPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardPreview.swift; sourceTree = "<group>"; };
@@ -242,7 +242,7 @@
 				A20000000000000000000038 /* Assets.xcassets */,
 				A20000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000003 /* Transcriber.swift */,
-				A2000000000000000000003C /* ShenavaStream.swift */,
+				A2000000000000000000003C /* ScribeStream.swift */,
 				A20000000000000000000021 /* PersonalModel.swift */,
 				A20000000000000000000033 /* ModelImporter.swift */,
 				A20000000000000000000005 /* AudioLoader.swift */,
@@ -569,7 +569,7 @@
 				A10000000000000000000047 /* EmojiPanel.swift in Sources */,
 				A10000000000000000000045 /* GlideDecoder.swift in Sources */,
 				A10000000000000000000043 /* KeyboardMetrics.swift in Sources */,
-				A10000000000000000000042 /* ShenavaStream.swift in Sources */,
+				A10000000000000000000042 /* ScribeStream.swift in Sources */,
 				A10000000000000000000040 /* SpokenNumbers.swift in Sources */,
 				A10000000000000000000001 /* PersianSTTApp.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,

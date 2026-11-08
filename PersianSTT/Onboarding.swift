@@ -8,7 +8,7 @@ struct Onboarding: View {
     /// Set when the guide is finished or skipped; launch argument `-onboardingDone 1` skips it
     /// in the simulator workflows.
     static let doneKey = "onboardingDone"
-    /// The speech model the guide downloads: Koochik.aar of the release model.yml publishes.
+    /// The speech model the guide downloads: the release file, still under its old name until a renamed release is published.
     static let modelURL = URL(string: "https://github.com/nikpendar/STTS/releases/download/koochik-mlp-int8/Koochik.aar")!
 
     @Environment(\.dismiss) private var dismiss
@@ -152,8 +152,8 @@ struct Onboarding: View {
         case .model:
             StepPage(symbol: "cpu", color: .blue, font: font,
                      title: fa ? "وارد کردن مدل گفتار" : "Import the speech model",
-                     text: fa ? "مدل گفتار (Koochik.aar، حدود ۱۰۰ مگابایت) فقط یک بار لازم است و با به‌روزرسانی برنامه می‌ماند.\n\n۱. «دانلود مدل» را بزنید و فایل را در Files ذخیره کنید.\n۲. «وارد کردن از Files» را بزنید و Koochik.aar را انتخاب کنید. آماده شدن مدل حدود یک دقیقه طول می‌کشد."
-                              : "The speech model (Koochik.aar, about 100 MB) is needed once and stays through app updates.\n\n1. Tap Download Model and save the file to Files.\n2. Tap Import from Files and choose Koochik.aar. Preparing the model takes about a minute.") {
+                     text: fa ? "مدل گفتار (فایلی با پسوند aar، حدود ۱۰۰ مگابایت) فقط یک بار لازم است و با به‌روزرسانی برنامه می‌ماند.\n\n۱. «دانلود مدل» را بزنید و فایل را در Files ذخیره کنید.\n۲. «وارد کردن از Files» را بزنید و فایل aar را انتخاب کنید. آماده شدن مدل حدود یک دقیقه طول می‌کشد."
+                              : "The speech model (an .aar file, about 100 MB) is needed once and stays through app updates.\n\n1. Tap Download Model and save the file to Files.\n2. Tap Import from Files and choose the .aar file. Preparing the model takes about a minute.") {
                 VStack(spacing: 12) {
                     Link(destination: Self.modelURL) {
                         wideLabel(fa ? "دانلود مدل" : "Download Model", symbol: "arrow.down.circle")
@@ -258,7 +258,7 @@ struct Onboarding: View {
                 .font(font(.subheadline))
                 .foregroundStyle(.green)
         } else if !importer.message.isEmpty {
-            Text(fa ? importer.message : "This is not the speech model. Choose Koochik.aar (if it is a zip, open it in Files first).")
+            Text(fa ? importer.message : "This is not the speech model. Choose the speech model's .aar file (if it is a zip, open it in Files first).")
                 .font(font(.footnote))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
