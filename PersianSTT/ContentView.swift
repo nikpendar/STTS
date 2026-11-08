@@ -442,7 +442,7 @@ struct ContentView: View {
     private var setupSection: some View {
         Section {
             SetupStep(number: "۱", text: "Settings › General › Keyboard › Keyboards › Add New Keyboard")
-            SetupStep(number: "۲", text: "«کیلس» را انتخاب و Allow Full Access را روشن کنید.")
+            SetupStep(number: "۲", text: "«آواک» را انتخاب و Allow Full Access را روشن کنید.")
             SetupStep(number: "۳", text: "در هر اپی با 🌐 به این کیبورد بروید و برای دیکته کلید فاصله را نگه دارید.")
             Button {
                 showingGuide = true
@@ -473,7 +473,7 @@ struct ContentView: View {
             .shadow(color: .purple.opacity(keyboard.isActive ? 0.4 : 0), radius: 14)
             .background(SessionRipple(trigger: sessionStarts))
 
-            Text("کیلس")
+            Text("آواک")
                 .font(.app(.title2))
             Text(statusText)
                 .font(.app(.subheadline))
@@ -497,7 +497,7 @@ struct ContentView: View {
     }
 
     /// The project website on Cloudflare Pages (Rooz, 2026-11-01), until a domain is bought.
-    static let privacyPolicyURL = URL(string: "https://keyless-26k.pages.dev/privacy")!
+    static let privacyPolicyURL = URL(string: "https://avak.app/privacy")!
 
     private var privacyLink: some View {
         Link(destination: Self.privacyPolicyURL) {
@@ -633,7 +633,7 @@ struct ContentView: View {
             Text((importer.message.isEmpty ? "" : importer.message + "\n\n")
                  + "فایل مدل (Koochik.aar، حدود ۱۰۰ مگابایت) فقط یک بار لازم است و با نصب نسخه‌های بعدی روی همین برنامه می‌ماند؛ اگر برنامه را پاک کنید، مدل هم پاک می‌شود. "
                  + "آن را از بخش Artifacts همان اجرا در GitHub با نام ShenavaModel دانلود کنید، از zip خارج کنید و با AirDrop یا iCloud Drive به آیفون بفرستید و اینجا انتخاب کنید. "
-                 + "راه دیگر: آیفون را به Mac وصل کنید، در Finder آیفون را انتخاب کنید و در بخش Files فایل را روی «کیلس» بکشید.").font(.app(.footnote))
+                 + "راه دیگر: آیفون را به Mac وصل کنید، در Finder آیفون را انتخاب کنید و در بخش Files فایل را روی «آواک» بکشید.").font(.app(.footnote))
         }
     }
 

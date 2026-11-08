@@ -8,7 +8,7 @@ private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "model"
 /// older 212 MB Koochik.mlmodel) is not inside the app, so each build stays a few MB, but imported
 /// once from Files and compiled on the phone into Application Support. Installing a new build over
 /// the app keeps it. A model file copied with Finder into the app's Documents folder
-/// (On My iPhone › کیلس) is imported at the next launch.
+/// (On My iPhone › آواک) is imported at the next launch.
 @MainActor
 final class ModelImporter: ObservableObject {
     static let shared = ModelImporter()

@@ -977,7 +977,7 @@ final class KeyboardViewController: UIInputViewController {
     /// the space bar says to.
     private func askForSession() {
         if !DictationBridge.keyboardOpensApp || !open(DictationBridge.sessionURL) {
-            showStatus("کیلس را باز کنید و تایپ صوتی را روشن کنید", transient: true)
+            showStatus("آواک را باز کنید و تایپ صوتی را روشن کنید", transient: true)
         }
     }
 
@@ -3062,7 +3062,7 @@ final class KeyboardViewController: UIInputViewController {
             panel.onOpenApp = { [weak self] in
                 guard let self else { return }
                 if !self.open(DictationBridge.settingsURL) {
-                    self.showStatus("برای بقیه‌ی تنظیمات کیلس را باز کنید", transient: true)
+                    self.showStatus("برای بقیه‌ی تنظیمات آواک را باز کنید", transient: true)
                 }
             }
         }
@@ -4919,7 +4919,7 @@ private final class KeyboardSettingsPanel: UIView {
     }
     var onChange: ((KeyboardOptions) -> Void)?
     var onClose: (() -> Void)?
-    /// «بقیه‌ی تنظیمات در کیلس», shown when the keyboard may open the app.
+    /// «بقیه‌ی تنظیمات در آواک», shown when the keyboard may open the app.
     var onOpenApp: (() -> Void)?
     var textColor = UIColor.label {
         didSet { applyColours() }
@@ -5011,7 +5011,7 @@ private final class KeyboardSettingsPanel: UIView {
         }, for: .valueChanged)
         addSectionTitle("سرعت دست‌خط")
         stack.addArrangedSubview(handwritingSpeed)
-        let note = makeLabel("رنگ‌ها، تصویر زمینه و واژه‌نامه در برنامه‌ی کیلس.", size: 13, secondary: true)
+        let note = makeLabel("رنگ‌ها، تصویر زمینه و واژه‌نامه در برنامه‌ی آواک.", size: 13, secondary: true)
         note.numberOfLines = 0
         stack.addArrangedSubview(note)
         if DictationBridge.keyboardOpensApp {
@@ -5019,7 +5019,7 @@ private final class KeyboardSettingsPanel: UIView {
             config.cornerStyle = .capsule
             config.image = UIImage(systemName: "gearshape", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14))
             config.imagePadding = 6
-            config.attributedTitle = AttributedString("بقیه‌ی تنظیمات در کیلس",
+            config.attributedTitle = AttributedString("بقیه‌ی تنظیمات در آواک",
                                                       attributes: AttributeContainer([.font: AppFont.font(ofSize: 15)]))
             appButton.configuration = config
             appButton.semanticContentAttribute = .forceRightToLeft

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Keyless on Apple Watch: a microphone for the iPhone app. The watch records, the iPhone turns
+/// Avak on Apple Watch: a microphone for the iPhone app. The watch records, the iPhone turns
 /// the speech into Persian text offline (`WatchLink` in the iOS app), and the text comes back
 /// here to be sent with the share sheet (Messages, Mail, ...).
 @main

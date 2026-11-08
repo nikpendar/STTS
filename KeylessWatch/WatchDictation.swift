@@ -162,7 +162,7 @@ final class WatchDictation: ObservableObject {
                 try? await Task.sleep(nanoseconds: 40_000_000_000)
                 guard !Task.isCancelled, let self, self.pendingID == id else { return }
                 self.pendingID = nil
-                self.phase = .failed("آیفون جواب نداد. اپ کیلس را روی گوشی یک بار باز کنید و دوباره بفرستید.")
+                self.phase = .failed("آیفون جواب نداد. اپ آواک را روی گوشی یک بار باز کنید و دوباره بفرستید.")
             }
         }
     }

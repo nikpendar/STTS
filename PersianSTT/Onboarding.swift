@@ -127,7 +127,7 @@ struct Onboarding: View {
 
         case .welcome:
             StepPage(symbol: "mic.fill", color: .purple, font: font,
-                     title: fa ? "به کیلس خوش آمدید" : "Welcome to Keyless",
+                     title: fa ? "به آواک خوش آمدید" : "Welcome to Avak",
                      text: fa ? "کیبورد فارسی با دیکته‌ی آفلاین. صدای شما روی همین آیفون به متن تبدیل می‌شود و برای آن اینترنت لازم نیست.\n\nچند قدم کوتاه تا اولین دیکته: افزودن کیبورد، روشن کردن دسترسی کامل، وارد کردن مدل گفتار و روشن کردن تایپ صوتی."
                               : "A Persian keyboard with offline dictation. Your speech turns into text on this iPhone, with no internet needed.\n\nA few short steps to your first dictation: add the keyboard, turn on Full Access, import the speech model and start a session.") {
                 EmptyView()
@@ -136,16 +136,16 @@ struct Onboarding: View {
         case .keyboard:
             StepPage(symbol: "keyboard", color: .gray, font: font,
                      title: fa ? "افزودن کیبورد" : "Add the keyboard",
-                     text: fa ? "دکمه‌ی زیر تنظیمات کیلس را باز می‌کند. در آن «کیبوردها» (Keyboards) را بزنید و «کیلس» را روشن کنید.\n\nراه دیگر: تنظیمات › عمومی › کیبورد › کیبوردها › افزودن کیبورد جدید › کیلس."
-                              : "The button below opens Keyless in Settings. Tap Keyboards and turn on Keyless.\n\nOr: Settings › General › Keyboard › Keyboards › Add New Keyboard › Keyless.") {
+                     text: fa ? "دکمه‌ی زیر تنظیمات آواک را باز می‌کند. در آن «کیبوردها» (Keyboards) را بزنید و «آواک» را روشن کنید.\n\nراه دیگر: تنظیمات › عمومی › کیبورد › کیبوردها › افزودن کیبورد جدید › آواک."
+                              : "The button below opens Avak in Settings. Tap Keyboards and turn on Avak.\n\nOr: Settings › General › Keyboard › Keyboards › Add New Keyboard › Avak.") {
                 settingsButton
             }
 
         case .fullAccess:
             StepPage(symbol: "lock.open.fill", color: .orange, font: font,
                      title: fa ? "روشن کردن دسترسی کامل" : "Turn on Full Access",
-                     text: fa ? "در همان صفحه «اجازه‌ی دسترسی کامل» (Allow Full Access) را روشن کنید و «اجازه دادن» را بزنید.\n\nکیبورد با دسترسی کامل متن دیکته‌شده را از برنامه‌ی کیلس می‌گیرد و تنظیمات شما مثل رنگ‌ها و واژه‌نامه را می‌خواند. بدون آن، دیکته و این تنظیمات کار نمی‌کنند. چیزی که تایپ می‌کنید بدون اجازه‌ی شما از آیفون بیرون نمی‌رود."
-                              : "On the same page, turn on Allow Full Access and confirm with Allow.\n\nWith Full Access the keyboard receives the dictated text from the Keyless app and reads your settings, such as colours and your dictionary. Without it, dictation and these settings do not work. What you type does not leave the iPhone without your permission.") {
+                     text: fa ? "در همان صفحه «اجازه‌ی دسترسی کامل» (Allow Full Access) را روشن کنید و «اجازه دادن» را بزنید.\n\nکیبورد با دسترسی کامل متن دیکته‌شده را از برنامه‌ی آواک می‌گیرد و تنظیمات شما مثل رنگ‌ها و واژه‌نامه را می‌خواند. بدون آن، دیکته و این تنظیمات کار نمی‌کنند. چیزی که تایپ می‌کنید بدون اجازه‌ی شما از آیفون بیرون نمی‌رود."
+                              : "On the same page, turn on Allow Full Access and confirm with Allow.\n\nWith Full Access the keyboard receives the dictated text from the Avak app and reads your settings, such as colours and your dictionary. Without it, dictation and these settings do not work. What you type does not leave the iPhone without your permission.") {
                 settingsButton
             }
 
@@ -198,8 +198,8 @@ struct Onboarding: View {
         case .session:
             StepPage(symbol: "waveform", color: .red, font: font,
                      title: fa ? "روشن کردن تایپ صوتی" : "Turn on voice typing",
-                     text: fa ? "تایپ صوتی میکروفون را برای کیبورد آماده نگه می‌دارد. آن را اینجا یا در صفحه‌ی اول کیلس روشن کنید؛ بعد از مدتی بی‌استفاده خودش خاموش می‌شود.\n\nدر هر برنامه با کلید \(Image(systemName: "globe")) به کیلس بروید، کلید فاصله را نگه دارید و حرف بزنید؛ با رها کردن، متن نوشته می‌شود. برای حرف زدن طولانی انگشت را بالا بکشید تا قفل شود و برای پایان روی دایره بزنید."
-                              : "Voice typing keeps the microphone ready for the keyboard. Turn it on here or on the first page of Keyless; it turns off by itself after a while unused.\n\nIn any app switch to Keyless with the \(Image(systemName: "globe")) key, hold the space bar and speak; let go and the text is written. For longer dictation, slide up to lock and tap the circle to finish.") {
+                     text: fa ? "تایپ صوتی میکروفون را برای کیبورد آماده نگه می‌دارد. آن را اینجا یا در صفحه‌ی اول آواک روشن کنید؛ بعد از مدتی بی‌استفاده خودش خاموش می‌شود.\n\nدر هر برنامه با کلید \(Image(systemName: "globe")) به آواک بروید، کلید فاصله را نگه دارید و حرف بزنید؛ با رها کردن، متن نوشته می‌شود. برای حرف زدن طولانی انگشت را بالا بکشید تا قفل شود و برای پایان روی دایره بزنید."
+                              : "Voice typing keeps the microphone ready for the keyboard. Turn it on here or on the first page of Avak; it turns off by itself after a while unused.\n\nIn any app switch to Avak with the \(Image(systemName: "globe")) key, hold the space bar and speak; let go and the text is written. For longer dictation, slide up to lock and tap the circle to finish.") {
                 Button {
                     keyboard.isActive ? keyboard.stop() : keyboard.start()
                 } label: {

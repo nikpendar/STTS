@@ -1,4 +1,4 @@
-# ساختن و اجرای «کیلس» با Xcode روی مک
+# ساختن و اجرای «آواک» با Xcode روی مک
 
 این راهنما برای روز و برای Claude است: از روی بکاپ، بدون GitHub Actions، برنامه را روی آیفون اجرا کن.
 
@@ -42,7 +42,7 @@
 6. نسخه‌ای را که با AltServer نصب شده از گوشی پاک کن. با امضای دیگر روی آن نصب نمی‌شود. با پاک‌شدن برنامه، مدل هم پاک می‌شود و باید دوباره وارد شود، مگر اینکه از حالت `bundle` استفاده کرده باشی.
 7. بالای پنجره، scheme `PersianSTT` و آیفون وصل‌شده را انتخاب کن، سپس Run (⌘R).
 8. روی آیفون، بار اول: Settings > General > VPN & Device Management > Apple ID خودت > Trust.
-9. فعال‌کردن کیبورد: Settings > General > Keyboard > Keyboards > Add New Keyboard > کیلس، سپس Allow Full Access.
+9. فعال‌کردن کیبورد: Settings > General > Keyboard > Keyboards > Add New Keyboard > آواک، سپس Allow Full Access.
 10. مدل (اگر حالت `bundle` نبود): فایل `build-model/Koochik.aar` را به گوشی بفرست و از داخل برنامه وارد کن.
 
 ## محدودیت‌های حساب رایگان

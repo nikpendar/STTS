@@ -4,7 +4,7 @@ import AppIntents
 /// automation "When I receive a message": the automation passes the message and its sender.
 /// `AudioPlaybackIntent` lets iOS start the audio while the app stays in the background.
 struct ReadAloudIntent: AudioPlaybackIntent {
-    static var title: LocalizedStringResource = "خواندن با کیلس"
+    static var title: LocalizedStringResource = "خواندن با آواک"
     static var description = IntentDescription("متن را با صدای فارسی بلند می‌خواند، بدون باز کردن اپ. برای خواندن پیامک‌ها در اتوماسیون «وقتی پیامی دریافت می‌کنم».")
     static var openAppWhenRun = false
 

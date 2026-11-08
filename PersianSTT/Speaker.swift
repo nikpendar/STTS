@@ -19,7 +19,7 @@ enum SpeakerError: Error, CustomLocalizedStringResourceConvertible {
 
     var localizedStringResource: LocalizedStringResource {
         switch self {
-        case .noPersianVoice: "صدای فارسی هنوز در کیلس نیست."
+        case .noPersianVoice: "صدای فارسی هنوز در آواک نیست."
         case .emptyText: "متنی برای خواندن نیست."
         }
     }

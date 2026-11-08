@@ -88,10 +88,10 @@ final class WatchLink: NSObject, WCSessionDelegate, @unchecked Sendable {
         do {
             // The keyboard's dictation and this one share the model's stream.
             if await MainActor.run(body: { KeyboardSession.shared.isCapturing }) {
-                return send(id: id, error: "کیبورد کیلس روی گوشی در حال دیکته است.")
+                return send(id: id, error: "کیبورد آواک روی گوشی در حال دیکته است.")
             }
             guard let engine = await Transcriber.shared.readyEngine() else {
-                return send(id: id, error: "مدل گفتار روی گوشی نصب نیست. اپ کیلس را روی گوشی باز کنید.")
+                return send(id: id, error: "مدل گفتار روی گوشی نصب نیست. اپ آواک را روی گوشی باز کنید.")
             }
             try audio.write(to: url)
             let samples = try AudioLoader.loadSamples(url: url)

@@ -86,7 +86,7 @@ jobs:
           python3 launch.py piper.train.export_onnx --checkpoint "$CK" --output-file mana.onnx
           ls -la mana.onnx
           JSON="$(find ck -name mana.onnx.json | head -1)"
-          gh release view tts-fa-keyless-wip >/dev/null 2>&1 || gh release create tts-fa-keyless-wip --prerelease --target "$GITHUB_SHA" --title "Keyless voice (training)" --notes "Mana Piper fine-tuned on Mana-TTS with the app's phonemes; work in progress."
+          gh release view tts-fa-keyless-wip >/dev/null 2>&1 || gh release create tts-fa-keyless-wip --prerelease --target "$GITHUB_SHA" --title "Avak voice (training)" --notes "Mana Piper fine-tuned on Mana-TTS with the app's phonemes; work in progress."
           gh release upload tts-fa-keyless-wip mana.onnx "$JSON" --clobber
           mkdir -p ds && mv "$CK" ds/last.ckpt
           printf '{"title": "keyless-voice-ckpt", "id": "%s/keyless-voice-ckpt", "licenses": [{"name": "other"}]}\n' "$KAGGLE_USERNAME" > ds/dataset-metadata.json

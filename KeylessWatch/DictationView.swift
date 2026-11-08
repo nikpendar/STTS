@@ -44,7 +44,7 @@ struct DictationView: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .navigationTitle("کیلس")
+        .navigationTitle("آواک")
     }
 
     private var micButton: some View {

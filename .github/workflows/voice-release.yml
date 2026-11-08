@@ -23,7 +23,7 @@ jobs:
         run: |
           ls -l voice-upload
           mkdir g2p && gh release download tts-fa-mana --pattern 'g2p-*.onnx' --dir g2p
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "Keyless Persian voice" \
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "$GITHUB_SHA" --title "Avak Persian voice" \
             --notes "Mana Piper voice (MahtaFetrat, MIT) fine-tuned on Mana-TTS (CC0) with the app's own phonemes (kaggle/train), int8; Homo-GE2PE phonemizer (MIT) as in tts-fa-mana."
           gh release upload "$TAG" voice-upload/mana.onnx voice-upload/mana.onnx.json g2p/g2p-encoder.onnx g2p/g2p-decoder.onnx --clobber
           gh release view "$TAG"

@@ -1,9 +1,9 @@
-# Builds an unsigned KeylessShenava.ipa on a GitHub macOS runner (no local Mac/Xcode needed).
+# Builds an unsigned AvakShenava.ipa on a GitHub macOS runner (no local Mac/Xcode needed).
 # Install the resulting .ipa with AltServer (Option-click > Sideload .ipa). With a free Apple ID,
 # Sideloadly signs the keyboard extension with the app's profile and iOS kills it at launch.
 # The speech model, Shenava Koochik (Koochik.aar, a Core ML ML program with 8-bit weights, 107 MB,
 # from the release koochik-mlp-int8 that model.yml publishes), is the separate ShenavaModel artifact,
-# imported once in the app; KeylessShenavaEmbedded.ipa is the same app with the model inside
+# imported once in the app; AvakShenavaEmbedded.ipa is the same app with the model inside
 # (no import, no model page). The Whisper version is archived on branch archive/whisper.
 name: Build unsigned IPA
 
@@ -103,8 +103,8 @@ jobs:
           plutil -replace CFBundleDisplayName -string "Persian Dictation" "$KB/Info.plist"
           for lang in Base en fa; do
             mkdir -p "$APP/$lang.lproj" "$KB/$lang.lproj"
-            printf '"CFBundleDisplayName" = "%s";\n' "کیلس" > "$APP/$lang.lproj/InfoPlist.strings"
-            printf '"CFBundleDisplayName" = "%s";\n' "کیلس" > "$KB/$lang.lproj/InfoPlist.strings"
+            printf '"CFBundleDisplayName" = "%s";\n' "آواک" > "$APP/$lang.lproj/InfoPlist.strings"
+            printf '"CFBundleDisplayName" = "%s";\n' "آواک" > "$KB/$lang.lproj/InfoPlist.strings"
           done
           plutil -lint "$APP/fa.lproj/InfoPlist.strings" "$KB/fa.lproj/InfoPlist.strings"
           # The app and key font (AppFont in Shared/DictationBridge.swift) is licensed, so the public
@@ -124,12 +124,12 @@ jobs:
           codesign --force --sign - Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex
           codesign --force --sign - Payload/PersianSTT.app
           codesign -dv Payload/PersianSTT.app/PlugIns/PersianSTTKeyboard.appex 2>&1 | head -5
-          zip -qry KeylessShenava.ipa Payload
-          ls -lh KeylessShenava.ipa
+          zip -qry AvakShenava.ipa Payload
+          ls -lh AvakShenava.ipa
           # The same app with the Apple Watch app inside (Watch/KeylessWatch.app), only when
           # config.env asks for it (BUILD_WATCH=1). A watch app installs only with a paid developer
           # account (TestFlight or Xcode); AltServer with a free Apple ID cannot sign it, so
-          # KeylessShenava.ipa stays without it.
+          # AvakShenava.ipa stays without it.
           BUILD_WATCH="$(sed -n 's/^BUILD_WATCH=//p' config.env)"
           if [ "$BUILD_WATCH" = 1 ]; then
             xcodebuild -project PersianSTT.xcodeproj -target KeylessWatch \
@@ -147,8 +147,8 @@ jobs:
             codesign --force --sign - "$W/KeylessWatch.app/PlugIns/KeylessWatchWidget.appex"
             codesign --force --sign - "$W/KeylessWatch.app"
             codesign --force --sign - "$WATCH_ROOT/Payload/PersianSTT.app"
-            (cd "$WATCH_ROOT" && zip -qry "$GITHUB_WORKSPACE/KeylessShenavaWatch.ipa" Payload)
-            ls -lh KeylessShenavaWatch.ipa
+            (cd "$WATCH_ROOT" && zip -qry "$GITHUB_WORKSPACE/AvakShenavaWatch.ipa" Payload)
+            ls -lh AvakShenavaWatch.ipa
           fi
           # The same app with the model compiled inside, where Transcriber finds it.
           # Only when config.env asks for it (BUILD_EMBEDDED=1).
@@ -160,14 +160,14 @@ jobs:
               --deployment-target 17.0 --platform ios
             cp -R "$RUNNER_TEMP/compiled/Koochik.mlmodelc" "$APP/Models/"
             codesign --force --sign - Payload/PersianSTT.app
-            zip -qry KeylessShenavaEmbedded.ipa Payload
-            ls -lh KeylessShenavaEmbedded.ipa
+            zip -qry AvakShenavaEmbedded.ipa Payload
+            ls -lh AvakShenavaEmbedded.ipa
           fi
 
       - uses: actions/upload-artifact@v5
         with:
-          name: KeylessShenava
-          path: KeylessShenava.ipa
+          name: AvakShenava
+          path: AvakShenava.ipa
           compression-level: 0
 
       # Debug symbols of this build's app, keyboard and watch app: crash reports from the phone
@@ -185,15 +185,15 @@ jobs:
           retention-days: 90
 
       - uses: actions/upload-artifact@v5
-        if: hashFiles('KeylessShenavaWatch.ipa') != ''
+        if: hashFiles('AvakShenavaWatch.ipa') != ''
         with:
-          name: KeylessShenavaWatch
-          path: KeylessShenavaWatch.ipa
+          name: AvakShenavaWatch
+          path: AvakShenavaWatch.ipa
           compression-level: 0
 
       - uses: actions/upload-artifact@v5
-        if: hashFiles('KeylessShenavaEmbedded.ipa') != ''
+        if: hashFiles('AvakShenavaEmbedded.ipa') != ''
         with:
-          name: KeylessShenavaEmbedded
-          path: KeylessShenavaEmbedded.ipa
+          name: AvakShenavaEmbedded
+          path: AvakShenavaEmbedded.ipa
           compression-level: 0

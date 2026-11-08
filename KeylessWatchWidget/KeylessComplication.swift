@@ -1,7 +1,7 @@
 import SwiftUI
 import WidgetKit
 
-/// The watch face complication: a microphone that opens Keyless and starts recording
+/// The watch face complication: a microphone that opens Avak and starts recording
 /// (keylesswatch://record, handled in KeylessWatchApp).
 @main
 struct KeylessComplication: Widget {
@@ -11,7 +11,7 @@ struct KeylessComplication: Widget {
                 .widgetURL(URL(string: "keylesswatch://record"))
                 .containerBackground(for: .widget) { Color.clear }
         }
-        .configurationDisplayName("کیلس")
+        .configurationDisplayName("آواک")
         .description("ضبط صدا و تبدیل به متن فارسی با آیفون")
         .supportedFamilies([.accessoryCircular, .accessoryCorner, .accessoryRectangular, .accessoryInline])
     }
@@ -44,17 +44,17 @@ struct MicView: View {
                 Image(systemName: "mic.fill")
                     .font(.title2)
                 VStack(alignment: .leading) {
-                    Text("کیلس").font(.headline)
+                    Text("آواک").font(.headline)
                     Text("گفتار به متن").font(.caption)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         case .accessoryInline:
-            Label("کیلس", systemImage: "mic.fill")
+            Label("آواک", systemImage: "mic.fill")
         case .accessoryCorner:
             Image(systemName: "mic.fill")
                 .font(.title2)
-                .widgetLabel("کیلس")
+                .widgetLabel("آواک")
         default:
             ZStack {
                 AccessoryWidgetBackground()
