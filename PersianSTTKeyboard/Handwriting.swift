@@ -211,6 +211,9 @@ final class HandwritingPadView: UIView {
     var onReplace: ((String, String) -> Void)?
     /// A word turned into text, for a light tap when haptics are on.
     var onWordRead: (() -> Void)?
+    /// The handle at the top dragged (how far down from where it started), and double-tapped.
+    var onResize: ((UIGestureRecognizer.State, CGFloat) -> Void)?
+    var onResetSize: (() -> Void)?
     /// The pen lifted this long ends a word (`KeyboardOptions.handwritingPause`).
     var pause: TimeInterval = 0.3
     var onSpace: (() -> Void)?
@@ -235,6 +238,7 @@ final class HandwritingPadView: UIView {
     var textColor = UIColor.label {
         didSet {
             ink.strokeColor = textColor.cgColor
+            gripPill.backgroundColor = textColor.withAlphaComponent(0.3)
             fading.strokeColor = textColor.cgColor
             status.textColor = textColor.withAlphaComponent(0.6)
             candidateButtons.forEach { $0.setTitleColor(textColor, for: .normal) }
@@ -254,6 +258,10 @@ final class HandwritingPadView: UIView {
     private let emojiButton = UIButton(type: .system)
     private let returnButton = UIButton(type: .system)
     private let paper = UIView()
+    /// The handle: a short pill at the top, dragged to make the pad taller or shorter.
+    private let grip = UIView()
+    private let gripPill = UIView()
+    private static let gripHeight: CGFloat = 18
 
     private var strokes: [InkRecognizer.Stroke] = []
     private var current: InkRecognizer.Stroke = []
@@ -340,12 +348,38 @@ final class HandwritingPadView: UIView {
         for button in [spaceButton, deleteButton, closeButton, emojiButton, returnButton] {
             button.addAction(UIAction { [weak self] _ in self?.onFeedback?() }, for: .touchDown)
         }
+        gripPill.backgroundColor = UIColor.label.withAlphaComponent(0.3)
+        gripPill.layer.cornerRadius = 2.5
+        gripPill.isUserInteractionEnabled = false
+        grip.addSubview(gripPill)
+        grip.accessibilityLabel = "اندازه‌ی صفحه‌ی دست‌خط"
+        grip.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(dragGrip(_:))))
+        let reset = UITapGestureRecognizer(target: self, action: #selector(resetGrip))
+        reset.numberOfTapsRequired = 2
+        grip.addGestureRecognizer(reset)
+        addSubview(grip)
         recognizer.onState = { [weak self] state in self?.show(state) }
         show(.unavailable)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    private var gripStart: CGFloat = 0
+
+    @objc private func dragGrip(_ pan: UIPanGestureRecognizer) {
+        // Measured on the screen: the keyboard itself grows under the finger, so its own
+        // coordinates would halve the drag.
+        guard let window else { return }
+        let y = window.convert(pan.location(in: nil), to: window.screen.coordinateSpace).y
+        if pan.state == .began { gripStart = y }
+        onResize?(pan.state, y - gripStart)
+    }
+
+    @objc private func resetGrip() {
+        onFeedback?()
+        onResetSize?()
     }
 
     /// Loads the recognizer: called when the pad opens.
@@ -376,8 +410,11 @@ final class HandwritingPadView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let row: CGFloat = 38
-        candidateRow.frame = CGRect(x: 8, y: 0, width: bounds.width - 16, height: row)
+        let top = Self.gripHeight
+        grip.frame = CGRect(x: bounds.midX - 50, y: 0, width: 100, height: top + 4)
+        gripPill.frame = CGRect(x: 50 - 18, y: (top - 5) / 2, width: 36, height: 5)
+        let row: CGFloat = 36
+        candidateRow.frame = CGRect(x: 8, y: top, width: bounds.width - 16, height: row)
         let buttonsY = bounds.height - 46
         // Left to right: back to the keyboard, emoji, return, space (twice as wide), delete.
         let gap: CGFloat = 6
@@ -388,7 +425,7 @@ final class HandwritingPadView: UIView {
             button.frame = CGRect(x: x, y: buttonsY, width: width, height: 40)
             x += width + gap
         }
-        paper.frame = CGRect(x: 8, y: row + 2, width: bounds.width - 16, height: buttonsY - row - 8)
+        paper.frame = CGRect(x: 8, y: top + row + 2, width: bounds.width - 16, height: max(24, buttonsY - top - row - 8))
         status.frame = paper.frame.insetBy(dx: 20, dy: 20)
     }
 
@@ -428,8 +465,18 @@ final class HandwritingPadView: UIView {
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard !current.isEmpty else { return }
-        let stroke = current
+        var stroke = current
         current = []
+        if stroke.count == 1, let point = stroke.first {
+            // A tap, the dot of ب or ف: drawn as a round dot, and given a second point so the
+            // recognizer takes it as a stroke.
+            stroke.append(InkRecognizer.Point(x: point.x + 0.5, y: point.y, t: point.t + 1))
+            path.addLine(to: CGPoint(x: CGFloat(point.x) + 0.5, y: CGFloat(point.y)))
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            ink.path = path.cgPath
+            CATransaction.commit()
+        }
         if strokes.isEmpty, joinsLastWord(stroke) {
             // A dot or a bar put on the word just read: read it again with it.
             readAgain(adding: stroke)

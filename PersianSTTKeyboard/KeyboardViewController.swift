@@ -39,6 +39,10 @@ final class KeyboardViewController: UIInputViewController {
     private let orb = DictationOrbView()
     /// The picture chosen in the app (`KeyboardBackground`), behind everything.
     private let backgroundImageView = UIImageView()
+    /// The keyboard's colour carried above its top edge, over the thin strip iOS leaves between
+    /// the app and the keyboard (Rooz, 2026-11-08). Shows only where iOS lets the view draw there.
+    private let topBleed = UIView()
+    private static let bleedHeight: CGFloat = 24
     /// The preset drawn last and the size it was drawn at.
     private var drawnBackground: (id: String, size: CGSize)?
     private var heightConstraint: NSLayoutConstraint?
@@ -56,11 +60,31 @@ final class KeyboardViewController: UIInputViewController {
     private var numberRowHeight: CGFloat { metrics.numberRow }
     /// No margin under the bottom row: the keys sit as low as the extension can draw.
     private var fullHeight: CGFloat {
-        barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) + (emojiSearch != nil ? searchExtraHeight : 0)
-            + (handwritingPad != nil ? handwritingExtraHeight : 0)
+        handwritingPad != nil ? handwritingHeight : keysHeight
     }
-    /// More room to write in while the handwriting pad is open, in portrait (Rooz, 2026-11-08).
-    private var handwritingExtraHeight: CGFloat { isLandscape ? 0 : 2 * rowHeight }
+    private var keysHeight: CGFloat {
+        barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) + (emojiSearch != nil ? searchExtraHeight : 0)
+    }
+    /// The handwriting pad's height: two rows over the keyboard in portrait, or what the user
+    /// dragged its handle to (kept per orientation), from half the keyboard to most of the
+    /// screen (Rooz, 2026-11-08).
+    private var handwritingHeight: CGFloat {
+        if let dragged = handwritingDragHeight { return dragged }
+        guard let chosen = UserDefaults.standard.object(forKey: handwritingHeightKey) as? Double else {
+            return keysHeight + (isLandscape ? 0 : 2 * rowHeight)
+        }
+        return clampedHandwritingHeight(CGFloat(chosen))
+    }
+    private var handwritingDragHeight: CGFloat?
+    private var handwritingDragStart: CGFloat = 0
+    private var handwritingHeightKey: String { isLandscape ? "handwritingHeight.landscape" : "handwritingHeight.portrait" }
+
+    private func clampedHandwritingHeight(_ height: CGFloat) -> CGFloat {
+        let screen = UIScreen.main.bounds.size
+        let tall = isLandscape ? min(screen.width, screen.height) : max(screen.width, screen.height)
+        let least = (keysHeight / 2).rounded()
+        return max(least, min(height, max(least, (tall * 0.8).rounded())))
+    }
     /// The emoji search typed so far, while one is typed on the letters (nil otherwise).
     private var emojiSearch: String?
     /// What an emoji search adds over the suggestion bar: the row of emoji found, and enough
@@ -1429,6 +1453,11 @@ final class KeyboardViewController: UIInputViewController {
         backgroundImageView.layer.cornerCurve = .continuous
         backgroundImageView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         backgroundImageView.isHidden = true
+        topBleed.isUserInteractionEnabled = false
+        topBleed.isHidden = true
+        topBleed.layer.cornerCurve = .continuous
+        topBleed.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        view.addSubview(topBleed)
         view.addSubview(backgroundImageView)
 
         // A keyboard's fully clear pixels take no touches: between the symbols of clear keys
@@ -1680,6 +1709,9 @@ final class KeyboardViewController: UIInputViewController {
         // iOS draws the strip under the keys (globe and dictation) itself, and it cannot take
         // the colour; rounded top corners make the coloured keyboard sit well on the screen.
         view.layer.cornerRadius = solid == nil ? 0 : 16
+        topBleed.backgroundColor = solid
+        topBleed.isHidden = solid == nil
+        topBleed.layer.cornerRadius = 16
         view.layer.cornerCurve = .continuous
         view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         // Letters left to the system colour turn light on a dark background and dark on a light
@@ -1916,6 +1948,7 @@ final class KeyboardViewController: UIInputViewController {
         orb.bounds = view.bounds
         orb.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
         backgroundImageView.frame = view.bounds
+        topBleed.frame = CGRect(x: 0, y: -Self.bleedHeight, width: view.bounds.width, height: Self.bleedHeight + 32)
         updateBackgroundImage()
         // The keys always take the keyboard's own height at the bottom of the view: more height
         // from iOS stays empty above the suggestion bar. They keep it while hidden or resizing,
@@ -2572,6 +2605,30 @@ final class KeyboardViewController: UIInputViewController {
         }
         pad.onWordRead = { [weak self] in self?.haptic(.impact(.soft)) }
         pad.pause = options.handwritingPause
+        pad.onResize = { [weak self] phase, moved in
+            guard let self, self.handwritingPad != nil else { return }
+            switch phase {
+            case .began:
+                self.handwritingDragStart = self.handwritingHeight
+            case .changed:
+                // Dragged up, taller; only redrawn when it moved a whole point.
+                let height = self.clampedHandwritingHeight((self.handwritingDragStart - moved).rounded())
+                guard height != self.handwritingDragHeight else { return }
+                self.handwritingDragHeight = height
+                self.heightChanged()
+            default:
+                if let height = self.handwritingDragHeight {
+                    UserDefaults.standard.set(Double(height), forKey: self.handwritingHeightKey)
+                }
+                self.handwritingDragHeight = nil
+            }
+        }
+        pad.onResetSize = { [weak self] in
+            guard let self else { return }
+            UserDefaults.standard.removeObject(forKey: self.handwritingHeightKey)
+            self.handwritingDragHeight = nil
+            self.heightChanged()
+        }
         pad.onSpace = { [weak self] in self?.insert(" ") }
         pad.onDeleteDown = { [weak self] in self?.backspaceDown() }
         pad.onDeleteUp = { [weak self] in self?.backspaceUp() }
@@ -2588,8 +2645,7 @@ final class KeyboardViewController: UIInputViewController {
         pad.textBefore = { [weak self] in self?.proxy.documentContextBeforeInput ?? "" }
         view.addSubview(pad)
         handwritingPad = pad
-        view.setNeedsUpdateConstraints()
-        view.setNeedsLayout()
+        heightChanged()
         pad.alpha = 0
         UIView.animate(withDuration: 0.2) {
             pad.alpha = 1
@@ -2601,8 +2657,8 @@ final class KeyboardViewController: UIInputViewController {
     private func hideHandwriting(animated: Bool) {
         guard let pad = handwritingPad else { return }
         handwritingPad = nil
-        view.setNeedsUpdateConstraints()
-        view.setNeedsLayout()
+        handwritingDragHeight = nil
+        heightChanged()
         // A delete held on the pad stops with it.
         backspaceUp()
         pad.commitPending()
@@ -3067,6 +3123,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         panel.textColor = keyStyle.textColor
+        panel.headerHeight = metrics.bar
         styleSettingsPanel()
         panel.options = options
         panel.frame = keysView.bounds
@@ -4959,9 +5016,12 @@ private final class KeyboardSettingsPanel: UIView {
     /// title reads apart from the rows (Rooz, 2026-11-08).
     private let badge = UIView()
     private let badgeIcon = UIImageView(image: UIImage(systemName: "gearshape.fill",
-                                                       withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)))
+                                                       withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)))
     private let divider = UIView()
-    private static let headerHeight: CGFloat = 56
+    /// As tall as the keyboard's suggestion bar (Rooz, 2026-11-08).
+    var headerHeight: CGFloat = 38 {
+        didSet { if headerHeight != oldValue { setNeedsLayout() } }
+    }
     private var switches: [(UISwitch, WritableKeyPath<KeyboardOptions, Bool>)] = []
     private var labels: [UILabel] = []
 
@@ -4972,14 +5032,14 @@ private final class KeyboardSettingsPanel: UIView {
         titleLabel.text = "تنظیمات کیبورد"
         // Larger, so it stands apart from the rows below it. The app's font has no bold face:
         // asking for bold handed back another font.
-        titleLabel.font = AppFont.font(ofSize: 21)
+        titleLabel.font = AppFont.font(ofSize: 17)
         titleLabel.textAlignment = .right
         closeButton.setImage(UIImage(systemName: "keyboard.chevron.compact.down",
                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 18)), for: .normal)
         closeButton.accessibilityLabel = "بستن تنظیمات"
         closeButton.accessibilityIdentifier = "settingsClose"
         closeButton.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
-        badge.layer.cornerRadius = 9
+        badge.layer.cornerRadius = 7
         badge.layer.cornerCurve = .continuous
         badgeIcon.contentMode = .center
         badge.addSubview(badgeIcon)
@@ -5144,14 +5204,14 @@ private final class KeyboardSettingsPanel: UIView {
         let inset: CGFloat = 16 + max(safeAreaInsets.left, safeAreaInsets.right)
         let width = min(bounds.width - 2 * inset, 440)
         let side = (bounds.width - width) / 2
-        let top = Self.headerHeight
+        let top = headerHeight
         header.frame = CGRect(x: 0, y: 0, width: bounds.width, height: top)
-        closeButton.frame = CGRect(x: side - 8, y: 4, width: 44, height: top - 8)
+        closeButton.frame = CGRect(x: side - 8, y: 0, width: 44, height: top)
         // Right to left: the gear tile, then the title beside it.
-        let tile: CGFloat = 30
+        let tile: CGFloat = min(24, top - 10)
         badge.frame = CGRect(x: side + width - tile, y: (top - tile) / 2, width: tile, height: tile)
         badgeIcon.frame = badge.bounds
-        titleLabel.frame = CGRect(x: side + 40, y: 0, width: width - 40 - tile - 10, height: top)
+        titleLabel.frame = CGRect(x: side + 40, y: 0, width: width - 40 - tile - 8, height: top)
         let hairline = 1 / max(1, traitCollection.displayScale)
         divider.frame = CGRect(x: side, y: top - hairline, width: width, height: hairline)
         scroll.frame = CGRect(x: 0, y: top, width: bounds.width, height: bounds.height - top)
