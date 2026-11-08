@@ -17,8 +17,8 @@ Hugging Face در قالب NeuralNetwork با وزن fp16 و ۲۱۲ مگابای
 [`whisper-final`](https://github.com/nikpendar/STTS/releases/tag/whisper-final).
 
 ## ساخت
-نیازی به Xcode نیست. هر push به `main` در GitHub Actions یک `Avak.ipa` امضانشده (artifact به نام
-`Avak`) می‌سازد (`.github/workflows/build.yml`). فایل را از بخش Artifacts همان اجرا دانلود و از zip خارج کنید.
+نیازی به Xcode نیست. هر push به `main` در GitHub Actions یک `AvakLite.ipa` امضانشده (بدون مدل گفتار؛ artifact به نام
+`AvakLite`) می‌سازد (`.github/workflows/build.yml`). فایل را از بخش Artifacts همان اجرا دانلود و از zip خارج کنید.
 
 فایل مدل artifact جداگانه‌ای به نام `AvakScribeModel` (فایل `AvakScribe.aar`، همان فایل release به نام `koochik-mlp-int8`) است (۹۰ روز نگه داشته می‌شود) و فقط یک بار
 لازم است. در برنامه با «وارد کردن مدل از Files»، یا با کشیدن فایل در Finder روی برنامه در بخش Files آیفون، وارد و روی گوشی
@@ -161,7 +161,7 @@ Sideloadly مناسب نیست: با Apple ID رایگان، اکستنشن کی
 - `scripts/`: ساخت فهرست‌های کلمات، آیکون برنامه (`make_icon.py`) و ابزار سنجش (`wer.py`، `prepare_cv.py`، `to_pcm16.py`، `join_clips.py`)
 
 ## Workflowها
-- `build.yml`: ساخت IPA با هر push به `main` (artifact `Avak`) و مدل (artifact `AvakScribeModel`)
+- `build.yml`: ساخت IPA با هر push به `main` (artifact `AvakLite`؛ با `BUILD_EMBEDDED=1` نسخه‌ی کامل `Avak` با مدل داخل) و مدل (artifact `AvakScribeModel`)
 - `train.yml`: آموزش مدل شخصی از اصلاح‌ها (بالا)
 - `live-test.yml`: کیبورد داخل برنامه در شبیه‌ساز با سه جمله‌ی فارسی FLEURS: دیکته، متن زنده، اصلاح و آموزش، تایپ کشیدنی، منوها،
   پس‌زمینه و صفحه‌های تنظیمات؛ عکس‌ها در شاخه‌ی `live-test` (و با `ios=26` در `live-test-ios26`)
