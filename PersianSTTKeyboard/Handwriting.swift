@@ -207,6 +207,12 @@ enum BundledInkModel {
 /// goes in by itself when the next word is started, or a tap picks another.
 final class HandwritingPadView: UIView {
     var onInsert: ((String) -> Void)?
+    /// A word already put in, read again: the first text is replaced by the second.
+    var onReplace: ((String, String) -> Void)?
+    /// A word turned into text, for a light tap when haptics are on.
+    var onWordRead: (() -> Void)?
+    /// The pen lifted this long ends a word (`KeyboardOptions.handwritingPause`).
+    var pause: TimeInterval = 0.3
     var onSpace: (() -> Void)?
     /// The delete button pressed and let go, as the keyboard's backspace: one character, and
     /// held, more and more, then words.
@@ -229,6 +235,7 @@ final class HandwritingPadView: UIView {
     var textColor = UIColor.label {
         didSet {
             ink.strokeColor = textColor.cgColor
+            fading.strokeColor = textColor.cgColor
             status.textColor = textColor.withAlphaComponent(0.6)
             candidateButtons.forEach { $0.setTitleColor(textColor, for: .normal) }
         }
@@ -236,6 +243,8 @@ final class HandwritingPadView: UIView {
 
     private let recognizer = InkRecognizer()
     private let ink = CAShapeLayer()
+    /// The last word's ink, fading out as it turns into text, so the paper is clear at once.
+    private let fading = CAShapeLayer()
     private let status = UILabel()
     private let candidateRow = UIStackView()
     private var candidateButtons: [UIButton] = []
@@ -251,10 +260,20 @@ final class HandwritingPadView: UIView {
     private var path = UIBezierPath()
     private var started: CFTimeInterval = 0
     private var recognizeTimer: Timer?
-    /// Readings of the last word, not yet in the text.
+    /// Readings of the last word; the first is already in the text, a tap on another swaps it.
     private var pending: [String] = []
     /// Strokes of the word being recognized, to keep the right readings.
     private var generation = 0
+    /// The word last put in: its text, strokes, where its ink was and when, so a dot or bar
+    /// added just after it joins it rather than starting a word of its own.
+    private var lastWord: (text: String, strokes: [InkRecognizer.Stroke], box: CGRect, time: CFTimeInterval)?
+    /// Readings while a word is still being written, shown dimmed in the first slot.
+    private var previewGeneration = 0
+    /// Words being read now, and what waits for them: a space or return typed after the word,
+    /// and letting the recognizer go once the pad closes.
+    private var reading = 0
+    private var afterReading: [() -> Void] = []
+    private var closeWhenRead = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -269,6 +288,11 @@ final class HandwritingPadView: UIView {
         ink.lineWidth = 4
         ink.lineCap = .round
         ink.lineJoin = .round
+        fading.fillColor = UIColor.clear.cgColor
+        fading.lineWidth = 4
+        fading.lineCap = .round
+        fading.lineJoin = .round
+        layer.addSublayer(fading)
         layer.addSublayer(ink)
         status.font = keyFont(for: "دست‌خط", size: 15)
         status.textAlignment = .center
@@ -290,7 +314,7 @@ final class HandwritingPadView: UIView {
             button.addAction(UIAction { [weak self, weak button] _ in
                 guard let self, let text = button?.title(for: .normal), !text.isEmpty else { return }
                 self.onFeedback?()
-                self.commit(text)
+                self.choose(text)
             }, for: .touchUpInside)
             candidateRow.addArrangedSubview(button)
             candidateButtons.append(button)
@@ -306,13 +330,13 @@ final class HandwritingPadView: UIView {
             button.layer.cornerCurve = .continuous
             addSubview(button)
         }
-        spaceButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onSpace?() }, for: .touchUpInside)
+        spaceButton.addAction(UIAction { [weak self] _ in self?.commitPending { self?.onSpace?() } }, for: .touchUpInside)
         deleteButton.addAction(UIAction { [weak self] _ in self?.deleteDown() }, for: .touchDown)
         deleteButton.addAction(UIAction { [weak self] _ in self?.onDeleteUp?() },
                                for: [.touchUpInside, .touchUpOutside, .touchCancel])
-        closeButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onClose?() }, for: .touchUpInside)
-        emojiButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onEmoji?() }, for: .touchUpInside)
-        returnButton.addAction(UIAction { [weak self] _ in self?.commitPending(); self?.onReturn?() }, for: .touchUpInside)
+        closeButton.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
+        emojiButton.addAction(UIAction { [weak self] _ in self?.onEmoji?() }, for: .touchUpInside)
+        returnButton.addAction(UIAction { [weak self] _ in self?.commitPending { self?.onReturn?() } }, for: .touchUpInside)
         for button in [spaceButton, deleteButton, closeButton, emojiButton, returnButton] {
             button.addAction(UIAction { [weak self] _ in self?.onFeedback?() }, for: .touchDown)
         }
@@ -334,7 +358,20 @@ final class HandwritingPadView: UIView {
     func stop() {
         recognizeTimer?.invalidate()
         recognizeTimer = nil
-        recognizer.close()
+        if reading > 0 { closeWhenRead = true } else { recognizer.close() }
+    }
+
+    /// A word read (or given up): what waited for it runs, in order.
+    private func doneReading() {
+        reading = max(0, reading - 1)
+        guard reading == 0 else { return }
+        let waiting = afterReading
+        afterReading = []
+        waiting.forEach { $0() }
+        if closeWhenRead {
+            closeWhenRead = false
+            recognizer.close()
+        }
     }
 
     override func layoutSubviews() {
@@ -376,14 +413,8 @@ final class HandwritingPadView: UIView {
         guard let touch = touches.first, paperArea.contains(touch.location(in: self)) else { return }
         recognizeTimer?.invalidate()
         if strokes.isEmpty {
-            // A new word: the last one's best reading goes in.
-            commitPending()
             started = touch.timestamp
             path = UIBezierPath()
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            ink.setAffineTransform(.identity)
-            CATransaction.commit()
         }
         status.text = ""
         current = []
@@ -397,10 +428,17 @@ final class HandwritingPadView: UIView {
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard !current.isEmpty else { return }
-        strokes.append(current)
+        let stroke = current
         current = []
-        // A short pause after the last stroke: the word is done.
-        recognizeTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { [weak self] _ in
+        if strokes.isEmpty, joinsLastWord(stroke) {
+            // A dot or a bar put on the word just read: read it again with it.
+            readAgain(adding: stroke)
+            return
+        }
+        strokes.append(stroke)
+        preview()
+        // The pen lifted a moment: the word is done, and the next can start straight away.
+        recognizeTimer = Timer.scheduledTimer(withTimeInterval: pause, repeats: false) { [weak self] _ in
             self?.recognizeWord()
         }
     }
@@ -416,92 +454,166 @@ final class HandwritingPadView: UIView {
         current.append(point)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        ink.opacity = 1
         ink.path = path.cgPath
         CATransaction.commit()
     }
 
-    private func recognizeWord() {
-        let word = strokes
-        strokes = []
-        generation += 1
-        let mine = generation
-        // The ink fades as the reading comes.
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = 1
-        fade.toValue = 0.25
-        fade.duration = 0.25
-        ink.add(fade, forKey: "fade")
-        ink.opacity = 0.25
-        moveInkAside()
-        recognizer.recognize(word, before: textBefore?() ?? "", area: paperArea.size) { [weak self] texts in
-            guard let self, mine == self.generation else { return }
-            self.pending = Array(texts.prefix(4))
-            self.showCandidates()
-            if texts.isEmpty, self.recognizer.state == .ready { self.status.text = "خوانده نشد؛ دوباره بنویسید" }
+    private static func box(of strokes: [InkRecognizer.Stroke]) -> CGRect {
+        var box = CGRect.null
+        for point in strokes.joined() { box = box.union(CGRect(x: CGFloat(point.x), y: CGFloat(point.y), width: 0, height: 0)) }
+        return box
+    }
+
+    /// A small stroke (a dot, or the bar of ک and گ) on the word read a moment ago.
+    private func joinsLastWord(_ stroke: InkRecognizer.Stroke) -> Bool {
+        guard let last = lastWord, CACurrentMediaTime() - last.time < 1 else { return false }
+        let box = Self.box(of: [stroke])
+        let small = max(box.width, box.height) < 12 || (box.height < 8 && box.width < 28)
+        return small && last.box.insetBy(dx: -10, dy: -10).contains(CGPoint(x: box.midX, y: box.midY))
+    }
+
+    /// The word being written, read as it grows: its best reading shows dimmed in the first slot.
+    private func preview() {
+        previewGeneration += 1
+        let mine = previewGeneration
+        recognizer.recognize(strokes, before: textBefore?() ?? "", area: paperArea.size) { [weak self] texts in
+            guard let self, mine == self.previewGeneration, !self.strokes.isEmpty, let best = texts.first else { return }
+            self.showCandidates(preview: best)
         }
     }
 
-    private func showCandidates() {
+    private func recognizeWord() {
+        let word = strokes
+        guard !word.isEmpty else { return }
+        strokes = []
+        previewGeneration += 1
+        generation += 1
+        let mine = generation
+        fadeInk()
+        let box = Self.box(of: word)
+        reading += 1
+        recognizer.recognize(word, before: textBefore?() ?? "", area: paperArea.size) { [weak self] texts in
+            guard let self else { return }
+            defer { self.doneReading() }
+            guard mine == self.generation else { return }
+            guard let best = texts.first else {
+                self.lastWord = nil
+                if self.recognizer.state == .ready { self.status.text = "خوانده نشد؛ دوباره بنویسید" }
+                return
+            }
+            // In the text at once, with a light tap; the other readings stay a tap away.
+            self.pending = Array(texts.prefix(4))
+            self.lastWord = (best, word, box, CACurrentMediaTime())
+            self.onInsert?(best)
+            self.onWordRead?()
+            if self.strokes.isEmpty { self.showCandidates() }
+        }
+    }
+
+    /// The last word with a dot or bar added, read again and swapped in the text.
+    private func readAgain(adding stroke: InkRecognizer.Stroke) {
+        guard let last = lastWord else { return }
+        let word = last.strokes + [stroke]
+        lastWord = (last.text, word, last.box.union(Self.box(of: [stroke])), CACurrentMediaTime())
+        path = UIBezierPath()
+        fadeInk()
+        generation += 1
+        let mine = generation
+        reading += 1
+        recognizer.recognize(word, before: textBefore?() ?? "", area: paperArea.size) { [weak self] texts in
+            guard let self else { return }
+            defer { self.doneReading() }
+            guard mine == self.generation, let best = texts.first, let current = self.lastWord else { return }
+            self.pending = Array(texts.prefix(4))
+            if best != current.text { self.onReplace?(current.text, best) }
+            self.lastWord = (best, current.strokes, current.box, current.time)
+            if self.strokes.isEmpty { self.showCandidates() }
+        }
+    }
+
+    /// The written ink moves to a layer that fades out, leaving the paper clear for the next word.
+    private func fadeInk() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fading.path = ink.path
+        fading.opacity = 0
+        ink.path = nil
+        CATransaction.commit()
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.5
+        fade.toValue = 0
+        fade.duration = 0.35
+        fading.add(fade, forKey: "fade")
+        path = UIBezierPath()
+    }
+
+    private func showCandidates(preview: String? = nil) {
+        if let preview {
+            for (index, button) in candidateButtons.enumerated() {
+                let text = index == 0 ? preview : ""
+                button.setTitle(text, for: .normal)
+                button.setTitleColor(textColor.withAlphaComponent(0.45), for: .normal)
+                button.titleLabel?.font = keyFont(for: text, size: 21)
+                button.backgroundColor = .clear
+                button.isEnabled = false
+            }
+            return
+        }
         for (index, button) in candidateButtons.enumerated() {
             let text = index < pending.count ? pending[index] : ""
             button.setTitle(text, for: .normal)
+            button.setTitleColor(textColor, for: .normal)
+            button.isEnabled = true
             button.titleLabel?.font = keyFont(for: text, size: index == 0 ? 21 : 18)
             button.backgroundColor = index == 0 && !text.isEmpty ? UIColor.systemRed.withAlphaComponent(0.15) : .clear
             button.layer.cornerRadius = 9
         }
     }
 
-    /// The last word's best reading goes in (before a new word, space or closing).
-    func commitPending() {
-        guard let best = pending.first else { return }
-        commit(best)
+    /// Ink still being written is read now (before a space, return, emoji or closing); `then`
+    /// runs once the word is in the text.
+    func commitPending(then: (() -> Void)? = nil) {
+        if !strokes.isEmpty {
+            recognizeTimer?.invalidate()
+            recognizeTimer = nil
+            recognizeWord()
+        }
+        guard let then else { return }
+        if reading > 0 { afterReading.append(then) } else { then() }
     }
 
-    private func commit(_ text: String) {
-        pending = []
+    /// Another reading of the last word tapped: it takes the first one's place in the text.
+    private func choose(_ text: String) {
+        guard let last = lastWord, let index = pending.firstIndex(of: text) else { return }
+        if text != last.text { onReplace?(last.text, text) }
+        lastWord = (text, last.strokes, last.box, last.time)
+        pending.remove(at: index)
+        pending.insert(text, at: 0)
         showCandidates()
-        clearInk()
-        onInsert?(text)
-    }
-
-    /// The faded word slides to the paper's right edge (and shrinks if it is wider than half the
-    /// paper), leaving room for the next one.
-    private func moveInkAside() {
-        guard let box = ink.path?.boundingBoxOfPath, !box.isNull, box.width > 0 else { return }
-        let area = paper.frame
-        let scale = min(1, area.width * 0.45 / box.width)
-        let right = area.maxX - 12
-        // The ink layer has no size at the pad's origin, so its transform works in pad points.
-        let move = CGAffineTransform(translationX: right, y: box.midY)
-            .scaledBy(x: scale, y: scale)
-            .translatedBy(x: -box.maxX, y: -box.midY)
-        CATransaction.begin()
-        CATransaction.setAnimationDuration(0.3)
-        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
-        ink.setAffineTransform(move)
-        CATransaction.commit()
     }
 
     private func clearInk() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        ink.setAffineTransform(.identity)
         ink.path = nil
         CATransaction.commit()
         path = UIBezierPath()
     }
 
     private func deleteDown() {
-        if !strokes.isEmpty || !pending.isEmpty {
-            // Unwritten ink or readings not yet in: thrown away.
+        if !strokes.isEmpty {
+            // Ink not yet read: thrown away.
             recognizeTimer?.invalidate()
             strokes = []
-            pending = []
+            previewGeneration += 1
             generation += 1
             showCandidates()
             clearInk()
         } else {
+            // The text itself, as the keyboard's backspace; the last word's readings go.
+            lastWord = nil
+            pending = []
+            showCandidates()
             onDeleteDown?()
         }
     }

@@ -57,7 +57,10 @@ final class KeyboardViewController: UIInputViewController {
     /// No margin under the bottom row: the keys sit as low as the extension can draw.
     private var fullHeight: CGFloat {
         barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) + (emojiSearch != nil ? searchExtraHeight : 0)
+            + (handwritingPad != nil ? handwritingExtraHeight : 0)
     }
+    /// More room to write in while the handwriting pad is open, in portrait (Rooz, 2026-11-08).
+    private var handwritingExtraHeight: CGFloat { isLandscape ? 0 : 2 * rowHeight }
     /// The emoji search typed so far, while one is typed on the letters (nil otherwise).
     private var emojiSearch: String?
     /// What an emoji search adds over the suggestion bar: the row of emoji found, and enough
@@ -350,6 +353,7 @@ final class KeyboardViewController: UIInputViewController {
         finishEdits()
         UsageStats.publish()
         settingsPanel?.removeFromSuperview()
+        hideKeysUnderSettings(false)
         hideHandwriting(animated: false)
         emojiReturnsToHandwriting = false
         motion?.stopDeviceMotionUpdates()
@@ -1090,7 +1094,7 @@ final class KeyboardViewController: UIInputViewController {
     private static let persianMoreRows: [[String]] = [
         ["[", "]", "{", "}", "#", "%", "^", "*", "+", "="],
         ["_", "\\", "|", "~", "<", ">", "&", "•", "’", "”"],
-        [".", "،", "؟", "!", "٬", "﷼", "\u{064B}"],
+        [".", "،", "؟", "!", "٫", "﷼", "\u{064B}"],
     ]
     private static let englishRows: [[String]] = [
         ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
@@ -2561,6 +2565,13 @@ final class KeyboardViewController: UIInputViewController {
             let gap = before.isEmpty || before.hasSuffix(" ") || before.hasSuffix("\n") ? "" : " "
             self.insert(gap + text)
         }
+        pad.onReplace = { [weak self] old, new in
+            guard let self, (self.proxy.documentContextBeforeInput ?? "").hasSuffix(old) else { return }
+            for _ in old { self.proxy.deleteBackward() }
+            self.insert(new)
+        }
+        pad.onWordRead = { [weak self] in self?.haptic(.impact(.soft)) }
+        pad.pause = options.handwritingPause
         pad.onSpace = { [weak self] in self?.insert(" ") }
         pad.onDeleteDown = { [weak self] in self?.backspaceDown() }
         pad.onDeleteUp = { [weak self] in self?.backspaceUp() }
@@ -2577,6 +2588,8 @@ final class KeyboardViewController: UIInputViewController {
         pad.textBefore = { [weak self] in self?.proxy.documentContextBeforeInput ?? "" }
         view.addSubview(pad)
         handwritingPad = pad
+        view.setNeedsUpdateConstraints()
+        view.setNeedsLayout()
         pad.alpha = 0
         UIView.animate(withDuration: 0.2) {
             pad.alpha = 1
@@ -2588,6 +2601,8 @@ final class KeyboardViewController: UIInputViewController {
     private func hideHandwriting(animated: Bool) {
         guard let pad = handwritingPad else { return }
         handwritingPad = nil
+        view.setNeedsUpdateConstraints()
+        view.setNeedsLayout()
         // A delete held on the pad stops with it.
         backspaceUp()
         pad.commitPending()
@@ -2927,6 +2942,7 @@ final class KeyboardViewController: UIInputViewController {
     private func applyOptions(_ new: KeyboardOptions) {
         let old = options
         options = new
+        handwritingPad?.pause = new.handwritingPause
         if new.numberRow != old.numberRow || new.digitsOnLetters != old.digitsOnLetters { buildCharacterKeys() }
         if new.suggestionBar != old.suggestionBar {
             view.setNeedsLayout()
@@ -3057,24 +3073,47 @@ final class KeyboardViewController: UIInputViewController {
         keysView.addSubview(panel)
         keysView.bringSubviewToFront(panel)
         panel.alpha = 0
-        UIView.animate(withDuration: 0.2) { panel.alpha = 1 }
+        UIView.animate(withDuration: 0.2) {
+            panel.alpha = 1
+            self.hideKeysUnderSettings(true)
+        }
     }
 
     /// The panel in the keyboard's own colour and with its rounded top corners (Rooz,
     /// 2026-11-05): the chosen colour, the picture's average colour, or the colour iOS draws.
     private func styleSettingsPanel() {
         guard let panel = settingsPanel else { return }
-        let picture = backgroundImageView.isHidden ? nil : averageColour?.colour
-        panel.fill = keyStyle.backgroundColor ?? picture ?? Self.systemKeyboardBackground
-        panel.layer.cornerRadius = view.layer.cornerRadius
+        // A keyboard with no colour of its own (iOS's, or a picture) leaves the panel clear too,
+        // with the keys hidden under it (Rooz, 2026-11-08).
+        let solid = backgroundImageView.isHidden ? keyStyle.backgroundColor : nil
+        panel.fill = solid ?? .clear
+        panel.layer.cornerRadius = solid == nil ? 0 : max(16, view.layer.cornerRadius)
         panel.layer.cornerCurve = .continuous
         panel.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         panel.clipsToBounds = true
+        if panel.superview != nil { hideKeysUnderSettings(true) }
+    }
+
+    /// The views under the panel, faded while it shows and given back their own alpha after.
+    private var keysUnderSettings: [(view: UIView, alpha: CGFloat)] = []
+
+    private func hideKeysUnderSettings(_ hide: Bool) {
+        if hide {
+            guard keysUnderSettings.isEmpty, let panel = settingsPanel else { return }
+            keysUnderSettings = keysView.subviews.filter { $0 !== panel && $0.alpha > 0 }.map { ($0, $0.alpha) }
+            keysUnderSettings.forEach { $0.view.alpha = 0 }
+        } else {
+            keysUnderSettings.forEach { $0.view.alpha = $0.alpha }
+            keysUnderSettings = []
+        }
     }
 
     private func hideSettings() {
         guard let panel = settingsPanel else { return }
-        UIView.animate(withDuration: 0.15, animations: { panel.alpha = 0 }) { _ in
+        UIView.animate(withDuration: 0.15, animations: {
+            panel.alpha = 0
+            self.hideKeysUnderSettings(false)
+        }) { _ in
             panel.removeFromSuperview()
         }
     }
@@ -4914,7 +4953,15 @@ private final class KeyboardSettingsPanel: UIView {
     private let scroll = UIScrollView()
     private let stack = UIStackView()
     private let numbers = UISegmentedControl(items: ["خاموش", "ردیف جدا", "روی حروف"])
+    private let handwritingSpeed = UISegmentedControl(items: KeyboardOptions.handwritingSpeedNames)
     private let appButton = UIButton(type: .system)
+    /// The title's mark: a gear in a soft round tile, and a hairline under the title, so the
+    /// title reads apart from the rows (Rooz, 2026-11-08).
+    private let badge = UIView()
+    private let badgeIcon = UIImageView(image: UIImage(systemName: "gearshape.fill",
+                                                       withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)))
+    private let divider = UIView()
+    private static let headerHeight: CGFloat = 56
     private var switches: [(UISwitch, WritableKeyPath<KeyboardOptions, Bool>)] = []
     private var labels: [UILabel] = []
 
@@ -4932,8 +4979,14 @@ private final class KeyboardSettingsPanel: UIView {
         closeButton.accessibilityLabel = "بستن تنظیمات"
         closeButton.accessibilityIdentifier = "settingsClose"
         closeButton.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
+        badge.layer.cornerRadius = 9
+        badge.layer.cornerCurve = .continuous
+        badgeIcon.contentMode = .center
+        badge.addSubview(badgeIcon)
+        header.addSubview(badge)
         header.addSubview(titleLabel)
         header.addSubview(closeButton)
+        header.addSubview(divider)
         addSubview(header)
 
         stack.axis = .vertical
@@ -4949,6 +5002,15 @@ private final class KeyboardSettingsPanel: UIView {
             for row in section.rows { addSwitch(row) }
             if section.title == "ردیف پیشنهاد" { addNumbers() }
         }
+        handwritingSpeed.semanticContentAttribute = .forceRightToLeft
+        handwritingSpeed.setTitleTextAttributes([.font: AppFont.font(ofSize: 13)], for: .normal)
+        handwritingSpeed.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            self.options.handwritingSpeed = self.handwritingSpeed.selectedSegmentIndex
+            self.onChange?(self.options)
+        }, for: .valueChanged)
+        addSectionTitle("سرعت دست‌خط")
+        stack.addArrangedSubview(handwritingSpeed)
         let note = makeLabel("رنگ‌ها، تصویر زمینه و واژه‌نامه در برنامه‌ی کیلس.", size: 13, secondary: true)
         note.numberOfLines = 0
         stack.addArrangedSubview(note)
@@ -5045,6 +5107,7 @@ private final class KeyboardSettingsPanel: UIView {
     private func refresh() {
         for (toggle, key) in switches { toggle.isOn = options[keyPath: key] }
         numbers.selectedSegmentIndex = options.digitsOnLetters ? 2 : options.numberRow ? 1 : 0
+        handwritingSpeed.selectedSegmentIndex = max(0, min(2, options.handwritingSpeed))
         if let predict = switches.first(where: { $0.1 == \KeyboardOptions.predictNextWord })?.0 {
             predict.isEnabled = options.suggestionBar
         }
@@ -5055,6 +5118,9 @@ private final class KeyboardSettingsPanel: UIView {
             label.textColor = label.tag == 1 ? textColor.withAlphaComponent(0.6) : textColor
         }
         titleLabel.textColor = textColor
+        badge.backgroundColor = textColor.withAlphaComponent(0.12)
+        badgeIcon.tintColor = textColor
+        divider.backgroundColor = textColor.withAlphaComponent(0.18)
         closeButton.tintColor = textColor
         appButton.tintColor = textColor
         backgroundColor = fill.resolvedColor(with: traitCollection)
@@ -5078,10 +5144,17 @@ private final class KeyboardSettingsPanel: UIView {
         let inset: CGFloat = 16 + max(safeAreaInsets.left, safeAreaInsets.right)
         let width = min(bounds.width - 2 * inset, 440)
         let side = (bounds.width - width) / 2
-        header.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 44)
-        closeButton.frame = CGRect(x: side - 8, y: 0, width: 44, height: 44)
-        titleLabel.frame = CGRect(x: side + 40, y: 0, width: width - 40, height: 44)
-        scroll.frame = CGRect(x: 0, y: 44, width: bounds.width, height: bounds.height - 44)
+        let top = Self.headerHeight
+        header.frame = CGRect(x: 0, y: 0, width: bounds.width, height: top)
+        closeButton.frame = CGRect(x: side - 8, y: 4, width: 44, height: top - 8)
+        // Right to left: the gear tile, then the title beside it.
+        let tile: CGFloat = 30
+        badge.frame = CGRect(x: side + width - tile, y: (top - tile) / 2, width: tile, height: tile)
+        badgeIcon.frame = badge.bounds
+        titleLabel.frame = CGRect(x: side + 40, y: 0, width: width - 40 - tile - 10, height: top)
+        let hairline = 1 / max(1, traitCollection.displayScale)
+        divider.frame = CGRect(x: side, y: top - hairline, width: width, height: hairline)
+        scroll.frame = CGRect(x: 0, y: top, width: bounds.width, height: bounds.height - top)
         let height = stack.systemLayoutSizeFitting(CGSize(width: width, height: 0),
                                                    withHorizontalFittingPriority: .required,
                                                    verticalFittingPriority: .fittingSizeLevel).height

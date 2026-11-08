@@ -438,6 +438,13 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var keySounds = true
     /// Taptic feedback: keys, corrected words, emoji categories, holds and menus.
     var haptics = true
+    /// How soon a handwritten word is read once the pen lifts: 0 slow, 1 medium, 2 fast
+    /// (Rooz, 2026-11-08: write on without stopping).
+    var handwritingSpeed = 2
+
+    /// The pause after the last stroke that ends a handwritten word.
+    var handwritingPause: TimeInterval { [0.8, 0.5, 0.3][max(0, min(2, handwritingSpeed))] }
+    static let handwritingSpeedNames = ["آرام", "متوسط", "سریع"]
 
     static let standard = KeyboardOptions()
     static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardOptions")
@@ -461,5 +468,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
         touchResets = try container.decodeIfPresent(Int.self, forKey: .touchResets) ?? 0
         keySounds = try container.decodeIfPresent(Bool.self, forKey: .keySounds) ?? true
         haptics = try container.decodeIfPresent(Bool.self, forKey: .haptics) ?? true
+        handwritingSpeed = try container.decodeIfPresent(Int.self, forKey: .handwritingSpeed) ?? 2
     }
 }

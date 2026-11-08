@@ -322,6 +322,18 @@ struct ContentView: View {
             }
 
             Section {
+                Picker(selection: $options.handwritingSpeed) {
+                    ForEach(0..<3) { Text(KeyboardOptions.handwritingSpeedNames[$0]).tag($0) }
+                } label: {
+                    SettingLabel("سرعت دست‌خط", symbol: "pencil.and.scribble", color: .indigo)
+                }
+            } header: {
+                Text("دست‌خط").font(.app(.footnote))
+            } footer: {
+                Text("سریع: هر کلمه با مکثی کوتاه به متن تبدیل می‌شود و می‌شود بی‌وقفه نوشت. آرام: برای نوشتن با حوصله‌تر.").font(.app(.footnote))
+            }
+
+            Section {
                 Toggle(isOn: $options.learnTouches) {
                     SettingLabel("یادگیری محل لمس (TapMap)", symbol: "hand.point.up.left.fill", color: .orange)
                 }
