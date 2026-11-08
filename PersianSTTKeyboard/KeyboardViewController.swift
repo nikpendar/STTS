@@ -39,6 +39,10 @@ final class KeyboardViewController: UIInputViewController {
     private let orb = DictationOrbView()
     /// The picture chosen in the app (`KeyboardBackground`), behind everything.
     private let backgroundImageView = UIImageView()
+    /// The keyboard's colour carried above its top edge, over the thin strip iOS leaves between
+    /// the app and the keyboard (Rooz, 2026-11-08). Shows only where iOS lets the view draw there.
+    private let topBleed = UIView()
+    private static let bleedHeight: CGFloat = 24
     /// The preset drawn last and the size it was drawn at.
     private var drawnBackground: (id: String, size: CGSize)?
     private var heightConstraint: NSLayoutConstraint?
@@ -1449,6 +1453,11 @@ final class KeyboardViewController: UIInputViewController {
         backgroundImageView.layer.cornerCurve = .continuous
         backgroundImageView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         backgroundImageView.isHidden = true
+        topBleed.isUserInteractionEnabled = false
+        topBleed.isHidden = true
+        topBleed.layer.cornerCurve = .continuous
+        topBleed.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        view.addSubview(topBleed)
         view.addSubview(backgroundImageView)
 
         // A keyboard's fully clear pixels take no touches: between the symbols of clear keys
@@ -1700,6 +1709,9 @@ final class KeyboardViewController: UIInputViewController {
         // iOS draws the strip under the keys (globe and dictation) itself, and it cannot take
         // the colour; rounded top corners make the coloured keyboard sit well on the screen.
         view.layer.cornerRadius = solid == nil ? 0 : 16
+        topBleed.backgroundColor = solid
+        topBleed.isHidden = solid == nil
+        topBleed.layer.cornerRadius = 16
         view.layer.cornerCurve = .continuous
         view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         // Letters left to the system colour turn light on a dark background and dark on a light
@@ -1936,6 +1948,7 @@ final class KeyboardViewController: UIInputViewController {
         orb.bounds = view.bounds
         orb.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
         backgroundImageView.frame = view.bounds
+        topBleed.frame = CGRect(x: 0, y: -Self.bleedHeight, width: view.bounds.width, height: Self.bleedHeight + 32)
         updateBackgroundImage()
         // The keys always take the keyboard's own height at the bottom of the view: more height
         // from iOS stays empty above the suggestion bar. They keep it while hidden or resizing,
