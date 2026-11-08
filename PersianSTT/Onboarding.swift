@@ -128,7 +128,7 @@ struct Onboarding: View {
         case .welcome:
             StepPage(symbol: "mic.fill", color: .purple, font: font,
                      title: fa ? "به کیلس خوش آمدید" : "Welcome to Keyless",
-                     text: fa ? "کیبورد فارسی با دیکته‌ی آفلاین. صدای شما روی همین آیفون به متن تبدیل می‌شود و برای آن اینترنت لازم نیست.\n\nچند قدم کوتاه تا اولین دیکته: افزودن کیبورد، روشن کردن دسترسی کامل، وارد کردن مدل گفتار و شروع جلسه."
+                     text: fa ? "کیبورد فارسی با دیکته‌ی آفلاین. صدای شما روی همین آیفون به متن تبدیل می‌شود و برای آن اینترنت لازم نیست.\n\nچند قدم کوتاه تا اولین دیکته: افزودن کیبورد، روشن کردن دسترسی کامل، وارد کردن مدل گفتار و روشن کردن تایپ صوتی."
                               : "A Persian keyboard with offline dictation. Your speech turns into text on this iPhone, with no internet needed.\n\nA few short steps to your first dictation: add the keyboard, turn on Full Access, import the speech model and start a session.") {
                 EmptyView()
             }
@@ -197,13 +197,13 @@ struct Onboarding: View {
 
         case .session:
             StepPage(symbol: "waveform", color: .red, font: font,
-                     title: fa ? "شروع جلسه و دیکته" : "Start a session and dictate",
-                     text: fa ? "جلسه میکروفون را برای کیبورد آماده نگه می‌دارد. آن را اینجا یا در صفحه‌ی اول کیلس شروع کنید؛ بعد از مدتی بی‌استفاده خودش بسته می‌شود.\n\nدر هر برنامه با کلید \(Image(systemName: "globe")) به کیلس بروید، کلید فاصله را نگه دارید و حرف بزنید؛ با رها کردن، متن نوشته می‌شود. برای حرف زدن طولانی انگشت را بالا بکشید تا قفل شود و برای پایان روی دایره بزنید."
-                              : "A session keeps the microphone ready for the keyboard. Start it here or on the first page of Keyless; it ends by itself after a while unused.\n\nIn any app switch to Keyless with the \(Image(systemName: "globe")) key, hold the space bar and speak; let go and the text is written. For longer dictation, slide up to lock and tap the circle to finish.") {
+                     title: fa ? "روشن کردن تایپ صوتی" : "Turn on voice typing",
+                     text: fa ? "تایپ صوتی میکروفون را برای کیبورد آماده نگه می‌دارد. آن را اینجا یا در صفحه‌ی اول کیلس روشن کنید؛ بعد از مدتی بی‌استفاده خودش خاموش می‌شود.\n\nدر هر برنامه با کلید \(Image(systemName: "globe")) به کیلس بروید، کلید فاصله را نگه دارید و حرف بزنید؛ با رها کردن، متن نوشته می‌شود. برای حرف زدن طولانی انگشت را بالا بکشید تا قفل شود و برای پایان روی دایره بزنید."
+                              : "Voice typing keeps the microphone ready for the keyboard. Turn it on here or on the first page of Keyless; it turns off by itself after a while unused.\n\nIn any app switch to Keyless with the \(Image(systemName: "globe")) key, hold the space bar and speak; let go and the text is written. For longer dictation, slide up to lock and tap the circle to finish.") {
                 Button {
                     keyboard.isActive ? keyboard.stop() : keyboard.start()
                 } label: {
-                    wideLabel(keyboard.isActive ? (fa ? "پایان جلسه" : "End Session") : (fa ? "شروع جلسه" : "Start Session"),
+                    wideLabel(keyboard.isActive ? (fa ? "خاموش کردن تایپ صوتی" : "Turn Off Voice Typing") : (fa ? "روشن کردن تایپ صوتی" : "Turn On Voice Typing"),
                               symbol: keyboard.isActive ? "stop.fill" : "mic.fill")
                 }
                 .buttonStyle(.bordered)

@@ -977,7 +977,7 @@ final class KeyboardViewController: UIInputViewController {
     /// the space bar says to.
     private func askForSession() {
         if !DictationBridge.keyboardOpensApp || !open(DictationBridge.sessionURL) {
-            showStatus("کیلس را باز کنید و «شروع جلسه» را بزنید", transient: true)
+            showStatus("کیلس را باز کنید و تایپ صوتی را روشن کنید", transient: true)
         }
     }
 

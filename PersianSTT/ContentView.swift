@@ -210,7 +210,7 @@ struct ContentView: View {
                 Text("میکروفون").font(.app(.footnote))
             } footer: {
                 if noiseSuppression {
-                    Text("برای «فقط صدای من»، جلسه را شروع کنید و در منوی باز شده Voice Isolation را انتخاب کنید.").font(.app(.footnote))
+                    Text("برای «فقط صدای من»، تایپ صوتی را روشن کنید و در منوی باز شده Voice Isolation را انتخاب کنید.").font(.app(.footnote))
                 }
             }
 
@@ -221,13 +221,13 @@ struct ContentView: View {
                     Text("۱ ساعت").tag(60)
                     Text("هرگز").tag(0)
                 } label: {
-                    SettingLabel("بستن خودکار جلسه", symbol: "timer", color: .orange)
+                    SettingLabel("خاموش شدن خودکار تایپ صوتی", symbol: "timer", color: .orange)
                 }
                 .onChange(of: sessionMinutes) { _, _ in keyboard.idleMinutesChanged() }
             } header: {
-                Text("جلسه").font(.app(.footnote))
+                Text("تایپ صوتی").font(.app(.footnote))
             } footer: {
-                Text("جلسه بعد از این مدت بی‌استفاده بسته می‌شود. جلسه‌ی باز باتری مصرف می‌کند.").font(.app(.footnote))
+                Text("تایپ صوتی بعد از این مدت بی‌استفاده خاموش می‌شود. روشن ماندنش باتری مصرف می‌کند.").font(.app(.footnote))
             }
         }
     }
@@ -483,7 +483,7 @@ struct ContentView: View {
             Button {
                 keyboard.isActive ? keyboard.stop() : keyboard.start()
             } label: {
-                Text(keyboard.isActive ? "پایان جلسه" : "شروع جلسه")
+                Text(keyboard.isActive ? "خاموش کردن تایپ صوتی" : "روشن کردن تایپ صوتی")
                     .font(.app(.headline))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
@@ -603,7 +603,7 @@ struct ContentView: View {
         if keyboard.isActive {
             return "کیبورد آماده است. به اپ قبلی برگردید و با نگه‌داشتن کلید فاصله دیکته کنید."
         }
-        return keyboard.message.isEmpty ? "برای دیکته با کیبورد، جلسه را شروع کنید." : keyboard.message
+        return keyboard.message.isEmpty ? "برای دیکته با کیبورد، تایپ صوتی را روشن کنید." : keyboard.message
     }
 
     /// No model is loaded and none is loading.
@@ -970,7 +970,7 @@ private struct DictionaryPage: View {
             } header: {
                 Text("پیشنهاد از اصلاح‌های شما").font(.app(.footnote))
             } footer: {
-                Text("کلمه‌هایی که در متن دیکته‌شده \(DictionarySuggestions.minimum) بار یا بیشتر به یک شکل اصلاح کرده‌اید. برای این کار جلسه باید باز و دسترسی کامل کیبورد روشن باشد.")
+                Text("کلمه‌هایی که در متن دیکته‌شده \(DictionarySuggestions.minimum) بار یا بیشتر به یک شکل اصلاح کرده‌اید. برای این کار تایپ صوتی و دسترسی کامل کیبورد باید روشن باشند.")
                     .font(.app(.footnote))
             }
         }

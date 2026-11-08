@@ -189,7 +189,7 @@ final class KeyboardSession: ObservableObject {
             resetIdleTimer()
             DictationBridge.post(DictationBridge.alive)
         } catch {
-            message = "شروع جلسه ناموفق بود: \(error.localizedDescription)"
+            message = "روشن کردن تایپ صوتی ناموفق بود: \(error.localizedDescription)"
             stop()
         }
     }
@@ -209,7 +209,7 @@ final class KeyboardSession: ObservableObject {
         corrections.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if isActive {
-            message = "جلسه‌ی کیبورد تمام شد."
+            message = "تایپ صوتی خاموش شد."
             DictationBridge.post(DictationBridge.ended)
         }
         isActive = false
