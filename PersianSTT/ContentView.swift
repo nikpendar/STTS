@@ -103,6 +103,9 @@ struct ContentView: View {
                     NavigationLink { appearancePage } label: {
                         SettingLabel("ظاهر دکمه‌ها", symbol: "paintpalette.fill", color: .pink)
                     }
+                    NavigationLink { page("دست‌خط") { HandwritingPage(options: $options) } } label: {
+                        SettingLabel("دست‌خط", symbol: "pencil.and.scribble", color: .indigo)
+                    }
                 } header: {
                     Text("تایپ").font(.app(.footnote))
                 }
@@ -319,18 +322,6 @@ struct ContentView: View {
                 Text("بازخورد کلیدها").font(.app(.footnote))
             } footer: {
                 Text("صدا با سوییچ بی‌صدای گوشی قطع می‌شود. لرزش برای کلیدها، اصلاح کلمه و دسته‌های شکلک فرق دارد.").font(.app(.footnote))
-            }
-
-            Section {
-                Picker(selection: $options.handwritingSpeed) {
-                    ForEach(0..<3) { Text(KeyboardOptions.handwritingSpeedNames[$0]).tag($0) }
-                } label: {
-                    SettingLabel("سرعت دست‌خط", symbol: "pencil.and.scribble", color: .indigo)
-                }
-            } header: {
-                Text("دست‌خط").font(.app(.footnote))
-            } footer: {
-                Text("سریع: هر کلمه با مکثی کوتاه به متن تبدیل می‌شود و می‌شود بی‌وقفه نوشت. آرام: برای نوشتن با حوصله‌تر.").font(.app(.footnote))
             }
 
             Section {
@@ -705,6 +696,91 @@ private struct SliderLine<Control: View, Value: View>: View {
         }
         // Under the title, past the 29-point symbol square and Label's gap.
         .padding(.leading, 41)
+    }
+}
+
+/// The handwriting pad's own page (Rooz, 2026-11-08): how soon a word is read, and the pen's
+/// width and colour, with a sample of the pen.
+private struct HandwritingPage: View {
+    @Binding var options: KeyboardOptions
+
+    var body: some View {
+        Section {
+            SliderLine(small: "tortoise.fill", large: "hare.fill") {
+                Slider(value: $options.handwritingSpeed, in: 0...1)
+            } value: {
+                Text(options.handwritingPause.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "fa_IR"))) + " ثانیه")
+                    .font(.app(.footnote))
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 52)
+            }
+        } header: {
+            Text("سرعت").font(.app(.footnote))
+        } footer: {
+            Text("مکث پس از بلند کردن انگشت تا کلمه به متن تبدیل شود. سریع: می‌شود بی‌وقفه نوشت. آرام: برای نوشتن با حوصله‌تر.").font(.app(.footnote))
+        }
+
+        Section {
+            SliderLine(small: "line.diagonal", large: "scribble.variable") {
+                Slider(value: $options.handwritingInkWidth, in: KeyboardOptions.handwritingWidths, step: 0.5)
+            } value: {
+                Text(options.handwritingInkWidth.formatted(.number.precision(.fractionLength(0...1)).locale(Locale(identifier: "fa_IR"))))
+                    .font(.app(.footnote))
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 28)
+            }
+            Toggle(isOn: Binding {
+                options.handwritingInk == nil
+            } set: { automatic in
+                options.handwritingInk = automatic ? nil : KeyStyle.RGBA(r: 0.0, g: 0.48, b: 1.0, a: 1)
+            }) {
+                SettingLabel("هم‌رنگ حروف کیبورد", symbol: "circle.lefthalf.filled", color: .gray)
+            }
+            if options.handwritingInk != nil {
+                ColorPicker(selection: inkBinding, supportsOpacity: false) {
+                    SettingLabel("رنگ قلم", symbol: "paintbrush.pointed.fill", color: .blue)
+                }
+            }
+            PenSample(width: options.handwritingInkWidth,
+                      color: options.handwritingInk.map { Color(red: $0.r, green: $0.g, blue: $0.b) } ?? .primary)
+                .frame(height: 70)
+                .listRowBackground(Color(.secondarySystemGroupedBackground))
+        } header: {
+            Text("قلم").font(.app(.footnote))
+        }
+    }
+
+    private var inkBinding: Binding<Color> {
+        Binding {
+            options.handwritingInk.map { Color(red: $0.r, green: $0.g, blue: $0.b) } ?? .blue
+        } set: { color in
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+            options.handwritingInk = KeyStyle.RGBA(r: Double(r), g: Double(g), b: Double(b), a: 1)
+        }
+    }
+}
+
+/// A scribble in the pen's width and colour.
+private struct PenSample: View {
+    let width: Double
+    let color: Color
+
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            let w = size.width, h = size.height
+            path.move(to: CGPoint(x: w * 0.12, y: h * 0.62))
+            path.addCurve(to: CGPoint(x: w * 0.38, y: h * 0.42),
+                          control1: CGPoint(x: w * 0.2, y: h * 0.15), control2: CGPoint(x: w * 0.3, y: h * 0.9))
+            path.addCurve(to: CGPoint(x: w * 0.62, y: h * 0.5),
+                          control1: CGPoint(x: w * 0.46, y: h * 0.0), control2: CGPoint(x: w * 0.52, y: h * 0.95))
+            path.addCurve(to: CGPoint(x: w * 0.88, y: h * 0.38),
+                          control1: CGPoint(x: w * 0.72, y: h * 0.1), control2: CGPoint(x: w * 0.8, y: h * 0.75))
+            context.stroke(path, with: .color(color),
+                           style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
+        }
+        .accessibilityHidden(true)
     }
 }
 

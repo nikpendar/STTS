@@ -438,13 +438,18 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var keySounds = true
     /// Taptic feedback: keys, corrected words, emoji categories, holds and menus.
     var haptics = true
-    /// How soon a handwritten word is read once the pen lifts: 0 slow, 1 medium, 2 fast
-    /// (Rooz, 2026-11-08: write on without stopping).
-    var handwritingSpeed = 2
+    /// How soon a handwritten word is read once the pen lifts: 0 slowest … 1 fastest
+    /// (Rooz, 2026-11-08: write on without stopping; a slider in the app's handwriting page).
+    var handwritingSpeed = 1.0
+    /// The pen's width in points.
+    var handwritingInkWidth = 4.0
+    /// The pen's colour; nil follows the keyboard's letter colour.
+    var handwritingInk: KeyStyle.RGBA?
 
-    /// The pause after the last stroke that ends a handwritten word.
-    var handwritingPause: TimeInterval { [0.8, 0.5, 0.3][max(0, min(2, handwritingSpeed))] }
+    /// The pause after the last stroke that ends a handwritten word: 1.0 s slowest, 0.3 s fastest.
+    var handwritingPause: TimeInterval { 1.0 - 0.7 * max(0, min(1, handwritingSpeed)) }
     static let handwritingSpeedNames = ["آرام", "متوسط", "سریع"]
+    static let handwritingWidths = 2.0...10.0
 
     static let standard = KeyboardOptions()
     static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardOptions")
@@ -468,6 +473,9 @@ struct KeyboardOptions: SharedSetting, Equatable {
         touchResets = try container.decodeIfPresent(Int.self, forKey: .touchResets) ?? 0
         keySounds = try container.decodeIfPresent(Bool.self, forKey: .keySounds) ?? true
         haptics = try container.decodeIfPresent(Bool.self, forKey: .haptics) ?? true
-        handwritingSpeed = try container.decodeIfPresent(Int.self, forKey: .handwritingSpeed) ?? 2
+        // Older copies kept three steps (0, 1, 2, fast by default); fast stays fast.
+        handwritingSpeed = min(1, max(0, try container.decodeIfPresent(Double.self, forKey: .handwritingSpeed) ?? 1))
+        handwritingInkWidth = try container.decodeIfPresent(Double.self, forKey: .handwritingInkWidth) ?? 4
+        handwritingInk = try container.decodeIfPresent(KeyStyle.RGBA.self, forKey: .handwritingInk)
     }
 }

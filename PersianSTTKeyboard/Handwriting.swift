@@ -237,12 +237,32 @@ final class HandwritingPadView: UIView {
 
     var textColor = UIColor.label {
         didSet {
-            ink.strokeColor = textColor.cgColor
+            ink.strokeColor = (inkColor ?? textColor).cgColor
             gripPill.backgroundColor = textColor.withAlphaComponent(0.3)
-            fading.strokeColor = textColor.cgColor
+            fading.strokeColor = (inkColor ?? textColor).cgColor
             status.textColor = textColor.withAlphaComponent(0.6)
             candidateButtons.forEach { $0.setTitleColor(textColor, for: .normal) }
         }
+    }
+
+    /// The pen chosen in the app: its colour (nil, the letters' colour) and width.
+    var inkColor: UIColor? {
+        didSet {
+            ink.strokeColor = (inkColor ?? textColor).cgColor
+            fading.strokeColor = (inkColor ?? textColor).cgColor
+        }
+    }
+    var inkWidth: CGFloat = 4 {
+        didSet {
+            ink.lineWidth = inkWidth
+            fading.lineWidth = inkWidth
+        }
+    }
+    /// While the handle is dragged, the pad's height shown inside a keyboard already grown to
+    /// the most it can take: the keyboard is resized once when the drag starts and once when
+    /// it ends, not under the finger (Rooz, 2026-11-08: the keys shook as it followed).
+    var contentHeight: CGFloat? {
+        didSet { if contentHeight != oldValue { setNeedsLayout() } }
     }
 
     private let recognizer = InkRecognizer()
@@ -258,10 +278,12 @@ final class HandwritingPadView: UIView {
     private let emojiButton = UIButton(type: .system)
     private let returnButton = UIButton(type: .system)
     private let paper = UIView()
-    /// The handle: a short pill at the top, dragged to make the pad taller or shorter.
+    /// The handle: a short pill at the very top, dragged to make the pad taller or shorter. It
+    /// takes a wide band across the top, and the touch at once (no movement needed first).
     private let grip = UIView()
     private let gripPill = UIView()
-    private static let gripHeight: CGFloat = 18
+    private static let gripHeight: CGFloat = 12
+    private static let gripTouchHeight: CGFloat = 26
 
     private var strokes: [InkRecognizer.Stroke] = []
     private var current: InkRecognizer.Stroke = []
@@ -353,10 +375,10 @@ final class HandwritingPadView: UIView {
         gripPill.isUserInteractionEnabled = false
         grip.addSubview(gripPill)
         grip.accessibilityLabel = "اندازه‌ی صفحه‌ی دست‌خط"
-        grip.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(dragGrip(_:))))
-        let reset = UITapGestureRecognizer(target: self, action: #selector(resetGrip))
-        reset.numberOfTapsRequired = 2
-        grip.addGestureRecognizer(reset)
+        let hold = UILongPressGestureRecognizer(target: self, action: #selector(dragGrip(_:)))
+        hold.minimumPressDuration = 0
+        hold.allowableMovement = .greatestFiniteMagnitude
+        grip.addGestureRecognizer(hold)
         addSubview(grip)
         recognizer.onState = { [weak self] state in self?.show(state) }
         show(.unavailable)
@@ -367,19 +389,38 @@ final class HandwritingPadView: UIView {
     }
 
     private var gripStart: CGFloat = 0
+    private var gripMoved = false
+    /// When the last touch on the handle that did not drag let go, for a double tap.
+    private var lastGripTap: CFTimeInterval = 0
 
-    @objc private func dragGrip(_ pan: UIPanGestureRecognizer) {
-        // Measured on the screen: the keyboard itself grows under the finger, so its own
-        // coordinates would halve the drag.
+    /// Touch down starts at once; a touch that hardly moved and follows another within a
+    /// moment is a double tap, which puts the default height back.
+    @objc private func dragGrip(_ hold: UILongPressGestureRecognizer) {
+        // Measured on the screen: the keyboard moves when it is resized, so its own
+        // coordinates would shift under the finger.
         guard let window else { return }
-        let y = window.convert(pan.location(in: nil), to: window.screen.coordinateSpace).y
-        if pan.state == .began { gripStart = y }
-        onResize?(pan.state, y - gripStart)
-    }
-
-    @objc private func resetGrip() {
-        onFeedback?()
-        onResetSize?()
+        let y = window.convert(hold.location(in: nil), to: window.screen.coordinateSpace).y
+        switch hold.state {
+        case .began:
+            gripStart = y
+            gripMoved = false
+            onFeedback?()
+            onResize?(.began, 0)
+        case .changed:
+            if abs(y - gripStart) > 6 { gripMoved = true }
+            if gripMoved { onResize?(.changed, y - gripStart) }
+        default:
+            onResize?(.ended, gripMoved ? y - gripStart : 0)
+            guard !gripMoved, hold.state == .ended else { return }
+            let now = CACurrentMediaTime()
+            if now - lastGripTap < 0.35 {
+                lastGripTap = 0
+                onFeedback?()
+                onResetSize?()
+            } else {
+                lastGripTap = now
+            }
+        }
     }
 
     /// Loads the recognizer: called when the pad opens.
@@ -410,9 +451,11 @@ final class HandwritingPadView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let top = Self.gripHeight
-        grip.frame = CGRect(x: bounds.midX - 50, y: 0, width: 100, height: top + 4)
-        gripPill.frame = CGRect(x: 50 - 18, y: (top - 5) / 2, width: 36, height: 5)
+        // The pad's top: the bounds' top, or lower while the handle is dragged.
+        let y0 = max(0, bounds.height - (contentHeight ?? bounds.height))
+        let top = y0 + Self.gripHeight
+        grip.frame = CGRect(x: bounds.midX - 90, y: y0, width: 180, height: Self.gripTouchHeight)
+        gripPill.frame = CGRect(x: 90 - 20, y: 4, width: 40, height: 5)
         let row: CGFloat = 36
         candidateRow.frame = CGRect(x: 8, y: top, width: bounds.width - 16, height: row)
         let buttonsY = bounds.height - 46

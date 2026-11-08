@@ -77,6 +77,8 @@ final class KeyboardViewController: UIInputViewController {
     }
     private var handwritingDragHeight: CGFloat?
     private var handwritingDragStart: CGFloat = 0
+    /// The height the handle is at while it is dragged.
+    private var handwritingDragChosen: CGFloat?
     private var handwritingHeightKey: String { isLandscape ? "handwritingHeight.landscape" : "handwritingHeight.portrait" }
 
     private func clampedHandwritingHeight(_ height: CGFloat) -> CGFloat {
@@ -2605,28 +2607,44 @@ final class KeyboardViewController: UIInputViewController {
         }
         pad.onWordRead = { [weak self] in self?.haptic(.impact(.soft)) }
         pad.pause = options.handwritingPause
+        pad.inkWidth = CGFloat(options.handwritingInkWidth)
+        pad.inkColor = options.handwritingInk.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) }
         pad.onResize = { [weak self] phase, moved in
-            guard let self, self.handwritingPad != nil else { return }
+            guard let self, let pad = self.handwritingPad else { return }
             switch phase {
             case .began:
-                self.handwritingDragStart = self.handwritingHeight
-            case .changed:
-                // Dragged up, taller; only redrawn when it moved a whole point.
-                let height = self.clampedHandwritingHeight((self.handwritingDragStart - moved).rounded())
-                guard height != self.handwritingDragHeight else { return }
-                self.handwritingDragHeight = height
+                // The keyboard grows once to the most it may take; the pad's own top follows
+                // the finger inside it, so nothing is resized while dragging.
+                let start = self.handwritingHeight
+                self.handwritingDragStart = start
+                self.handwritingDragChosen = start
+                pad.contentHeight = start
+                self.handwritingDragHeight = self.clampedHandwritingHeight(.greatestFiniteMagnitude)
                 self.heightChanged()
+            case .changed:
+                let height = self.clampedHandwritingHeight((self.handwritingDragStart - moved).rounded())
+                self.handwritingDragChosen = height
+                pad.contentHeight = height
             default:
-                if let height = self.handwritingDragHeight {
+                let height = self.handwritingDragChosen ?? self.handwritingHeight
+                if height != self.handwritingDragStart {
                     UserDefaults.standard.set(Double(height), forKey: self.handwritingHeightKey)
                 }
+                self.handwritingDragChosen = nil
                 self.handwritingDragHeight = nil
+                self.heightChanged()
+                // The pad fills the keyboard again once iOS has made it the chosen height.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak pad] in
+                    guard let pad, self.handwritingDragHeight == nil else { return }
+                    pad.contentHeight = nil
+                }
             }
         }
         pad.onResetSize = { [weak self] in
             guard let self else { return }
             UserDefaults.standard.removeObject(forKey: self.handwritingHeightKey)
             self.handwritingDragHeight = nil
+            self.handwritingPad?.contentHeight = nil
             self.heightChanged()
         }
         pad.onSpace = { [weak self] in self?.insert(" ") }
@@ -2999,6 +3017,8 @@ final class KeyboardViewController: UIInputViewController {
         let old = options
         options = new
         handwritingPad?.pause = new.handwritingPause
+        handwritingPad?.inkWidth = CGFloat(new.handwritingInkWidth)
+        handwritingPad?.inkColor = new.handwritingInk.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) }
         if new.numberRow != old.numberRow || new.digitsOnLetters != old.digitsOnLetters { buildCharacterKeys() }
         if new.suggestionBar != old.suggestionBar {
             view.setNeedsLayout()
@@ -3123,7 +3143,7 @@ final class KeyboardViewController: UIInputViewController {
             }
         }
         panel.textColor = keyStyle.textColor
-        panel.headerHeight = metrics.bar
+        panel.headerHeight = metrics.bar + 12
         styleSettingsPanel()
         panel.options = options
         panel.frame = keysView.bounds
@@ -5016,9 +5036,9 @@ private final class KeyboardSettingsPanel: UIView {
     /// title reads apart from the rows (Rooz, 2026-11-08).
     private let badge = UIView()
     private let badgeIcon = UIImageView(image: UIImage(systemName: "gearshape.fill",
-                                                       withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)))
+                                                       withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)))
     private let divider = UIView()
-    /// As tall as the keyboard's suggestion bar (Rooz, 2026-11-08).
+    /// A little taller than the keyboard's suggestion bar (Rooz, 2026-11-08).
     var headerHeight: CGFloat = 38 {
         didSet { if headerHeight != oldValue { setNeedsLayout() } }
     }
@@ -5032,14 +5052,14 @@ private final class KeyboardSettingsPanel: UIView {
         titleLabel.text = "تنظیمات کیبورد"
         // Larger, so it stands apart from the rows below it. The app's font has no bold face:
         // asking for bold handed back another font.
-        titleLabel.font = AppFont.font(ofSize: 17)
+        titleLabel.font = AppFont.font(ofSize: 20)
         titleLabel.textAlignment = .right
         closeButton.setImage(UIImage(systemName: "keyboard.chevron.compact.down",
                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 18)), for: .normal)
         closeButton.accessibilityLabel = "بستن تنظیمات"
         closeButton.accessibilityIdentifier = "settingsClose"
         closeButton.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
-        badge.layer.cornerRadius = 7
+        badge.layer.cornerRadius = 8
         badge.layer.cornerCurve = .continuous
         badgeIcon.contentMode = .center
         badge.addSubview(badgeIcon)
@@ -5066,12 +5086,12 @@ private final class KeyboardSettingsPanel: UIView {
         handwritingSpeed.setTitleTextAttributes([.font: AppFont.font(ofSize: 13)], for: .normal)
         handwritingSpeed.addAction(UIAction { [weak self] _ in
             guard let self else { return }
-            self.options.handwritingSpeed = self.handwritingSpeed.selectedSegmentIndex
+            self.options.handwritingSpeed = Double(self.handwritingSpeed.selectedSegmentIndex) / 2
             self.onChange?(self.options)
         }, for: .valueChanged)
         addSectionTitle("سرعت دست‌خط")
         stack.addArrangedSubview(handwritingSpeed)
-        let note = makeLabel("رنگ‌ها، تصویر زمینه و واژه‌نامه در برنامه‌ی آواک.", size: 13, secondary: true)
+        let note = makeLabel("رنگ‌ها، تصویر زمینه، قلم دست‌خط و واژه‌نامه در برنامه‌ی آواک.", size: 13, secondary: true)
         note.numberOfLines = 0
         stack.addArrangedSubview(note)
         if DictationBridge.keyboardOpensApp {
@@ -5167,7 +5187,7 @@ private final class KeyboardSettingsPanel: UIView {
     private func refresh() {
         for (toggle, key) in switches { toggle.isOn = options[keyPath: key] }
         numbers.selectedSegmentIndex = options.digitsOnLetters ? 2 : options.numberRow ? 1 : 0
-        handwritingSpeed.selectedSegmentIndex = max(0, min(2, options.handwritingSpeed))
+        handwritingSpeed.selectedSegmentIndex = Int((max(0, min(1, options.handwritingSpeed)) * 2).rounded())
         if let predict = switches.first(where: { $0.1 == \KeyboardOptions.predictNextWord })?.0 {
             predict.isEnabled = options.suggestionBar
         }
@@ -5208,7 +5228,7 @@ private final class KeyboardSettingsPanel: UIView {
         header.frame = CGRect(x: 0, y: 0, width: bounds.width, height: top)
         closeButton.frame = CGRect(x: side - 8, y: 0, width: 44, height: top)
         // Right to left: the gear tile, then the title beside it.
-        let tile: CGFloat = min(24, top - 10)
+        let tile: CGFloat = min(28, top - 10)
         badge.frame = CGRect(x: side + width - tile, y: (top - tile) / 2, width: tile, height: tile)
         badgeIcon.frame = badge.bounds
         titleLabel.frame = CGRect(x: side + 40, y: 0, width: width - 40 - tile - 8, height: top)
