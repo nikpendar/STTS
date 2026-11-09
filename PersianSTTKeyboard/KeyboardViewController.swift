@@ -39,10 +39,6 @@ final class KeyboardViewController: UIInputViewController {
     private let orb = DictationOrbView()
     /// The picture chosen in the app (`KeyboardBackground`), behind everything.
     private let backgroundImageView = UIImageView()
-    /// The keyboard's colour carried above its top edge, over the thin strip iOS leaves between
-    /// the app and the keyboard (Rooz, 2026-11-08). Shows only where iOS lets the view draw there.
-    private let topBleed = UIView()
-    private static let bleedHeight: CGFloat = 24
     /// The preset drawn last and the size it was drawn at.
     private var drawnBackground: (id: String, size: CGSize)?
     private var heightConstraint: NSLayoutConstraint?
@@ -76,9 +72,8 @@ final class KeyboardViewController: UIInputViewController {
         return clampedHandwritingHeight(CGFloat(chosen))
     }
     private var handwritingDragHeight: CGFloat?
+    /// While dragging: the pad's height less the finger's height over the keyboard's bottom.
     private var handwritingDragStart: CGFloat = 0
-    /// The height the handle is at while it is dragged.
-    private var handwritingDragChosen: CGFloat?
     private var handwritingHeightKey: String { isLandscape ? "handwritingHeight.landscape" : "handwritingHeight.portrait" }
 
     private func clampedHandwritingHeight(_ height: CGFloat) -> CGFloat {
@@ -1455,11 +1450,6 @@ final class KeyboardViewController: UIInputViewController {
         backgroundImageView.layer.cornerCurve = .continuous
         backgroundImageView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         backgroundImageView.isHidden = true
-        topBleed.isUserInteractionEnabled = false
-        topBleed.isHidden = true
-        topBleed.layer.cornerCurve = .continuous
-        topBleed.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
-        view.addSubview(topBleed)
         view.addSubview(backgroundImageView)
 
         // A keyboard's fully clear pixels take no touches: between the symbols of clear keys
@@ -1711,9 +1701,6 @@ final class KeyboardViewController: UIInputViewController {
         // iOS draws the strip under the keys (globe and dictation) itself, and it cannot take
         // the colour; rounded top corners make the coloured keyboard sit well on the screen.
         view.layer.cornerRadius = solid == nil ? 0 : 16
-        topBleed.backgroundColor = solid
-        topBleed.isHidden = solid == nil
-        topBleed.layer.cornerRadius = 16
         view.layer.cornerCurve = .continuous
         view.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         // Letters left to the system colour turn light on a dark background and dark on a light
@@ -1950,7 +1937,6 @@ final class KeyboardViewController: UIInputViewController {
         orb.bounds = view.bounds
         orb.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
         backgroundImageView.frame = view.bounds
-        topBleed.frame = CGRect(x: 0, y: -Self.bleedHeight, width: view.bounds.width, height: Self.bleedHeight + 32)
         updateBackgroundImage()
         // The keys always take the keyboard's own height at the bottom of the view: more height
         // from iOS stays empty above the suggestion bar. They keep it while hidden or resizing,
@@ -2609,42 +2595,28 @@ final class KeyboardViewController: UIInputViewController {
         pad.pause = options.handwritingPause
         pad.inkWidth = CGFloat(options.handwritingInkWidth)
         pad.inkColor = options.handwritingInk.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) }
-        pad.onResize = { [weak self] phase, moved in
-            guard let self, let pad = self.handwritingPad else { return }
+        pad.onResize = { [weak self] phase, fromBottom in
+            guard let self, self.handwritingPad != nil else { return }
             switch phase {
             case .began:
-                // The keyboard grows once to the most it may take; the pad's own top follows
-                // the finger inside it, so nothing is resized while dragging.
-                let start = self.handwritingHeight
-                self.handwritingDragStart = start
-                self.handwritingDragChosen = start
-                pad.contentHeight = start
-                self.handwritingDragHeight = self.clampedHandwritingHeight(.greatestFiniteMagnitude)
-                self.heightChanged()
+                // Where on the pad the finger took hold: the top stays that far above it.
+                self.handwritingDragStart = self.handwritingHeight - fromBottom
             case .changed:
-                let height = self.clampedHandwritingHeight((self.handwritingDragStart - moved).rounded())
-                self.handwritingDragChosen = height
-                pad.contentHeight = height
+                let height = self.clampedHandwritingHeight((fromBottom + self.handwritingDragStart).rounded())
+                guard height != self.handwritingHeight else { return }
+                self.handwritingDragHeight = height
+                self.heightChanged()
             default:
-                let height = self.handwritingDragChosen ?? self.handwritingHeight
-                if height != self.handwritingDragStart {
+                if let height = self.handwritingDragHeight {
                     UserDefaults.standard.set(Double(height), forKey: self.handwritingHeightKey)
                 }
-                self.handwritingDragChosen = nil
                 self.handwritingDragHeight = nil
-                self.heightChanged()
-                // The pad fills the keyboard again once iOS has made it the chosen height.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak pad] in
-                    guard let pad, self.handwritingDragHeight == nil else { return }
-                    pad.contentHeight = nil
-                }
             }
         }
         pad.onResetSize = { [weak self] in
             guard let self else { return }
             UserDefaults.standard.removeObject(forKey: self.handwritingHeightKey)
             self.handwritingDragHeight = nil
-            self.handwritingPad?.contentHeight = nil
             self.heightChanged()
         }
         pad.onSpace = { [weak self] in self?.insert(" ") }

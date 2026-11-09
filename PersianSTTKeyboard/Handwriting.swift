@@ -211,7 +211,7 @@ final class HandwritingPadView: UIView {
     var onReplace: ((String, String) -> Void)?
     /// A word turned into text, for a light tap when haptics are on.
     var onWordRead: (() -> Void)?
-    /// The handle at the top dragged (how far down from where it started), and double-tapped.
+    /// The handle at the top dragged (the finger's height over the keyboard's bottom edge), and double-tapped.
     var onResize: ((UIGestureRecognizer.State, CGFloat) -> Void)?
     var onResetSize: (() -> Void)?
     /// The pen lifted this long ends a word (`KeyboardOptions.handwritingPause`).
@@ -258,13 +258,6 @@ final class HandwritingPadView: UIView {
             fading.lineWidth = inkWidth
         }
     }
-    /// While the handle is dragged, the pad's height shown inside a keyboard already grown to
-    /// the most it can take: the keyboard is resized once when the drag starts and once when
-    /// it ends, not under the finger (Rooz, 2026-11-08: the keys shook as it followed).
-    var contentHeight: CGFloat? {
-        didSet { if contentHeight != oldValue { setNeedsLayout() } }
-    }
-
     private let recognizer = InkRecognizer()
     private let ink = CAShapeLayer()
     /// The last word's ink, fading out as it turns into text, so the paper is clear at once.
@@ -393,24 +386,25 @@ final class HandwritingPadView: UIView {
     /// When the last touch on the handle that did not drag let go, for a double tap.
     private var lastGripTap: CFTimeInterval = 0
 
-    /// Touch down starts at once; a touch that hardly moved and follows another within a
-    /// moment is a double tap, which puts the default height back.
+    /// Touch down takes the handle at once. The finger is measured from the bottom of the
+    /// keyboard's window, which stays put on the screen while the keyboard grows: measured
+    /// from the top, every resize moved the finger's position and the pad shook and ran to
+    /// its smallest (Rooz, 2026-11-09). A touch that hardly moved and follows another within
+    /// a moment is a double tap, which puts the default height back.
     @objc private func dragGrip(_ hold: UILongPressGestureRecognizer) {
-        // Measured on the screen: the keyboard moves when it is resized, so its own
-        // coordinates would shift under the finger.
         guard let window else { return }
-        let y = window.convert(hold.location(in: nil), to: window.screen.coordinateSpace).y
+        let fromBottom = window.bounds.height - hold.location(in: window).y
         switch hold.state {
         case .began:
-            gripStart = y
+            gripStart = fromBottom
             gripMoved = false
             onFeedback?()
-            onResize?(.began, 0)
+            onResize?(.began, fromBottom)
         case .changed:
-            if abs(y - gripStart) > 6 { gripMoved = true }
-            if gripMoved { onResize?(.changed, y - gripStart) }
+            if abs(fromBottom - gripStart) > 6 { gripMoved = true }
+            if gripMoved { onResize?(.changed, fromBottom) }
         default:
-            onResize?(.ended, gripMoved ? y - gripStart : 0)
+            onResize?(.ended, fromBottom)
             guard !gripMoved, hold.state == .ended else { return }
             let now = CACurrentMediaTime()
             if now - lastGripTap < 0.35 {
@@ -451,8 +445,7 @@ final class HandwritingPadView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // The pad's top: the bounds' top, or lower while the handle is dragged.
-        let y0 = max(0, bounds.height - (contentHeight ?? bounds.height))
+        let y0: CGFloat = 0
         let top = y0 + Self.gripHeight
         grip.frame = CGRect(x: bounds.midX - 90, y: y0, width: 180, height: Self.gripTouchHeight)
         gripPill.frame = CGRect(x: 90 - 20, y: 4, width: 40, height: 5)
