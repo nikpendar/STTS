@@ -261,6 +261,8 @@ final class HandwritingPadView: UIView {
     /// Which way the paper moves under the pen once a word is read: right for Persian, left
     /// for English, as if the paper slid under the hand (Rooz, 2026-11-09).
     var rightToLeft = true
+    /// Off, each word fades as soon as it is read instead of sliding aside.
+    var slides = true
 
     private let recognizer = InkRecognizer()
     private let ink = CAShapeLayer()
@@ -572,7 +574,7 @@ final class HandwritingPadView: UIView {
         guard let last = lastWord, CACurrentMediaTime() - last.time < 1 else { return false }
         let box = Self.box(of: [stroke])
         let small = max(box.width, box.height) < 12 || (box.height < 8 && box.width < 28)
-        let shown = last.box.offsetBy(dx: shiftSinceLastWord, dy: 0)
+        let shown = last.box.offsetBy(dx: slides ? shiftSinceLastWord : 0, dy: 0)
         return small && shown.insetBy(dx: -10, dy: -10).contains(CGPoint(x: box.midX, y: box.midY))
     }
 
@@ -618,7 +620,7 @@ final class HandwritingPadView: UIView {
     private func readAgain(adding stroke: InkRecognizer.Stroke) {
         guard let last = lastWord else { return }
         // Where the dot is on the word as the recognizer saw it, before the paper moved.
-        let back = Float(shiftSinceLastWord)
+        let back = Float(slides ? shiftSinceLastWord : 0)
         let moved = stroke.map { InkRecognizer.Point(x: $0.x - back, y: $0.y, t: $0.t) }
         let word = last.strokes + [moved]
         lastWord = (last.text, word, last.box.union(Self.box(of: [moved])), CACurrentMediaTime())
@@ -657,6 +659,18 @@ final class HandwritingPadView: UIView {
         ink.path = nil
         CATransaction.commit()
         path = UIBezierPath()
+        guard slides else {
+            let fade = CABasicAnimation(keyPath: "opacity")
+            fade.fromValue = 0.5
+            fade.toValue = 0
+            fade.duration = 0.35
+            CATransaction.begin()
+            CATransaction.setCompletionBlock { word.removeFromSuperlayer() }
+            word.opacity = 0
+            word.add(fade, forKey: "fade")
+            CATransaction.commit()
+            return
+        }
         guard let width else { return }
         let step = min(width + 22, trail.bounds.width * 0.6) * (rightToLeft ? 1 : -1)
         shiftSinceLastWord = step

@@ -2584,6 +2584,7 @@ final class KeyboardViewController: UIInputViewController {
         }
         let pad = HandwritingPadView(frame: keysView.frame)
         pad.rightToLeft = !isEnglish
+        pad.slides = options.handwritingSlide
         pad.textColor = keyStyle.textColor
         pad.onInsert = { [weak self] text in
             guard let self else { return }
@@ -2996,6 +2997,7 @@ final class KeyboardViewController: UIInputViewController {
         options = new
         handwritingPad?.pause = new.handwritingPause
         handwritingPad?.inkWidth = CGFloat(new.handwritingInkWidth)
+        handwritingPad?.slides = new.handwritingSlide
         handwritingPad?.inkColor = new.handwritingInk.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) }
         if new.numberRow != old.numberRow || new.digitsOnLetters != old.digitsOnLetters { buildCharacterKeys() }
         if new.suggestionBar != old.suggestionBar {

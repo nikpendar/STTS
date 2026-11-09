@@ -732,6 +732,16 @@ private struct HandwritingPage: View {
         }
 
         Section {
+            Toggle(isOn: $options.handwritingSlide) {
+                SettingLabel("حرکت کاغذ زیر قلم", symbol: "arrow.left.and.right", color: .teal)
+            }
+        } footer: {
+            Text(options.handwritingSlide
+                 ? "کلمه‌ی نوشته‌شده مثل کاغذ از زیر قلم کنار می‌رود (فارسی به راست، انگلیسی به چپ) و چند ثانیه بعد از آخرین نوشتن محو می‌شود."
+                 : "هر کلمه همان لحظه که خوانده شد از روی صفحه محو می‌شود.").font(.app(.footnote))
+        }
+
+        Section {
             SliderLine(small: "line.diagonal", large: "scribble.variable") {
                 Slider(value: $options.handwritingInkWidth, in: KeyboardOptions.handwritingWidths, step: 0.5)
             } value: {
