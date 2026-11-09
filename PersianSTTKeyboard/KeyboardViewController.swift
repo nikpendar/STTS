@@ -338,6 +338,11 @@ final class KeyboardViewController: UIInputViewController {
         // A word list that finished loading while the keyboard was not on screen.
         updateSuggestions()
         updateTilt()
+        // Tells the app the keyboard is added and has Full Access (the app opens only then).
+        if hasFullAccess {
+            UIPasteboard(name: DictationBridge.fullAccessPasteboard, create: true)?.string = "on"
+            DictationBridge.post(DictationBridge.fullAccess)
+        }
         var view: UIView? = self.view.window
         while let current = view {
             current.gestureRecognizers?.forEach { $0.delaysTouchesBegan = false }
@@ -2578,6 +2583,7 @@ final class KeyboardViewController: UIInputViewController {
             buildCharacterKeys()
         }
         let pad = HandwritingPadView(frame: keysView.frame)
+        pad.rightToLeft = !isEnglish
         pad.textColor = keyStyle.textColor
         pad.onInsert = { [weak self] text in
             guard let self else { return }

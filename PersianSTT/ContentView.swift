@@ -12,6 +12,7 @@ struct ContentView: View {
     @ObservedObject private var keyboard = KeyboardSession.shared
     @ObservedObject private var personal = PersonalModel.shared
     @ObservedObject private var importer = ModelImporter.shared
+    @StateObject private var gate = KeyboardGate()
     @State private var pickingModel = false
     @AppStorage(PersonalModel.uploadKey) private var trainingUpload = false
     @State private var trainingToken = PersonalModel.shared.token
@@ -135,6 +136,13 @@ struct ContentView: View {
         }
         .id(navigationID)
         .fullScreenCover(isPresented: $showingGuide) { Onboarding() }
+        .overlay {
+            if onboardingDone && !showingGuide && !gate.isReady {
+                KeyboardGateView(gate: gate)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: gate.isReady)
         .fileImporter(isPresented: $pickingModel, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result { importer.importModel(from: url) }
         }
@@ -173,6 +181,7 @@ struct ContentView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                gate.check()
                 model.loadNewModelIfNeeded()
                 importer.importWaitingModel()
                 syncTraining()
@@ -481,7 +490,9 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .buttonBorderShape(.capsule)
-            .tint(keyboard.isActive ? .red : .accentColor)
+            // Grey until the speech model has loaded, then blue (Rooz, 2026-11-09).
+            .tint(keyboard.isActive ? .red : model.hasModel ? .accentColor : .gray)
+            .disabled(!keyboard.isActive && !model.hasModel)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -781,6 +792,119 @@ private struct PenSample: View {
                            style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
         }
         .accessibilityHidden(true)
+    }
+}
+
+/// Whether the keyboard is added in Settings and has Full Access: the app opens only then
+/// (Rooz, 2026-11-09). Added is read from the system's list of keyboards; Full Access only the
+/// keyboard can see, so it marks a shared pasteboard each time it opens with it.
+@MainActor
+final class KeyboardGate: ObservableObject {
+    @Published private(set) var isAdded = true
+    @Published private(set) var hasFullAccess = true
+    var isReady: Bool { isAdded && hasFullAccess }
+
+    private static let seenKey = "keyboardFullAccessSeen"
+    private let observer = DarwinObserver()
+
+    init() {
+        observer.observe(DictationBridge.fullAccess) { [weak self] in
+            UserDefaults.standard.set(true, forKey: "keyboardFullAccessSeen")
+            Task { @MainActor in self?.check() }
+        }
+        check()
+    }
+
+    func check() {
+        #if targetEnvironment(simulator)
+        // The simulator tests cannot switch on Full Access.
+        isAdded = true
+        hasFullAccess = true
+        #else
+        // Unreadable list: not taken as missing.
+        let keyboards = UserDefaults.standard.object(forKey: "AppleKeyboards") as? [String]
+        isAdded = keyboards?.contains(DictationBridge.keyboardBundleID) ?? true
+        if UIPasteboard(name: DictationBridge.fullAccessPasteboard, create: false)?.string == "on" {
+            UserDefaults.standard.set(true, forKey: Self.seenKey)
+        }
+        hasFullAccess = isAdded && UserDefaults.standard.bool(forKey: Self.seenKey)
+        #endif
+    }
+}
+
+/// Shown over the app until the keyboard is added and has Full Access.
+private struct KeyboardGateView: View {
+    @ObservedObject var gate: KeyboardGate
+    @State private var probe = ""
+    @FocusState private var probing: Bool
+
+    var body: some View {
+        ZStack {
+            Color(.systemGroupedBackground).ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 22) {
+                    Image(systemName: "keyboard.badge.exclamationmark")
+                        .font(.system(size: 54, weight: .medium))
+                        .foregroundStyle(.orange)
+                        .padding(.top, 40)
+                    Text("اول کیبورد آواک را آماده کنید")
+                        .font(.app(.title2))
+                        .multilineTextAlignment(.center)
+                    VStack(alignment: .leading, spacing: 14) {
+                        step(done: gate.isAdded, title: "افزودن کیبورد",
+                             text: "تنظیمات › آواک › کیبوردها › آواک را روشن کنید.")
+                        step(done: gate.hasFullAccess, title: "روشن کردن دسترسی کامل",
+                             text: "در همان صفحه «اجازه‌ی دسترسی کامل» را روشن کنید. دیکته، رنگ‌ها و واژه‌نامه بدون آن کار نمی‌کنند.")
+                    }
+                    .padding(16)
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                    Button {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        Text("باز کردن تنظیمات")
+                            .font(.app(.headline))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+
+                    if gate.isAdded {
+                        VStack(spacing: 8) {
+                            Text("بعد از روشن کردن دسترسی کامل، اینجا بزنید و با کلید کره کیبورد آواک را انتخاب کنید تا تأیید شود.")
+                                .font(.app(.footnote))
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            TextField("اینجا بزنید", text: $probe)
+                                .focused($probing)
+                                .multilineTextAlignment(.center)
+                                .padding(12)
+                                .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+        }
+        .environment(\.layoutDirection, .rightToLeft)
+        .font(.app(.body))
+        .onChange(of: gate.isReady) { _, ready in if ready { probing = false } }
+    }
+
+    private func step(done: Bool, title: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 22))
+                .foregroundStyle(done ? .green : .secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.app(.headline))
+                Text(text).font(.app(.footnote)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
     }
 }
 

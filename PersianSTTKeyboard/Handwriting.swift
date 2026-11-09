@@ -258,10 +258,20 @@ final class HandwritingPadView: UIView {
             fading.lineWidth = inkWidth
         }
     }
+    /// Which way the paper moves under the pen once a word is read: right for Persian, left
+    /// for English, as if the paper slid under the hand (Rooz, 2026-11-09).
+    var rightToLeft = true
+
     private let recognizer = InkRecognizer()
     private let ink = CAShapeLayer()
-    /// The last word's ink, fading out as it turns into text, so the paper is clear at once.
+    /// Words already read stay on the paper, moved aside, until the pen rests a few seconds.
+    private let trail = CALayer()
+    /// Template for the words' ink: colour and width.
     private let fading = CAShapeLayer()
+    /// How far the paper has moved since the last word was read (for a dot added to it).
+    private var shiftSinceLastWord: CGFloat = 0
+    private var trailFadeTimer: Timer?
+    private static let trailRest: TimeInterval = 2.5
     private let status = UILabel()
     private let candidateRow = UIStackView()
     private var candidateButtons: [UIButton] = []
@@ -315,7 +325,8 @@ final class HandwritingPadView: UIView {
         fading.lineWidth = 4
         fading.lineCap = .round
         fading.lineJoin = .round
-        layer.addSublayer(fading)
+        trail.masksToBounds = true
+        layer.addSublayer(trail)
         layer.addSublayer(ink)
         status.font = keyFont(for: "دست‌خط", size: 15)
         status.textAlignment = .center
@@ -463,6 +474,13 @@ final class HandwritingPadView: UIView {
         }
         paper.frame = CGRect(x: 8, y: top + row + 2, width: bounds.width - 16, height: max(24, buttonsY - top - row - 8))
         status.frame = paper.frame.insetBy(dx: 20, dy: 20)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if trail.frame != paper.frame {
+            clearTrail()
+            trail.frame = paper.frame
+        }
+        CATransaction.commit()
     }
 
     private func show(_ state: InkRecognizer.State) {
@@ -485,6 +503,7 @@ final class HandwritingPadView: UIView {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first, paperArea.contains(touch.location(in: self)) else { return }
         recognizeTimer?.invalidate()
+        trailFadeTimer?.invalidate()
         if strokes.isEmpty {
             started = touch.timestamp
             path = UIBezierPath()
@@ -519,6 +538,7 @@ final class HandwritingPadView: UIView {
             return
         }
         strokes.append(stroke)
+        scheduleTrailFade()
         preview()
         // The pen lifted a moment: the word is done, and the next can start straight away.
         recognizeTimer = Timer.scheduledTimer(withTimeInterval: pause, repeats: false) { [weak self] _ in
@@ -552,7 +572,8 @@ final class HandwritingPadView: UIView {
         guard let last = lastWord, CACurrentMediaTime() - last.time < 1 else { return false }
         let box = Self.box(of: [stroke])
         let small = max(box.width, box.height) < 12 || (box.height < 8 && box.width < 28)
-        return small && last.box.insetBy(dx: -10, dy: -10).contains(CGPoint(x: box.midX, y: box.midY))
+        let shown = last.box.offsetBy(dx: shiftSinceLastWord, dy: 0)
+        return small && shown.insetBy(dx: -10, dy: -10).contains(CGPoint(x: box.midX, y: box.midY))
     }
 
     /// The word being written, read as it grows: its best reading shows dimmed in the first slot.
@@ -572,8 +593,8 @@ final class HandwritingPadView: UIView {
         previewGeneration += 1
         generation += 1
         let mine = generation
-        fadeInk()
         let box = Self.box(of: word)
+        moveInkAside(width: box.width)
         reading += 1
         recognizer.recognize(word, before: textBefore?() ?? "", area: paperArea.size) { [weak self] texts in
             guard let self else { return }
@@ -596,10 +617,13 @@ final class HandwritingPadView: UIView {
     /// The last word with a dot or bar added, read again and swapped in the text.
     private func readAgain(adding stroke: InkRecognizer.Stroke) {
         guard let last = lastWord else { return }
-        let word = last.strokes + [stroke]
-        lastWord = (last.text, word, last.box.union(Self.box(of: [stroke])), CACurrentMediaTime())
-        path = UIBezierPath()
-        fadeInk()
+        // Where the dot is on the word as the recognizer saw it, before the paper moved.
+        let back = Float(shiftSinceLastWord)
+        let moved = stroke.map { InkRecognizer.Point(x: $0.x - back, y: $0.y, t: $0.t) }
+        let word = last.strokes + [moved]
+        lastWord = (last.text, word, last.box.union(Self.box(of: [moved])), CACurrentMediaTime())
+        moveInkAside(width: nil)
+        scheduleTrailFade()
         generation += 1
         let mine = generation
         reading += 1
@@ -614,20 +638,60 @@ final class HandwritingPadView: UIView {
         }
     }
 
-    /// The written ink moves to a layer that fades out, leaving the paper clear for the next word.
-    private func fadeInk() {
+    /// The word just written joins the words on the paper, and the paper slides by its width
+    /// (right for Persian, left for English) so the next word starts where the pen is. With no
+    /// width (a dot added to the last word), the ink stays where it is.
+    private func moveInkAside(width: CGFloat?) {
+        let word = CAShapeLayer()
+        word.frame = trail.bounds
+        word.fillColor = UIColor.clear.cgColor
+        word.strokeColor = ink.strokeColor
+        word.lineWidth = ink.lineWidth
+        word.lineCap = .round
+        word.lineJoin = .round
+        var toTrail = CGAffineTransform(translationX: -trail.frame.minX, y: -trail.frame.minY)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        fading.path = ink.path
-        fading.opacity = 0
+        word.path = ink.path?.copy(using: &toTrail)
+        trail.addSublayer(word)
         ink.path = nil
         CATransaction.commit()
-        let fade = CABasicAnimation(keyPath: "opacity")
-        fade.fromValue = 0.5
-        fade.toValue = 0
-        fade.duration = 0.35
-        fading.add(fade, forKey: "fade")
         path = UIBezierPath()
+        guard let width else { return }
+        let step = min(width + 22, trail.bounds.width * 0.6) * (rightToLeft ? 1 : -1)
+        shiftSinceLastWord = step
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.3)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+        for layer in trail.sublayers ?? [] {
+            layer.position.x += step
+            // Gone past the edge: off the paper for good.
+            if abs(layer.position.x - trail.bounds.midX) > trail.bounds.width * 1.6 {
+                layer.removeFromSuperlayer()
+            }
+        }
+        CATransaction.commit()
+    }
+
+    /// Once the pen has rested a few seconds, the words on the paper fade away.
+    private func scheduleTrailFade() {
+        trailFadeTimer?.invalidate()
+        trailFadeTimer = Timer.scheduledTimer(withTimeInterval: Self.trailRest, repeats: false) { [weak self] _ in
+            guard let self, self.strokes.isEmpty, self.current.isEmpty else { return }
+            let words = self.trail.sublayers ?? []
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(0.5)
+            CATransaction.setCompletionBlock { words.forEach { $0.removeFromSuperlayer() } }
+            words.forEach { $0.opacity = 0 }
+            CATransaction.commit()
+            self.shiftSinceLastWord = 0
+            self.lastWord = nil
+        }
+    }
+
+    private func clearTrail() {
+        trail.sublayers?.forEach { $0.removeFromSuperlayer() }
+        shiftSinceLastWord = 0
     }
 
     private func showCandidates(preview: String? = nil) {

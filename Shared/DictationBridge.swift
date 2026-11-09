@@ -80,6 +80,14 @@ enum DictationBridge {
     /// Opens the app's settings from the keyboard's settings panel.
     static let settingsURL = URL(string: "persianstt://settings")!
 
+    /// Posted by the keyboard each time it opens with Full Access, after it marks
+    /// `fullAccessPasteboard`, so the app can tell the keyboard is added and allowed.
+    static let fullAccess = "com.persianstt.fullAccess"
+    /// Holds "on" once the keyboard has run with Full Access (only then can it write here).
+    static let fullAccessPasteboard = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardState")
+    /// The keyboard extension's bundle identifier, as iOS lists it in the added keyboards.
+    static let keyboardBundleID = "ir.nikpendar.PersianSTT.Keyboard"
+
     static func post(_ name: String) {
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),
