@@ -370,7 +370,7 @@ struct ContentView: View {
                         Slider(value: Binding { style.letterSize ?? KeyStyle.standardLetterSize } set: { style.letterSize = $0.rounded() },
                                in: 16...32, step: 1)
                     } value: {
-                        Text("\(Int(style.letterSize ?? KeyStyle.standardLetterSize))")
+                        Text(Int(style.letterSize ?? KeyStyle.standardLetterSize).formatted(.number.locale(Locale(identifier: "fa_IR"))))
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                             .frame(minWidth: 40, alignment: .trailing)
@@ -679,7 +679,7 @@ struct ContentView: View {
         SliderLine(small: "circle.dotted", large: "circle.fill") {
             Slider(value: Binding { style[keyPath: path].a } set: { style[keyPath: path].a = $0 }, in: 0...1)
         } value: {
-            Text("\(Int(style[keyPath: path].a * 100))٪")
+            Text(Int(style[keyPath: path].a * 100).formatted(.number.locale(Locale(identifier: "fa_IR"))) + "٪")
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 40, alignment: .trailing)

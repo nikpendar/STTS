@@ -2343,6 +2343,30 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
+    /// The handwriting pad's space: two in a row type a full stop and three a comma when that
+    /// option is on, as on the keys (Rooz, 2026-11-09); no correction of handwritten words.
+    private func handwritingSpace() {
+        let now = CACurrentMediaTime()
+        if options.doubleSpacePunctuation, let last = lastSpace, now - last.time < 1.2 {
+            let before = proxy.documentContextBeforeInput ?? ""
+            if last.step == 1, before.hasSuffix(" "), let end = before.dropLast().last, end.isLetter || end.isNumber {
+                deleteBackward()
+                insert(". ")
+                lastSpace = (now, 2)
+                return
+            }
+            if last.step == 2, before.hasSuffix(". ") {
+                deleteBackward()
+                deleteBackward()
+                insert(isEnglish ? ", " : "، ")
+                lastSpace = nil
+                return
+            }
+        }
+        insert(" ")
+        lastSpace = (now, 1)
+    }
+
     private func repeatWords() {
         repeatTimer?.invalidate()
         repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.22, repeats: true) { [weak self] _ in
@@ -2618,7 +2642,7 @@ final class KeyboardViewController: UIInputViewController {
         pad.onResetSize = { [weak self] in
             _ = self?.setHandwritingSize(1)
         }
-        pad.onSpace = { [weak self] in self?.insert(" ") }
+        pad.onSpace = { [weak self] in self?.handwritingSpace() }
         // One tap, one word (Rooz, 2026-11-09); held, a word at a time after a moment.
         pad.onDeleteDown = { [weak self] in
             guard let self else { return }

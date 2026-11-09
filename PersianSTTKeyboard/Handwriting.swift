@@ -16,6 +16,11 @@ final class InkRecognizer {
     private(set) var state = State.unavailable
     /// The recognizer's language (BCP 47).
     var language = "fa"
+    /// Written right to left, a bracket drawn opening towards the text is the opening one, which
+    /// the recognizer reads as its mirror image: swapped back (Rooz, 2026-11-09).
+    var mirrorsBrackets = true
+    private static let mirrors: [Character: Character] = ["(": ")", ")": "(", "[": "]", "]": "[",
+                                                           "{": "}", "}": "{", "«": "»", "»": "«", "<": ">", ">": "<"]
     /// The download's error in full, for the log.
     private(set) var lastError: String?
     var onState: ((State) -> Void)?
@@ -96,8 +101,10 @@ final class InkRecognizer {
         recognizer.recognize(ink: ink, context: context) { result, _ in
             // After a word in the context the readings start with a space; the keyboard adds its own.
             var texts: [String] = []
+            let mirror = self.mirrorsBrackets
             for candidate in result?.candidates ?? [] {
-                let text = candidate.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                var text = candidate.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if mirror { text = String(text.map { Self.mirrors[$0] ?? $0 }) }
                 if !text.isEmpty, !texts.contains(text) { texts.append(text) }
             }
             DispatchQueue.main.async { completion(texts) }
@@ -254,7 +261,15 @@ final class HandwritingPadView: UIView {
     }
     /// Which way the paper moves under the pen once a word is read: right for Persian, left
     /// for English, as if the paper slid under the hand (Rooz, 2026-11-09).
-    var rightToLeft = true
+    var rightToLeft = true {
+        didSet {
+            recognizer.mirrorsBrackets = rightToLeft
+            deleteButton.setImage(UIImage(systemName: rightToLeft ? "delete.right" : "delete.left",
+                                          withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)), for: .normal)
+            // The language beside the keyboard symbol, so the way the paper moves is plain.
+            closeButton.setTitle(rightToLeft ? " فا" : " EN", for: .normal)
+        }
+    }
     /// Off, each word fades as soon as it is read instead of sliding aside.
     var slides = true
     /// The handwriting speed setting (0 slow … 1 fast): the smoke goes as quickly.
@@ -378,6 +393,8 @@ final class HandwritingPadView: UIView {
         deleteButton.addAction(UIAction { [weak self] _ in self?.onDeleteUp?() },
                                for: [.touchUpInside, .touchUpOutside, .touchCancel])
         closeButton.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
+        closeButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        closeButton.setTitleColor(.label, for: .normal)
         emojiButton.addAction(UIAction { [weak self] _ in self?.onEmoji?() }, for: .touchUpInside)
         returnButton.addAction(UIAction { [weak self] _ in self?.commitPending { self?.onReturn?() } }, for: .touchUpInside)
         for button in [spaceButton, deleteButton, closeButton, emojiButton, returnButton] {
@@ -521,8 +538,7 @@ final class HandwritingPadView: UIView {
         }
         collapseButton.isHidden = !hidden
         expandButton.isHidden = hidden || !landscape
-        styleOverPaper(deleteButton, on: hidden)
-        styleOverPaper(collapseButton, on: hidden)
+        cutPaper(around: hidden ? [deleteButton, collapseButton] : [])
         if fullPaper {
             // The whole pad is paper; the button back and delete sit in its bottom corners,
             // outlined so they stand apart from the ink.
@@ -1045,11 +1061,23 @@ final class HandwritingPadView: UIView {
         return image.cgImage
     }()
 
-    /// Over the paper: a white outline and a plainer fill; otherwise the usual button look.
-    private func styleOverPaper(_ button: UIButton, on: Bool) {
-        button.layer.borderWidth = on ? 1.5 : 0
-        button.layer.borderColor = UIColor.white.withAlphaComponent(0.9).cgColor
-        button.backgroundColor = UIColor.label.withAlphaComponent(on ? 0.18 : 0.08)
+    /// In full paper the two buttons keep their colour; a clear ring is cut out of the paper
+    /// around them so they stand apart from it (Rooz, 2026-11-09).
+    private func cutPaper(around buttons: [UIButton]) {
+        guard !buttons.isEmpty else {
+            paper.layer.mask = nil
+            return
+        }
+        let mask = (paper.layer.mask as? CAShapeLayer) ?? CAShapeLayer()
+        let shape = UIBezierPath(rect: paper.bounds)
+        for button in buttons {
+            let ring = convert(button.frame, to: paper).insetBy(dx: -4, dy: -4)
+            shape.append(UIBezierPath(roundedRect: ring, cornerRadius: 14))
+        }
+        mask.frame = paper.bounds
+        mask.path = shape.cgPath
+        mask.fillRule = .evenOdd
+        paper.layer.mask = mask
     }
 
     private func setFullPaper(_ on: Bool) {
