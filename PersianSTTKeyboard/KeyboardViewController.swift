@@ -2594,7 +2594,10 @@ final class KeyboardViewController: UIInputViewController {
             guard let self else { return }
             // A word after a word: one space between, as typing would leave it.
             let before = self.proxy.documentContextBeforeInput ?? ""
-            let gap = before.isEmpty || before.hasSuffix(" ") || before.hasSuffix("\n") ? "" : " "
+            // No space before a mark (؟ ! . ، ؛ : and closing brackets), nor after an opening one.
+            let closes = text.unicodeScalars.first.map { CharacterSet.punctuationCharacters.contains($0) && !"([{«".unicodeScalars.contains($0) } ?? false
+            let opened = before.last.map { "([{«".contains($0) } ?? false
+            let gap = before.isEmpty || before.hasSuffix(" ") || before.hasSuffix("\n") || closes || opened ? "" : " "
             self.insert(gap + text)
         }
         pad.onReplace = { [weak self] old, new in
@@ -2614,7 +2617,16 @@ final class KeyboardViewController: UIInputViewController {
             _ = self?.setHandwritingSize(1)
         }
         pad.onSpace = { [weak self] in self?.insert(" ") }
-        pad.onDeleteDown = { [weak self] in self?.backspaceDown() }
+        // One tap, one word (Rooz, 2026-11-09); held, a word at a time after a moment.
+        pad.onDeleteDown = { [weak self] in
+            guard let self else { return }
+            self.click(.delete)
+            self.deleteWordBackward()
+            self.repeatTimer?.invalidate()
+            self.repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.45, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated { self?.repeatWords() }
+            }
+        }
         pad.onDeleteUp = { [weak self] in self?.backspaceUp() }
         pad.onReturn = { [weak self] in self?.insertReturn() }
         pad.onEmoji = { [weak self] in

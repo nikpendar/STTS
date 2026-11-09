@@ -276,6 +276,11 @@ final class HandwritingPadView: UIView {
     private let closeButton = UIButton(type: .system)
     private let emojiButton = UIButton(type: .system)
     private let returnButton = UIButton(type: .system)
+    /// Full paper (Rooz, 2026-11-09): everything but the paper, delete and the button back goes,
+    /// and the paper takes the whole pad; the keyboard keeps its size.
+    private let expandButton = UIButton(type: .system)
+    private let collapseButton = UIButton(type: .system)
+    private var fullPaper = false
     private let paper = UIView()
     /// The handle: a short pill at the very top, dragged to make the pad taller or shorter. It
     /// takes a wide band across the top, and the touch at once (no movement needed first).
@@ -344,7 +349,8 @@ final class HandwritingPadView: UIView {
         }
         for (button, symbol, label) in [(spaceButton, "space", "فاصله"), (deleteButton, "delete.right", "پاک کردن"),
                                         (closeButton, "keyboard", "صفحه‌کلید"), (emojiButton, "face.smiling", "شکلک"),
-                                        (returnButton, "return", "خط بعد")] {
+                                        (returnButton, "return", "خط بعد"),
+                                        (collapseButton, "arrow.down.right.and.arrow.up.left", "کوچک کردن")] {
             button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)), for: .normal)
             button.accessibilityLabel = label
             button.tintColor = .label
@@ -353,6 +359,16 @@ final class HandwritingPadView: UIView {
             button.layer.cornerCurve = .continuous
             addSubview(button)
         }
+        expandButton.setImage(UIImage(systemName: "arrow.up.left.and.arrow.down.right",
+                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)), for: .normal)
+        expandButton.accessibilityLabel = "تمام‌صفحه"
+        expandButton.tintColor = .label
+        expandButton.addAction(UIAction { [weak self] _ in self?.setFullPaper(true) }, for: .touchUpInside)
+        expandButton.addAction(UIAction { [weak self] _ in self?.onFeedback?() }, for: .touchDown)
+        addSubview(expandButton)
+        collapseButton.addAction(UIAction { [weak self] _ in self?.setFullPaper(false) }, for: .touchUpInside)
+        collapseButton.addAction(UIAction { [weak self] _ in self?.onFeedback?() }, for: .touchDown)
+        collapseButton.isHidden = true
         spaceButton.addAction(UIAction { [weak self] _ in self?.commitPending { self?.onSpace?() } }, for: .touchUpInside)
         deleteButton.addAction(UIAction { [weak self] _ in self?.deleteDown() }, for: .touchDown)
         deleteButton.addAction(UIAction { [weak self] _ in self?.onDeleteUp?() },
@@ -465,18 +481,32 @@ final class HandwritingPadView: UIView {
         grip.frame = CGRect(x: bounds.midX - 90, y: y0, width: 180, height: Self.gripTouchHeight)
         gripPill.frame = CGRect(x: 90 - 20, y: 4, width: 40, height: 5)
         let row: CGFloat = 36
-        candidateRow.frame = CGRect(x: 8, y: top, width: bounds.width - 16, height: row)
+        // The full-paper button at the top left, beside the readings.
+        expandButton.frame = CGRect(x: 4, y: top, width: 36, height: row)
+        candidateRow.frame = CGRect(x: 42, y: top, width: bounds.width - 50, height: row)
         let buttonsY = bounds.height - 46
         // Left to right: back to the keyboard, emoji, return, space (twice as wide), delete.
         let gap: CGFloat = 6
         let unit = (bounds.width - 16 - 4 * gap) / 6
-        var x: CGFloat = 8
-        for (button, width) in [(closeButton, unit), (emojiButton, unit), (returnButton, unit),
-                                (spaceButton, 2 * unit), (deleteButton, unit)] {
-            button.frame = CGRect(x: x, y: buttonsY, width: width, height: 40)
-            x += width + gap
+        let hidden = fullPaper
+        for view in [grip, expandButton, candidateRow, closeButton, emojiButton, returnButton, spaceButton] as [UIView] {
+            view.isHidden = hidden
         }
-        paper.frame = CGRect(x: 8, y: top + row + 2, width: bounds.width - 16, height: max(24, buttonsY - top - row - 8))
+        collapseButton.isHidden = !hidden
+        if fullPaper {
+            // Only the button back on the left and delete on the right, under the paper.
+            collapseButton.frame = CGRect(x: 8, y: buttonsY, width: unit, height: 40)
+            deleteButton.frame = CGRect(x: bounds.width - 8 - unit, y: buttonsY, width: unit, height: 40)
+            paper.frame = CGRect(x: 8, y: 8, width: bounds.width - 16, height: max(24, buttonsY - 14))
+        } else {
+            var x: CGFloat = 8
+            for (button, width) in [(closeButton, unit), (emojiButton, unit), (returnButton, unit),
+                                    (spaceButton, 2 * unit), (deleteButton, unit)] {
+                button.frame = CGRect(x: x, y: buttonsY, width: width, height: 40)
+                x += width + gap
+            }
+            paper.frame = CGRect(x: 8, y: top + row + 2, width: bounds.width - 16, height: max(24, buttonsY - top - row - 8))
+        }
         status.frame = paper.frame.insetBy(dx: 20, dy: 20)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -877,7 +907,7 @@ final class HandwritingPadView: UIView {
         guard let path = word.path else { word.removeFromSuperlayer(); return }
         let length = Self.length(of: path)
         // Quick, so writing on is not held up (Rooz, 2026-11-09: the first version was too slow).
-        let duration = CFTimeInterval(max(0.25, min(0.7, length / 700)))
+        let duration = CFTimeInterval(max(0.15, min(0.4, length / 1200)))
 
         let eat = CABasicAnimation(keyPath: "strokeStart")
         eat.fromValue = 0
@@ -977,6 +1007,16 @@ final class HandwritingPadView: UIView {
         return image.cgImage
     }()
 
+    private func setFullPaper(_ on: Bool) {
+        guard fullPaper != on else { return }
+        commitPending()
+        fullPaper = on
+        UIView.animate(withDuration: 0.2) {
+            self.setNeedsLayout()
+            self.layoutIfNeeded()
+        }
+    }
+
     private func deleteDown() {
         if !strokes.isEmpty {
             // Ink not yet read: thrown away.
@@ -987,7 +1027,7 @@ final class HandwritingPadView: UIView {
             showCandidates()
             clearInk()
         } else {
-            // The text itself, as the keyboard's backspace; the last word's readings go.
+            // The text itself, a word per tap, more words while held; the last word's readings go.
             lastWord = nil
             pending = []
             showCandidates()
