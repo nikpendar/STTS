@@ -806,13 +806,14 @@ private struct PenSample: View {
 }
 
 /// Whether the keyboard is added in Settings and has Full Access: the app opens only then
-/// (Rooz, 2026-11-09). Added is read from the system's list of keyboards; Full Access only the
-/// keyboard can see, so it marks a shared pasteboard each time it opens with it.
+/// (Rooz, 2026-11-09). Only the keyboard can tell, so it marks a shared pasteboard and sends a
+/// notification each time it opens with Full Access. The system's list of keyboards is only a
+/// hint for the first step's tick: on the phone it did not list the added keyboard.
 @MainActor
 final class KeyboardGate: ObservableObject {
     @Published private(set) var isAdded = true
     @Published private(set) var hasFullAccess = true
-    var isReady: Bool { isAdded && hasFullAccess }
+    var isReady: Bool { hasFullAccess }
 
     private static let seenKey = "keyboardFullAccessSeen"
     private let observer = DarwinObserver()
@@ -831,13 +832,12 @@ final class KeyboardGate: ObservableObject {
         isAdded = true
         hasFullAccess = true
         #else
-        // Unreadable list: not taken as missing.
-        let keyboards = UserDefaults.standard.object(forKey: "AppleKeyboards") as? [String]
-        isAdded = keyboards?.contains(DictationBridge.keyboardBundleID) ?? true
         if UIPasteboard(name: DictationBridge.fullAccessPasteboard, create: false)?.string == "on" {
             UserDefaults.standard.set(true, forKey: Self.seenKey)
         }
-        hasFullAccess = isAdded && UserDefaults.standard.bool(forKey: Self.seenKey)
+        hasFullAccess = UserDefaults.standard.bool(forKey: Self.seenKey)
+        let keyboards = UserDefaults.standard.object(forKey: "AppleKeyboards") as? [String] ?? []
+        isAdded = hasFullAccess || keyboards.contains { $0.hasPrefix(DictationBridge.keyboardBundleID) }
         #endif
     }
 }
@@ -882,9 +882,9 @@ private struct KeyboardGateView: View {
                     .buttonStyle(.borderedProminent)
                     .buttonBorderShape(.capsule)
 
-                    if gate.isAdded {
+                    Group {
                         VStack(spacing: 8) {
-                            Text("بعد از روشن کردن دسترسی کامل، اینجا بزنید و با کلید کره کیبورد آواک را انتخاب کنید تا تأیید شود.")
+                            Text("بعد از افزودن کیبورد و روشن کردن دسترسی کامل، اینجا بزنید و با کلید کره کیبورد آواک را انتخاب کنید تا تأیید شود.")
                                 .font(.app(.footnote))
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
