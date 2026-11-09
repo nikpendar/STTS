@@ -760,8 +760,8 @@ final class HandwritingPadView: UIView {
         inkHead.fillColor = penColor.cgColor
         inkHead.strokeColor = nil
         inkHead.shadowColor = penColor.cgColor
-        inkHead.shadowOpacity = 1
-        inkHead.shadowRadius = max(5, inkWidth * 1.6)
+        inkHead.shadowOpacity = 0.7
+        inkHead.shadowRadius = max(3, inkWidth * 0.9)
         inkHead.shadowOffset = .zero
         CATransaction.commit()
     }
@@ -806,39 +806,38 @@ final class HandwritingPadView: UIView {
             }
             index -= 1
         }
+        // Round dots along the stretch, from the line's width at its start to twice that at
+        // the tip, all filled the same way: a smooth taper with no gaps or notches where they
+        // overlap (an outline with a round tip on top left holes in it).
         let tipWidth = inkWidth * 2.1
-        let shape = UIBezierPath()
-        let tipRadius = tipWidth / 2
-        shape.append(UIBezierPath(ovalIn: CGRect(x: tip.x - tipRadius, y: tip.y - tipRadius, width: tipWidth, height: tipWidth)))
-        if stretch.count >= 2 {
-            // Width at each point: from the line's own at the start to the tip's.
-            var run: [CGFloat] = [0]
-            for i in 1..<stretch.count {
-                run.append(run[i - 1] + hypot(stretch[i].x - stretch[i - 1].x, stretch[i].y - stretch[i - 1].y))
-            }
-            let total = max(run.last ?? 1, 1)
-            var left: [CGPoint] = []
-            var right: [CGPoint] = []
-            for i in 0..<stretch.count {
-                let a = stretch[max(0, i - 1)], b = stretch[min(stretch.count - 1, i + 1)]
-                var dx = b.x - a.x, dy = b.y - a.y
-                let n = max(hypot(dx, dy), 0.001)
-                dx /= n; dy /= n
-                let t = run[i] / total
-                let half = (inkWidth + (tipWidth - inkWidth) * t * t) / 2
-                left.append(CGPoint(x: stretch[i].x - dy * half, y: stretch[i].y + dx * half))
-                right.append(CGPoint(x: stretch[i].x + dy * half, y: stretch[i].y - dx * half))
-            }
-            let body = UIBezierPath()
-            body.move(to: left[0])
-            left.dropFirst().forEach { body.addLine(to: $0) }
-            right.reversed().forEach { body.addLine(to: $0) }
-            body.close()
-            shape.append(body)
+        var run: [CGFloat] = [0]
+        for i in stride(from: 1, to: stretch.count, by: 1) {
+            run.append(run[i - 1] + hypot(stretch[i].x - stretch[i - 1].x, stretch[i].y - stretch[i - 1].y))
         }
-        shape.usesEvenOddFillRule = false
-        inkHead.path = shape.cgPath
-        inkHead.shadowPath = shape.cgPath
+        let total = max(run.last ?? 1, 1)
+        let shape = CGMutablePath()
+        var lastDot: CGPoint?
+        for i in stretch.indices {
+            let t = stretch.count == 1 ? 1 : run[i] / total
+            let width = inkWidth + (tipWidth - inkWidth) * t * t
+            let p = stretch[i]
+            // Dots no further apart than a third of their width, filled in between.
+            if let from = lastDot {
+                let gap = hypot(p.x - from.x, p.y - from.y)
+                let steps = Int(gap / max(1, width / 3))
+                if steps > 1 {
+                    for k in 1..<steps {
+                        let f = CGFloat(k) / CGFloat(steps)
+                        let q = CGPoint(x: from.x + (p.x - from.x) * f, y: from.y + (p.y - from.y) * f)
+                        shape.addEllipse(in: CGRect(x: q.x - width / 2, y: q.y - width / 2, width: width, height: width))
+                    }
+                }
+            }
+            shape.addEllipse(in: CGRect(x: p.x - width / 2, y: p.y - width / 2, width: width, height: width))
+            lastDot = p
+        }
+        inkHead.path = shape
+        inkHead.shadowPath = shape
     }
 
     /// The pen lifted: the head fades back into the line.
@@ -877,7 +876,8 @@ final class HandwritingPadView: UIView {
     private func smoke(_ word: CAShapeLayer, box: CGRect) {
         guard let path = word.path else { word.removeFromSuperlayer(); return }
         let length = Self.length(of: path)
-        let duration = CFTimeInterval(max(0.6, min(1.8, length / 260)))
+        // Quick, so writing on is not held up (Rooz, 2026-11-09: the first version was too slow).
+        let duration = CFTimeInterval(max(0.25, min(0.7, length / 700)))
 
         let eat = CABasicAnimation(keyPath: "strokeStart")
         eat.fromValue = 0
@@ -899,19 +899,19 @@ final class HandwritingPadView: UIView {
         puffs.emitterSize = CGSize(width: inkWidth, height: inkWidth)
         let cell = CAEmitterCell()
         cell.contents = Self.puffImage
-        cell.birthRate = 140
-        cell.lifetime = 1.0
-        cell.lifetimeRange = 0.35
-        cell.velocity = 22
+        cell.birthRate = 220
+        cell.lifetime = 0.7
+        cell.lifetimeRange = 0.25
+        cell.velocity = 26
         cell.velocityRange = 10
         cell.emissionLongitude = -.pi / 2
         cell.emissionRange = .pi / 8
-        cell.yAcceleration = -28
+        cell.yAcceleration = -30
         cell.xAcceleration = 0
-        cell.scale = 0.06 * max(1, inkWidth / 3)
-        cell.scaleSpeed = 0.22
-        cell.alphaSpeed = -0.95
-        cell.color = penColor.withAlphaComponent(0.5).cgColor
+        cell.scale = 0.05 * max(1, inkWidth / 3)
+        cell.scaleSpeed = 0.14
+        cell.alphaSpeed = -1.3
+        cell.color = penColor.withAlphaComponent(0.35).cgColor
         cell.spin = 0.6
         cell.spinRange = 1.2
         puffs.emitterCells = [cell]
@@ -924,9 +924,19 @@ final class HandwritingPadView: UIView {
         follow.fillMode = .forwards
         follow.isRemovedOnCompletion = false
         puffs.add(follow, forKey: "follow")
-        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak puffs] in
-            puffs?.birthRate = 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { puffs?.removeFromSuperlayer() }
+        // Thinning out towards the end of the line, and none once it is gone: left running, the
+        // puffs piled up on the last point into one big blot.
+        let thin = CAKeyframeAnimation(keyPath: "birthRate")
+        thin.values = [1, 1, 0]
+        thin.keyTimes = [0, 0.6, 1]
+        thin.duration = duration
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        puffs.birthRate = 0
+        CATransaction.commit()
+        puffs.add(thin, forKey: "thin")
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration + 1.2) { [weak puffs] in
+            puffs?.removeFromSuperlayer()
         }
     }
 
