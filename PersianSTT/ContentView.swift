@@ -743,12 +743,12 @@ private struct HandwritingPage: View {
 
         Section {
             Toggle(isOn: $options.handwritingSlide) {
-                SettingLabel("حرکت کاغذ زیر قلم", symbol: "arrow.left.and.right", color: .teal)
+                SettingLabel("کنار رفتن نوشته", symbol: "arrow.left.and.right", color: .teal)
             }
         } footer: {
             Text(options.handwritingSlide
                  ? "کلمه‌ی نوشته‌شده مثل کاغذ از زیر قلم کنار می‌رود (فارسی به راست، انگلیسی به چپ) و چند ثانیه بعد از آخرین نوشتن محو می‌شود."
-                 : "هر کلمه همان لحظه که خوانده شد از روی صفحه محو می‌شود.").font(.app(.footnote))
+                 : "هر کلمه همان لحظه که خوانده شد، از جایی که شروع شده دود می‌شود و بالا می‌رود؛ سرعتش با سرعت دست‌خط است.").font(.app(.footnote))
         }
 
         Section {

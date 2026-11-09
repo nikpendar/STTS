@@ -257,6 +257,10 @@ final class HandwritingPadView: UIView {
     var rightToLeft = true
     /// Off, each word fades as soon as it is read instead of sliding aside.
     var slides = true
+    /// The handwriting speed setting (0 slow … 1 fast): the smoke goes as quickly.
+    var speed: Double = 1
+    /// The handle taken (true) and let go (false), and a size step: for a firmer tap.
+    var onGripFeedback: ((Bool) -> Void)?
 
     private let recognizer = InkRecognizer()
     private let ink = CAShapeLayer()
@@ -418,7 +422,8 @@ final class HandwritingPadView: UIView {
         case .began:
             gripStart = fromBottom
             gripMoved = false
-            onFeedback?()
+            onGripFeedback?(true)
+            setGripTaken(true)
         case .changed:
             guard now - gripStepped > 0.35 else { return }
             guard let start = gripStart else {
@@ -429,7 +434,7 @@ final class HandwritingPadView: UIView {
             if abs(moved) > 6 { gripMoved = true }
             guard abs(moved) >= Self.gripStep else { return }
             if onStepSize?(moved > 0 ? 1 : -1) == true {
-                onFeedback?()
+                onGripFeedback?(false)
                 gripStepped = now
                 gripStart = nil
             } else {
@@ -437,6 +442,7 @@ final class HandwritingPadView: UIView {
             }
         default:
             gripStart = nil
+            setGripTaken(false)
             guard !gripMoved, hold.state == .ended else { return }
             if now - lastGripTap < 0.35 {
                 lastGripTap = 0
@@ -446,6 +452,22 @@ final class HandwritingPadView: UIView {
                 lastGripTap = now
             }
         }
+    }
+
+    /// The handle grows longer and darker while held, so it shows it was taken.
+    private var gripTaken = false
+    private func setGripTaken(_ taken: Bool) {
+        gripTaken = taken
+        UIView.animate(withDuration: 0.15) {
+            self.layoutGripPill()
+            self.gripPill.alpha = taken ? 1 : 0.75
+        }
+    }
+
+    private func layoutGripPill() {
+        let width: CGFloat = gripTaken ? 76 : 40
+        gripPill.frame = CGRect(x: 90 - width / 2, y: gripTaken ? 3.5 : 4, width: width, height: gripTaken ? 6 : 5)
+        gripPill.layer.cornerRadius = gripPill.frame.height / 2
     }
 
     /// Loads the recognizer: called when the pad opens.
@@ -479,11 +501,16 @@ final class HandwritingPadView: UIView {
         let y0: CGFloat = 0
         let top = y0 + Self.gripHeight
         grip.frame = CGRect(x: bounds.midX - 90, y: y0, width: 180, height: Self.gripTouchHeight)
-        gripPill.frame = CGRect(x: 90 - 20, y: 4, width: 40, height: 5)
+        layoutGripPill()
         let row: CGFloat = 36
+        // Full paper only in landscape (Rooz, 2026-11-09); turned to portrait, back to normal.
+        let screen = window?.screen.bounds.size ?? UIScreen.main.bounds.size
+        let landscape = screen.width > screen.height
+        if !landscape, fullPaper { fullPaper = false }
         // The full-paper button at the top left, beside the readings.
         expandButton.frame = CGRect(x: 4, y: top, width: 36, height: row)
-        candidateRow.frame = CGRect(x: 42, y: top, width: bounds.width - 50, height: row)
+        let readingsX: CGFloat = landscape ? 42 : 8
+        candidateRow.frame = CGRect(x: readingsX, y: top, width: bounds.width - readingsX - 8, height: row)
         let buttonsY = bounds.height - 46
         // Left to right: back to the keyboard, emoji, return, space (twice as wide), delete.
         let gap: CGFloat = 6
@@ -493,11 +520,18 @@ final class HandwritingPadView: UIView {
             view.isHidden = hidden
         }
         collapseButton.isHidden = !hidden
+        expandButton.isHidden = hidden || !landscape
+        styleOverPaper(deleteButton, on: hidden)
+        styleOverPaper(collapseButton, on: hidden)
         if fullPaper {
-            // Only the button back on the left and delete on the right, under the paper.
-            collapseButton.frame = CGRect(x: 8, y: buttonsY, width: unit, height: 40)
-            deleteButton.frame = CGRect(x: bounds.width - 8 - unit, y: buttonsY, width: unit, height: 40)
-            paper.frame = CGRect(x: 8, y: 8, width: bounds.width - 16, height: max(24, buttonsY - 14))
+            // The whole pad is paper; the button back and delete sit in its bottom corners,
+            // outlined so they stand apart from the ink.
+            paper.frame = CGRect(x: 8, y: 8, width: bounds.width - 16, height: max(24, bounds.height - 16))
+            let size = CGSize(width: min(unit, 64), height: 38)
+            collapseButton.frame = CGRect(x: paper.frame.minX + 8, y: paper.frame.maxY - size.height - 8,
+                                          width: size.width, height: size.height)
+            deleteButton.frame = CGRect(x: paper.frame.maxX - size.width - 8, y: paper.frame.maxY - size.height - 8,
+                                        width: size.width, height: size.height)
         } else {
             var x: CGFloat = 8
             for (button, width) in [(closeButton, unit), (emojiButton, unit), (returnButton, unit),
@@ -714,8 +748,9 @@ final class HandwritingPadView: UIView {
             CATransaction.setCompletionBlock { words.forEach { $0.removeFromSuperlayer() } }
             words.forEach { $0.opacity = 0 }
             CATransaction.commit()
+            // The readings stay a tap away after the ink has gone: forgetting the word here
+            // left a reading tapped later, a bracket or a slash, doing nothing (Rooz, 2026-11-09).
             self.shiftSinceLastWord = 0
-            self.lastWord = nil
         }
     }
 
@@ -906,8 +941,11 @@ final class HandwritingPadView: UIView {
     private func smoke(_ word: CAShapeLayer, box: CGRect) {
         guard let path = word.path else { word.removeFromSuperlayer(); return }
         let length = Self.length(of: path)
-        // Quick, so writing on is not held up (Rooz, 2026-11-09: the first version was too slow).
-        let duration = CFTimeInterval(max(0.15, min(0.4, length / 1200)))
+        // With the handwriting speed (Rooz, 2026-11-09): slow about twice as long as medium,
+        // fast a little quicker than medium.
+        let level = CGFloat(max(0, min(1, speed)))
+        let pace = 450 + 500 * level
+        let duration = CFTimeInterval(max(0.4 - 0.2 * level, min(1.1 - 0.6 * level, length / pace)))
 
         let eat = CABasicAnimation(keyPath: "strokeStart")
         eat.fromValue = 0
@@ -932,11 +970,11 @@ final class HandwritingPadView: UIView {
         cell.birthRate = 220
         cell.lifetime = 0.7
         cell.lifetimeRange = 0.25
-        cell.velocity = 26
-        cell.velocityRange = 10
+        cell.velocity = 48
+        cell.velocityRange = 14
         cell.emissionLongitude = -.pi / 2
-        cell.emissionRange = .pi / 8
-        cell.yAcceleration = -30
+        cell.emissionRange = .pi / 10
+        cell.yAcceleration = -70
         cell.xAcceleration = 0
         cell.scale = 0.05 * max(1, inkWidth / 3)
         cell.scaleSpeed = 0.14
@@ -1006,6 +1044,13 @@ final class HandwritingPadView: UIView {
         }
         return image.cgImage
     }()
+
+    /// Over the paper: a white outline and a plainer fill; otherwise the usual button look.
+    private func styleOverPaper(_ button: UIButton, on: Bool) {
+        button.layer.borderWidth = on ? 1.5 : 0
+        button.layer.borderColor = UIColor.white.withAlphaComponent(0.9).cgColor
+        button.backgroundColor = UIColor.label.withAlphaComponent(on ? 0.18 : 0.08)
+    }
 
     private func setFullPaper(_ on: Bool) {
         guard fullPaper != on else { return }
