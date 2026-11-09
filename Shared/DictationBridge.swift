@@ -456,6 +456,9 @@ struct KeyboardOptions: SharedSetting, Equatable {
     /// Written words slide aside like paper under the pen and fade once it rests; off, each
     /// word fades as soon as it is read (Rooz, 2026-11-09).
     var handwritingSlide = true
+    /// The handwriting pad's size: 0 small, 1 medium, 2 large (Rooz, 2026-11-09).
+    var handwritingSize = 1
+    static let handwritingSizeNames = ["کوچک", "متوسط", "بزرگ"]
 
     /// The pause after the last stroke that ends a handwritten word: 1.0 s slowest, 0.3 s fastest.
     var handwritingPause: TimeInterval { 1.0 - 0.7 * max(0, min(1, handwritingSpeed)) }
@@ -489,5 +492,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
         handwritingInkWidth = try container.decodeIfPresent(Double.self, forKey: .handwritingInkWidth) ?? 4
         handwritingInk = try container.decodeIfPresent(KeyStyle.RGBA.self, forKey: .handwritingInk)
         handwritingSlide = try container.decodeIfPresent(Bool.self, forKey: .handwritingSlide) ?? true
+        handwritingSize = try container.decodeIfPresent(Int.self, forKey: .handwritingSize) ?? 1
     }
 }

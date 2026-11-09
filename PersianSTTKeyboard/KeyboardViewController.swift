@@ -61,26 +61,30 @@ final class KeyboardViewController: UIInputViewController {
     private var keysHeight: CGFloat {
         barHeight + 4 * rowHeight + (options.numberRow ? numberRowHeight : 0) + (emojiSearch != nil ? searchExtraHeight : 0)
     }
-    /// The handwriting pad's height: two rows over the keyboard in portrait, or what the user
-    /// dragged its handle to (kept per orientation), from half the keyboard to most of the
-    /// screen (Rooz, 2026-11-08).
+    /// The handwriting pad's height, one of three sizes (`KeyboardOptions.handwritingSize`, set
+    /// in the app or with the pad's handle): in portrait the keyboard's own height, two rows
+    /// more, or four and a half rows more; in landscape a little lower (Rooz, 2026-11-09).
     private var handwritingHeight: CGFloat {
-        if let dragged = handwritingDragHeight { return dragged }
-        guard let chosen = UserDefaults.standard.object(forKey: handwritingHeightKey) as? Double else {
-            return keysHeight + (isLandscape ? 0 : 2 * rowHeight)
-        }
-        return clampedHandwritingHeight(CGFloat(chosen))
+        let extra: [CGFloat] = isLandscape ? [0, 1, 2.5] : [0, 2, 4.5]
+        let size = max(0, min(2, options.handwritingSize))
+        return clampedHandwritingHeight(keysHeight + extra[size] * rowHeight)
     }
-    private var handwritingDragHeight: CGFloat?
-    /// While dragging: the pad's height less the finger's height over the keyboard's bottom.
-    private var handwritingDragStart: CGFloat = 0
-    private var handwritingHeightKey: String { isLandscape ? "handwritingHeight.landscape" : "handwritingHeight.portrait" }
 
     private func clampedHandwritingHeight(_ height: CGFloat) -> CGFloat {
         let screen = UIScreen.main.bounds.size
         let tall = isLandscape ? min(screen.width, screen.height) : max(screen.width, screen.height)
-        let least = (keysHeight / 2).rounded()
-        return max(least, min(height, max(least, (tall * 0.8).rounded())))
+        return min(height, max(keysHeight, (tall * 0.75).rounded()))
+    }
+
+    /// A new handwriting size from the pad, saved like the settings panel saves.
+    private func setHandwritingSize(_ size: Int) -> Bool {
+        let size = max(0, min(2, size))
+        guard size != options.handwritingSize else { return false }
+        var new = options
+        new.handwritingSize = size
+        new.save()
+        applyOptions(new)
+        return true
     }
     /// The emoji search typed so far, while one is typed on the letters (nil otherwise).
     private var emojiSearch: String?
@@ -2602,29 +2606,12 @@ final class KeyboardViewController: UIInputViewController {
         pad.pause = options.handwritingPause
         pad.inkWidth = CGFloat(options.handwritingInkWidth)
         pad.inkColor = options.handwritingInk.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) }
-        pad.onResize = { [weak self] phase, fromBottom in
-            guard let self, self.handwritingPad != nil else { return }
-            switch phase {
-            case .began:
-                // Where on the pad the finger took hold: the top stays that far above it.
-                self.handwritingDragStart = self.handwritingHeight - fromBottom
-            case .changed:
-                let height = self.clampedHandwritingHeight((fromBottom + self.handwritingDragStart).rounded())
-                guard height != self.handwritingHeight else { return }
-                self.handwritingDragHeight = height
-                self.heightChanged()
-            default:
-                if let height = self.handwritingDragHeight {
-                    UserDefaults.standard.set(Double(height), forKey: self.handwritingHeightKey)
-                }
-                self.handwritingDragHeight = nil
-            }
+        pad.onStepSize = { [weak self] step in
+            guard let self else { return false }
+            return self.setHandwritingSize(self.options.handwritingSize + step)
         }
         pad.onResetSize = { [weak self] in
-            guard let self else { return }
-            UserDefaults.standard.removeObject(forKey: self.handwritingHeightKey)
-            self.handwritingDragHeight = nil
-            self.heightChanged()
+            _ = self?.setHandwritingSize(1)
         }
         pad.onSpace = { [weak self] in self?.insert(" ") }
         pad.onDeleteDown = { [weak self] in self?.backspaceDown() }
@@ -2654,7 +2641,6 @@ final class KeyboardViewController: UIInputViewController {
     private func hideHandwriting(animated: Bool) {
         guard let pad = handwritingPad else { return }
         handwritingPad = nil
-        handwritingDragHeight = nil
         heightChanged()
         // A delete held on the pad stops with it.
         backspaceUp()
@@ -2998,6 +2984,7 @@ final class KeyboardViewController: UIInputViewController {
         handwritingPad?.pause = new.handwritingPause
         handwritingPad?.inkWidth = CGFloat(new.handwritingInkWidth)
         handwritingPad?.slides = new.handwritingSlide
+        if new.handwritingSize != old.handwritingSize, handwritingPad != nil { heightChanged() }
         handwritingPad?.inkColor = new.handwritingInk.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) }
         if new.numberRow != old.numberRow || new.digitsOnLetters != old.digitsOnLetters { buildCharacterKeys() }
         if new.suggestionBar != old.suggestionBar {

@@ -211,8 +211,9 @@ final class HandwritingPadView: UIView {
     var onReplace: ((String, String) -> Void)?
     /// A word turned into text, for a light tap when haptics are on.
     var onWordRead: (() -> Void)?
-    /// The handle at the top dragged (the finger's height over the keyboard's bottom edge), and double-tapped.
-    var onResize: ((UIGestureRecognizer.State, CGFloat) -> Void)?
+    /// The handle dragged a stretch up (+1) or down (-1): true when the pad changed size.
+    var onStepSize: ((Int) -> Bool)?
+    /// The handle double-tapped: the middle size.
     var onResetSize: (() -> Void)?
     /// The pen lifted this long ends a word (`KeyboardOptions.handwritingPause`).
     var pause: TimeInterval = 0.3
@@ -261,9 +262,7 @@ final class HandwritingPadView: UIView {
     private let ink = CAShapeLayer()
     /// Words already read stay on the paper, moved aside, until the pen rests a few seconds.
     private let trail = CALayer()
-    /// The ink glows in its own colour with a light core, and the pen's tip is a brighter,
-    /// wider dot while writing, like a glowing pen (Rooz, 2026-11-09).
-    private let inkCore = CAShapeLayer()
+    /// The glowing head over the last stretch of the stroke being written.
     private let inkHead = CAShapeLayer()
     /// How far the paper has moved since the last word was read (for a dot added to it).
     private var shiftSinceLastWord: CGFloat = 0
@@ -316,7 +315,6 @@ final class HandwritingPadView: UIView {
         trail.masksToBounds = true
         layer.addSublayer(trail)
         layer.addSublayer(ink)
-        layer.addSublayer(inkCore)
         layer.addSublayer(inkHead)
         applyInkStyle()
         status.font = keyFont(for: "دست‌خط", size: 15)
@@ -383,32 +381,47 @@ final class HandwritingPadView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    private var gripStart: CGFloat = 0
+    /// Where the finger was when the handle last moved the pad a size, and when that was.
+    private var gripStart: CGFloat?
+    private var gripStepped: CFTimeInterval = 0
     private var gripMoved = false
     /// When the last touch on the handle that did not drag let go, for a double tap.
     private var lastGripTap: CFTimeInterval = 0
+    private static let gripStep: CGFloat = 36
 
-    /// Touch down takes the handle at once. The finger is measured from the bottom of the
-    /// keyboard's window, which stays put on the screen while the keyboard grows: measured
-    /// from the top, every resize moved the finger's position and the pad shook and ran to
-    /// its smallest (Rooz, 2026-11-09). A touch that hardly moved and follows another within
-    /// a moment is a double tap, which puts the default height back.
+    /// The handle moves the pad between three sizes while the finger is held on it: up a size
+    /// for each stretch dragged up, down a size for each stretch dragged down (Rooz,
+    /// 2026-11-09: following the finger point by point lagged and jumped, as the keyboard is
+    /// resized by iOS a moment later). After each size the finger is measured afresh, once the
+    /// keyboard has settled. A double tap puts the middle size back.
     @objc private func dragGrip(_ hold: UILongPressGestureRecognizer) {
         guard let window else { return }
         let fromBottom = window.bounds.height - hold.location(in: window).y
+        let now = CACurrentMediaTime()
         switch hold.state {
         case .began:
             gripStart = fromBottom
             gripMoved = false
             onFeedback?()
-            onResize?(.began, fromBottom)
         case .changed:
-            if abs(fromBottom - gripStart) > 6 { gripMoved = true }
-            if gripMoved { onResize?(.changed, fromBottom) }
+            guard now - gripStepped > 0.35 else { return }
+            guard let start = gripStart else {
+                gripStart = fromBottom
+                return
+            }
+            let moved = fromBottom - start
+            if abs(moved) > 6 { gripMoved = true }
+            guard abs(moved) >= Self.gripStep else { return }
+            if onStepSize?(moved > 0 ? 1 : -1) == true {
+                onFeedback?()
+                gripStepped = now
+                gripStart = nil
+            } else {
+                gripStart = fromBottom
+            }
         default:
-            onResize?(.ended, fromBottom)
+            gripStart = nil
             guard !gripMoved, hold.state == .ended else { return }
-            let now = CACurrentMediaTime()
             if now - lastGripTap < 0.35 {
                 lastGripTap = 0
                 onFeedback?()
@@ -520,7 +533,7 @@ final class HandwritingPadView: UIView {
             path.addLine(to: CGPoint(x: CGFloat(point.x) + 0.5, y: CGFloat(point.y)))
             setInkPath(path.cgPath)
         }
-        setHead(nil)
+        dropHead()
         if strokes.isEmpty, joinsLastWord(stroke) {
             // A dot or a bar put on the word just read: read it again with it.
             readAgain(adding: stroke)
@@ -545,7 +558,7 @@ final class HandwritingPadView: UIView {
         if current.isEmpty { path.move(to: p) } else { path.addLine(to: p) }
         current.append(point)
         setInkPath(path.cgPath)
-        setHead(p)
+        updateHead()
     }
 
     private static func box(of strokes: [InkRecognizer.Stroke]) -> CGRect {
@@ -637,7 +650,7 @@ final class HandwritingPadView: UIView {
         trail.addSublayer(word)
         CATransaction.commit()
         setInkPath(nil)
-        setHead(nil)
+        dropHead(animated: false)
         path = UIBezierPath()
         guard slides else {
             let box = wordPath?.boundingBoxOfPath ?? .zero
@@ -728,151 +741,218 @@ final class HandwritingPadView: UIView {
 
     private func clearInk() {
         setInkPath(nil)
-        setHead(nil)
+        dropHead(animated: false)
         path = UIBezierPath()
     }
 
     // MARK: Ink look
 
-    private var penColor: UIColor { inkColor ?? textColor }
+    private var penColor: UIColor { (inkColor ?? textColor).resolvedColor(with: traitCollection) }
 
-    /// Colour and width on the live ink, its core and the pen's tip.
+    /// The pen is drawn like a shooting star (Rooz, 2026-11-09): a plain, solid line, and at the
+    /// pen's tip a wider, glowing head that narrows back into the line over its last stretch.
+    private static let headLength: CGFloat = 70
+
     private func applyInkStyle() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        style(glow: ink, core: inkCore)
+        plain(ink)
         inkHead.fillColor = penColor.cgColor
+        inkHead.strokeColor = nil
         inkHead.shadowColor = penColor.cgColor
         inkHead.shadowOpacity = 1
-        inkHead.shadowRadius = 7
+        inkHead.shadowRadius = max(5, inkWidth * 1.6)
         inkHead.shadowOffset = .zero
         CATransaction.commit()
     }
 
-    /// A stroke in the pen's colour with a soft glow around it, and a thin light core inside.
-    private func style(glow: CAShapeLayer, core: CAShapeLayer) {
-        let color = penColor.resolvedColor(with: traitCollection)
-        glow.fillColor = UIColor.clear.cgColor
-        glow.strokeColor = color.cgColor
-        glow.lineWidth = inkWidth
-        glow.lineCap = .round
-        glow.lineJoin = .round
-        glow.shadowColor = color.cgColor
-        glow.shadowOpacity = 0.9
-        glow.shadowRadius = max(3, inkWidth * 1.2)
-        glow.shadowOffset = .zero
-        core.fillColor = UIColor.clear.cgColor
-        core.strokeColor = UIColor.white.withAlphaComponent(0.6).cgColor
-        core.lineWidth = max(1, inkWidth * 0.35)
-        core.lineCap = .round
-        core.lineJoin = .round
+    /// A solid stroke in the pen's colour and width, no glow.
+    private func plain(_ shape: CAShapeLayer) {
+        shape.fillColor = UIColor.clear.cgColor
+        shape.strokeColor = penColor.cgColor
+        shape.lineWidth = inkWidth
+        shape.lineCap = .round
+        shape.lineJoin = .round
+        shape.shadowOpacity = 0
     }
 
     private func setInkPath(_ path: CGPath?) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         ink.path = path
-        // The glow drawn from the stroke's outline, not worked out from the pixels each time.
-        ink.shadowPath = path?.copy(strokingWithWidth: inkWidth, lineCap: .round, lineJoin: .round, miterLimit: 1)
-        inkCore.path = path
         CATransaction.commit()
     }
 
-    /// The pen's tip: a dot a little wider than the line, where the finger is.
-    private func setHead(_ point: CGPoint?) {
+    /// The head over the last stretch of the stroke being written: as wide as the line where it
+    /// starts, twice as wide at the tip, with a round tip; it glows, the line does not.
+    private func updateHead() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if let point {
-            let r = inkWidth * 0.95
-            inkHead.path = UIBezierPath(ovalIn: CGRect(x: point.x - r, y: point.y - r, width: 2 * r, height: 2 * r)).cgPath
-        } else {
-            inkHead.path = nil
+        defer { CATransaction.commit() }
+        inkHead.removeAnimation(forKey: "fade")
+        inkHead.opacity = 1
+        let points = current.map { CGPoint(x: CGFloat($0.x), y: CGFloat($0.y)) }
+        guard let tip = points.last else { inkHead.path = nil; return }
+        // The points of the last stretch, from its start to the tip.
+        var stretch = [tip]
+        var length: CGFloat = 0
+        var index = points.count - 2
+        while index >= 0, length < Self.headLength {
+            let p = points[index]
+            let d = hypot(p.x - stretch[0].x, p.y - stretch[0].y)
+            if d > 0.5 {
+                length += d
+                stretch.insert(p, at: 0)
+            }
+            index -= 1
         }
-        CATransaction.commit()
+        let tipWidth = inkWidth * 2.1
+        let shape = UIBezierPath()
+        let tipRadius = tipWidth / 2
+        shape.append(UIBezierPath(ovalIn: CGRect(x: tip.x - tipRadius, y: tip.y - tipRadius, width: tipWidth, height: tipWidth)))
+        if stretch.count >= 2 {
+            // Width at each point: from the line's own at the start to the tip's.
+            var run: [CGFloat] = [0]
+            for i in 1..<stretch.count {
+                run.append(run[i - 1] + hypot(stretch[i].x - stretch[i - 1].x, stretch[i].y - stretch[i - 1].y))
+            }
+            let total = max(run.last ?? 1, 1)
+            var left: [CGPoint] = []
+            var right: [CGPoint] = []
+            for i in 0..<stretch.count {
+                let a = stretch[max(0, i - 1)], b = stretch[min(stretch.count - 1, i + 1)]
+                var dx = b.x - a.x, dy = b.y - a.y
+                let n = max(hypot(dx, dy), 0.001)
+                dx /= n; dy /= n
+                let t = run[i] / total
+                let half = (inkWidth + (tipWidth - inkWidth) * t * t) / 2
+                left.append(CGPoint(x: stretch[i].x - dy * half, y: stretch[i].y + dx * half))
+                right.append(CGPoint(x: stretch[i].x + dy * half, y: stretch[i].y - dx * half))
+            }
+            let body = UIBezierPath()
+            body.move(to: left[0])
+            left.dropFirst().forEach { body.addLine(to: $0) }
+            right.reversed().forEach { body.addLine(to: $0) }
+            body.close()
+            shape.append(body)
+        }
+        shape.usesEvenOddFillRule = false
+        inkHead.path = shape.cgPath
+        inkHead.shadowPath = shape.cgPath
     }
 
-    /// A word's ink as a layer of its own, with the same glow and core.
-    private func wordLayer(_ path: CGPath?) -> CALayer {
-        let word = CALayer()
-        word.frame = trail.bounds
-        let glow = CAShapeLayer()
-        let core = CAShapeLayer()
-        for part in [glow, core] {
-            part.frame = word.bounds
-            part.path = path
-            word.addSublayer(part)
+    /// The pen lifted: the head fades back into the line.
+    private func dropHead(animated: Bool = true) {
+        guard inkHead.path != nil else { return }
+        guard animated else {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            inkHead.path = nil
+            CATransaction.commit()
+            return
         }
-        style(glow: glow, core: core)
-        glow.shadowPath = path?.copy(strokingWithWidth: inkWidth, lineCap: .round, lineJoin: .round, miterLimit: 1)
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1
+        fade.toValue = 0
+        fade.duration = 0.25
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        inkHead.opacity = 0
+        CATransaction.commit()
+        inkHead.add(fade, forKey: "fade")
+    }
+
+    /// A word's ink as a layer of its own: the plain line.
+    private func wordLayer(_ path: CGPath?) -> CAShapeLayer {
+        let word = CAShapeLayer()
+        word.frame = trail.bounds
+        word.path = path
+        plain(word)
         return word
     }
 
-    /// The word rises as smoke, from where it was started to its end: right to left in
-    /// Persian, left to right in English (Rooz, 2026-11-09, when the paper does not slide).
-    private func smoke(_ word: CALayer, box: CGRect) {
-        let duration: CFTimeInterval = 0.9
-        let width = max(1, trail.bounds.width)
-        let first = (rightToLeft ? box.maxX : box.minX) / width
-        let last = (rightToLeft ? box.minX : box.maxX) / width
+    /// The word goes up in smoke along its own line, from where it was started to where it
+    /// ended (Rooz, 2026-11-09): the line is eaten from its start while puffs rise from the
+    /// point being eaten.
+    private func smoke(_ word: CAShapeLayer, box: CGRect) {
+        guard let path = word.path else { word.removeFromSuperlayer(); return }
+        let length = Self.length(of: path)
+        let duration = CFTimeInterval(max(0.6, min(1.8, length / 260)))
 
-        // Gone along the word as the smoke passes.
-        let mask = CAGradientLayer()
-        mask.frame = word.bounds
-        mask.colors = [UIColor.clear.cgColor, UIColor.black.cgColor]
-        mask.startPoint = CGPoint(x: rightToLeft ? 1 : 0, y: 0.5)
-        mask.endPoint = CGPoint(x: rightToLeft ? 0 : 1, y: 0.5)
-        let from = rightToLeft ? 1 - first : first
-        let to = rightToLeft ? 1 - last : last
-        mask.locations = [NSNumber(value: Double(to) + 0.06), NSNumber(value: Double(to) + 0.12)]
-        word.mask = mask
-        let sweep = CABasicAnimation(keyPath: "locations")
-        sweep.fromValue = [NSNumber(value: Double(from) - 0.06), NSNumber(value: Double(from))]
-        sweep.toValue = mask.locations
-        sweep.duration = duration
-        mask.add(sweep, forKey: "sweep")
-
+        let eat = CABasicAnimation(keyPath: "strokeStart")
+        eat.fromValue = 0
+        eat.toValue = 1
+        eat.duration = duration
         CATransaction.begin()
-        CATransaction.setAnimationDuration(duration)
-        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeIn))
+        CATransaction.setDisableActions(true)
+        word.strokeStart = 1
+        CATransaction.commit()
+        CATransaction.begin()
         CATransaction.setCompletionBlock { word.removeFromSuperlayer() }
-        word.position.y -= 14
-        word.opacity = 0
+        word.add(eat, forKey: "eat")
         CATransaction.commit()
 
-        // Puffs rising from the part of the word that is going.
         let puffs = CAEmitterLayer()
         puffs.frame = trail.bounds
-        puffs.emitterShape = .rectangle
+        puffs.emitterShape = .circle
         puffs.emitterMode = .surface
-        puffs.emitterSize = CGSize(width: 8, height: max(8, box.height))
-        let start = CGPoint(x: rightToLeft ? box.maxX : box.minX, y: box.midY)
-        let end = CGPoint(x: rightToLeft ? box.minX : box.maxX, y: box.midY)
-        puffs.emitterPosition = end
+        puffs.emitterSize = CGSize(width: inkWidth, height: inkWidth)
         let cell = CAEmitterCell()
         cell.contents = Self.puffImage
-        cell.birthRate = Float(min(260, 60 + box.width * 1.2))
-        cell.lifetime = 0.9
-        cell.lifetimeRange = 0.3
-        cell.velocity = 34
-        cell.velocityRange = 16
+        cell.birthRate = 140
+        cell.lifetime = 1.0
+        cell.lifetimeRange = 0.35
+        cell.velocity = 22
+        cell.velocityRange = 10
         cell.emissionLongitude = -.pi / 2
-        cell.emissionRange = .pi / 5
-        cell.yAcceleration = -20
-        cell.scale = 0.12 * max(1, inkWidth / 4)
-        cell.scaleSpeed = 0.3
-        cell.alphaSpeed = -1.1
-        cell.color = penColor.resolvedColor(with: traitCollection).withAlphaComponent(0.45).cgColor
+        cell.emissionRange = .pi / 8
+        cell.yAcceleration = -28
+        cell.xAcceleration = 0
+        cell.scale = 0.06 * max(1, inkWidth / 3)
+        cell.scaleSpeed = 0.22
+        cell.alphaSpeed = -0.95
+        cell.color = penColor.withAlphaComponent(0.5).cgColor
+        cell.spin = 0.6
+        cell.spinRange = 1.2
         puffs.emitterCells = [cell]
         trail.addSublayer(puffs)
-        let move = CABasicAnimation(keyPath: "emitterPosition")
-        move.fromValue = NSValue(cgPoint: start)
-        move.toValue = NSValue(cgPoint: end)
-        move.duration = duration
-        puffs.add(move, forKey: "move")
+        // The puffs follow the line at the speed the line is eaten.
+        let follow = CAKeyframeAnimation(keyPath: "emitterPosition")
+        follow.path = path
+        follow.calculationMode = .paced
+        follow.duration = duration
+        follow.fillMode = .forwards
+        follow.isRemovedOnCompletion = false
+        puffs.add(follow, forKey: "follow")
         DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak puffs] in
             puffs?.birthRate = 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) { puffs?.removeFromSuperlayer() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { puffs?.removeFromSuperlayer() }
         }
+    }
+
+    /// The drawn length of a path (its lines; moves between strokes do not count).
+    private static func length(of path: CGPath) -> CGFloat {
+        var total: CGFloat = 0
+        var last = CGPoint.zero
+        path.applyWithBlock { element in
+            let e = element.pointee
+            switch e.type {
+            case .moveToPoint:
+                last = e.points[0]
+            case .addLineToPoint:
+                total += hypot(e.points[0].x - last.x, e.points[0].y - last.y)
+                last = e.points[0]
+            case .addQuadCurveToPoint:
+                total += hypot(e.points[1].x - last.x, e.points[1].y - last.y)
+                last = e.points[1]
+            case .addCurveToPoint:
+                total += hypot(e.points[2].x - last.x, e.points[2].y - last.y)
+                last = e.points[2]
+            default:
+                break
+            }
+        }
+        return total
     }
 
     /// A soft white round puff, drawn once.

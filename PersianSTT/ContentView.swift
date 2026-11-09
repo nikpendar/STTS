@@ -732,6 +732,16 @@ private struct HandwritingPage: View {
         }
 
         Section {
+            Picker(selection: $options.handwritingSize) {
+                ForEach(0..<3) { Text(KeyboardOptions.handwritingSizeNames[$0]).tag($0) }
+            } label: {
+                SettingLabel("اندازه‌ی صفحه", symbol: "arrow.up.and.down", color: .orange)
+            }
+        } footer: {
+            Text("روی صفحه‌ی دست‌خط هم می‌شود دستگیره‌ی بالای آن را گرفت و کمی بالا یا پایین کشید تا یک اندازه بزرگ‌تر یا کوچک‌تر شود. دو ضربه روی دستگیره اندازه‌ی متوسط را برمی‌گرداند.").font(.app(.footnote))
+        }
+
+        Section {
             Toggle(isOn: $options.handwritingSlide) {
                 SettingLabel("حرکت کاغذ زیر قلم", symbol: "arrow.left.and.right", color: .teal)
             }
