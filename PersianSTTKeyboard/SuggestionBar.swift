@@ -1,3 +1,6 @@
+import Accelerate
+import AudioToolbox
+import CoreMotion
 import UIKit
 
 /// The row of word suggestions above the keys: three slots, read right to left, with thin

@@ -1,3 +1,6 @@
+import Accelerate
+import AudioToolbox
+import CoreMotion
 import UIKit
 
 extension KeyboardViewController {

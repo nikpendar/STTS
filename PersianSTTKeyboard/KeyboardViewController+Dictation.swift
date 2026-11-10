@@ -60,9 +60,6 @@ extension KeyboardViewController {
         beginTranscribing()
     }
 
-    /// A locked recording paused by a tap on the orb: the app keeps no audio until the next tap.
-    var isPaused = false
-
     /// `tell`: false when the app paused it itself and only the orb has to show it.
     func setPaused(_ paused: Bool, tell: Bool = true) {
         guard paused != isPaused else { return }

@@ -1,4 +1,6 @@
+import Accelerate
 import AudioToolbox
+import CoreMotion
 import UIKit
 
 /// A key with an optional background and outline (see `KeyStyle`) and a faint highlight

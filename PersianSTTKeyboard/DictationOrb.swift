@@ -1,4 +1,6 @@
 import Accelerate
+import AudioToolbox
+import CoreMotion
 import UIKit
 
 /// A ring that fills towards an estimated end without ever standing still: evenly to 85% at
