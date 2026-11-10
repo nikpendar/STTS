@@ -1,3 +1,4 @@
+#if targetEnvironment(simulator)
 import SwiftUI
 import UIKit
 
@@ -39,3 +40,4 @@ private struct KeyboardHost: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: KeyboardViewController, context: Context) {}
 }
+#endif

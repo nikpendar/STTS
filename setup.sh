@@ -29,11 +29,35 @@ BASE="https://huggingface.co/$REPO/resolve/main"
 MODELS="$ROOT/PersianSTT/Models"
 mkdir -p "$MODELS"
 
+# Every download is checked against checksums.sha256 before it is used. A file with no line there
+# is reported with its hash (to be added) and the script fails at the end.
+SUMS="$ROOT/checksums.sha256"
+UNLISTED=0
+sha() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum -a 256 "$1"; fi | cut -d' ' -f1; }
+verify() { # downloaded file, name in checksums.sha256
+  local want got
+  want="$(awk -v n="$2" '$2 == n { print $1 }' "$SUMS")"
+  got="$(sha "$1")"
+  if [ -z "$want" ]; then
+    echo "::error::no checksum for $2 in checksums.sha256: $got  $2"
+    UNLISTED=1
+  elif [ "$want" != "$got" ]; then
+    echo "::error::checksum mismatch for $2: expected $want, got $got"
+    rm -f "$1"
+    exit 1
+  fi
+}
+download() { # url, local path, name in checksums.sha256
+  curl -fL --retry 3 --progress-bar "$1" -o "$2.part"
+  verify "$2.part" "$3"
+  mv "$2.part" "$2"
+}
+finish() { [ "$UNLISTED" = 0 ] || { echo "Files without a checksum (see above)"; exit 1; }; }
+
 fetch() { # remote name, local path
   if [ ! -s "$2" ]; then
     echo "Downloading $1"
-    curl -fL --retry 3 --progress-bar "$BASE/$1" -o "$2.part"
-    mv "$2.part" "$2"
+    download "$BASE/$1" "$2" "$1"
   fi
 }
 
@@ -51,8 +75,7 @@ mkdir -p "$MODELS/Voice" "$ROOT/build-model" "$ROOT/Frameworks"
 for f in g2p-encoder.onnx g2p-decoder.onnx mana.onnx mana.onnx.json; do
   if [ ! -s "$MODELS/Voice/$f" ]; then
     echo "Downloading $f"
-    curl -fL --retry 3 --progress-bar "$VOICE_RELEASE/$f" -o "$MODELS/Voice/$f.part"
-    mv "$MODELS/Voice/$f.part" "$MODELS/Voice/$f"
+    download "$VOICE_RELEASE/$f" "$MODELS/Voice/$f" "$f"
   fi
 done
 # The Ezafe tagger for the phonemizer (release tts-fa-ezafe, from .github/workflows/ezafe-coreml.yml):
@@ -63,6 +86,7 @@ EZAFE_RELEASE="${EZAFE_RELEASE:-https://github.com/nikpendar/STTS/releases/downl
 if [ ! -d "$MODELS/Voice/Ezafe.mlmodelc" ]; then
   echo "Downloading the Ezafe tagger"
   if curl -fL --retry 3 --progress-bar "$EZAFE_RELEASE/Ezafe.mlmodelc.zip" -o "$ROOT/build-model/Ezafe.mlmodelc.zip"; then
+    verify "$ROOT/build-model/Ezafe.mlmodelc.zip" Ezafe.mlmodelc.zip
     unzip -q "$ROOT/build-model/Ezafe.mlmodelc.zip" -d "$MODELS/Voice"
   else
     echo "The Ezafe tagger is not available: the voice keeps GE2PE's Ezafe"
@@ -73,6 +97,7 @@ if [ ! -d "$ROOT/Frameworks/onnxruntime.xcframework" ]; then
   echo "Downloading ONNX Runtime $ORT_VERSION"
   curl -fL --retry 3 --progress-bar "https://download.onnxruntime.ai/pod-archive-onnxruntime-c-$ORT_VERSION.zip" \
     -o "$ROOT/build-model/onnxruntime.zip"
+  verify "$ROOT/build-model/onnxruntime.zip" "pod-archive-onnxruntime-c-$ORT_VERSION.zip"
   rm -rf "$ROOT/build-model/onnxruntime" && unzip -q "$ROOT/build-model/onnxruntime.zip" -d "$ROOT/build-model/onnxruntime"
   mv "$(find "$ROOT/build-model/onnxruntime" -name onnxruntime.xcframework -type d | head -n1)" "$ROOT/Frameworks/"
 fi
@@ -86,6 +111,8 @@ if [ ! -s "$MODELS/Punct/punct-vocab.tsv" ]; then
   echo "Downloading ALBERT-fa's word pieces"
   if curl -fL --retry 3 --progress-bar "$PUNCT_RELEASE/punct-info.json" -o "$MODELS/Punct/punct-info.json" &&
      curl -fL --retry 3 --progress-bar "$PUNCT_RELEASE/punct-vocab.tsv" -o "$MODELS/Punct/punct-vocab.tsv.part"; then
+    verify "$MODELS/Punct/punct-info.json" punct-info.json
+    verify "$MODELS/Punct/punct-vocab.tsv.part" punct-vocab.tsv
     mv "$MODELS/Punct/punct-vocab.tsv.part" "$MODELS/Punct/punct-vocab.tsv"
   else
     echo "ALBERT-fa's word pieces are not available: the voice keeps GE2PE's Ezafe"
@@ -93,7 +120,7 @@ if [ ! -s "$MODELS/Punct/punct-vocab.tsv" ]; then
   fi
 fi
 
-[ "$MODE" = sidecars ] && exit 0
+[ "$MODE" = sidecars ] && { finish; exit 0; }
 
 FORMAT="${SCRIBE_FORMAT:-mlprogram}"
 RELEASE="${SCRIBE_RELEASE:-https://github.com/nikpendar/STTS/releases/download/koochik-mlp-int8}"
@@ -102,8 +129,7 @@ if [ "$FORMAT" = mlprogram ]; then
   MODEL="$ROOT/build-model/AvakScribe.aar"
   if [ ! -s "$MODEL" ]; then
     echo "Downloading AvakScribe.aar"
-    curl -fL --retry 3 --progress-bar "$RELEASE/Koochik.aar" -o "$MODEL.part"
-    mv "$MODEL.part" "$MODEL"
+    download "$RELEASE/Koochik.aar" "$MODEL" Koochik.aar
   fi
 else
   MODEL="$ROOT/build-model/AvakScribe.mlmodel"
@@ -127,6 +153,7 @@ else
   fi
 fi
 ls -l "$MODEL"
+finish
 [ "$MODE" = bundle ] || exit 0
 
 rm -rf "$MODELS/AvakScribe.mlmodelc" "$ROOT/build-model/compiled"

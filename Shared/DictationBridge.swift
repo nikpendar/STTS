@@ -1,6 +1,7 @@
 import CoreText
 import Foundation
 import Network
+import Security
 import UIKit
 
 /// Messages between the keyboard extension and the app.
@@ -88,32 +89,144 @@ enum DictationBridge {
     /// The keyboard extension's bundle identifier, as iOS lists it in the added keyboards.
     static let keyboardBundleID = "ir.nikpendar.PersianSTT.Keyboard"
 
+    /// Posts one of the names above, with the bridge key in it (`BridgeKey`).
     static func post(_ name: String) {
+        BridgeKey.refreshInKeyboard()
         CFNotificationCenterPostNotification(
             CFNotificationCenterGetDarwinNotifyCenter(),
-            CFNotificationName(name as CFString), nil, nil, true)
+            CFNotificationName(BridgeKey.keyed(name) as CFString), nil, nil, true)
+    }
+}
+
+/// A random key the app makes once and leaves on a named pasteboard of the team, which only the
+/// app and its keyboard (with Full Access) can read. Every Darwin notification name carries it,
+/// and every loopback connection starts with it on its first line, so another app on the phone
+/// can neither start a recording nor read the transcript (review, 2026-11-09).
+enum BridgeKey {
+    static let pasteboard = UIPasteboard.Name("ir.nikpendar.PersianSTT.bridgeKey")
+    private static let defaultsKey = "bridgeKey"
+    private static let type = "public.utf8-plain-text"
+    /// Posted in-process when the keyboard learns a new key: its observers listen again under it.
+    static let changed = Notification.Name("BridgeKeyChanged")
+    private static let lock = NSLock()
+    private static var cached: String?
+
+    private static var inKeyboard: Bool { Bundle.main.bundlePath.hasSuffix(".appex") }
+
+    /// The key in use; empty in the keyboard until it has read one.
+    static var current: String {
+        lock.lock()
+        defer { lock.unlock() }
+        if let cached { return cached }
+        var key = UserDefaults.standard.string(forKey: defaultsKey) ?? ""
+        if key.isEmpty, !inKeyboard {
+            var bytes = [UInt8](repeating: 0, count: 16)
+            if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) != errSecSuccess {
+                bytes = (0..<16).map { _ in UInt8.random(in: 0...255) }
+            }
+            key = bytes.map { String(format: "%02x", $0) }.joined()
+            UserDefaults.standard.set(key, forKey: defaultsKey)
+        }
+        cached = key
+        return key
+    }
+
+    /// App side: leaves the key where the keyboard reads it. Called while the app is in front
+    /// (a background app cannot write a pasteboard).
+    static func publish() {
+        guard !inKeyboard else { return }
+        let key = current
+        let board = UIPasteboard(name: pasteboard, create: true)
+        if board?.string != key { board?.string = key }
+    }
+
+    /// Keyboard side: reads the key the app left, keeps a copy, and tells its observers when it
+    /// changed. Cheap enough to call before each message the keyboard sends.
+    static func refreshInKeyboard() {
+        guard inKeyboard,
+              let key = UIPasteboard(name: pasteboard, create: false)?.string,
+              key.count == 32, key != current else { return }
+        lock.lock()
+        cached = key
+        lock.unlock()
+        UserDefaults.standard.set(key, forKey: defaultsKey)
+        NotificationCenter.default.post(name: changed, object: nil)
+    }
+
+    /// A notification name with the key in it. `fullAccess` stays as it is: the keyboard posts it
+    /// before it may have the key, and it only ticks the app's setup step.
+    static func keyed(_ name: String) -> String {
+        guard name != DictationBridge.fullAccess else { return name }
+        let prefix = "com.persianstt."
+        guard name.hasPrefix(prefix) else { return name }
+        return prefix + current + "." + name.dropFirst(prefix.count)
+    }
+
+    /// The first line of each loopback connection.
+    static var line: Data { Data((current + "\n").utf8) }
+
+    /// Splits a received buffer at its first line: the rest when that line is the key, else nil.
+    static func check(_ buffer: Data) -> Data? {
+        guard let newline = buffer.firstIndex(of: 0x0A) else { return nil }
+        let key = current
+        guard !key.isEmpty, buffer[buffer.startIndex..<newline] == Data(key.utf8) else { return nil }
+        return buffer[buffer.index(after: newline)...]
     }
 }
 
 /// Runs handlers on the main queue when Darwin notifications arrive.
+/// Names are given plain; it listens under the keyed names (`BridgeKey`), and again under the
+/// new ones when the keyboard learns a new key.
 final class DarwinObserver {
     private var handlers: [String: () -> Void] = [:]
+    /// Keyed name heard → plain name of its handler. Read on the notification's thread.
+    private var plainNames: [String: String] = [:]
+    private let lock = NSLock()
+    private var keyChange: NSObjectProtocol?
+
+    init() {
+        keyChange = NotificationCenter.default.addObserver(forName: BridgeKey.changed, object: nil, queue: .main) { [weak self] _ in
+            self?.listenAgain()
+        }
+    }
 
     func observe(_ name: String, handler: @escaping () -> Void) {
         handlers[name] = handler
+        add(name)
+    }
+
+    private func add(_ name: String) {
+        let keyed = BridgeKey.keyed(name)
+        lock.lock()
+        plainNames[keyed] = name
+        lock.unlock()
         CFNotificationCenterAddObserver(
             CFNotificationCenterGetDarwinNotifyCenter(),
             Unmanaged.passUnretained(self).toOpaque(),
             { _, observer, name, _, _ in
                 guard let observer, let name else { return }
                 let receiver = Unmanaged<DarwinObserver>.fromOpaque(observer).takeUnretainedValue()
-                let key = name.rawValue as String
-                DispatchQueue.main.async { receiver.handlers[key]?() }
+                receiver.lock.lock()
+                let plain = receiver.plainNames[name.rawValue as String]
+                receiver.lock.unlock()
+                guard let plain else { return }
+                DispatchQueue.main.async { receiver.handlers[plain]?() }
             },
-            name as CFString, nil, .deliverImmediately)
+            keyed as CFString, nil, .deliverImmediately)
+    }
+
+    private func listenAgain() {
+        CFNotificationCenterRemoveEveryObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            Unmanaged.passUnretained(self).toOpaque())
+        lock.lock()
+        plainNames = [:]
+        lock.unlock()
+        handlers.keys.forEach(add)
     }
 
     deinit {
+        if let keyChange { NotificationCenter.default.removeObserver(keyChange) }
         CFNotificationCenterRemoveEveryObserver(
             CFNotificationCenterGetDarwinNotifyCenter(),
             Unmanaged.passUnretained(self).toOpaque())
@@ -163,19 +276,37 @@ final class TranscriptServer: @unchecked Sendable {
         }
     }
 
+    /// Answers only a connection whose first line is the bridge key; anything else is dropped
+    /// and the messages stay for the keyboard.
     private func serve(_ connection: NWConnection) {
-        let data = Data(pending.joined(separator: String(DictationBridge.separator)).utf8)
-        pending = []
         connection.start(queue: queue)
-        connection.send(content: data, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in
-            connection.cancel()
-        })
+        var buffer = Data()
+        func next() {
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 256) { [weak self] data, _, isComplete, error in
+                guard let self else { connection.cancel(); return }
+                if let data { buffer.append(data) }
+                if buffer.contains(0x0A) {
+                    guard BridgeKey.check(buffer) != nil else { connection.cancel(); return }
+                    let reply = Data(self.pending.joined(separator: String(DictationBridge.separator)).utf8)
+                    self.pending = []
+                    connection.send(content: reply, contentContext: .finalMessage, isComplete: true,
+                                    completion: .contentProcessed { _ in connection.cancel() })
+                } else if isComplete || error != nil || buffer.count > 256 {
+                    connection.cancel()
+                } else {
+                    next()
+                }
+            }
+        }
+        next()
+        queue.asyncAfter(deadline: .now() + 3) { if connection.state != .cancelled { connection.cancel() } }
     }
 }
 
 /// Keyboard side: reads the transcript the app is serving. Needs Full Access.
 enum TranscriptClient {
     static func fetch(completion: @escaping (String?) -> Void) {
+        BridgeKey.refreshInKeyboard()
         let connection = NWConnection(host: "127.0.0.1", port: DictationBridge.transcriptPort, using: .tcp)
         // One serial queue for the connection and the timeout, so `finished` is never raced.
         let queue = DispatchQueue(label: "TranscriptClient")
@@ -201,7 +332,9 @@ enum TranscriptClient {
         }
         connection.stateUpdateHandler = { state in
             switch state {
-            case .ready: receive()
+            case .ready:
+                connection.send(content: BridgeKey.line, completion: .contentProcessed { _ in })
+                receive()
             case .failed, .cancelled: finish(nil)
             default: break
             }
@@ -220,7 +353,9 @@ struct Correction: Codable {
 
     /// Keyboard side: sends the correction to the app over 127.0.0.1. Needs Full Access.
     func send() {
-        guard let data = try? JSONEncoder().encode(self) else { return }
+        guard let json = try? JSONEncoder().encode(self) else { return }
+        BridgeKey.refreshInKeyboard()
+        let data = BridgeKey.line + json
         let connection = NWConnection(host: "127.0.0.1", port: DictationBridge.correctionPort, using: .tcp)
         let queue = DispatchQueue(label: "Correction")
         connection.start(queue: queue)
@@ -272,7 +407,9 @@ final class CorrectionServer: @unchecked Sendable {
                 if let data { buffer.append(data) }
                 if isComplete || error != nil || buffer.count > 1 << 20 {
                     connection.cancel()
-                    if let correction = try? JSONDecoder().decode(Correction.self, from: buffer) {
+                    // Only a connection that starts with the bridge key is taken.
+                    if let json = BridgeKey.check(buffer),
+                       let correction = try? JSONDecoder().decode(Correction.self, from: json) {
                         DispatchQueue.main.async { self?.handler(correction) }
                     }
                 } else {

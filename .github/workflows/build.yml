@@ -60,12 +60,15 @@ jobs:
         with:
           name: AvakScribeModel
           path: build-model/AvakScribe.aar
-          retention-days: 90
+          retention-days: 1
           compression-level: 0
 
       # The keyboard's handwriting recognizer (Google ML Kit, Podfile).
       - name: Handwriting library
-        run: pod install --repo-update
+        run: |
+          pod install --repo-update
+          # Podfile.lock is kept in the repository: this build's resolution, to compare.
+          cat Podfile.lock
 
       # Its Persian files inside the keyboard: ML Kit's own download fails on the phone.
       - name: Handwriting model
@@ -168,6 +171,7 @@ jobs:
         with:
           name: AvakLite
           path: AvakLite.ipa
+          retention-days: 1
           compression-level: 0
 
       # Debug symbols of this build's app, keyboard and watch app: crash reports from the phone
@@ -189,6 +193,7 @@ jobs:
         with:
           name: AvakWatch
           path: AvakWatch.ipa
+          retention-days: 1
           compression-level: 0
 
       - uses: actions/upload-artifact@v5
@@ -196,4 +201,5 @@ jobs:
         with:
           name: Avak
           path: Avak.ipa
+          retention-days: 1
           compression-level: 0

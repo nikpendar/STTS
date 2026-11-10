@@ -538,7 +538,6 @@ final class HandwritingPadView: UIView {
         }
         collapseButton.isHidden = !hidden
         expandButton.isHidden = hidden || !landscape
-        cutPaper(around: hidden ? [deleteButton, collapseButton] : [])
         if fullPaper {
             // The whole pad is paper; the button back and delete sit in its bottom corners,
             // outlined so they stand apart from the ink.
@@ -557,6 +556,12 @@ final class HandwritingPadView: UIView {
             }
             paper.frame = CGRect(x: 8, y: top + row + 2, width: bounds.width - 16, height: max(24, buttonsY - top - row - 8))
         }
+        // The mask is cut after the paper and the buttons have their new frames: cut before,
+        // it kept the old paper size and the old button places (full paper showed half a page).
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        cutPaper(around: hidden ? [deleteButton, collapseButton] : [])
+        CATransaction.commit()
         status.frame = paper.frame.insetBy(dx: 20, dy: 20)
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -872,21 +877,22 @@ final class HandwritingPadView: UIView {
         defer { CATransaction.commit() }
         inkHead.removeAnimation(forKey: "fade")
         inkHead.opacity = 1
-        let points = current.map { CGPoint(x: CGFloat($0.x), y: CGFloat($0.y)) }
-        guard let tip = points.last else { inkHead.path = nil; return }
-        // The points of the last stretch, from its start to the tip.
-        var stretch = [tip]
+        guard let last = current.last else { inkHead.path = nil; return }
+        // The points of the last stretch, from its start to the tip: only the stroke's tail is
+        // read, whatever its length (a long line used to be copied whole on every move).
+        var stretch = [CGPoint(x: CGFloat(last.x), y: CGFloat(last.y))]
         var length: CGFloat = 0
-        var index = points.count - 2
+        var index = current.count - 2
         while index >= 0, length < Self.headLength {
-            let p = points[index]
-            let d = hypot(p.x - stretch[0].x, p.y - stretch[0].y)
+            let p = CGPoint(x: CGFloat(current[index].x), y: CGFloat(current[index].y))
+            let d = hypot(p.x - stretch[stretch.count - 1].x, p.y - stretch[stretch.count - 1].y)
             if d > 0.5 {
                 length += d
-                stretch.insert(p, at: 0)
+                stretch.append(p)
             }
             index -= 1
         }
+        stretch.reverse()
         // Round dots along the stretch, from the line's width at its start to twice that at
         // the tip, all filled the same way: a smooth taper with no gaps or notches where they
         // overlap (an outline with a round tip on top left holes in it).

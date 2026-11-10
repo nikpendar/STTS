@@ -1,3 +1,4 @@
+#if targetEnvironment(simulator)
 import SwiftUI
 import UIKit
 
@@ -98,3 +99,4 @@ private struct AccessoryTextView: UIViewRepresentable {
 
     func updateUIView(_ view: UITextView, context: Context) {}
 }
+#endif

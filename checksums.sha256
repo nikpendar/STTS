@@ -1,0 +1,11 @@
+# SHA-256 of every file setup.sh downloads (sha256sum format, by the name it is downloaded under).
+# setup.sh refuses a file whose hash differs. A file changed on purpose (a new release) gets its
+# new line here in the same commit.
+dff65cf4731df2999269c58eafb90084ac3e834ca697e9719317b2f31dcdc391  Ezafe.mlmodelc.zip
+b8995a589a2507062256593ab86e6c7fd42950096589a476844fd512e7a6fd20  Koochik.aar
+109089f619d024143c6a6aa565f669618b2ecf1b74a7067a7f7203f5c77df863  g2p-decoder.onnx
+38ccdc4ae25a5ffdd154ae4680513c696037d9990b37dcd61519705cda6af5a5  g2p-encoder.onnx
+6a260d67901e0b2cdb21b8762b57191ac6dec9f598d747838f27bd69ec0da373  mana.onnx
+91965b18afa7f487ed167feeebc24c302cbf8e4abae9a6645d5477d5d2d76354  mana.onnx.json
+3b8740431b8368f55f2207cd6fa5c46a60b8ff8b9bb9e2d72af0ba242862f405  punct-info.json
+1c1e810d7cb6ef8539b393a3de3956ea81d70fea5697ed583e298023aa5be38c  punct-vocab.tsv

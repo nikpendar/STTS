@@ -118,7 +118,7 @@ final class KeyboardSession: ObservableObject {
 
     /// CI only: launch argument `-testAudio <path>` plays this file into recordings instead of
     /// the microphone, so the simulator can test dictation end to end.
-    private let testAudio = UserDefaults.standard.string(forKey: "testAudio")
+    private let testAudio = TestHooks.string("testAudio")
     private var testFeed: Task<Void, Never>?
     /// The test file plays into the first recording only; later ones get silence, to test a
     /// recording in which nobody speaks.

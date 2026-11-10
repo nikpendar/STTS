@@ -121,7 +121,7 @@ final class PersonalModel: ObservableObject {
 
     /// CI only: launch arguments `-trainingAPI <url> -trainingTestToken <token>` point the app
     /// at the live test's stand-in for GitHub (Tests/github_stub.py).
-    private static let testAPI = UserDefaults.standard.string(forKey: "trainingAPI")
+    private static let testAPI = TestHooks.string("trainingAPI")
 
     // MARK: - Corrections
 
