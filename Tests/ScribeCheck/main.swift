@@ -4,7 +4,8 @@
 // Usage: scribe-check <model (.mlmodelc, or .mlmodel/.aar compiled as the app imports it)> <sidecars dir>
 //        <clips dir> [cpu|all]
 // Contextual biasing (the personal dictionary's words): BOOST_WORDS=<file, a word per line> and
-// BOOST=<strength> in the environment.
+// BOOST=<strength> in the environment. HEAD_PAD, TAIL_PAD (seconds) and PAD_LEVEL (RMS) set the
+// silence fed around each clip.
 import AVFoundation
 import CoreML
 import Foundation
@@ -27,6 +28,11 @@ if let path = env["BOOST_WORDS"], let strength = Float(env["BOOST"] ?? ""), stre
     stream.setBoost(words: words, strength: strength)
     print("BOOST words=\(words.count) strength=\(strength) min_prefix=\(stream.boostMinPrefix)")
 }
+// Silence around the speech (ScribeStream.leadingSilence/trailingSilence/silenceLevel).
+if let v = Double(env["HEAD_PAD"] ?? "") { stream.leadingSilence = v }
+if let v = Double(env["TAIL_PAD"] ?? "") { stream.trailingSilence = v }
+if let v = Float(env["PAD_LEVEL"] ?? "") { stream.silenceLevel = v }
+print("PAD head=\(stream.leadingSilence) tail=\(stream.trailingSilence) level=\(stream.silenceLevel)")
 let clips = URL(fileURLWithPath: args[3])
 let files = try FileManager.default.contentsOfDirectory(at: clips, includingPropertiesForKeys: nil)
     .filter { $0.pathExtension == "wav" }.sorted { $0.path < $1.path }

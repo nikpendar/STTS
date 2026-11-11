@@ -76,8 +76,12 @@ enum DictationBridge {
     /// 4.4.1 lets a keyboard open only Settings; on Rooz's decision (2026-10-27) it stays on in
     /// the App Store build too, and goes off here if App Review rejects it.
     static let keyboardOpensApp = true
-    /// Opens the app and starts a keyboard session.
-    static let sessionURL = URL(string: "persianstt://session")!
+    /// Opens the app and starts a keyboard session. It carries the bridge key: opened without
+    /// it (by another app or a web page), the app only opens and voice typing stays off.
+    static var sessionURL: URL {
+        BridgeKey.refreshInKeyboard()
+        return URL(string: "persianstt://session?k=\(BridgeKey.current)")!
+    }
     /// Opens the app's settings from the keyboard's settings panel.
     static let settingsURL = URL(string: "persianstt://settings")!
 
@@ -86,8 +90,6 @@ enum DictationBridge {
     static let fullAccess = "com.persianstt.fullAccess"
     /// Holds "on" once the keyboard has run with Full Access (only then can it write here).
     static let fullAccessPasteboard = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardState")
-    /// The keyboard extension's bundle identifier, as iOS lists it in the added keyboards.
-    static let keyboardBundleID = "ir.nikpendar.PersianSTT.Keyboard"
 
     /// Posts one of the names above, with the bridge key in it (`BridgeKey`).
     static func post(_ name: String) {
@@ -160,6 +162,14 @@ enum BridgeKey {
         let prefix = "com.persianstt."
         guard name.hasPrefix(prefix) else { return name }
         return prefix + current + "." + name.dropFirst(prefix.count)
+    }
+
+    /// True when a `sessionURL` carries this app's key.
+    static func matches(_ url: URL) -> Bool {
+        let key = current
+        let given = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "k" }?.value
+        return !key.isEmpty && given == key
     }
 
     /// The first line of each loopback connection.

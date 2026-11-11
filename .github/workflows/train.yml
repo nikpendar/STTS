@@ -132,8 +132,10 @@ jobs:
 
       - name: Encrypt the model
         env:
-          KEY: ${{ secrets.TRAINING_TOKEN || github.run_id }}
+          KEY: ${{ secrets.TRAINING_TOKEN }}
         run: |
+          # The model is encrypted with the secret only: the run number is public (review, 2026-11-09).
+          [ -n "$KEY" ] || { echo "::error::The TRAINING_TOKEN secret is needed to encrypt the model"; exit 1; }
           tar -cf - -C out . | openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 -pass env:KEY -out model.enc
           ls -l model.enc
 
@@ -166,7 +168,7 @@ jobs:
 
       - name: Decrypt the model
         env:
-          KEY: ${{ secrets.TRAINING_TOKEN || github.run_id }}
+          KEY: ${{ secrets.TRAINING_TOKEN }}
         run: |
           mkdir -p out
           "$(brew --prefix openssl@3)/bin/openssl" enc -d -aes-256-cbc -pbkdf2 -iter 200000 -md sha256 -pass env:KEY -in model.enc | tar -xf - -C out

@@ -170,8 +170,11 @@ struct ContentView: View {
         }
         .onOpenURL { url in
             if url.host == "session" {
-                // Straight to the session, whatever page was open, and a sign that it started.
+                // Straight to the session page, whatever page was open. Voice typing starts only
+                // when the link carries the bridge key, i.e. came from our keyboard; a link from
+                // another app or a web page only opens the page (review, 2026-11-09).
                 navigationID = UUID()
+                guard BridgeKey.matches(url) else { return }
                 keyboard.start()
                 if keyboard.isActive {
                     sessionStarts += 1
@@ -817,8 +820,7 @@ private struct PenSample: View {
 
 /// Whether the keyboard is added in Settings and has Full Access: the app opens only then
 /// (Rooz, 2026-11-09). Only the keyboard can tell, so it marks a shared pasteboard and sends a
-/// notification each time it opens with Full Access. The system's list of keyboards is only a
-/// hint for the first step's tick: on the phone it did not list the added keyboard.
+/// notification each time it opens with Full Access.
 @MainActor
 final class KeyboardGate: ObservableObject {
     @Published private(set) var isAdded = true
@@ -846,8 +848,9 @@ final class KeyboardGate: ObservableObject {
             UserDefaults.standard.set(true, forKey: Self.seenKey)
         }
         hasFullAccess = UserDefaults.standard.bool(forKey: Self.seenKey)
-        let keyboards = UserDefaults.standard.object(forKey: "AppleKeyboards") as? [String] ?? []
-        isAdded = hasFullAccess || keyboards.contains { $0.hasPrefix(DictationBridge.keyboardBundleID) }
+        // Added and allowed are known together, from the keyboard's own report (iOS's list of
+        // keyboards was not readable on the phone and is no longer read).
+        isAdded = hasFullAccess
         #endif
     }
 }

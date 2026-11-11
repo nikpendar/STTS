@@ -47,6 +47,23 @@ final class ScribeStream {
     private let window: [Float]
     private let dft: vDSP.DFT<Float>
 
+    /// Silence fed before the speech and after it (seconds). A word said the moment the
+    /// microphone opens, or cut off by a quick stop, had no audio around it: the model, which
+    /// starts from empty caches and writes a letter only a few steps after hearing it, often
+    /// wrote nothing or a wrong word for a single word (Rooz, 2026-11-11).
+    var leadingSilence = 0.3
+    var trailingSilence = 0.6
+    /// Level (RMS) of the noise used as that silence; 0 is digital silence.
+    var silenceLevel: Float = 0
+
+    private func silence(_ seconds: Double) -> [Float] {
+        let count = Int(seconds * 16_000)
+        guard silenceLevel > 0 else { return [Float](repeating: 0, count: count) }
+        // Uniform noise with the requested RMS (uniform on [-a, a] has RMS a/√3).
+        let a = silenceLevel * Float(3).squareRoot()
+        return (0..<count).map { _ in Float.random(in: -a...a) }
+    }
+
     /// Steps without a new token before one that starts after a pause: 0.64 s. The keyboard
     /// reads spoken commands by pauses (`DictationBridge.pauseMark`).
     private let pauseSteps = 8
@@ -172,6 +189,9 @@ final class ScribeStream {
         lastTokenStep = steps
         partialWord = nil
         text = ""
+        if leadingSilence > 0 {
+            _ = try? accept(silence(leadingSilence))
+        }
     }
 
     /// Words to favour (empty or strength 0 turns biasing off). Multi-word entries count word
@@ -297,6 +317,9 @@ final class ScribeStream {
 
     /// Ends the utterance: reflect-pads the end, pads the last chunk and runs the remaining steps.
     func finish() throws {
+        if trailingSilence > 0 {
+            try accept(silence(trailingSilence))
+        }
         let pad = nFFT / 2
         if started, signal.count > pad {
             signal.append(contentsOf: signal[(signal.count - pad - 1)..<(signal.count - 1)].reversed())

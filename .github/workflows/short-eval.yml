@@ -1,0 +1,102 @@
+# Short utterances (Rooz, 2026-11-11: a single dictated word is often missed or wrong): the app's
+# recognizer with and without silence fed around the speech (ScribeStream.leadingSilence,
+# trailingSilence, silenceLevel), on Common Voice clips of one to three words and on the 80
+# FLEURS and 80 Common Voice benchmark clips, each also with its silence cut off
+# (scripts/trim_clips.py: speech from the first sample, recording stopped at the last word).
+# Nothing here changes the app or its build.
+name: Short utterance benchmark
+
+on:
+  workflow_dispatch:
+
+jobs:
+  clips:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: FLEURS fa_ir test, first 80
+        run: |
+          base=https://huggingface.co/datasets/google/fleurs/resolve/main/data/fa_ir
+          curl -fsSL --retry 3 -o test.tsv "$base/test.tsv"
+          curl -fsSL --retry 3 -o test.tar.gz "$base/audio/test.tar.gz"
+          tar xzf test.tar.gz
+          mkdir -p fleurs
+          head -n 80 test.tsv | while IFS=$'\t' read -r id file raw norm rest; do
+            src=$(find test -name "$file" | head -1)
+            [ -n "$src" ] || continue
+            python3 scripts/to_pcm16.py "$src" "fleurs/$file" > /dev/null
+            printf '%s\t%s\n' "$file" "$raw" >> fleurs/refs.tsv
+          done
+      - name: Common Voice 17 fa test
+        run: |
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          base=https://huggingface.co/datasets/fsicoli/common_voice_17_0/resolve/main
+          curl -fsSL --retry 3 -o cv.tsv "$base/transcript/fa/test.tsv"
+          curl -fsSL --retry 3 -o cv.tar "$base/audio/fa/test/fa_test_0.tar"
+          python3 scripts/prepare_cv.py cv.tsv cv.tar 80 cv17
+          python3 scripts/prepare_short.py cv.tsv cv.tar 120 short
+      - name: Silence cut off
+        run: |
+          for d in fleurs cv17 short; do python3 scripts/trim_clips.py "$d" "$d-trim"; done
+      - uses: actions/upload-artifact@v5
+        with:
+          name: short-clips
+          path: |
+            fleurs
+            cv17
+            short
+            fleurs-trim
+            cv17-trim
+            short-trim
+          retention-days: 1
+
+  eval:
+    needs: clips
+    runs-on: macos-15
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: short-clips
+      - name: Model and recognizer
+        run: |
+          bash ./setup.sh model
+          mkdir -p "$RUNNER_TEMP/AvakScribe.mlpackage"
+          aa extract -d "$RUNNER_TEMP/AvakScribe.mlpackage" -i build-model/AvakScribe.aar
+          xcrun coremlcompiler compile "$RUNNER_TEMP/AvakScribe.mlpackage" compiled --deployment-target 17.0 --platform ios
+          xcrun swiftc -O -o scribe-check PersianSTT/ScribeStream.swift Tests/ScribeCheck/main.swift
+      - name: Transcribe and score
+        run: |
+          mkdir -p result
+          sets="short-trim short fleurs-trim cv17-trim fleurs cv17"
+          echo "| silence (head/tail s, level) | $(echo $sets | sed 's/ / | /g') | empty short-trim |" > result/table.md
+          echo "|---|---|---|---|---|---|---|---|" >> result/table.md
+          run() {  # label head tail level
+            row="| $1 |"
+            for ds in $sets; do
+              HEAD_PAD=$2 TAIL_PAD=$3 PAD_LEVEL=$4 ./scribe-check compiled/*.mlmodelc PersianSTT/Models "$ds" all > "result/$1-$ds.log"
+              python3 scripts/wer.py "$ds/refs.tsv" "$ds" "$1" 0 0 1 "result/$1-$ds.json" > /dev/null
+              w=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["wer"])' "result/$1-$ds.json")
+              row="$row $w |"
+              if [ "$ds" = short-trim ]; then
+                empty=$(for f in short-trim/*.wav.txt; do [ -s "$f" ] || echo x; done | wc -l | tr -d ' ')
+                mkdir -p "result/hyp-$1" && cp short-trim/*.txt "result/hyp-$1/"
+              fi
+              rm -f "$ds"/*.txt
+            done
+            echo "$row $empty |" | tee -a result/table.md
+          }
+          run "none 0/0" 0 0 0
+          run "tail 0/0.3" 0 0.3 0
+          run "tail 0/0.6" 0 0.6 0
+          run "both 0.3/0.6" 0.3 0.6 0
+          run "both 0.3/0.6 noise" 0.3 0.6 0.0005
+          run "both 0.5/1.0" 0.5 1.0 0
+          cat result/table.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: short-result
+          path: result
+          retention-days: 3
