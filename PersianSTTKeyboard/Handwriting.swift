@@ -465,7 +465,6 @@ final class HandwritingPadView: UIView {
         commitPending { [weak self] in self?.onReturn?() }
     }
 
-
     @objc private func swipeDelete() {
         onFeedback?()
         deleteDown()
@@ -616,8 +615,8 @@ final class HandwritingPadView: UIView {
         hint.isHidden = !hidden
         expandButton.isHidden = hidden || !landscape
         if fullPaper {
-            // The whole pad is paper; the button back and delete sit in its bottom corners,
-            // outlined so they stand apart from the ink.
+            // The whole pad is paper; the button back sits in its bottom corner, outlined so it
+            // stands apart from the ink, with a line on deleting and return beside it.
             paper.frame = CGRect(x: 8, y: 8, width: bounds.width - 16, height: max(24, bounds.height - 16))
             let size = CGSize(width: min(unit, 64), height: 38)
             collapseButton.frame = CGRect(x: paper.frame.minX + 8, y: paper.frame.maxY - size.height - 8,
@@ -776,7 +775,7 @@ final class HandwritingPadView: UIView {
         guard let last = lastWord, CACurrentMediaTime() - last.time < 1 else { return false }
         let box = Self.box(of: [stroke])
         let small = max(box.width, box.height) < 12 || (box.height < 8 && box.width < 28)
-        let shown = last.box.offsetBy(dx: (slides ? shiftSinceLastWord : 0), dy: 0)
+        let shown = last.box.offsetBy(dx: slides ? shiftSinceLastWord : 0, dy: 0)
         return small && shown.insetBy(dx: -10, dy: -10).contains(CGPoint(x: box.midX, y: box.midY))
     }
 
