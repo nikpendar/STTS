@@ -30,7 +30,7 @@ for i, ts in sorted(takes.items()):
         cut = quietest(mid - int(0.2 * (b - a)), mid + int(0.2 * (b - a)))
         a, b = (a, cut) if pick["part"] == "first" else (cut, b)
     seg = x[a:b]
-    seg = resample_poly(seg, 1, 2) if sr == 44100 else seg
+    seg = resample_poly(seg, 22050, sr) if sr != 22050 else seg
     peak = float(np.abs(seg).max())
     sf.write(f"{out}/wavs/{i:04d}.wav", (seg * 0.9 / max(peak, 1e-3) if peak > 0.95 else seg).astype(np.float32), 22050, subtype="PCM_16")
     rows.append((f"{i:04d}", pick["text"]))
