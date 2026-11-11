@@ -605,6 +605,8 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var handwritingSlide = true
     /// A faint guide line across the handwriting paper, in the letters' colour (Rooz, 2026-11-11).
     var handwritingGuide = true
+    /// A strip at the paper's outer edge that sends the word aside when tapped (Rooz, 2026-11-11).
+    var handwritingStrip = true
     /// The handwriting pad's size: 0 small, 1 medium, 2 large (Rooz, 2026-11-09).
     var handwritingSize = 1
     static let handwritingSizeNames = ["کوچک", "متوسط", "بزرگ"]
@@ -643,5 +645,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
         handwritingSlide = try container.decodeIfPresent(Bool.self, forKey: .handwritingSlide) ?? true
         handwritingSize = try container.decodeIfPresent(Int.self, forKey: .handwritingSize) ?? 1
         handwritingGuide = try container.decodeIfPresent(Bool.self, forKey: .handwritingGuide) ?? true
+        handwritingStrip = try container.decodeIfPresent(Bool.self, forKey: .handwritingStrip) ?? true
     }
 }

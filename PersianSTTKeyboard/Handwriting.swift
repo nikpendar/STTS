@@ -270,6 +270,9 @@ final class HandwritingPadView: UIView {
                                           withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)), for: .normal)
             // The language beside the keyboard symbol, so the way the paper moves is plain.
             closeButton.setTitle(rightToLeft ? " فا" : " EN", for: .normal)
+            stripIcon.image = UIImage(systemName: rightToLeft ? "arrow.right.to.line" : "arrow.left.to.line",
+                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold))
+            setNeedsLayout()
         }
     }
     /// Off, each word fades as soon as it is read instead of sliding aside.
@@ -292,6 +295,17 @@ final class HandwritingPadView: UIView {
     private let swipeDown = UISwipeGestureRecognizer()
     /// On the full paper, which has no delete or return key: how to do both.
     private let hint = UILabel()
+    /// Gone once the pen first touches the full paper; back each time the full paper opens.
+    private var hintSeen = false
+    /// The strip at the paper's outer edge (right for Persian, left for English): a tap on it
+    /// sends the word aside at once (Rooz, 2026-11-11). Writing over it stays ink.
+    var showsStrip = true {
+        didSet { setNeedsLayout() }
+    }
+    private let strip = UIView()
+    private let stripFill = CAShapeLayer()
+    private let stripEdge = CAShapeLayer()
+    private let stripIcon = UIImageView()
     /// The handle taken (true) and let go (false), and a size step: for a firmer tap.
     var onGripFeedback: ((Bool) -> Void)?
 
@@ -356,6 +370,20 @@ final class HandwritingPadView: UIView {
         paper.layer.cornerCurve = .continuous
         paper.isUserInteractionEnabled = false
         addSubview(paper)
+        // Over the paper and under the ink.
+        strip.isUserInteractionEnabled = false
+        strip.clipsToBounds = true
+        strip.layer.cornerRadius = 14
+        strip.layer.cornerCurve = .continuous
+        stripEdge.fillColor = nil
+        stripEdge.lineWidth = 1
+        strip.layer.addSublayer(stripFill)
+        strip.layer.addSublayer(stripEdge)
+        stripIcon.contentMode = .center
+        stripIcon.image = UIImage(systemName: "arrow.right.to.line",
+                                  withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold))
+        strip.addSubview(stripIcon)
+        addSubview(strip)
         guide.fillColor = nil
         guide.lineWidth = 1
         guide.lineCap = .round
@@ -487,6 +515,64 @@ final class HandwritingPadView: UIView {
         CATransaction.commit()
     }
 
+    /// The strip in the pen's colour (Rooz, 2026-11-11), faint, like the ink it sends aside.
+    private func updateStripLook() {
+        let colour = penColor
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stripFill.fillColor = colour.withAlphaComponent(0.08).cgColor
+        stripEdge.strokeColor = colour.withAlphaComponent(0.2).cgColor
+        CATransaction.commit()
+        stripIcon.tintColor = colour.withAlphaComponent(0.4)
+    }
+
+    /// The strip's place and shape from the paper as it is now (any size, landscape, full
+    /// paper): its inner edge bows in towards the middle of the paper.
+    private func layoutStrip() {
+        let area = paper.frame
+        // On the full paper it stops above the button back, which sits in a bottom corner.
+        let bottom = fullPaper ? collapseButton.frame.minY - 6 : area.maxY
+        let height = bottom - area.minY
+        let width = max(28, min(44, area.width * 0.07))
+        strip.isHidden = !showsStrip || area.width < 160 || height < 36
+        guard !strip.isHidden else { return }
+        strip.frame = CGRect(x: rightToLeft ? area.maxX - width : area.minX, y: area.minY, width: width, height: height)
+        strip.layer.maskedCorners = rightToLeft
+            ? [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+            : [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+        // Local x of the inner edge: a little in at the ends, all the way in at the middle.
+        let ends = width * 0.45
+        let inner = { (x: CGFloat) in self.rightToLeft ? x : width - x }
+        let edge = UIBezierPath()
+        edge.move(to: CGPoint(x: inner(ends), y: 0))
+        edge.addCurve(to: CGPoint(x: inner(0), y: height / 2),
+                      controlPoint1: CGPoint(x: inner(ends), y: height * 0.2),
+                      controlPoint2: CGPoint(x: inner(0), y: height * 0.3))
+        edge.addCurve(to: CGPoint(x: inner(ends), y: height),
+                      controlPoint1: CGPoint(x: inner(0), y: height * 0.7),
+                      controlPoint2: CGPoint(x: inner(ends), y: height * 0.8))
+        let fill = UIBezierPath()
+        fill.append(edge)
+        fill.addLine(to: CGPoint(x: rightToLeft ? width : 0, y: height))
+        fill.addLine(to: CGPoint(x: rightToLeft ? width : 0, y: 0))
+        fill.close()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stripFill.frame = strip.bounds
+        stripEdge.frame = strip.bounds
+        stripFill.path = fill.cgPath
+        stripEdge.path = edge.cgPath
+        CATransaction.commit()
+        stripIcon.isHidden = height < 60
+        let iconX = rightToLeft ? width * 0.6 : width * 0.4
+        stripIcon.frame = CGRect(x: iconX - 12, y: height / 2 - 12, width: 24, height: 24)
+    }
+
+    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+        super.traitCollectionDidChange(previous)
+        updateStripLook()
+    }
+
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
@@ -613,6 +699,7 @@ final class HandwritingPadView: UIView {
         // The full paper deletes with two fingers only (Rooz, 2026-11-11): no delete key there.
         deleteButton.isHidden = hidden
         hint.isHidden = !hidden
+        hint.alpha = hintSeen ? 0 : 1
         expandButton.isHidden = hidden || !landscape
         if fullPaper {
             // The whole pad is paper; the button back sits in its bottom corner, outlined so it
@@ -641,6 +728,7 @@ final class HandwritingPadView: UIView {
         CATransaction.commit()
         status.frame = paper.frame.insetBy(dx: 20, dy: 20)
         updateGuide()
+        layoutStrip()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         if trail.frame != paper.frame {
@@ -678,6 +766,7 @@ final class HandwritingPadView: UIView {
         }
         guard !twoFingers, paperArea.contains(touch.location(in: self)) else { return }
         pen = touch
+        hideHint()
         recognizeTimer?.invalidate()
         trailFadeTimer?.invalidate()
         if strokes.isEmpty {
@@ -701,6 +790,10 @@ final class HandwritingPadView: UIView {
         guard !current.isEmpty else { return }
         var stroke = current
         current = []
+        if isStripTap(stroke) {
+            pushAside()
+            return
+        }
         if stroke.count == 1, let point = stroke.first {
             // A tap, the dot of ب or ف: drawn as a round dot, and given a second point so the
             // recognizer takes it as a stroke.
@@ -735,6 +828,70 @@ final class HandwritingPadView: UIView {
         if allLifted(event) { twoFingers = false }
     }
 
+    private func hideHint() {
+        guard !hintSeen else { return }
+        hintSeen = true
+        UIView.animate(withDuration: 0.3) { self.hint.alpha = 0 }
+    }
+
+    /// A short, still touch on the strip, not a dot: a dot falls on the word being written (or
+    /// on the word just read), anything else there is the strip being tapped.
+    private func isStripTap(_ stroke: InkRecognizer.Stroke) -> Bool {
+        guard !strip.isHidden, let first = stroke.first, let last = stroke.last else { return false }
+        let start = CGPoint(x: CGFloat(first.x), y: CGFloat(first.y))
+        guard strip.frame.contains(start), last.t - first.t < 250 else { return false }
+        let box = Self.box(of: [stroke])
+        guard max(box.width, box.height) < 10 else { return false }
+        if strokes.isEmpty { return !joinsLastWord(stroke) }
+        return !Self.box(of: strokes).insetBy(dx: -14, dy: -14).contains(start)
+    }
+
+    /// The strip tapped: the tap leaves no ink, the word being written is read and goes aside
+    /// now, and with none, the words on the paper glide off it.
+    private func pushAside() {
+        onFeedback?()
+        rebuildInk()
+        dropHead(animated: false)
+        if !strokes.isEmpty {
+            recognizeTimer?.invalidate()
+            recognizeTimer = nil
+            recognizeWord()
+            return
+        }
+        let words = (trail.sublayers ?? []).filter { $0 is CAShapeLayer }
+        guard !words.isEmpty else { return }
+        let step = trail.bounds.width * (rightToLeft ? 1 : -1)
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setCompletionBlock { words.forEach { $0.removeFromSuperlayer() } }
+        for word in words {
+            let from = (word.presentation() ?? word).position
+            var to = word.position
+            to.x += step
+            word.position = to
+            let glide = CABasicAnimation(keyPath: "position")
+            glide.fromValue = NSValue(cgPoint: from)
+            glide.toValue = NSValue(cgPoint: to)
+            glide.duration = 0.25
+            glide.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            word.add(glide, forKey: "glide")
+        }
+        CATransaction.commit()
+        lastWordLayers = []
+        shiftSinceLastWord = 0
+    }
+
+    /// The ink of the word's finished strokes only.
+    private func rebuildInk() {
+        path = UIBezierPath()
+        for stroke in strokes {
+            guard let first = stroke.first else { continue }
+            path.move(to: CGPoint(x: CGFloat(first.x), y: CGFloat(first.y)))
+            for point in stroke.dropFirst() { path.addLine(to: CGPoint(x: CGFloat(point.x), y: CGFloat(point.y))) }
+        }
+        setInkPath(strokes.isEmpty ? nil : path.cgPath)
+    }
+
     private func allLifted(_ event: UIEvent?) -> Bool {
         event?.allTouches?.allSatisfy { $0.phase == .ended || $0.phase == .cancelled } ?? true
     }
@@ -745,13 +902,7 @@ final class HandwritingPadView: UIView {
         dropHead(animated: false)
         guard !current.isEmpty else { return }
         current = []
-        path = UIBezierPath()
-        for stroke in strokes {
-            guard let first = stroke.first else { continue }
-            path.move(to: CGPoint(x: CGFloat(first.x), y: CGFloat(first.y)))
-            for point in stroke.dropFirst() { path.addLine(to: CGPoint(x: CGFloat(point.x), y: CGFloat(point.y))) }
-        }
-        setInkPath(strokes.isEmpty ? nil : path.cgPath)
+        rebuildInk()
         if strokes.isEmpty { scheduleTrailFade() } else { scheduleRecognize() }
     }
 
@@ -998,6 +1149,7 @@ final class HandwritingPadView: UIView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         plain(ink)
+        updateStripLook()
         inkHead.fillColor = penColor.cgColor
         inkHead.strokeColor = nil
         inkHead.shadowColor = penColor.cgColor
@@ -1247,6 +1399,7 @@ final class HandwritingPadView: UIView {
         guard fullPaper != on else { return }
         commitPending()
         fullPaper = on
+        if on { hintSeen = false }
         UIView.animate(withDuration: 0.2) {
             self.setNeedsLayout()
             self.layoutIfNeeded()

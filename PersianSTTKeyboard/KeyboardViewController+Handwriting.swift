@@ -71,6 +71,7 @@ extension KeyboardViewController {
         pad.textBefore = { [weak self] in self?.proxy.documentContextBeforeInput ?? "" }
         pad.rank = { [weak self] texts in self?.rankHandwriting(texts) ?? texts }
         pad.showsGuide = options.handwritingGuide
+        pad.showsStrip = options.handwritingStrip
         view.addSubview(pad)
         handwritingPad = pad
         heightChanged()

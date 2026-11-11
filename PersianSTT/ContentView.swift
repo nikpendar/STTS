@@ -763,6 +763,14 @@ private struct HandwritingPage: View {
         }
 
         Section {
+            Toggle(isOn: $options.handwritingStrip) {
+                SettingLabel("نوار کنار بردن", symbol: "arrow.right.to.line", color: .gray)
+            }
+        } footer: {
+            Text("نواری کم‌رنگ در لبه‌ی کاغذ (فارسی راست، انگلیسی چپ). یک ضربه روی آن کلمه را همان لحظه می‌خواند و کنار می‌برد؛ روی خود نوار هم می‌شود نوشت.").font(.app(.footnote))
+        }
+
+        Section {
             SliderLine(small: "line.diagonal", large: "scribble.variable") {
                 Slider(value: $options.handwritingInkWidth, in: KeyboardOptions.handwritingWidths, step: 0.5)
             } value: {
