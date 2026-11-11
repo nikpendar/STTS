@@ -18,9 +18,9 @@ on:
         required: true
         default: smoke
       mode:
-        description: "run: push and wait; start: push only; log: wait for the last run and print its log; fetch: checkpoint to dataset + ONNX to release"
+        description: "run: push and wait; start: push only; log: wait for the last run and print its log; fetch: checkpoint to dataset + ONNX to release; pin: session-3 checkpoint to its own dataset"
         type: choice
-        options: [run, start, log, fetch]
+        options: [run, start, log, fetch, pin]
         default: run
   push:
     branches: [claude/project-thread-xaj97f]
@@ -107,6 +107,35 @@ jobs:
             gh release upload tts-speaker1-sealed "$(basename "$f").enc" --clobber
             rm "$f" "$(basename "$f").enc"
           done
+      - name: Pin the session-3 checkpoint
+        if: env.MODE == 'pin'
+        run: |
+          # Kaggle notebooks may only attach a dataset's newest version, and keyless-voice-ckpt's newest is
+          # session 4 (which read worse): session 3 (global_step 42000) becomes keyless-voice-ckpt3.
+          pip install -q kagglehub
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          mkdir -p ds3
+          python3 - <<'PY'
+          import glob, os, shutil, kagglehub, torch
+          user = os.environ["KAGGLE_USERNAME"]
+          for v in (3, 2, 1, 4):
+              try:
+                  d = kagglehub.dataset_download(f"{user}/keyless-voice-ckpt/versions/{v}")
+              except Exception as e:
+                  print("version", v, "not available:", e); continue
+              for path in glob.glob(f"{d}/**/*.ckpt", recursive=True):
+                  step = torch.load(path, map_location="cpu", weights_only=False).get("global_step")
+                  print("version", v, path, "step", step, flush=True)
+                  if step == 42000:
+                      shutil.copy(path, "ds3/last.ckpt"); raise SystemExit(0)
+          raise SystemExit("session 3 (step 42000) not found")
+          PY
+          printf '{"title": "keyless-voice-ckpt3", "id": "%s/keyless-voice-ckpt3", "licenses": [{"name": "other"}]}\n' "$KAGGLE_USERNAME" > ds3/dataset-metadata.json
+          if kaggle datasets status "$KAGGLE_USERNAME/keyless-voice-ckpt3" >/dev/null 2>&1; then
+            kaggle datasets version -p ds3 -m "session 3, step 42000"
+          else
+            kaggle datasets create -p ds3
+          fi
       - name: Fetch checkpoint
         if: env.MODE == 'fetch' && env.KERNEL != 'speaker'
         env:

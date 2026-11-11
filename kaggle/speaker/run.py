@@ -11,7 +11,6 @@ MAX_STEPS = int(os.environ.get("MAX_STEPS", "8000"))  # optimizer steps: two per
 EXPORT = [500, 1000, 1500, 2000, 3000, 4000, 6000, 8000]
 START_STEP = 42000  # the session-3 checkpoint, the voice in the app
 OUT = "/kaggle/working"
-USER = "KAGGLE_USER"  # set by kaggle-run.yml
 
 
 def sh(cmd, check=True, timeout=None):
@@ -50,32 +49,16 @@ def step_of(path):
     return torch.load(path, map_location="cpu", weights_only=False).get("global_step")
 
 
-# The dataset's newest version is session 4, which read worse: look for session 3 among the versions.
+# Session 3, the voice in the app: dataset keyless-voice-ckpt3 (kaggle-run.yml mode=pin).
 ckpt = None
-try:
-    import kagglehub
-
-    for version in (3, 2, 4, 1):
-        try:
-            d = kagglehub.dataset_download(f"{USER}/keyless-voice-ckpt/versions/{version}")
-        except Exception as e:
-            print("version", version, "not available:", e, flush=True)
-            continue
-        found = glob.glob(f"{d}/**/*.ckpt", recursive=True)
-        step = step_of(found[0]) if found else None
-        print("version", version, found, "step", step, flush=True)
-        if step == START_STEP:
-            ckpt = found[0]
-            break
-        if found:
-            os.remove(found[0])
-except Exception as e:
-    print("kagglehub failed:", e, flush=True)
-if ckpt is None:
-    attached = glob.glob("/kaggle/input/**/*.ckpt", recursive=True)
-    assert attached, "no checkpoint"
-    ckpt = attached[0]
-    print("::warning:: session 3 not found; starting from the attached checkpoint, step", step_of(ckpt), flush=True)
+for path in glob.glob("/kaggle/input/**/*.ckpt", recursive=True):
+    step = step_of(path)
+    print("checkpoint", path, "step", step, flush=True)
+    if step == START_STEP or ckpt is None:
+        ckpt = path
+assert ckpt, "attach the dataset keyless-voice-ckpt3"
+if step_of(ckpt) != START_STEP:
+    print("::warning:: session 3 not found; starting from step", step_of(ckpt), flush=True)
 print("start from", ckpt, flush=True)
 
 c = torch.load(ckpt, map_location="cpu", weights_only=False)
