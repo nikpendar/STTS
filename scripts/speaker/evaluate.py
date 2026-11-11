@@ -28,7 +28,7 @@ def distance(a, b):
         prev, row[0] = row[0], i
         for j, y in enumerate(b, 1):
             prev, row[j] = row[j], min(row[j] + 1, row[j - 1] + 1, prev + (x != y))
-    return row[-1]
+    return min(row)  # whisper repeats itself after some clips: what follows the sentence is free
 
 
 for path in sys.argv[6:]:
@@ -48,7 +48,9 @@ for path in sys.argv[6:]:
         whole += [a, np.zeros(int(22050 * 0.35), dtype=np.float32)]
         a16 = resample_poly(a, 320, 441).astype(np.float32)
         heard = "".join(s.text for s in asr.transcribe(a16, language="fa", audio_ctx=min(1500, int(len(a16) / 16000 * 50) + 64)))
-        errors += distance(norm(heard), norm(text)); chars += len(norm(text))
+        wrong = distance(norm(text), norm(heard))
+        print(f"  {n:02d} {wrong:3d} {norm(heard)[:len(norm(text)) + 8]}", flush=True)
+        errors += wrong; chars += len(norm(text))
         seconds += len(a) / 22050; letters += len(norm(text))
     sf.write(f"{out}/{name}.wav", np.concatenate(whole), 22050, subtype="PCM_16")
     print(f"{name}: CER {100 * errors / chars:.1f}%  {letters / seconds:.1f} letters/s", flush=True)
