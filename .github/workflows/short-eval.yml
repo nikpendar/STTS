@@ -11,7 +11,7 @@ on:
     branches: [batch-1021c]
     paths: [.github/workflows/short-eval.yml, scripts/trim_clips.py, scripts/prepare_short.py]
   workflow_dispatch:
-# rerun: labels without slashes
+# Each set and setting takes minutes on the runner: three settings, FLEURS left out.
 
 jobs:
   clips:
@@ -73,9 +73,9 @@ jobs:
       - name: Transcribe and score
         run: |
           mkdir -p result
-          sets="short-trim short fleurs-trim cv17-trim fleurs cv17"
+          sets="short-trim short cv17-trim cv17"
           echo "| silence (head/tail s, level) | $(echo $sets | sed 's/ / | /g') | empty short-trim |" > result/table.md
-          echo "|---|---|---|---|---|---|---|---|" >> result/table.md
+          echo "|---|---|---|---|---|---|" >> result/table.md
           run() {  # label head tail level
             row="| $1 |"
             for ds in $sets; do
@@ -92,11 +92,8 @@ jobs:
             echo "$row $empty |" | tee -a result/table.md
           }
           run none-0-0 0 0 0
-          run tail-0-0.3 0 0.3 0
           run tail-0-0.6 0 0.6 0
           run both-0.3-0.6 0.3 0.6 0
-          run both-0.3-0.6-noise 0.3 0.6 0.0005
-          run both-0.5-1.0 0.5 1.0 0
           cat result/table.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v5
         if: always()
