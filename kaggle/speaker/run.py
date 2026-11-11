@@ -119,7 +119,9 @@ base = (
     # Nearly every utterance trains: three are held out to watch the validation loss.
     " --data.validation_split 0.04 --data.num_test_examples 0"
     f" --trainer.devices 1 --trainer.max_epochs 100000 --trainer.max_steps {MAX_STEPS}"
-    " --trainer.log_every_n_steps 5 --trainer.check_val_every_n_epoch 20"
+    " --trainer.log_every_n_steps 5"
+    # No validation: piper's own checkpoint callbacks stop the run when their metric is missing.
+    " --trainer.limit_val_batches 0 --model.mos_metric none"
     f" --trainer.default_root_dir {OUT}/train"
     " --trainer.callbacks+=lightning.pytorch.callbacks.ModelCheckpoint"
     f" --trainer.callbacks.dirpath /kaggle/temp/steps --trainer.callbacks.every_n_train_steps 500"

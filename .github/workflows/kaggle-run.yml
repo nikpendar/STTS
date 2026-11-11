@@ -89,7 +89,7 @@ jobs:
           ls -la out && cat out/*.txt 2>/dev/null || true
           LOG="$(ls out/*.log 2>/dev/null | head -1)"
           [ -n "$LOG" ] && python3 -c "import json,sys; [print(''.join(f'[{e.get(\"time\",0):.0f}s] ' + l for l in e.get('data','').splitlines(True)),end='') for e in json.load(open(sys.argv[1]))]" "$LOG" > log.txt
-          [ -n "$LOG" ] && { echo "--- progress"; grep -aoE "Epoch [0-9]+:[^|]*\|[^|]*\|[^]]*\]" log.txt | tail -5; grep -aiE "cach|preprocess|sanity|max_time|Trainable|Total params" log.txt | head -20; echo "--- end of log"; tail -150 log.txt; }
+          [ -n "$LOG" ] && { echo "--- progress"; grep -aoE "Epoch [0-9]+:[^|]*\|[^|]*\|[^]]*\]" log.txt | tail -5; grep -aiE "cach|preprocess|sanity|max_time|Trainable|Total params" log.txt | head -20; grep -aE "\] (version|start from|speaker data|::warning|resume failed|training |checkpoints at)" log.txt | cut -c1-300; grep -aoE "\[[0-9]+s\] Epoch [0-9]+/" log.txt | tail -1; echo "--- end of log"; tail -150 log.txt; }
           case "$S" in *complete*|*COMPLETE*) ;; *) exit 1;; esac
       - name: Fetch speaker voices
         if: env.MODE == 'fetch' && env.KERNEL == 'speaker'

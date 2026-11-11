@@ -46,7 +46,7 @@ for path in sys.argv[6:]:
         a = a / max(0.01, np.abs(a).max()) * 0.9
         sf.write(f"{out}/{name}/{n:02d}.wav", a, 22050, subtype="PCM_16")
         whole += [a, np.zeros(int(22050 * 0.35), dtype=np.float32)]
-        a16 = resample_poly(a, 160, 441).astype(np.float32)
+        a16 = resample_poly(a, 320, 441).astype(np.float32)
         heard = "".join(s.text for s in asr.transcribe(a16, language="fa", audio_ctx=min(1500, int(len(a16) / 16000 * 50) + 64)))
         errors += distance(norm(heard), norm(text)); chars += len(norm(text))
         seconds += len(a) / 22050; letters += len(norm(text))
