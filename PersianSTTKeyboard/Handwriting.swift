@@ -248,6 +248,7 @@ final class HandwritingPadView: UIView {
             applyInkStyle()
             gripPill.backgroundColor = textColor.withAlphaComponent(0.3)
             status.textColor = textColor.withAlphaComponent(0.6)
+            hint.textColor = textColor.withAlphaComponent(0.4)
             candidateButtons.forEach { $0.setTitleColor(textColor, for: .normal) }
             updateGuide()
         }
@@ -270,6 +271,7 @@ final class HandwritingPadView: UIView {
             // The language beside the keyboard symbol, so the way the paper moves is plain.
             closeButton.setTitle(rightToLeft ? " فا" : " EN", for: .normal)
             swipe.direction = rightToLeft ? .right : .left
+            updateHint()
         }
     }
     /// Off, each word fades as soon as it is read instead of sliding aside.
@@ -288,6 +290,10 @@ final class HandwritingPadView: UIView {
     private var twoFingers = false
     /// Two fingers swiped the way the text runs back: a word deleted (Rooz, 2026-11-11).
     private let swipe = UISwipeGestureRecognizer()
+    /// Two fingers swiped down: return (Rooz, 2026-11-11), the full paper having no return key.
+    private let swipeDown = UISwipeGestureRecognizer()
+    /// On the full paper, which has no delete or return key: how to do both.
+    private let hint = UILabel()
     /// The handle taken (true) and let go (false), and a size step: for a firmer tap.
     var onGripFeedback: ((Bool) -> Void)?
 
@@ -439,6 +445,31 @@ final class HandwritingPadView: UIView {
         swipe.direction = .right
         swipe.addTarget(self, action: #selector(swipeDelete))
         addGestureRecognizer(swipe)
+        swipeDown.numberOfTouchesRequired = 2
+        swipeDown.delaysTouchesEnded = false
+        swipeDown.direction = .down
+        swipeDown.addTarget(self, action: #selector(swipeReturn))
+        addGestureRecognizer(swipeDown)
+        hint.font = keyFont(for: "پاک کردن", size: 13)
+        hint.textAlignment = .center
+        hint.textColor = textColor.withAlphaComponent(0.4)
+        hint.adjustsFontSizeToFitWidth = true
+        hint.minimumScaleFactor = 0.7
+        hint.isUserInteractionEnabled = false
+        hint.isHidden = true
+        addSubview(hint)
+        updateHint()
+    }
+
+    @objc private func swipeReturn() {
+        onFeedback?()
+        commitPending { [weak self] in self?.onReturn?() }
+    }
+
+    private func updateHint() {
+        hint.text = rightToLeft
+            ? "پاک کردن: دو انگشت به راست   ·   اینتر: دو انگشت به پایین"
+            : "پاک کردن: دو انگشت به چپ   ·   اینتر: دو انگشت به پایین"
     }
 
     @objc private func swipeDelete() {
@@ -586,6 +617,9 @@ final class HandwritingPadView: UIView {
             view.isHidden = hidden
         }
         collapseButton.isHidden = !hidden
+        // The full paper deletes with two fingers only (Rooz, 2026-11-11): no delete key there.
+        deleteButton.isHidden = hidden
+        hint.isHidden = !hidden
         expandButton.isHidden = hidden || !landscape
         if fullPaper {
             // The whole pad is paper; the button back and delete sit in its bottom corners,
@@ -594,8 +628,9 @@ final class HandwritingPadView: UIView {
             let size = CGSize(width: min(unit, 64), height: 38)
             collapseButton.frame = CGRect(x: paper.frame.minX + 8, y: paper.frame.maxY - size.height - 8,
                                           width: size.width, height: size.height)
-            deleteButton.frame = CGRect(x: paper.frame.maxX - size.width - 8, y: paper.frame.maxY - size.height - 8,
-                                        width: size.width, height: size.height)
+            let hintX = collapseButton.frame.maxX + 12
+            hint.frame = CGRect(x: hintX, y: collapseButton.frame.minY,
+                                width: paper.frame.maxX - 8 - size.width - 12 - hintX, height: size.height)
         } else {
             var x: CGFloat = 8
             for (button, width) in [(closeButton, unit), (emojiButton, unit), (returnButton, unit),
@@ -609,7 +644,7 @@ final class HandwritingPadView: UIView {
         // it kept the old paper size and the old button places (full paper showed half a page).
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        cutPaper(around: hidden ? [deleteButton, collapseButton] : [])
+        cutPaper(around: hidden ? [collapseButton] : [])
         CATransaction.commit()
         status.frame = paper.frame.insetBy(dx: 20, dy: 20)
         updateGuide()
