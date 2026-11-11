@@ -7,6 +7,9 @@
 name: Short utterance benchmark
 
 on:
+  push:
+    branches: [batch-1021c]
+    paths: [.github/workflows/short-eval.yml, scripts/trim_clips.py, scripts/prepare_short.py]
   workflow_dispatch:
 
 jobs:
