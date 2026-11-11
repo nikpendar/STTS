@@ -1,0 +1,37 @@
+# Listening test only: Gooya RizehPizeh v2 + Negara v7.1 on the voice check's sentences
+# (scripts/tts_gooya_ab.py), as the artifact gooya-ab. Nothing in the app changes.
+name: Gooya voice A/B
+
+on:
+  push:
+    branches: [claude/project-thread-xaj97f]
+    paths: [.github/workflows/tts-gooya-ab.yml, scripts/tts_gooya_ab.py]
+  workflow_dispatch:
+
+jobs:
+  ab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Tools
+        run: |
+          pip install -q torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install -q transformers==4.57.6 sentencepiece protobuf onnxruntime==1.22.1 huggingface_hub numpy
+      - name: Models
+        run: |
+          python3 -c "
+          from huggingface_hub import snapshot_download as d
+          d('Reza2kn/Gooya-RizehPizeh-v2', local_dir='gooya', allow_patterns=['gooya-rizehpizeh-v2.onnx*', 'LICENSE', 'README.md'])
+          d('Reza2kn/negara-g2p-clean-v7.1', local_dir='negara', allow_patterns=['*.json', '*.safetensors', 'LICENSE', '*.model'])
+          "
+          ls -la gooya negara
+      - name: Synthesize
+        run: python3 scripts/tts_gooya_ab.py gooya negara Tests/TTS/tts-reference.json out
+      - uses: actions/upload-artifact@v5
+        with:
+          name: gooya-ab
+          path: out
+          retention-days: 7
