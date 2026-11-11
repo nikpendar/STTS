@@ -97,7 +97,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 scripts/speaker/sealed.py open voice-data/speaker1.sealed bundle.tar
-          KEY="$(tar -xOf bundle.tar key.txt)"; rm bundle.tar
+          KEY="$(tar -xOf bundle.tar ./key.txt)"; rm bundle.tar
           echo "::add-mask::$KEY"
           mkdir -p vo && kaggle kernels output "$KAGGLE_USERNAME/keyless-voice-speaker" -p vo --file-pattern ".*(voice-[0-9]+\\.onnx|mana\\.onnx\\.json)$" 2>&1 | tail -3
           ls -la vo
