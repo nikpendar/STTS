@@ -340,6 +340,15 @@ final class Lexicon {
         return log10(0.7 * next + 0.3 * pow(10, unigram - 9)) + 9
     }
 
+    /// How likely `word` is here (larger is likelier), from how common it is and the word
+    /// before; nil for a word neither the list nor the user knows. For ranking handwriting readings.
+    func wordScore(_ word: String, context: Context = .none) -> Double? {
+        let key = language.key(word)
+        let zipf = index[key].map { entries[$0].zipf }
+        guard zipf != nil || (userWords[key]?.count ?? 0) >= 2 else { return nil }
+        return rankScore(key: key, zipf: zipf, context: context)
+    }
+
     func isKnown(_ word: String) -> Bool {
         let key = language.key(word)
         return index[key] != nil || (userWords[key]?.count ?? 0) >= 2

@@ -755,6 +755,14 @@ private struct HandwritingPage: View {
         }
 
         Section {
+            Toggle(isOn: $options.handwritingGuide) {
+                SettingLabel("خط راهنما", symbol: "ruler", color: .gray)
+            }
+        } footer: {
+            Text("یک خط کم‌رنگ هم‌رنگ حروف روی کاغذ، تا اندازه و راستای نوشته یکدست بماند.").font(.app(.footnote))
+        }
+
+        Section {
             SliderLine(small: "line.diagonal", large: "scribble.variable") {
                 Slider(value: $options.handwritingInkWidth, in: KeyboardOptions.handwritingWidths, step: 0.5)
             } value: {

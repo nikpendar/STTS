@@ -603,6 +603,8 @@ struct KeyboardOptions: SharedSetting, Equatable {
     /// Written words slide aside like paper under the pen and fade once it rests; off, each
     /// word fades as soon as it is read (Rooz, 2026-11-09).
     var handwritingSlide = true
+    /// A faint guide line across the handwriting paper, in the letters' colour (Rooz, 2026-11-11).
+    var handwritingGuide = true
     /// The handwriting pad's size: 0 small, 1 medium, 2 large (Rooz, 2026-11-09).
     var handwritingSize = 1
     static let handwritingSizeNames = ["کوچک", "متوسط", "بزرگ"]
@@ -640,5 +642,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
         handwritingInk = try container.decodeIfPresent(KeyStyle.RGBA.self, forKey: .handwritingInk)
         handwritingSlide = try container.decodeIfPresent(Bool.self, forKey: .handwritingSlide) ?? true
         handwritingSize = try container.decodeIfPresent(Int.self, forKey: .handwritingSize) ?? 1
+        handwritingGuide = try container.decodeIfPresent(Bool.self, forKey: .handwritingGuide) ?? true
     }
 }

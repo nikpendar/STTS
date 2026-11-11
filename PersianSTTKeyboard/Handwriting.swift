@@ -249,6 +249,7 @@ final class HandwritingPadView: UIView {
             gripPill.backgroundColor = textColor.withAlphaComponent(0.3)
             status.textColor = textColor.withAlphaComponent(0.6)
             candidateButtons.forEach { $0.setTitleColor(textColor, for: .normal) }
+            updateGuide()
         }
     }
 
@@ -268,12 +269,30 @@ final class HandwritingPadView: UIView {
                                           withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)), for: .normal)
             // The language beside the keyboard symbol, so the way the paper moves is plain.
             closeButton.setTitle(rightToLeft ? " فا" : " EN", for: .normal)
+            swipe.direction = rightToLeft ? .right : .left
         }
     }
     /// Off, each word fades as soon as it is read instead of sliding aside.
     var slides = true
     /// The handwriting speed setting (0 slow … 1 fast): the smoke goes as quickly.
     var speed: Double = 1
+    /// Orders the recognizer's readings: the keyboard's language and the words it knows first.
+    var rank: (([String]) -> [String])?
+    /// A faint guide line across the paper (`KeyboardOptions.handwritingGuide`).
+    var showsGuide = true {
+        didSet { updateGuide() }
+    }
+    private let guide = CAShapeLayer()
+    /// How far the word being written was moved to make room at the paper's edge (Rooz,
+    /// 2026-11-11). Its strokes keep their own coordinates, so the recognizer sees one word.
+    private var inkShift: CGFloat = 0
+    /// That shift of the word last read, for a dot added to it.
+    private var lastWordShift: CGFloat = 0
+    /// The one touch that writes; a second finger makes it a two-finger gesture instead.
+    private var pen: UITouch?
+    private var twoFingers = false
+    /// Two fingers swiped the way the text runs back: a word deleted (Rooz, 2026-11-11).
+    private let swipe = UISwipeGestureRecognizer()
     /// The handle taken (true) and let go (false), and a size step: for a firmer tap.
     var onGripFeedback: ((Bool) -> Void)?
 
@@ -336,6 +355,10 @@ final class HandwritingPadView: UIView {
         paper.layer.cornerCurve = .continuous
         paper.isUserInteractionEnabled = false
         addSubview(paper)
+        guide.fillColor = nil
+        guide.lineWidth = 1
+        guide.lineCap = .round
+        layer.addSublayer(guide)
         trail.masksToBounds = true
         layer.addSublayer(trail)
         layer.addSublayer(ink)
@@ -412,6 +435,35 @@ final class HandwritingPadView: UIView {
         addSubview(grip)
         recognizer.onState = { [weak self] state in self?.show(state) }
         show(.unavailable)
+        isMultipleTouchEnabled = true
+        swipe.numberOfTouchesRequired = 2
+        // A lifted pen is not held back while the swipe waits to fail: dots and word ends stay prompt.
+        swipe.delaysTouchesEnded = false
+        swipe.direction = .right
+        swipe.addTarget(self, action: #selector(swipeDelete))
+        addGestureRecognizer(swipe)
+    }
+
+    @objc private func swipeDelete() {
+        onFeedback?()
+        deleteDown()
+        onDeleteUp?()
+    }
+
+    /// The guide line a little below the paper's middle, where letters sit, in the letters'
+    /// colour, faint enough not to look like ink.
+    private func updateGuide() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let area = paper.frame
+        let line = UIBezierPath()
+        let y = area.minY + area.height * 0.62
+        line.move(to: CGPoint(x: area.minX + 18, y: y))
+        line.addLine(to: CGPoint(x: area.maxX - 18, y: y))
+        guide.path = area.width > 40 ? line.cgPath : nil
+        guide.strokeColor = textColor.resolvedColor(with: traitCollection).withAlphaComponent(0.16).cgColor
+        guide.isHidden = !showsGuide
+        CATransaction.commit()
     }
 
     required init?(coder: NSCoder) {
@@ -563,6 +615,7 @@ final class HandwritingPadView: UIView {
         cutPaper(around: hidden ? [deleteButton, collapseButton] : [])
         CATransaction.commit()
         status.frame = paper.frame.insetBy(dx: 20, dy: 20)
+        updateGuide()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         if trail.frame != paper.frame {
@@ -590,7 +643,16 @@ final class HandwritingPadView: UIView {
     private var paperArea: CGRect { paper.frame }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first, paperArea.contains(touch.location(in: self)) else { return }
+        guard let touch = touches.first else { return }
+        if pen != nil || touches.count > 1 || (event?.allTouches?.count ?? 1) > 1 {
+            // A second finger: a two-finger gesture, not writing.
+            cancelStroke()
+            pen = nil
+            twoFingers = true
+            return
+        }
+        guard !twoFingers, paperArea.contains(touch.location(in: self)) else { return }
+        pen = touch
         recognizeTimer?.invalidate()
         trailFadeTimer?.invalidate()
         if strokes.isEmpty {
@@ -603,11 +665,14 @@ final class HandwritingPadView: UIView {
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first, !current.isEmpty else { return }
+        guard let touch = pen, touches.contains(touch), !current.isEmpty else { return }
         for t in event?.coalescedTouches(for: touch) ?? [touch] { add(t) }
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        defer { if allLifted(event) { twoFingers = false } }
+        guard let touch = pen, touches.contains(touch) else { return }
+        pen = nil
         guard !current.isEmpty else { return }
         var stroke = current
         current = []
@@ -627,18 +692,86 @@ final class HandwritingPadView: UIView {
         strokes.append(stroke)
         scheduleTrailFade()
         preview()
-        // The pen lifted a moment: the word is done, and the next can start straight away.
-        recognizeTimer = Timer.scheduledTimer(withTimeInterval: pause, repeats: false) { [weak self] _ in
+        // Near the paper's edge, the word moves over to make room for the rest of it; the pen
+        // then gets a little longer to come back to it.
+        let moved = makeRoomIfNeeded()
+        scheduleRecognize(extra: moved ? 0.5 : 0)
+    }
+
+    /// The pen lifted a moment: the word is done, and the next can start straight away.
+    private func scheduleRecognize(extra: TimeInterval = 0) {
+        recognizeTimer?.invalidate()
+        recognizeTimer = Timer.scheduledTimer(withTimeInterval: pause + extra, repeats: false) { [weak self] _ in
             self?.recognizeWord()
         }
     }
 
+    /// A touch taken by the system or by the two-finger swipe: the stroke it drew goes.
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        touchesEnded(touches, with: event)
+        cancelStroke()
+        pen = nil
+        if allLifted(event) { twoFingers = false }
+    }
+
+    private func allLifted(_ event: UIEvent?) -> Bool {
+        event?.allTouches?.allSatisfy { $0.phase == .ended || $0.phase == .cancelled } ?? true
+    }
+
+    /// Drops the stroke being drawn; the word's earlier strokes stay and are read as before.
+    private func cancelStroke() {
+        guard !current.isEmpty else { return }
+        current = []
+        path = UIBezierPath()
+        for stroke in strokes {
+            guard let first = stroke.first else { continue }
+            path.move(to: CGPoint(x: CGFloat(first.x), y: CGFloat(first.y)))
+            for point in stroke.dropFirst() { path.addLine(to: CGPoint(x: CGFloat(point.x), y: CGFloat(point.y))) }
+        }
+        setInkPath(strokes.isEmpty ? nil : path.cgPath)
+        dropHead(animated: false)
+        if !strokes.isEmpty { scheduleRecognize() }
+    }
+
+    /// The word reaching the last fifth of the paper (the left for Persian, the right for
+    /// English) slides back so its end sits a little past the middle and the pen can go on.
+    private func makeRoomIfNeeded() -> Bool {
+        let box = Self.box(of: strokes)
+        guard !box.isNull else { return false }
+        let area = paperArea
+        let edge = area.width * 0.2
+        var step: CGFloat = 0
+        if rightToLeft {
+            let end = box.minX + inkShift
+            if end < area.minX + edge { step = area.minX + area.width * 0.45 - end }
+        } else {
+            let end = box.maxX + inkShift
+            if end > area.maxX - edge { step = area.minX + area.width * 0.55 - end }
+        }
+        guard abs(step) > 20 else { return false }
+        inkShift += step
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(0.25)
+        CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
+        ink.setAffineTransform(CGAffineTransform(translationX: inkShift, y: 0))
+        inkHead.setAffineTransform(CGAffineTransform(translationX: inkShift, y: 0))
+        CATransaction.commit()
+        return true
+    }
+
+    /// The word's ink back to the paper's own place, once it is read or thrown away.
+    private func resetInkShift() {
+        inkShift = 0
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        ink.setAffineTransform(.identity)
+        inkHead.setAffineTransform(.identity)
+        CATransaction.commit()
     }
 
     private func add(_ touch: UITouch) {
-        let p = touch.location(in: self)
+        // In the word's own coordinates: where the finger is, less the room made for it.
+        let location = touch.location(in: self)
+        let p = CGPoint(x: location.x - inkShift, y: location.y)
         let point = InkRecognizer.Point(x: Float(p.x), y: Float(p.y), t: Int((touch.timestamp - started) * 1000))
         if current.isEmpty { path.move(to: p) } else { path.addLine(to: p) }
         current.append(point)
@@ -657,7 +790,7 @@ final class HandwritingPadView: UIView {
         guard let last = lastWord, CACurrentMediaTime() - last.time < 1 else { return false }
         let box = Self.box(of: [stroke])
         let small = max(box.width, box.height) < 12 || (box.height < 8 && box.width < 28)
-        let shown = last.box.offsetBy(dx: slides ? shiftSinceLastWord : 0, dy: 0)
+        let shown = last.box.offsetBy(dx: (slides ? shiftSinceLastWord : 0) + lastWordShift, dy: 0)
         return small && shown.insetBy(dx: -10, dy: -10).contains(CGPoint(x: box.midX, y: box.midY))
     }
 
@@ -665,8 +798,9 @@ final class HandwritingPadView: UIView {
     private func preview() {
         previewGeneration += 1
         let mine = previewGeneration
-        recognizer.recognize(strokes, before: textBefore?() ?? "", area: paperArea.size) { [weak self] texts in
-            guard let self, mine == self.previewGeneration, !self.strokes.isEmpty, let best = texts.first else { return }
+        recognizer.recognize(strokes, before: textBefore?() ?? "", area: paperArea.size) { [weak self] found in
+            guard let self, mine == self.previewGeneration, !self.strokes.isEmpty else { return }
+            guard let best = (self.rank?(found) ?? found).first else { return }
             self.showCandidates(preview: best)
         }
     }
@@ -681,10 +815,11 @@ final class HandwritingPadView: UIView {
         let box = Self.box(of: word)
         moveInkAside(width: box.width)
         reading += 1
-        recognizer.recognize(word, before: textBefore?() ?? "", area: paperArea.size) { [weak self] texts in
+        recognizer.recognize(word, before: textBefore?() ?? "", area: paperArea.size) { [weak self] found in
             guard let self else { return }
             defer { self.doneReading() }
             guard mine == self.generation else { return }
+            let texts = self.rank?(found) ?? found
             guard let best = texts.first else {
                 self.lastWord = nil
                 if self.recognizer.state == .ready { self.status.text = "خوانده نشد؛ دوباره بنویسید" }
@@ -703,7 +838,7 @@ final class HandwritingPadView: UIView {
     private func readAgain(adding stroke: InkRecognizer.Stroke) {
         guard let last = lastWord else { return }
         // Where the dot is on the word as the recognizer saw it, before the paper moved.
-        let back = Float(slides ? shiftSinceLastWord : 0)
+        let back = Float((slides ? shiftSinceLastWord : 0) + lastWordShift)
         let moved = stroke.map { InkRecognizer.Point(x: $0.x - back, y: $0.y, t: $0.t) }
         let word = last.strokes + [moved]
         lastWord = (last.text, word, last.box.union(Self.box(of: [moved])), CACurrentMediaTime())
@@ -712,9 +847,10 @@ final class HandwritingPadView: UIView {
         generation += 1
         let mine = generation
         reading += 1
-        recognizer.recognize(word, before: textBefore?() ?? "", area: paperArea.size) { [weak self] texts in
+        recognizer.recognize(word, before: textBefore?() ?? "", area: paperArea.size) { [weak self] found in
             guard let self else { return }
             defer { self.doneReading() }
+            let texts = self.rank?(found) ?? found
             guard mine == self.generation, let best = texts.first, let current = self.lastWord else { return }
             self.pending = Array(texts.prefix(4))
             if best != current.text { self.onReplace?(current.text, best) }
@@ -727,7 +863,9 @@ final class HandwritingPadView: UIView {
     /// (right for Persian, left for English) so the next word starts where the pen is. With no
     /// width (a dot added to the last word), the ink stays where it is.
     private func moveInkAside(width: CGFloat?) {
-        var toTrail = CGAffineTransform(translationX: -trail.frame.minX, y: -trail.frame.minY)
+        var toTrail = CGAffineTransform(translationX: inkShift - trail.frame.minX, y: -trail.frame.minY)
+        if width != nil { lastWordShift = inkShift }
+        resetInkShift()
         let wordPath = ink.path?.copy(using: &toTrail)
         let word = wordLayer(wordPath)
         CATransaction.begin()
@@ -826,6 +964,7 @@ final class HandwritingPadView: UIView {
     }
 
     private func clearInk() {
+        resetInkShift()
         setInkPath(nil)
         dropHead(animated: false)
         path = UIBezierPath()

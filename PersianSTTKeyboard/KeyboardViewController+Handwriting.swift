@@ -69,6 +69,8 @@ extension KeyboardViewController {
         pad.onFeedback = { [weak self] in self?.haptic(.key) }
         pad.returnImage = returnKey.image
         pad.textBefore = { [weak self] in self?.proxy.documentContextBeforeInput ?? "" }
+        pad.rank = { [weak self] texts in self?.rankHandwriting(texts) ?? texts }
+        pad.showsGuide = options.handwritingGuide
         view.addSubview(pad)
         handwritingPad = pad
         heightChanged()
@@ -98,5 +100,44 @@ extension KeyboardViewController {
             pad.removeFromSuperview()
         }
         updateSuggestions()
+    }
+
+    /// The recognizer's readings in the order to offer them (Rooz, 2026-11-11): readings in the
+    /// keyboard's language first, then words the keyboard knows, likelier after the word
+    /// before, and words of the personal dictionary; otherwise the recognizer's own order.
+    func rankHandwriting(_ texts: [String]) -> [String] {
+        guard texts.count > 1 else { return texts }
+        let english = isEnglish
+        let personal = Set(dictionary.boostWords.map { Lexicon.shared.wordKey($0) })
+        let context = typingContext(before: "", separated: true)
+        func script(_ text: String) -> Bool? {  // true Latin, false Persian, nil neither
+            var latin = false, persian = false
+            for scalar in text.unicodeScalars {
+                if ("a"..."z").contains(scalar) || ("A"..."Z").contains(scalar) { latin = true }
+                if (0x0600...0x06FF).contains(scalar.value) || (0xFB50...0xFEFF).contains(scalar.value) { persian = true }
+            }
+            return latin == persian ? nil : latin
+        }
+        let scored = texts.enumerated().map { index, text -> (text: String, score: Double) in
+            var score = -0.6 * Double(index)
+            let latin = script(text)
+            if let latin { score += latin == english ? 3 : -3 }
+            if let latin, !text.contains(" ") {
+                let lexicon: Lexicon = latin ? .english : .shared
+                if lexicon.isLoaded {
+                    if let known = lexicon.wordScore(text, context: latin == english ? context : .none) {
+                        score += min(3, max(0, 0.5 * (known - 3)))
+                    } else if text.count > 1 {
+                        score -= 1
+                    }
+                }
+                if !latin, personal.contains(Lexicon.shared.wordKey(text)) { score += 2 }
+            }
+            return (text, score)
+        }
+        // A stable sort: equal scores keep the recognizer's order.
+        return scored.enumerated().sorted { a, b in
+            a.element.score != b.element.score ? a.element.score > b.element.score : a.offset < b.offset
+        }.map(\.element.text)
     }
 }
