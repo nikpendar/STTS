@@ -4,6 +4,10 @@
 # the newest voice checkpoint of keyless-voice-train goes to the private Kaggle dataset
 # keyless-voice-ckpt (the next training session resumes from it) and its ONNX export to the
 # GitHub release tts-fa-keyless-wip.
+# The kernel "speaker" trains on a speaker's own recordings, which must not be readable in this
+# public repository: voice-data/speaker1.sealed (scripts/speaker/sealed.py) opens only here, becomes
+# the private Kaggle dataset keyless-voice-speaker1, and in fetch mode the exported voices go to the
+# release tts-speaker1-sealed encrypted with the key that travels inside the sealed file.
 name: Kaggle run
 
 on:
@@ -40,10 +44,35 @@ jobs:
         run: |
           test -n "$KAGGLE_USERNAME" && test -n "$KAGGLE_KEY" || { echo "::error::KAGGLE_USERNAME / KAGGLE_KEY secrets missing"; exit 1; }
           pip install -q --upgrade kaggle && kaggle --version
+      - name: Sealing key
+        run: |
+          pip install -q cryptography
+          echo "seal speaker data to: $(python3 scripts/speaker/sealed.py pub)"
+      - name: Speaker data
+        if: env.KERNEL == 'speaker' && (env.MODE == 'run' || env.MODE == 'start')
+        run: |
+          DS="$KAGGLE_USERNAME/keyless-voice-speaker1"
+          python3 scripts/speaker/sealed.py open voice-data/speaker1.sealed bundle.tar
+          mkdir -p sp && tar -xf bundle.tar -C sp && rm bundle.tar sp/key.txt
+          echo "$(ls sp | wc -l) files, $(sha256sum sp/metadata.csv | cut -c1-12)"
+          printf '{"title": "keyless-voice-speaker1", "id": "%s", "licenses": [{"name": "other"}]}\n' "$DS" > sp/dataset-metadata.json
+          if kaggle datasets status "$DS" >/dev/null 2>&1; then
+            kaggle datasets version -p sp -m "$(sha256sum sp/metadata.csv | cut -c1-12)" --delete-old-versions
+          else
+            kaggle datasets create -p sp
+          fi
+          rm -rf sp
+          for i in $(seq 30); do
+            S="$(kaggle datasets status "$DS" 2>&1 | tail -1)"; echo "dataset $S"
+            case "$S" in *ready*) break;; esac
+            sleep 20
+          done
+          sleep 30
       - name: Push
         if: env.MODE == 'run' || env.MODE == 'start'
         run: |
           sed -i "s#KAGGLE_USER/#$KAGGLE_USERNAME/#g" "kaggle/$KERNEL/kernel-metadata.json"
+          sed -i "s#\"KAGGLE_USER\"#\"$KAGGLE_USERNAME\"#" "kaggle/$KERNEL/run.py"
           kaggle kernels push -p "kaggle/$KERNEL" | tee push.txt
           grep -qiE "error|failed" push.txt && exit 1 || true
       - name: Wait and log
@@ -62,8 +91,24 @@ jobs:
           [ -n "$LOG" ] && python3 -c "import json,sys; [print(''.join(f'[{e.get(\"time\",0):.0f}s] ' + l for l in e.get('data','').splitlines(True)),end='') for e in json.load(open(sys.argv[1]))]" "$LOG" > log.txt
           [ -n "$LOG" ] && { echo "--- progress"; grep -aoE "Epoch [0-9]+:[^|]*\|[^|]*\|[^]]*\]" log.txt | tail -5; grep -aiE "cach|preprocess|sanity|max_time|Trainable|Total params" log.txt | head -20; echo "--- end of log"; tail -150 log.txt; }
           case "$S" in *complete*|*COMPLETE*) ;; *) exit 1;; esac
+      - name: Fetch speaker voices
+        if: env.MODE == 'fetch' && env.KERNEL == 'speaker'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/speaker/sealed.py open voice-data/speaker1.sealed bundle.tar
+          KEY="$(tar -xOf bundle.tar key.txt)"; rm bundle.tar
+          echo "::add-mask::$KEY"
+          mkdir -p vo && kaggle kernels output "$KAGGLE_USERNAME/keyless-voice-speaker" -p vo --file-pattern ".*(voice-[0-9]+\\.onnx|mana\\.onnx\\.json)$" 2>&1 | tail -3
+          ls -la vo
+          gh release view tts-speaker1-sealed >/dev/null 2>&1 || gh release create tts-speaker1-sealed --prerelease --target "$GITHUB_SHA" --title "Speaker pilot (sealed)" --notes "Encrypted training outputs; not readable without the key."
+          for f in vo/*; do
+            python3 scripts/speaker/sealed.py enc "$KEY" "$f" "$(basename "$f").enc"
+            gh release upload tts-speaker1-sealed "$(basename "$f").enc" --clobber
+            rm "$f" "$(basename "$f").enc"
+          done
       - name: Fetch checkpoint
-        if: env.MODE == 'fetch'
+        if: env.MODE == 'fetch' && env.KERNEL != 'speaker'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
