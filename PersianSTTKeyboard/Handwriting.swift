@@ -270,8 +270,6 @@ final class HandwritingPadView: UIView {
                                           withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)), for: .normal)
             // The language beside the keyboard symbol, so the way the paper moves is plain.
             closeButton.setTitle(rightToLeft ? " فا" : " EN", for: .normal)
-            swipe.direction = rightToLeft ? .right : .left
-            updateHint()
         }
     }
     /// Off, each word fades as soon as it is read instead of sliding aside.
@@ -288,7 +286,7 @@ final class HandwritingPadView: UIView {
     /// The one touch that writes; a second finger makes it a two-finger gesture instead.
     private var pen: UITouch?
     private var twoFingers = false
-    /// Two fingers swiped the way the text runs back: a word deleted (Rooz, 2026-11-11).
+    /// Two fingers swiped left or right: a word deleted (Rooz, 2026-11-11).
     private let swipe = UISwipeGestureRecognizer()
     /// Two fingers swiped down: return (Rooz, 2026-11-11), the full paper having no return key.
     private let swipeDown = UISwipeGestureRecognizer()
@@ -442,7 +440,8 @@ final class HandwritingPadView: UIView {
         swipe.numberOfTouchesRequired = 2
         // A lifted pen is not held back while the swipe waits to fail: dots and word ends stay prompt.
         swipe.delaysTouchesEnded = false
-        swipe.direction = .right
+        // Either way, in either language (Rooz, 2026-11-11).
+        swipe.direction = [.right, .left]
         swipe.addTarget(self, action: #selector(swipeDelete))
         addGestureRecognizer(swipe)
         swipeDown.numberOfTouchesRequired = 2
@@ -457,8 +456,8 @@ final class HandwritingPadView: UIView {
         hint.minimumScaleFactor = 0.7
         hint.isUserInteractionEnabled = false
         hint.isHidden = true
+        hint.text = "پاک کردن: دو انگشت به چپ یا راست   ·   اینتر: دو انگشت به پایین"
         addSubview(hint)
-        updateHint()
     }
 
     @objc private func swipeReturn() {
@@ -466,11 +465,6 @@ final class HandwritingPadView: UIView {
         commitPending { [weak self] in self?.onReturn?() }
     }
 
-    private func updateHint() {
-        hint.text = rightToLeft
-            ? "پاک کردن: دو انگشت به راست   ·   اینتر: دو انگشت به پایین"
-            : "پاک کردن: دو انگشت به چپ   ·   اینتر: دو انگشت به پایین"
-    }
 
     @objc private func swipeDelete() {
         onFeedback?()
