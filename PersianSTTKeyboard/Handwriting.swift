@@ -844,8 +844,8 @@ final class HandwritingPadView: UIView {
         }
     }
 
-    /// The word just written joins the words on the paper, and the paper slides by its width
-    /// (right for Persian, left for English) so the next word starts where the pen is. With no
+    /// The word just written joins the words on the paper, and the paper slides (right for
+    /// Persian, left for English) until the word sits in the outer third. With no
     /// width (a dot added to the last word), the ink stays where it is.
     private func moveInkAside(width: CGFloat?) {
         var toTrail = CGAffineTransform(translationX: -trail.frame.minX, y: -trail.frame.minY)
@@ -865,7 +865,12 @@ final class HandwritingPadView: UIView {
             return
         }
         guard let width else { return }
-        let step = min(width + 22, trail.bounds.width * 0.6) * (rightToLeft ? 1 : -1)
+        // Far enough that the word's last letter ends up in the outer third of the paper, so the
+        // middle stays free for the next word (Rooz, 2026-11-11); never less than its width.
+        let paperWidth = trail.bounds.width
+        let box = wordPath?.boundingBoxOfPath ?? .zero
+        let clear = rightToLeft ? paperWidth * 0.7 - box.minX : box.maxX - paperWidth * 0.3
+        let step = min(max(width + 22, clear), paperWidth) * (rightToLeft ? 1 : -1)
         shiftSinceLastWord = step
         // Each layer glides from where it is seen now to its new place (Rooz, 2026-11-11): an
         // implicit move had no start for the word just added, so it jumped.
