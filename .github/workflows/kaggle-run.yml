@@ -5,9 +5,9 @@
 # keyless-voice-ckpt (the next training session resumes from it) and its ONNX export to the
 # GitHub release tts-fa-keyless-wip.
 # The kernel "speaker" trains on a speaker's own recordings, which must not be readable in this
-# public repository: voice-data/speaker1.sealed (scripts/speaker/sealed.py) opens only here, becomes
-# the private Kaggle dataset keyless-voice-speaker1, and in fetch mode the exported voices go to the
-# release tts-speaker1-sealed encrypted with the key that travels inside the sealed file.
+# public repository: voice-data/<speaker>.sealed (scripts/speaker/sealed.py) opens only here, becomes
+# the private Kaggle dataset keyless-voice-<speaker>, trains in the notebook keyless-voice-train-<speaker>,
+# and in fetch mode the exported voices go to the release tts-<speaker>-sealed encrypted with the key that travels inside the sealed file.
 name: Kaggle run
 
 on:
@@ -22,6 +22,9 @@ on:
         type: choice
         options: [run, start, log, fetch, pin]
         default: run
+      speaker:
+        description: "kernel speaker only: voice-data/<speaker>.sealed to train on"
+        default: speaker1
   push:
     branches: [claude/project-thread-xaj97f]
     paths: [kaggle/smoke/**]
@@ -38,6 +41,9 @@ jobs:
       KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
       KERNEL: ${{ inputs.kernel || 'smoke' }}
       MODE: ${{ inputs.mode || 'run' }}
+      SPEAKER: ${{ inputs.speaker || 'speaker1' }}
+      # Notebook name; the speaker kernel runs as one notebook per speaker.
+      KID: ${{ inputs.kernel == 'speaker' && format('keyless-voice-train-{0}', inputs.speaker || 'speaker1') || format('keyless-voice-{0}', inputs.kernel || 'smoke') }}
     steps:
       - uses: actions/checkout@v5
       - name: Kaggle tool
@@ -51,11 +57,11 @@ jobs:
       - name: Speaker data
         if: env.KERNEL == 'speaker' && (env.MODE == 'run' || env.MODE == 'start')
         run: |
-          DS="$KAGGLE_USERNAME/keyless-voice-speaker1"
-          python3 scripts/speaker/sealed.py open voice-data/speaker1.sealed bundle.tar
+          DS="$KAGGLE_USERNAME/keyless-voice-$SPEAKER"
+          python3 scripts/speaker/sealed.py open "voice-data/$SPEAKER.sealed" bundle.tar
           mkdir -p sp && tar -xf bundle.tar -C sp && rm bundle.tar sp/key.txt
           echo "$(ls sp | wc -l) files, $(sha256sum sp/metadata.csv | cut -c1-12)"
-          printf '{"title": "keyless-voice-speaker1", "id": "%s", "licenses": [{"name": "other"}]}\n' "$DS" > sp/dataset-metadata.json
+          printf '{"title": "keyless-voice-%s", "id": "%s", "licenses": [{"name": "other"}]}\n' "$SPEAKER" "$DS" > sp/dataset-metadata.json
           if kaggle datasets status "$DS" >/dev/null 2>&1; then
             kaggle datasets version -p sp -m "$(sha256sum sp/metadata.csv | cut -c1-12)" --delete-old-versions
           else
@@ -71,6 +77,10 @@ jobs:
       - name: Push
         if: env.MODE == 'run' || env.MODE == 'start'
         run: |
+          if [ "$KERNEL" = speaker ]; then
+            # One notebook per speaker, so speakers can train side by side.
+            sed -i -e "s#keyless-voice-speaker1#keyless-voice-$SPEAKER#" -e "s#keyless-voice-speaker\"#$KID\"#g" "kaggle/$KERNEL/kernel-metadata.json"
+          fi
           sed -i "s#KAGGLE_USER/#$KAGGLE_USERNAME/#g" "kaggle/$KERNEL/kernel-metadata.json"
           sed -i "s#\"KAGGLE_USER\"#\"$KAGGLE_USERNAME\"#" "kaggle/$KERNEL/run.py"
           kaggle kernels push -p "kaggle/$KERNEL" | tee push.txt
@@ -78,7 +88,7 @@ jobs:
       - name: Wait and log
         if: env.MODE == 'run' || env.MODE == 'log'
         run: |
-          ID="$KAGGLE_USERNAME/keyless-voice-$KERNEL"
+          ID="$KAGGLE_USERNAME/$KID"
           [ "$MODE" = log ] || sleep 60
           while true; do
             S="$(kaggle kernels status "$ID" 2>&1 | tail -1)"; echo "$(date -u +%H:%M) $S"
@@ -96,15 +106,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          python3 scripts/speaker/sealed.py open voice-data/speaker1.sealed bundle.tar
+          python3 scripts/speaker/sealed.py open "voice-data/$SPEAKER.sealed" bundle.tar
           KEY="$(tar -xOf bundle.tar ./key.txt)"; rm bundle.tar
           echo "::add-mask::$KEY"
-          mkdir -p vo && kaggle kernels output "$KAGGLE_USERNAME/keyless-voice-speaker" -p vo --file-pattern ".*(voice-[0-9]+\\.onnx|mana\\.onnx\\.json)$" 2>&1 | tail -3
+          mkdir -p vo && kaggle kernels output "$KAGGLE_USERNAME/$KID" -p vo --file-pattern ".*(voice-[0-9]+\\.onnx|mana\\.onnx\\.json)$" 2>&1 | tail -3
           ls -la vo
-          gh release view tts-speaker1-sealed >/dev/null 2>&1 || gh release create tts-speaker1-sealed --prerelease --target "$GITHUB_SHA" --title "Speaker pilot (sealed)" --notes "Encrypted training outputs; not readable without the key."
+          gh release view tts-$SPEAKER-sealed >/dev/null 2>&1 || gh release create tts-$SPEAKER-sealed --prerelease --target "$GITHUB_SHA" --title "Speaker pilot $SPEAKER (sealed)" --notes "Encrypted training outputs; not readable without the key."
           for f in vo/*; do
             python3 scripts/speaker/sealed.py enc "$KEY" "$f" "$(basename "$f").enc"
-            gh release upload tts-speaker1-sealed "$(basename "$f").enc" --clobber
+            gh release upload tts-$SPEAKER-sealed "$(basename "$f").enc" --clobber
             rm "$f" "$(basename "$f").enc"
           done
       - name: Pin the session-3 checkpoint
@@ -141,7 +151,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ID="$KAGGLE_USERNAME/keyless-voice-$KERNEL"
+          ID="$KAGGLE_USERNAME/$KID"
           mkdir -p ck && kaggle kernels output "$ID" -p ck --file-pattern ".*(last\.ckpt|mana\.onnx\.json)$" 2>&1 | tail -3
           find ck -type f -exec ls -la {} \;
           CK="$(ls ck/last.ckpt 2>/dev/null || find ck -name 'last*.ckpt' | head -1)"
