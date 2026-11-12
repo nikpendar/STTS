@@ -286,6 +286,11 @@ final class HandwritingPadView: UIView {
         didSet { updateGuide() }
     }
     private let guide = CAShapeLayer()
+    /// Guide lines for the pad's size (Rooz, 2026-11-12): one small, two medium, three large;
+    /// the full paper has three.
+    var guideLines = 1 {
+        didSet { updateGuide() }
+    }
     /// The one touch that writes; a second finger makes it a two-finger gesture instead.
     private var pen: UITouch?
     private var twoFingers = false
@@ -506,9 +511,13 @@ final class HandwritingPadView: UIView {
         CATransaction.setDisableActions(true)
         let area = paper.frame
         let line = UIBezierPath()
-        let y = area.minY + area.height * 0.62
-        line.move(to: CGPoint(x: area.minX + 18, y: y))
-        line.addLine(to: CGPoint(x: area.maxX - 18, y: y))
+        let count = CGFloat(fullPaper ? 3 : max(1, min(3, guideLines)))
+        // Each line a little below the middle of its own band, where letters sit.
+        for i in 0..<Int(count) {
+            let y = area.minY + area.height * (CGFloat(i) + 0.62) / count
+            line.move(to: CGPoint(x: area.minX + 18, y: y))
+            line.addLine(to: CGPoint(x: area.maxX - 18, y: y))
+        }
         guide.path = area.width > 40 ? line.cgPath : nil
         guide.strokeColor = textColor.resolvedColor(with: traitCollection).withAlphaComponent(0.16).cgColor
         guide.isHidden = !showsGuide
@@ -530,19 +539,22 @@ final class HandwritingPadView: UIView {
     /// paper): its inner edge bows in towards the middle of the paper.
     private func layoutStrip() {
         let area = paper.frame
-        // On the full paper it stops above the button back, which sits in a bottom corner.
-        let bottom = fullPaper ? collapseButton.frame.minY - 6 : area.maxY
-        let height = bottom - area.minY
+        // The whole height, the full paper too: the button back sits in the other corner.
+        let height = area.height
         let width = max(28, min(44, area.width * 0.07))
         strip.isHidden = !showsStrip || area.width < 160 || height < 36
         guard !strip.isHidden else { return }
-        strip.frame = CGRect(x: rightToLeft ? area.maxX - width : area.minX, y: area.minY, width: width, height: height)
+        // Where the pen is heading: the left for Persian, the right for English (Rooz, 2026-11-12).
+        strip.frame = CGRect(x: rightToLeft ? area.minX : area.maxX - width, y: area.minY, width: width, height: height)
         strip.layer.maskedCorners = rightToLeft
-            ? [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
-            : [.layerMinXMinYCorner, .layerMinXMaxYCorner]
-        // Local x of the inner edge: a little in at the ends, all the way in at the middle.
+            ? [.layerMinXMinYCorner, .layerMinXMaxYCorner]
+            : [.layerMaxXMinYCorner, .layerMaxXMaxYCorner]
+        // Distance of the inner edge from the strip's inner side: a little in at the ends, all
+        // the way at the middle, less half the line so the strip's own edge does not clip it
+        // (the line was thinner behind the arrow).
         let ends = width * 0.45
-        let inner = { (x: CGFloat) in self.rightToLeft ? x : width - x }
+        let apex = stripEdge.lineWidth
+        let inner = { (x: CGFloat) in self.rightToLeft ? width - max(x, apex) : max(x, apex) }
         let edge = UIBezierPath()
         edge.move(to: CGPoint(x: inner(ends), y: 0))
         edge.addCurve(to: CGPoint(x: inner(0), y: height / 2),
@@ -553,8 +565,8 @@ final class HandwritingPadView: UIView {
                       controlPoint2: CGPoint(x: inner(ends), y: height * 0.8))
         let fill = UIBezierPath()
         fill.append(edge)
-        fill.addLine(to: CGPoint(x: rightToLeft ? width : 0, y: height))
-        fill.addLine(to: CGPoint(x: rightToLeft ? width : 0, y: 0))
+        fill.addLine(to: CGPoint(x: rightToLeft ? 0 : width, y: height))
+        fill.addLine(to: CGPoint(x: rightToLeft ? 0 : width, y: 0))
         fill.close()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -564,7 +576,7 @@ final class HandwritingPadView: UIView {
         stripEdge.path = edge.cgPath
         CATransaction.commit()
         stripIcon.isHidden = height < 60
-        let iconX = rightToLeft ? width * 0.6 : width * 0.4
+        let iconX = rightToLeft ? width * 0.4 : width * 0.6
         stripIcon.frame = CGRect(x: iconX - 12, y: height / 2 - 12, width: 24, height: 24)
     }
 
@@ -702,13 +714,15 @@ final class HandwritingPadView: UIView {
         hint.alpha = hintSeen ? 0 : 1
         expandButton.isHidden = hidden || !landscape
         if fullPaper {
-            // The whole pad is paper; the button back sits in its bottom corner, outlined so it
+            // The whole pad is paper; the button back sits in a bottom corner, outlined so it
             // stands apart from the ink, with a line on deleting and return beside it.
             paper.frame = CGRect(x: 8, y: 8, width: bounds.width - 16, height: max(24, bounds.height - 16))
             let size = CGSize(width: min(unit, 64), height: 38)
-            collapseButton.frame = CGRect(x: paper.frame.minX + 8, y: paper.frame.maxY - size.height - 8,
+            // In the bottom corner away from the strip: right for Persian, left for English.
+            let collapseX = rightToLeft ? paper.frame.maxX - size.width - 8 : paper.frame.minX + 8
+            collapseButton.frame = CGRect(x: collapseX, y: paper.frame.maxY - size.height - 8,
                                           width: size.width, height: size.height)
-            let hintX = collapseButton.frame.maxX + 12
+            let hintX = paper.frame.minX + 8 + size.width + 12
             hint.frame = CGRect(x: hintX, y: collapseButton.frame.minY,
                                 width: paper.frame.maxX - 8 - size.width - 12 - hintX, height: size.height)
         } else {

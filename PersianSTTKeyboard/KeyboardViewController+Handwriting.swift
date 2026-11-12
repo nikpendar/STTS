@@ -72,6 +72,7 @@ extension KeyboardViewController {
         pad.rank = { [weak self] texts in self?.rankHandwriting(texts) ?? texts }
         pad.showsGuide = options.handwritingGuide
         pad.showsStrip = options.handwritingStrip
+        pad.guideLines = options.handwritingSize + 1
         view.addSubview(pad)
         handwritingPad = pad
         heightChanged()

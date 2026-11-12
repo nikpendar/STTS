@@ -14,6 +14,9 @@ extension KeyboardViewController {
         handwritingPad?.inkWidth = CGFloat(new.handwritingInkWidth)
         handwritingPad?.slides = new.handwritingSlide
         handwritingPad?.speed = new.handwritingSpeed
+        handwritingPad?.guideLines = new.handwritingSize + 1
+        handwritingPad?.showsGuide = new.handwritingGuide
+        handwritingPad?.showsStrip = new.handwritingStrip
         if new.handwritingSize != old.handwritingSize, handwritingPad != nil { heightChanged() }
         handwritingPad?.inkColor = new.handwritingInk.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) }
         if new.numberRow != old.numberRow || new.digitsOnLetters != old.digitsOnLetters { buildCharacterKeys() }
