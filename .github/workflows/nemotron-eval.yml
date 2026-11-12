@@ -1,0 +1,69 @@
+# Nemotron ASR streaming Farsi (600M, sherpa-onnx int8 export Nimaone/nemotron-asr-streaming-farsi-onnx,
+# 1.12 s look-ahead) on the app's benchmark clips: 80 FLEURS, 80 Common Voice 17 and 120 Common Voice
+# clips of one to three words. Streamed in 100 ms chunks on the CPU. Nothing here changes the app.
+name: Nemotron Farsi benchmark
+
+on:
+  push:
+    branches: [batch-1021c]
+    paths: [.github/workflows/nemotron-eval.yml, scripts/sherpa_eval.py]
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - name: FLEURS fa_ir test, first 80
+        run: |
+          base=https://huggingface.co/datasets/google/fleurs/resolve/main/data/fa_ir
+          curl -fsSL --retry 3 -o test.tsv "$base/test.tsv"
+          curl -fsSL --retry 3 -o test.tar.gz "$base/audio/test.tar.gz"
+          tar xzf test.tar.gz
+          mkdir -p fleurs
+          head -n 80 test.tsv | while IFS=$'\t' read -r id file raw norm rest; do
+            src=$(find test -name "$file" | head -1)
+            [ -n "$src" ] || continue
+            python3 scripts/to_pcm16.py "$src" "fleurs/$file" > /dev/null
+            printf '%s\t%s\n' "$file" "$raw" >> fleurs/refs.tsv
+          done
+      - name: Common Voice 17 fa test
+        run: |
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          base=https://huggingface.co/datasets/fsicoli/common_voice_17_0/resolve/main
+          curl -fsSL --retry 3 -o cv.tsv "$base/transcript/fa/test.tsv"
+          curl -fsSL --retry 3 -o cv.tar "$base/audio/fa/test/fa_test_0.tar"
+          python3 scripts/prepare_cv.py cv.tsv cv.tar 80 cv17
+          python3 scripts/prepare_short.py cv.tsv cv.tar 120 short
+      - name: Model
+        run: |
+          python3 -m pip install -q "sherpa-onnx>=1.13.8" numpy
+          base=https://huggingface.co/Nimaone/nemotron-asr-streaming-farsi-onnx/resolve/main
+          mkdir -p model
+          for f in encoder.int8.onnx decoder.int8.onnx joiner.int8.onnx tokens.txt; do
+            curl -fsSL --retry 5 -o "model/$f" "$base/$f"
+          done
+          ls -l model
+          nproc
+      - name: Transcribe and score
+        run: |
+          mkdir -p result
+          echo "| set | WER | CER | rtf | peak MB |" > result/table.md
+          echo "|---|---|---|---|---|" >> result/table.md
+          for ds in fleurs cv17 short; do
+            stats=$(python3 scripts/sherpa_eval.py model "$ds" 2)
+            echo "$stats"
+            python3 scripts/wer.py "$ds/refs.tsv" "$ds" "nemotron-$ds" 0 0 1 "result/$ds.json" > /dev/null
+            python3 - "$ds" "$stats" <<'PY'
+          import json, sys
+          ds, stats = sys.argv[1], json.loads(sys.argv[2])
+          r = json.load(open(f"result/{ds}.json"))
+          line = f"| {ds} | {r['wer']} | {r.get('cer', '')} | {stats['rtf']} | {stats['peak_mb']} |"
+          print("RESULT", line)
+          open("result/table.md", "a").write(line + "\n")
+          for s in r.get("samples", [])[:6]:
+              print("SAMPLE", json.dumps(s, ensure_ascii=False))
+          PY
+          done
+          cat result/table.md >> "$GITHUB_STEP_SUMMARY"
