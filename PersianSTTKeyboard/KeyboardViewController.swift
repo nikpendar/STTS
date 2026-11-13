@@ -49,7 +49,7 @@ final class KeyboardViewController: UIInputViewController {
     var rowHeight: CGFloat { metrics.row }
     /// The suggestion bar above the keys, or a thin margin in its place when it is switched off.
     var barHeight: CGFloat {
-        guard options.suggestionBar else { return isLandscape ? 2 : 3 }
+        guard options.suggestionBar || options.dictationButton else { return isLandscape ? 2 : 3 }
         return metrics.bar
     }
     /// The optional digits over the letters.
@@ -147,6 +147,13 @@ final class KeyboardViewController: UIInputViewController {
     var lockedKeysShown = false
     /// The finger was lifted before the app confirmed the recording.
     var stopWhenRecording = false
+    /// A recording started from the suggestion bar's mic: the keys stay as they are and can be
+    /// typed on while it records (Rooz, 2026-11-13).
+    var barDictation = false
+    /// When the speech last changed, for ending a bar recording after a silence.
+    var lastHeard = Date()
+    var silenceTimer: Timer?
+    static let barSilence: TimeInterval = 8
     var recordingStart = Date()
     var isCompact = false
     /// While the keyboard grows or shrinks for dictation, the keys keep the full-height layout.
@@ -464,6 +471,9 @@ final class KeyboardViewController: UIInputViewController {
             editEmojiSearch(adding: text)
             return
         }
+        // Typing while the bar's mic records: what was heard so far stays as it is, the typed
+        // text follows it, and the speech goes on after that.
+        if !dictated, barDictation, !liveText.isEmpty { settleShownText() }
         if autoSpace, !dictated, Self.smartPunctuation.contains(text),
            proxy.documentContextBeforeInput?.hasSuffix(" ") == true {
             deleteBackward()
@@ -808,7 +818,14 @@ final class KeyboardViewController: UIInputViewController {
             orb.mode = .processing
         }
         let active = state == .starting || state == .recording || state == .transcribing
-        if holdLayout || isMagnet { setMagnet(active) } else { setCompact(active) }
+        if barDictation {
+            if !active { barDictation = false }
+        } else if holdLayout || isMagnet {
+            setMagnet(active)
+        } else {
+            setCompact(active)
+        }
+        updateBarMic()
     }
 
     /// While a held space bar dictates, the keyboard keeps its height: every row opens sideways
@@ -1117,6 +1134,7 @@ final class KeyboardViewController: UIInputViewController {
             key.addAction(UIAction { [weak self] _ in self?.click(.modifier) }, for: .touchDown)
         }
         suggestionBar.onPick = { [weak self] item in self?.pick(item) }
+        suggestionBar.onMic = { [weak self] in self?.barMicTapped() }
         keysView.addSubview(suggestionBar)
         buildCharacterKeys()
 
@@ -1461,10 +1479,36 @@ final class KeyboardViewController: UIInputViewController {
         // not while an emoji search is typed.
         let sessionOn = state != .noSession && state != .checking
         spaceKey.trailingImage = canDictateOnSpace ? (sessionOn ? KeyIcons.spaceMic : KeyIcons.spaceMicOff) : nil
+        updateBarMic()
     }
 
     /// Holding the space bar dictates (Persian speech) on the Persian letters and symbols.
-    var canDictateOnSpace: Bool { !isEnglish && emojiSearch == nil }
+    var canDictateOnSpace: Bool { !isEnglish && emojiSearch == nil && !options.dictationButton }
+
+    /// The suggestion bar's mic: Persian speech, so on the Persian keys (and while a recording
+    /// it started goes on), and its look follows the dictation's state.
+    func updateBarMic() {
+        suggestionBar.showsMic = options.dictationButton && ((!isEnglish && emojiSearch == nil) || barDictation)
+        switch state {
+        case .noSession: suggestionBar.micLook = .off
+        case .checking: suggestionBar.micLook = .waiting
+        case .ready: suggestionBar.micLook = .ready
+        case .starting, .transcribing: suggestionBar.micLook = barDictation ? .busy : .ready
+        case .recording: suggestionBar.micLook = barDictation ? .recording : .ready
+        }
+        // Ended after a silence, so a forgotten mic does not stay on.
+        if barDictation, state == .recording {
+            guard silenceTimer == nil else { return }
+            lastHeard = Date()
+            silenceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                guard let self, self.barDictation, self.state == .recording else { return }
+                if Date().timeIntervalSince(self.lastHeard) > Self.barSilence { self.endRecording() }
+            }
+        } else {
+            silenceTimer?.invalidate()
+            silenceTimer = nil
+        }
+    }
 
     /// A horizontal swipe on the space bar switches between Persian and English, like SwiftKey.
     @objc func spaceSwiped(_ pan: UIPanGestureRecognizer) {
@@ -1530,7 +1574,7 @@ final class KeyboardViewController: UIInputViewController {
         // other layers spread their four rows over the letters' and the digits' height.
         let keysNeeded = 4 * rowHeight + (options.numberRow ? numberRowHeight : 0)
         let searchExtra = emojiSearch != nil ? searchExtraHeight : 0
-        let leastBar: CGFloat = (options.suggestionBar ? (isLandscape ? 26 : 30) : barHeight) + searchExtra
+        let leastBar: CGFloat = (options.suggestionBar || options.dictationButton ? (isLandscape ? 26 : 30) : barHeight) + searchExtra
         let bar = max(leastBar, height - keysNeeded)
         let scale = min(1, (height - bar) / keysNeeded)
         let numbers = showsNumberRow ? numberRowHeight * scale : 0
@@ -1539,7 +1583,7 @@ final class KeyboardViewController: UIInputViewController {
         let bottomGap = layer == .emoji ? 0 : (isLandscape ? 6 : 10) * scale
         let row = (keysNeeded * scale - numbers - bottomGap) / 4
         suggestionBar.frame = CGRect(x: left, y: 0, width: width, height: bar)
-        suggestionBar.isHidden = !options.suggestionBar || emojiSearch != nil || layer == .emoji
+        suggestionBar.isHidden = !(options.suggestionBar || options.dictationButton) || emojiSearch != nil || layer == .emoji
         emojiSearchView.frame = CGRect(x: left, y: 0, width: width, height: bar)
         emojiSearchView.fieldHeight = bar - searchResultsHeight
         let unit = width / CGFloat(columns)
@@ -1853,6 +1897,7 @@ final class KeyboardViewController: UIInputViewController {
             editEmojiSearch(adding: nil)
             return
         }
+        if barDictation, !liveText.isEmpty { settleShownText() }
         if let change = lastAutoZWNJ, (proxy.documentContextBeforeInput ?? "").hasSuffix(change.inserted) {
             lastAutoZWNJ = nil
             if lastChangeWasTypo { UsageStats.record { $0.autoCorrectionsUndone += 1 } }
@@ -2041,8 +2086,8 @@ final class KeyboardViewController: UIInputViewController {
     func updateSuggestions() {
         // The word lists load in the background and may finish after iOS put this keyboard away.
         guard isOnScreen else { return }
-        guard options.suggestionBar, layer == .letters, state != .recording, state != .transcribing,
-              state != .starting else {
+        let dictating = !barDictation && (state == .recording || state == .transcribing || state == .starting)
+        guard options.suggestionBar, layer == .letters, !dictating else {
             suggestionBar.show([nil, nil, nil])
             return
         }

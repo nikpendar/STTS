@@ -55,6 +55,29 @@ extension KeyboardViewController {
         }
     }
 
+    /// The suggestion bar's mic: a tap starts a recording the keys stay usable through, another
+    /// ends it; with voice typing off in the app, it opens the app.
+    func barMicTapped() {
+        click(.modifier)
+        switch state {
+        case .ready:
+            haptic(.impact(.light))
+            barDictation = true
+            isHeld = false
+            isLocked = false
+            startDictation(held: false)
+        case .starting:
+            stopWhenRecording = true
+        case .recording:
+            haptic(.impact(.light))
+            endRecording()
+        case .noSession, .checking:
+            askForSession()
+        case .transcribing:
+            break
+        }
+    }
+
     func endRecording() {
         DictationBridge.post(DictationBridge.stop)
         beginTranscribing()
@@ -287,6 +310,8 @@ extension KeyboardViewController {
                 let draft = VoiceCommands.draft(body, punctuation: false, commands: false,
                                                 zwnj: options.autoZWNJ, dictionary: dictionary)
                 if liveText.isEmpty { log.info("live text: first shown, \(draft.count) characters") }
+                if draft != liveDraft { lastHeard = Date() }
+                settleIfMoved()
                 liveDraft = draft
                 let shown = afterSettled(draft)
                 if !shown.isEmpty { replaceLiveText(with: shown) }
@@ -347,12 +372,30 @@ extension KeyboardViewController {
         dictationEdited = true
     }
 
+    /// The words shown so far stay as they are (typing during a bar recording): later results
+    /// add only what follows them.
+    func settleShownText() {
+        settledWords += liveText.split(whereSeparator: \.isWhitespace).count
+        liveText = ""
+        dictationEdited = true
+    }
+
+    /// The live text is no longer right before the cursor (the cursor moved, or text was typed
+    /// after it): it is left where it is, and the speech goes on at the cursor.
+    func settleIfMoved() {
+        guard barDictation, !liveText.isEmpty,
+              !(proxy.documentContextBeforeInput ?? "").hasSuffix(liveText) else { return }
+        settleShownText()
+    }
+
     /// Swaps the provisional text for `text`, deleting only the part that changed.
     func replaceLiveText(with text: String) {
         guard isOnScreen else {
             liveText = ""
             return
         }
+        // A new piece after typing or a moved cursor: spaced from whatever is before it now.
+        if barDictation, liveText.isEmpty { livePrefix = spaceBeforeDictation() }
         // Punctuation and line breaks join the text before them.
         let joins = text.first.map { $0 == "\n" || ".،؟!:؛)»,?".contains($0) } ?? true
         let target = text.isEmpty ? "" : (joins ? "" : livePrefix) + text
@@ -373,6 +416,7 @@ extension KeyboardViewController {
     /// Puts a finished dictation into the document: its first text replaces the live text, and
     /// editing commands run in order with the text around them.
     func perform(_ result: VoiceCommands.Result) {
+        settleIfMoved()
         var first = true
         for step in result.steps {
             switch step {

@@ -230,6 +230,19 @@ struct ContentView: View {
             }
 
             Section {
+                Picker(selection: $options.dictationButton) {
+                    Text("نگه داشتن فاصله").tag(false)
+                    Text("دکمه‌ی میکروفون").tag(true)
+                } label: {
+                    SettingLabel("روش تایپ صوتی", symbol: "mic.fill", color: .orange)
+                }
+            } footer: {
+                Text(options.dictationButton
+                     ? "میکروفون سمت راست ردیف پیشنهاد است. یک ضربه ضبط را شروع می‌کند و ضربه‌ی دوم تمامش می‌کند. در این مدت می‌توانید تایپ کنید و بعد از ۸ ثانیه سکوت، ضبط خودش تمام می‌شود."
+                     : "فاصله را نگه دارید و حرف بزنید؛ با بلند کردن انگشت متن وارد می‌شود. با کشیدن رو به بالا، ضبط قفل می‌شود.").font(.app(.footnote))
+            }
+
+            Section {
                 Picker(selection: $sessionMinutes) {
                     Text("۱۰ دقیقه").tag(10)
                     Text("۳۰ دقیقه").tag(30)
