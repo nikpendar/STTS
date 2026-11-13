@@ -100,6 +100,8 @@ final class PersianPhonemizer {
         "آوانگاری": "@avanegari",
         "هم\u{200C}نویسه": "h/mnevise",
         "هم\u{200C}نویسه\u{200C}ها": "h/mneviseha",
+        "علی": "@/li",
+        "گوشی": "gu$i",
     ]
 
     /// GE2PE output with `exceptions` put in, keeping the model's Ezafe; only when the model gave one

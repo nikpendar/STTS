@@ -17,6 +17,8 @@ EXCEPTIONS = {
     "آوانگاری": "@avanegari",
     "هم\u200cنویسه": "h/mnevise",
     "هم\u200cنویسه\u200cها": "h/mneviseha",
+    "علی": "@/li",
+    "گوشی": "gu$i",
 }
 
 
