@@ -364,14 +364,25 @@ final class KeyView: UIControl {
                                      width: size + 2, height: size + 2)
         }
         if let image = trailingImageView.image {
-            let width = min(inner.width / 3, image.size.width + 20)
-            trailingImageView.frame = CGRect(x: inner.maxX - width, y: inner.minY, width: width, height: inner.height)
+            // The mic's circle as far from the right edge as from the top and bottom (Rooz,
+            // 2026-11-14), as the stop button that takes its place while dictating.
+            Self.placeAtEnd(trailingImageView, image: image, in: inner)
         }
         trailingImageView.isHidden = message != nil || overlay != nil
         overlay?.frame = inner
         // Low landscape rows: a tall image shrinks instead of spilling out of the key.
         let size = imageView.image?.size ?? .zero
         imageView.contentMode = size.width > inner.width || size.height > inner.height ? .scaleAspectFit : .center
+    }
+
+    /// Puts `view` in the square at the right end of `rect`, its image centred, so a round image
+    /// is as far from the right edge as from the top and bottom; a taller image shrinks to fit.
+    static func placeAtEnd(_ view: UIImageView, image: UIImage, in rect: CGRect) {
+        let side = min(rect.height, rect.width / 3)
+        let square = CGRect(x: rect.maxX - side, y: rect.midY - side / 2, width: side, height: side)
+        let fits = image.size.width <= side - 4 && image.size.height <= side - 4
+        view.contentMode = fits ? .center : .scaleAspectFit
+        view.frame = fits ? square : square.insetBy(dx: 2, dy: 2)
     }
 
     override var isHighlighted: Bool {
@@ -932,9 +943,20 @@ final class SpaceVoiceView: UIView {
     private static let lockClosed = symbol("lock.fill", size: 13)
     private static let chevrons = symbol("chevron.left.2", size: 12)
     private static let mic = symbol("mic.fill", size: 17)
-    private static let stop = UIImage(systemName: "stop.circle.fill", withConfiguration:
-        UIImage.SymbolConfiguration(pointSize: 25, weight: .regular)
-            .applying(UIImage.SymbolConfiguration(paletteColors: [.systemOrange, .white])))?.withRenderingMode(.alwaysOriginal)
+    /// A white circle the size of the space bar's mic circle with an orange square in it, drawn
+    /// here: the palette symbol came out as a plain white circle.
+    private static let stop: UIImage? = {
+        guard let circle = UIImage(systemName: "circle.fill", withConfiguration:
+            UIImage.SymbolConfiguration(pointSize: 25, weight: .regular)) else { return nil }
+        let size = circle.size
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            circle.withTintColor(.white).draw(at: .zero)
+            let side = min(size.width, size.height) * 0.36
+            let square = CGRect(x: (size.width - side) / 2, y: (size.height - side) / 2, width: side, height: side)
+            UIColor.systemOrange.setFill()
+            UIBezierPath(roundedRect: square, cornerRadius: side * 0.22).fill()
+        }.withRenderingMode(.alwaysOriginal)
+    }()
 
     private static func symbol(_ name: String, size: CGFloat) -> UIImage? {
         UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: size, weight: .semibold))
@@ -1001,8 +1023,7 @@ final class SpaceVoiceView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         let h = bounds.height
-        let endWidth = Self.endWidth(in: bounds.width)
-        end.frame = CGRect(x: bounds.maxX - endWidth, y: 0, width: endWidth, height: h)
+        if let image = end.image { KeyView.placeAtEnd(end, image: image, in: bounds) }
         let slide = look == .held ? lockProgress * 18 : 0
         lock.frame = CGRect(x: 8 + slide, y: 0, width: 26, height: h)
         arrows.frame = CGRect(x: lock.frame.maxX + 2, y: 0, width: 24, height: h)
@@ -1015,7 +1036,7 @@ final class SpaceVoiceView: UIView {
             return
         }
         let left: CGFloat = 40
-        let right = bounds.width - Self.endWidth(in: bounds.width) - 4
+        let right = bounds.width - min(bounds.height, bounds.width / 3) - 4
         let pitch: CGFloat = 4, barWidth: CGFloat = 2.2
         let count = max(0, min(levels.count, Int((right - left) / pitch)))
         let path = CGMutablePath()
