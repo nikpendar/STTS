@@ -18,8 +18,6 @@ final class KeyboardViewController: UIInputViewController {
 
     var state = State.checking {
         didSet {
-            // A pause belongs to one recording.
-            if state != .recording { isPaused = false }
             render()
             updateTilt()
             if (oldValue == .noSession || oldValue == .checking) != (state == .noSession || state == .checking) {
@@ -136,9 +134,6 @@ final class KeyboardViewController: UIInputViewController {
     var lastHeard = Date()
     var silenceTimer: Timer?
     static let lockedSilence: TimeInterval = 8
-    /// A locked recording paused with the button at the space bar's left end: the app keeps no
-    /// audio until it is tapped again.
-    var isPaused = false
     var recordingStart = Date()
     /// Set once the view is about to show: the height constraint waits for it.
     var willAppear = false
@@ -778,7 +773,6 @@ final class KeyboardViewController: UIInputViewController {
         let shown = state == .starting || state == .recording
         if shown {
             spaceVoice.look = isLocked ? .locked : .held
-            spaceVoice.paused = isPaused
             if spaceKey.overlay == nil {
                 keyPopup.hide()
                 spaceVoice.reset()
@@ -786,14 +780,14 @@ final class KeyboardViewController: UIInputViewController {
                 spaceKey.accent = .systemOrange
                 spaceKey.overlay = spaceVoice
             }
-            spaceKey.accessibilityLabel = isLocked ? "فاصله؛ مکث در سمت چپ، پایان ضبط در سمت راست" : "در حال ضبط"
+            spaceKey.accessibilityLabel = isLocked ? "فاصله؛ پایان ضبط در سمت راست" : "در حال ضبط"
         } else if spaceKey.overlay != nil {
             spaceKey.overlay = nil
             spaceKey.accent = nil
             updateSpaceImage()
         }
         // A locked recording ends after a silence, so a forgotten one does not stay on.
-        if state == .recording, isLocked, !isPaused {
+        if state == .recording, isLocked {
             guard silenceTimer == nil else { return }
             lastHeard = Date()
             silenceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -1492,19 +1486,12 @@ final class KeyboardViewController: UIInputViewController {
     /// Two spaces in quick succession after a word type a full stop and a space, a third turns
     /// it into a comma (، in Persian), when switched on in the app.
     @objc func insertSpace() {
-        // A locked recording: the stop button at the bar's right end ends it, the pause button at
-        // its left end pauses and resumes it, and the rest types a space.
-        if isLocked, state == .recording, let point = spaceKey.touchPoint {
-            let button = SpaceVoiceView.endWidth(in: spaceKey.faceFrame.width) + 6
-            if point.x > spaceKey.frame.maxX - button {
-                haptic(.impact(.light))
-                endRecording()
-                return
-            }
-            if point.x < spaceKey.frame.minX + button {
-                setPaused(!isPaused)
-                return
-            }
+        // A locked recording: the stop button at the bar's right end ends it; the rest types a space.
+        if isLocked, state == .recording, let point = spaceKey.touchPoint,
+           point.x > spaceKey.frame.maxX - SpaceVoiceView.endWidth(in: spaceKey.faceFrame.width) - 6 {
+            haptic(.impact(.light))
+            endRecording()
+            return
         }
         if emojiSearch != nil {
             editEmojiSearch(adding: " ")
