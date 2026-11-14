@@ -32,80 +32,18 @@ extension KeyboardViewController {
         }
     }
 
-    @objc func micTapped() {
-        switch state {
-        case .ready:
-            startDictation(held: false)
-        case .recording where isLocked:
-            // Locked: the orb pauses and resumes; the middle of the orange bar ends it.
-            setPaused(!isPaused)
-        case .recording:
-            endRecording()
-        case .noSession, .checking:
-            askForSession()
-        case .transcribing:
-            // Stop the transcription; the app discards it.
-            cancelTimeout()
-            DictationBridge.post(DictationBridge.cancel)
-            replaceLiveText(with: "")
-            state = .ready
-            showStatus("لغو شد", transient: true)
-        case .starting:
-            break
-        }
-    }
-
-    /// The suggestion bar's mic: a tap starts a recording the keys stay usable through, another
-    /// ends it; with voice typing off in the app, it opens the app.
-    func barMicTapped() {
-        click(.modifier)
-        switch state {
-        case .ready:
-            haptic(.impact(.light))
-            barDictation = true
-            isHeld = false
-            isLocked = false
-            startDictation(held: false)
-        case .starting:
-            stopWhenRecording = true
-        case .recording:
-            haptic(.impact(.light))
-            endRecording()
-        case .noSession, .checking:
-            askForSession()
-        case .transcribing:
-            break
-        }
-    }
-
     func endRecording() {
         DictationBridge.post(DictationBridge.stop)
         beginTranscribing()
     }
 
-    /// `tell`: false when the app paused it itself and only the orb has to show it.
-    func setPaused(_ paused: Bool, tell: Bool = true) {
-        guard paused != isPaused else { return }
-        isPaused = paused
-        if tell {
-            haptic(.impact(.light))
-            DictationBridge.post(paused ? DictationBridge.pause : DictationBridge.resume)
-        }
-        orb.paused = paused
-        orb.accessibilityLabel = paused ? "ادامه‌ی ضبط" : "مکث ضبط"
-    }
-
     /// iOS took the microphone (a call, Siri, its own dictation) and the app paused the
-    /// recording: a locked one shows the pause and goes on after a tap on the orb; a held one
-    /// ends with what was said.
+    /// recording: it ends with what was said.
     func microphoneTaken() {
         guard state == .recording else { return }
-        if isLocked {
-            setPaused(true, tell: false)
-        } else {
-            isHeld = false
-            endRecording()
-        }
+        isHeld = false
+        isLocked = false
+        endRecording()
     }
 
     /// Asks the app to record. `held`: while a finger holds the space bar, which the app then
@@ -120,7 +58,7 @@ extension KeyboardViewController {
     }
 
     /// Holding the space bar dictates as long as the finger stays down; lifting it ends the
-    /// recording (a tap on the orb ends it too).
+    /// recording. Sliding left to the lock keeps it going after the finger is lifted.
     @objc func spaceHeld(_ press: UILongPressGestureRecognizer) {
         switch press.state {
         case .began:
@@ -130,8 +68,7 @@ extension KeyboardViewController {
                 haptic(.impact(.medium))
                 isHeld = true
                 isLocked = false
-                holdStartY = press.location(in: view).y
-                holdLayout = true
+                holdStartX = press.location(in: view).x
                 startDictation(held: true)
             case .noSession, .checking:
                 askForSession()
@@ -139,11 +76,13 @@ extension KeyboardViewController {
                 break
             }
         case .changed:
-            guard isHeld, !isLocked, isMagnet, holdStartY - press.location(in: view).y > Self.lockDistance else { return }
+            guard isHeld, !isLocked, state == .starting || state == .recording else { return }
+            let slid = holdStartX - press.location(in: view).x
+            spaceVoice.lockProgress = max(0, min(1, slid / Self.lockDistance))
+            guard slid > Self.lockDistance else { return }
             isLocked = true
             haptic(.impact(.rigid))
-            orb.lock = .closed
-            setLockedKeys(true)
+            updateSpaceVoice()
         case .ended, .cancelled, .failed:
             if isLocked {
                 isHeld = false
@@ -177,10 +116,6 @@ extension KeyboardViewController {
         let recorded = Date().timeIntervalSince(recordingStart)
         lastRecordedSeconds = recorded
         isLocked = false
-        orb.lock = nil
-        setLockedKeys(false)
-        orb.liveRing.reset()
-        orb.processingRing.begin(expected: min(15, max(2, recorded * 0.4)))
         schedule(after: 90) { [weak self] in
             if self?.state == .transcribing { self?.transcriptionFailed() }
         }
@@ -207,8 +142,6 @@ extension KeyboardViewController {
         guard state == .starting else { return }
         cancelTimeout()
         recordingStart = Date()
-        orb.liveRing.reset()
-        orb.resetVoice()
         state = .recording
         partialsHeard = 0
         liveText = ""
@@ -275,8 +208,7 @@ extension KeyboardViewController {
             // Dictation id + newline + text.
             let parts = body.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
             // No spoken punctuation or edit commands (Rooz, 2026-10-28) and no automatic
-            // punctuation (removed 2026-11-05): the personal dictionary writes marks said aloud,
-            // and the locked bar deletes and starts a new line.
+            // punctuation (removed 2026-11-05): the personal dictionary writes marks said aloud.
             let result = VoiceCommands.process(String(parts.last ?? ""), punctuation: false,
                                                commands: false, zwnj: options.autoZWNJ,
                                                dictionary: dictionary)
@@ -318,7 +250,6 @@ extension KeyboardViewController {
             }
         case DictationBridge.estimatePrefix:
             guard state == .transcribing, let seconds = Double(body) else { return }
-            orb.processingRing.retarget(expected: seconds)
             // Only a safety net for an app that died: a slow pass must still be able to finish.
             schedule(after: max(90, 3 * seconds + 30)) { [weak self] in
                 if self?.state == .transcribing { self?.transcriptionFailed() }
@@ -345,35 +276,8 @@ extension KeyboardViewController {
         return text.split(separator: " ").dropFirst(settledWords).joined(separator: " ")
     }
 
-    /// Return on the split orange bar of a locked recording: what was said so far stays, and
-    /// the dictation goes on on the next line.
-    @objc func lockedReturnTapped() {
-        guard state == .recording, isLocked else { return }
-        click(.modifier)
-        settleLiveText()
-        insert("\n", dictated: true)
-        livePrefix = ""
-    }
-
-    /// Delete on the split orange bar: the last word goes (the line break, right after a return),
-    /// and the dictation goes on from there.
-    @objc func lockedDeleteTapped() {
-        guard state == .recording, isLocked else { return }
-        click(.delete)
-        settleLiveText()
-        if proxy.documentContextBeforeInput?.last == "\n" { deleteBackward() } else { deleteWordBackward() }
-        livePrefix = spaceBeforeDictation()
-    }
-
-    /// Keeps the provisional text typed so far as it is: later results add only what follows.
-    func settleLiveText() {
-        settledWords = liveDraft.split(separator: " ").count
-        liveText = ""
-        dictationEdited = true
-    }
-
-    /// The words shown so far stay as they are (typing during a bar recording): later results
-    /// add only what follows them.
+    /// The words shown so far stay as they are (typing while dictating): later results add only
+    /// what follows them.
     func settleShownText() {
         settledWords += liveText.split(whereSeparator: \.isWhitespace).count
         liveText = ""
@@ -383,8 +287,9 @@ extension KeyboardViewController {
     /// The live text is no longer right before the cursor (the cursor moved, or text was typed
     /// after it): it is left where it is, and the speech goes on at the cursor.
     func settleIfMoved() {
-        guard barDictation, !liveText.isEmpty,
-              !(proxy.documentContextBeforeInput ?? "").hasSuffix(liveText) else { return }
+        // Only the end is compared: iOS hands out a limited stretch of the text before the cursor.
+        guard !liveText.isEmpty,
+              !(proxy.documentContextBeforeInput ?? "").hasSuffix(String(liveText.suffix(24))) else { return }
         settleShownText()
     }
 
@@ -395,7 +300,7 @@ extension KeyboardViewController {
             return
         }
         // A new piece after typing or a moved cursor: spaced from whatever is before it now.
-        if barDictation, liveText.isEmpty { livePrefix = spaceBeforeDictation() }
+        if liveText.isEmpty { livePrefix = spaceBeforeDictation() }
         // Punctuation and line breaks join the text before them.
         let joins = text.first.map { $0 == "\n" || ".،؟!:؛)»,?".contains($0) } ?? true
         let target = text.isEmpty ? "" : (joins ? "" : livePrefix) + text

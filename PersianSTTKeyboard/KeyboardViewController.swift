@@ -18,12 +18,6 @@ final class KeyboardViewController: UIInputViewController {
 
     var state = State.checking {
         didSet {
-            // A pause belongs to one recording.
-            if state != .recording, isPaused {
-                isPaused = false
-                orb.paused = false
-                orb.accessibilityLabel = nil
-            }
             render()
             updateTilt()
             if (oldValue == .noSession || oldValue == .checking) != (state == .noSession || state == .checking) {
@@ -33,10 +27,10 @@ final class KeyboardViewController: UIInputViewController {
     }
 
     let observer = DarwinObserver()
-    let micButton = UIButton(type: .system)
-    /// Holds every key; hidden while dictating, when the keyboard shrinks to `orb`.
+    /// Holds every key.
     let keysView = KeysView()
-    let orb = DictationOrbView()
+    /// Over the orange space bar while it dictates.
+    let spaceVoice = SpaceVoiceView()
     /// The picture chosen in the app (`KeyboardBackground`), behind everything.
     let backgroundImageView = UIImageView()
     /// The preset drawn last and the size it was drawn at.
@@ -49,7 +43,7 @@ final class KeyboardViewController: UIInputViewController {
     var rowHeight: CGFloat { metrics.row }
     /// The suggestion bar above the keys, or a thin margin in its place when it is switched off.
     var barHeight: CGFloat {
-        guard options.suggestionBar || options.dictationButton else { return isLandscape ? 2 : 3 }
+        guard options.suggestionBar else { return isLandscape ? 2 : 3 }
         return metrics.bar
     }
     /// The optional digits over the letters.
@@ -99,7 +93,6 @@ final class KeyboardViewController: UIInputViewController {
     }
     /// The letters' size over the standard one, for the emoji.
     var emojiScale: CGFloat { letterFontSize / CGFloat(KeyStyle.standardLetterSize) }
-    var compactHeight: CGFloat { isLandscape ? 120 : 150 }
     /// The orientation the keyboard was last given, from its own width (it is as wide as the
     /// screen) or from the size it turns to. The screen's bounds are only right when the keyboard
     /// loads: in an extension they keep that orientation after the phone turns (iOS 26 and 27),
@@ -122,42 +115,26 @@ final class KeyboardViewController: UIInputViewController {
         knownLandscape = landscape
         guard changed else { return }
         log.info("orientation \(landscape ? "landscape" : "portrait", privacy: .public) from width \(Int(width))")
-        heightConstraint?.constant = isCompact ? compactHeight : fullHeight
+        heightConstraint?.constant = fullHeight
         view.setNeedsUpdateConstraints()
         view.setNeedsLayout()
     }
     var messageTimer: Timer?
-    /// A finger holds the space bar for dictation, from this height in the keyboard; sliding it
-    /// up `lockDistance` locks the recording, which then goes on after the finger is lifted
-    /// until the orb is tapped (as voice messages in Telegram).
+    /// A finger holds the space bar for dictation, which turns orange; sliding it left
+    /// `lockDistance` toward the lock locks the recording, which then goes on after the finger
+    /// is lifted until the stop button at the bar's right end is tapped (Rooz, 2026-11-14).
+    /// The keys stay usable all along: what is typed settles the words heard so far.
     var isHeld = false
-    var holdStartY: CGFloat = 0
+    var holdStartX: CGFloat = 0
     var isLocked = false
     static let lockDistance: CGFloat = 60
-    /// The recording was started by holding the space bar: the keyboard keeps its height and the
-    /// keys move aside around the orb (`setMagnet`) instead of giving way to the compact orb.
-    var holdLayout = false
-    /// The keys stand aside around the orb, and the ones moved.
-    var isMagnet = false
-    var magnetKeys: [KeyView] = []
-    /// While a recording is locked, the orange space bar splits in three: return on the left,
-    /// the end of the dictation in the middle (wider), delete on the right.
-    let lockedReturnKey = KeyView()
-    let lockedDeleteKey = KeyView()
-    var lockedKeysShown = false
     /// The finger was lifted before the app confirmed the recording.
     var stopWhenRecording = false
-    /// A recording started from the suggestion bar's mic: the keys stay as they are and can be
-    /// typed on while it records (Rooz, 2026-11-13).
-    var barDictation = false
-    /// When the speech last changed, for ending a bar recording after a silence.
+    /// When the speech last changed, for ending a locked recording after a silence.
     var lastHeard = Date()
     var silenceTimer: Timer?
-    static let barSilence: TimeInterval = 8
+    static let lockedSilence: TimeInterval = 8
     var recordingStart = Date()
-    var isCompact = false
-    /// While the keyboard grows or shrinks for dictation, the keys keep the full-height layout.
-    var isResizing = false
     /// Set once the view is about to show: the height constraint waits for it.
     var willAppear = false
     /// The size last written to the log, which records each size iOS gives the keyboard.
@@ -255,7 +232,7 @@ final class KeyboardViewController: UIInputViewController {
 
     /// Each text field gets its own keyboard. UIKit keeps the view of one it has let go of, with
     /// everything in it (about 2 MB a text field), until the extension runs out of memory and iOS
-    /// puts its own keyboard back; emptying the view frees the keys, the orb and the glass.
+    /// puts its own keyboard back; emptying the view frees the keys and the glass.
     deinit {
         log.info("controller \(UInt(bitPattern: ObjectIdentifier(self).hashValue) % 10_000) freed")
         guard Thread.isMainThread else { return }
@@ -317,7 +294,7 @@ final class KeyboardViewController: UIInputViewController {
         }
         for step in 0..<DictationBridge.levels {
             observer.observe(DictationBridge.level(step)) { [weak self] in
-                MainActor.assumeIsolated { self?.orb.setVoiceLevel(step) }
+                MainActor.assumeIsolated { self?.spaceVoice.push(level: step) }
             }
         }
         // Spoken punctuation reads the Persian list, so it loads whatever the layout.
@@ -382,8 +359,6 @@ final class KeyboardViewController: UIInputViewController {
             touchModel = TouchModel()
             touchModel.save()
         }
-        // Back to a locked recording paused when the keyboard went away: it waits for the orb.
-        if state == .recording, isPaused { return }
         checkSession()
     }
 
@@ -397,15 +372,13 @@ final class KeyboardViewController: UIInputViewController {
         emojiReturnsToHandwriting = false
         motion?.stopDeviceMotionUpdates()
         if touchSaveScheduled { touchModel.save() }
-        // A locked recording pauses, as when iOS takes the microphone: when this keyboard comes
-        // back it goes on after a tap on the orb, and the app ends it if it stays paused.
-        if state == .recording, isLocked {
-            setPaused(true)
-        } else if state == .starting || state == .recording {
-            // One the keyboard can no longer end (a finger still on the space bar) would keep
-            // the app's microphone and model running: it is cancelled.
+        if state == .starting || state == .recording {
+            // One the keyboard can no longer end (a finger still on the space bar, or locked)
+            // would keep the app's microphone and model running: it is cancelled. The words
+            // already typed stay.
             DictationBridge.post(DictationBridge.cancel)
             isHeld = false
+            isLocked = false
             stopWhenRecording = false
             state = .ready
         }
@@ -454,8 +427,6 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    /// A locked recording paused by a tap on the orb: the app keeps no audio until the next tap.
-    var isPaused = false
     // MARK: - Editing
 
     var documentContext: DocumentContext {
@@ -471,9 +442,9 @@ final class KeyboardViewController: UIInputViewController {
             editEmojiSearch(adding: text)
             return
         }
-        // Typing while the bar's mic records: what was heard so far stays as it is, the typed
-        // text follows it, and the speech goes on after that.
-        if !dictated, barDictation, !liveText.isEmpty { settleShownText() }
+        // Typing while dictating: what was heard so far stays as it is, the typed text follows
+        // it, and the speech goes on after that.
+        if !dictated, !liveText.isEmpty { settleShownText() }
         if autoSpace, !dictated, Self.smartPunctuation.contains(text),
            proxy.documentContextBeforeInput?.hasSuffix(" ") == true {
             deleteBackward()
@@ -790,238 +761,45 @@ final class KeyboardViewController: UIInputViewController {
     var lastGlide: (word: String, inserted: String, alternatives: [String])?
 
     func render() {
-        let symbol: String
-        var tint = keyStyle.textColor
-        switch state {
-        case .checking, .starting: symbol = "mic"
-        case .noSession: symbol = "mic.slash"
-        case .ready, .transcribing: symbol = "mic.fill"
-        case .recording: symbol = "mic.fill"; tint = .systemRed
-        }
         showStatus(nil)
         updateSuggestions()
-        micButton.setImage(UIImage(systemName: symbol,
-                                   withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)),
-                           for: .normal)
-        micButton.tintColor = tint
-        micButton.isEnabled = state != .starting
-
-        switch state {
-        case .starting: orb.mode = .starting
-        case .recording: orb.mode = .recording
-        case .transcribing: orb.mode = .processing
-        default:
-            // Back on the keys (also straight from a recording nobody spoke in): the orb's
-            // per-frame motion and the rings stop, not to run on hidden.
-            orb.liveRing.reset()
-            orb.processingRing.reset()
-            orb.mode = .processing
-        }
-        let active = state == .starting || state == .recording || state == .transcribing
-        if barDictation {
-            if !active { barDictation = false }
-        } else if holdLayout || isMagnet {
-            setMagnet(active)
-        } else {
-            setCompact(active)
-        }
-        updateBarMic()
+        updateSpaceVoice()
     }
 
-    /// While a held space bar dictates, the keyboard keeps its height: every row opens sideways
-    /// around the orb, which comes up in the middle, and each key turns away like a petal (the
-    /// farther out, the closer to edge-on) and leans along the orb's field like an iron filing.
-    /// The space bar grows over the emoji key to the middle and turns into an orange button.
-    func setMagnet(_ on: Bool) {
-        if !on { holdLayout = false }
-        guard isMagnet != on else { return }
-        isMagnet = on
-        // With Reduce Motion on, only the end of the move shows, as a quick fade.
-        let calm = !orb.animates || UIAccessibility.isReduceMotionEnabled
-        if on {
-            keyPopup.hide()
-            spaceKey.accent = .systemOrange
-            spaceKey.knurled = true
-            let spot = magnetSpot()
-            orb.spotlight = (center: keysView.convert(spot.center, to: view), diameter: spot.diameter)
-            orb.lock = .open
-            if !calm, let center = orb.spotlight?.center {
-                let offset = CGPoint(x: center.x - view.bounds.midX, y: center.y - view.bounds.midY)
-                orb.transform = CGAffineTransform(translationX: offset.x, y: offset.y).scaledBy(x: 0.3, y: 0.3)
-                    .translatedBy(x: -offset.x, y: -offset.y)
+    /// The space bar while dictating: orange with the lock hint while held, the voice wave and
+    /// the stop button once locked; plain again while the last words are worked out, when the
+    /// keys type as usual.
+    func updateSpaceVoice() {
+        let shown = state == .starting || state == .recording
+        if shown {
+            spaceVoice.look = isLocked ? .locked : .held
+            if spaceKey.overlay == nil {
+                keyPopup.hide()
+                spaceVoice.reset()
+                spaceVoice.look = isLocked ? .locked : .held
+                spaceKey.accent = .systemOrange
+                spaceKey.overlay = spaceVoice
             }
-            orb.alpha = 0
-            orb.isHidden = false
-            let moves = magnetMoves(around: spot.center, radius: spot.diameter / 2 * 1.1 + 10)
-            magnetKeys = moves.map(\.key)
-            for move in moves {
-                move.key.isUserInteractionEnabled = false
-                move.key.displace(move.transform, animated: !calm)
-                if !calm { move.key.jiggle(true) }
-            }
-            suggestionBar.isUserInteractionEnabled = false
-        } else {
-            isLocked = false
-            orb.lock = nil
-            setLockedKeys(false)
+            spaceKey.accessibilityLabel = isLocked ? "فاصله؛ پایان ضبط در سمت راست" : "در حال ضبط"
+        } else if spaceKey.overlay != nil {
+            spaceKey.overlay = nil
             spaceKey.accent = nil
-            spaceKey.knurled = false
-            for key in magnetKeys {
-                key.isUserInteractionEnabled = true
-                key.jiggle(false)
-                key.displace(CATransform3DIdentity, animated: !calm)
-            }
-            magnetKeys = []
-            suggestionBar.isUserInteractionEnabled = true
-        }
-        view.setNeedsLayout()
-        UIView.animate(withDuration: calm ? 0.15 : 0.42, delay: 0, usingSpringWithDamping: calm ? 1 : 0.85, initialSpringVelocity: 0,
-                       options: [.beginFromCurrentState], animations: {
-            self.suggestionBar.alpha = on ? 0 : 1
-            self.orb.alpha = on ? 1 : 0
-            if on { self.orb.transform = .identity }
-            self.view.layoutIfNeeded()
-        }, completion: { _ in
-            guard !self.isMagnet else { return }
-            self.orb.transform = .identity
-            self.orb.spotlight = nil
-            self.orb.isHidden = !self.isCompact
-        })
-    }
-
-    /// Splits the orange bar for a locked recording, or joins it again; the symbols on the
-    /// three parts spring in.
-    func setLockedKeys(_ on: Bool) {
-        guard lockedKeysShown != on else { return }
-        lockedKeysShown = on
-        let calm = !orb.animates || UIAccessibility.isReduceMotionEnabled
-        if on {
-            for key in [lockedReturnKey, lockedDeleteKey] {
-                key.apply(keyStyle)
-                key.accent = .systemOrange
-                key.knurled = true
-                key.imageOnGrip = true
-                key.alpha = 0
-                key.isHidden = false
-            }
-            lockedReturnKey.image = KeyIcons.lockedReturn
-            lockedDeleteKey.image = KeyIcons.lockedDelete
-            spaceKey.dimsImage = false
-            spaceKey.imageOnGrip = true
-            spaceKey.image = KeyIcons.lockedEnd
-            spaceKey.accessibilityLabel = "پایان"
-        } else {
-            spaceKey.imageOnGrip = false
-            spaceKey.dimsImage = true
             updateSpaceImage()
         }
-        view.setNeedsLayout()
-        UIView.animate(withDuration: calm ? 0.15 : 0.45, delay: 0, usingSpringWithDamping: calm ? 1 : 0.72,
-                       initialSpringVelocity: 0, options: [.beginFromCurrentState], animations: {
-            self.lockedReturnKey.alpha = on ? 1 : 0
-            self.lockedDeleteKey.alpha = on ? 1 : 0
-            self.view.layoutIfNeeded()
-        }, completion: { _ in
-            guard !self.lockedKeysShown else { return }
-            self.lockedReturnKey.isHidden = true
-            self.lockedDeleteKey.isHidden = true
-        })
-        if on {
-            for (index, key) in [lockedReturnKey, spaceKey, lockedDeleteKey].enumerated() {
-                key.revealImage(delay: calm ? 0 : 0.12 + 0.06 * Double(index), animated: !calm)
-            }
-        }
-    }
-
-    /// Where the orb sits among the keys (in the keys' coordinates): level with the middle
-    /// letter row, leaving room above it for the lock.
-    func magnetSpot() -> (center: CGPoint, diameter: CGFloat) {
-        let top = characterKeys.first?.first?.frame.minY ?? suggestionBar.frame.maxY
-        let bottom = characterKeys.last?.first?.frame.maxY ?? spaceKey.frame.minY
-        return (CGPoint(x: keysView.bounds.midX, y: (top + bottom) / 2), max(56, min(bottom - top - 40, 100)))
-    }
-
-    /// Each row's keys leave the circle sideways, staying in their row, spread out toward the
-    /// edges: the ones beside the orb turn a little, the outer ones nearly edge-on.
-    func magnetMoves(around center: CGPoint, radius: CGFloat) -> [(key: KeyView, transform: CATransform3D)] {
-        let keys = keysView.subviews.compactMap { $0 as? KeyView }.filter { !$0.isHidden && $0 !== spaceKey }
-        let rows = Dictionary(grouping: keys) { $0.frame.midY.rounded() }
-        let width = keysView.bounds.width
-        let bottomRow = spaceKey.frame.midY.rounded()
-        var moves: [(key: KeyView, transform: CATransform3D)] = []
-        for (y, row) in rows {
-            let isBottom = abs(y - bottomRow) < 1
-            let dy = abs(y - center.y)
-            let half: CGFloat
-            if isBottom {
-                half = 3.5 * width / 11 + 2
-            } else if dy < radius {
-                half = (radius * radius - dy * dy).squareRoot() + 4
-            } else {
-                // Above the orb (the number row): aside from the lock.
-                half = 30
-            }
-            let left = row.filter { $0.frame.midX < center.x }.sorted { $0.frame.midX > $1.frame.midX }
-            let right = row.filter { $0.frame.midX >= center.x }.sorted { $0.frame.midX < $1.frame.midX }
-            for (group, side) in [(left, CGFloat(-1)), (right, CGFloat(1))] where !group.isEmpty {
-                let inner = center.x + side * half
-                let outer = side < 0 ? CGFloat(3) : width - 3
-                let room = max(12, abs(outer - inner))
-                let angles = group.indices.map { index -> CGFloat in
-                    let f = group.count == 1 ? 0.35 : CGFloat(index) / CGFloat(group.count - 1)
-                    return isBottom ? 25 + 40 * f : 18 + 68 * pow(f, 0.85)
-                }
-                let widths = zip(group, angles).map { $0.faceFrame.width * cos($1 * .pi / 180) }
-                let sum = max(1, widths.reduce(0, +))
-                let gap = max(0, (room - sum) / CGFloat(group.count))
-                let squeeze = min(1, room / sum)
-                var position = inner + side * gap / 2
-                for (index, key) in group.enumerated() {
-                    let projected = widths[index] * squeeze
-                    let x = position + side * projected / 2
-                    position += side * (projected + gap)
-                    var lean = atan2(x - center.x, center.y - y) * 180 / .pi
-                    if lean > 90 { lean -= 180 }
-                    if lean < -90 { lean += 180 }
-                    // The row level with the orb only turns; the others lean along its field.
-                    lean = abs(y - center.y) < rowHeight / 2 ? 0 : -max(-16, min(16, lean * 0.22))
-                    var transform = CATransform3DIdentity
-                    transform.m34 = -1 / 420
-                    transform = CATransform3DTranslate(transform, x - key.frame.midX, 0, 0)
-                    transform = CATransform3DRotate(transform, lean * .pi / 180, 0, 0, 1)
-                    transform = CATransform3DRotate(transform, -side * angles[index] * .pi / 180, 0, 1, 0)
-                    moves.append((key, transform))
+        // A locked recording ends after a silence, so a forgotten one does not stay on.
+        if state == .recording, isLocked {
+            guard silenceTimer == nil else { return }
+            lastHeard = Date()
+            silenceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self, self.isLocked, self.state == .recording else { return }
+                    if Date().timeIntervalSince(self.lastHeard) > Self.lockedSilence { self.endRecording() }
                 }
             }
-        }
-        return moves
-    }
-
-    /// While dictating, the keys fade out and the keyboard shrinks to the orb with the mic.
-    func setCompact(_ compact: Bool) {
-        guard isCompact != compact else { return }
-        isCompact = compact
-        heightConstraint?.constant = compact ? compactHeight : fullHeight
-        isResizing = true
-        if compact {
-            keyPopup.hide()
-            orb.alpha = 0
-            orb.isHidden = false
         } else {
-            keysView.alpha = 0
-            keysView.isHidden = false
+            silenceTimer?.invalidate()
+            silenceTimer = nil
         }
-        UIView.animate(withDuration: 0.22, animations: {
-            self.keysView.alpha = compact ? 0 : 1
-            self.orb.alpha = compact ? 1 : 0
-            self.view.superview?.layoutIfNeeded()
-        }, completion: { _ in
-            // A later state change may have reversed this one while it animated.
-            self.keysView.isHidden = self.isCompact
-            self.orb.isHidden = !self.isCompact
-            self.isResizing = false
-            self.view.setNeedsLayout()
-        })
     }
 
     func buildUI() {
@@ -1042,26 +820,7 @@ final class KeyboardViewController: UIInputViewController {
         view.addSubview(keysView)
         keysView.retarget = { [weak self] point, key in self?.retarget(point, hit: key) }
 
-        micButton.backgroundColor = .clear
-        micButton.accessibilityIdentifier = "dictationMic"
-        micButton.accessibilityLabel = "Persian dictation"
-        micButton.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
-        micButton.addAction(UIAction { [weak self] _ in
-            self?.click(.modifier)
-            KeyView.press(self?.micButton, down: true)
-        }, for: .touchDown)
-        micButton.addAction(UIAction { [weak self] _ in KeyView.press(self?.micButton, down: false) },
-                            for: [.touchUpInside, .touchUpOutside, .touchCancel])
-        // Dictation is on the space bar (held); the mic button stays only for its state.
-
-        orb.backgroundColor = Self.touchableClear
-        orb.isHidden = true
-        // The simulator renders animations on the CPU, which slowed transcription in the test tenfold.
-        orb.animates = testProxy == nil
-        orb.accessibilityIdentifier = "dictationOrb"
-        orb.isAccessibilityElement = true
-        orb.addTarget(self, action: #selector(micTapped), for: .touchUpInside)
-        view.addSubview(orb)
+        spaceVoice.animates = testProxy == nil
 
         // Symbols keep the same direction on every device, whatever the host app's language.
         view.semanticContentAttribute = .forceRightToLeft
@@ -1108,6 +867,8 @@ final class KeyboardViewController: UIInputViewController {
         let spaceHold = UILongPressGestureRecognizer(target: self, action: #selector(spaceHeld(_:)))
         spaceHold.minimumPressDuration = 0.35
         spaceKey.addGestureRecognizer(spaceHold)
+        // Once the hold has begun, sliding the finger moves toward the lock, not to English.
+        spacePan.require(toFail: spaceHold)
         spaceKey.accessibilityHint = "برای دیکته نگه دارید"
         shiftKey.accessibilityIdentifier = "shiftKey"
         shiftKey.addTarget(self, action: #selector(toggleShift), for: .touchUpInside)
@@ -1119,22 +880,13 @@ final class KeyboardViewController: UIInputViewController {
         returnKey.accessibilityLabel = "return"
         returnKey.accessibilityIdentifier = "returnKey"
         returnKey.addTarget(self, action: #selector(insertReturn), for: .touchUpInside)
-        for key in [backspaceKey, layerKey, globeKey, emojiKey, lockedReturnKey, lockedDeleteKey, spaceKey, returnKey] {
+        for key in [backspaceKey, layerKey, globeKey, emojiKey, spaceKey, returnKey] {
             keysView.addSubview(key)
         }
-        lockedReturnKey.isHidden = true
-        lockedReturnKey.accessibilityIdentifier = "lockedReturnKey"
-        lockedReturnKey.accessibilityLabel = "خط بعد"
-        lockedReturnKey.addTarget(self, action: #selector(lockedReturnTapped), for: .touchUpInside)
-        lockedDeleteKey.isHidden = true
-        lockedDeleteKey.accessibilityIdentifier = "lockedDeleteKey"
-        lockedDeleteKey.accessibilityLabel = "پاک کردن کلمه"
-        lockedDeleteKey.addTarget(self, action: #selector(lockedDeleteTapped), for: .touchUpInside)
         for key in [layerKey, moreKey, globeKey, emojiKey, spaceKey, returnKey, shiftKey] {
             key.addAction(UIAction { [weak self] _ in self?.click(.modifier) }, for: .touchDown)
         }
         suggestionBar.onPick = { [weak self] item in self?.pick(item) }
-        suggestionBar.onMic = { [weak self] in self?.barMicTapped() }
         keysView.addSubview(suggestionBar)
         buildCharacterKeys()
 
@@ -1479,40 +1231,15 @@ final class KeyboardViewController: UIInputViewController {
         // not while an emoji search is typed.
         let sessionOn = state != .noSession && state != .checking
         spaceKey.trailingImage = canDictateOnSpace ? (sessionOn ? KeyIcons.spaceMic : KeyIcons.spaceMicOff) : nil
-        updateBarMic()
     }
 
     /// Holding the space bar dictates (Persian speech) on the Persian letters and symbols.
-    var canDictateOnSpace: Bool { !isEnglish && emojiSearch == nil && !options.dictationButton }
-
-    /// The suggestion bar's mic: Persian speech, so on the Persian keys (and while a recording
-    /// it started goes on), and its look follows the dictation's state.
-    func updateBarMic() {
-        suggestionBar.showsMic = options.dictationButton && ((!isEnglish && emojiSearch == nil) || barDictation)
-        switch state {
-        case .noSession: suggestionBar.micLook = .off
-        case .checking: suggestionBar.micLook = .waiting
-        case .ready: suggestionBar.micLook = .ready
-        case .starting, .transcribing: suggestionBar.micLook = barDictation ? .busy : .ready
-        case .recording: suggestionBar.micLook = barDictation ? .recording : .ready
-        }
-        // Ended after a silence, so a forgotten mic does not stay on.
-        if barDictation, state == .recording {
-            guard silenceTimer == nil else { return }
-            lastHeard = Date()
-            silenceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                guard let self, self.barDictation, self.state == .recording else { return }
-                if Date().timeIntervalSince(self.lastHeard) > Self.barSilence { self.endRecording() }
-            }
-        } else {
-            silenceTimer?.invalidate()
-            silenceTimer = nil
-        }
-    }
+    var canDictateOnSpace: Bool { !isEnglish && emojiSearch == nil }
 
     /// A horizontal swipe on the space bar switches between Persian and English, like SwiftKey.
     @objc func spaceSwiped(_ pan: UIPanGestureRecognizer) {
-        guard pan.state == .ended, !isHeld, !isCompact, !isMagnet, emojiSearch == nil, abs(pan.translation(in: view).x) > 40 else { return }
+        guard pan.state == .ended, !isHeld, state != .starting, state != .recording, emojiSearch == nil,
+              abs(pan.translation(in: view).x) > 40 else { return }
         isEnglish.toggle()
         if layer == .emoji || layer == .moreSymbols { layer = .letters }
         languageSwitches += 1
@@ -1525,7 +1252,7 @@ final class KeyboardViewController: UIInputViewController {
     override func updateViewConstraints() {
         super.updateViewConstraints()
         guard willAppear, let heightConstraint else { return }
-        let height = isCompact ? compactHeight : fullHeight
+        let height = fullHeight
         if heightConstraint.constant != height { heightConstraint.constant = height }
         if !heightConstraint.isActive { heightConstraint.isActive = true }
     }
@@ -1541,20 +1268,16 @@ final class KeyboardViewController: UIInputViewController {
         }
         noteWidth(view.bounds.width)
         // The number row, the suggestion bar or the orientation changed the height.
-        if !isCompact, let height = heightConstraint, height.isActive, height.constant != fullHeight {
+        if let height = heightConstraint, height.isActive, height.constant != fullHeight {
             view.setNeedsUpdateConstraints()
         }
-        // Not `frame`: the orb grows out of its place with a transform.
-        orb.bounds = view.bounds
-        orb.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
         backgroundImageView.frame = view.bounds
         updateBackgroundImage()
         // The keys always take the keyboard's own height at the bottom of the view: more height
-        // from iOS stays empty above the suggestion bar. They keep it while hidden or resizing,
-        // so they do not squeeze during the animation. Only when iOS gives less than asked do
+        // from iOS stays empty above the suggestion bar. Only when iOS gives less than asked do
         // they fill what there is, as the suggestion bar must stay on screen.
-        let height = isCompact || isResizing ? fullHeight : min(view.bounds.height, fullHeight)
-        if !isCompact, !isResizing, height < fullHeight - 0.5 {
+        let height = min(view.bounds.height, fullHeight)
+        if height < fullHeight - 0.5 {
             log.info("keyboard given \(Double(height), privacy: .public) of \(Double(self.fullHeight), privacy: .public) points")
         }
         keysView.frame = CGRect(x: 0, y: view.bounds.height - height, width: view.bounds.width, height: height)
@@ -1574,7 +1297,7 @@ final class KeyboardViewController: UIInputViewController {
         // other layers spread their four rows over the letters' and the digits' height.
         let keysNeeded = 4 * rowHeight + (options.numberRow ? numberRowHeight : 0)
         let searchExtra = emojiSearch != nil ? searchExtraHeight : 0
-        let leastBar: CGFloat = (options.suggestionBar || options.dictationButton ? (isLandscape ? 26 : 30) : barHeight) + searchExtra
+        let leastBar: CGFloat = (options.suggestionBar ? (isLandscape ? 26 : 30) : barHeight) + searchExtra
         let bar = max(leastBar, height - keysNeeded)
         let scale = min(1, (height - bar) / keysNeeded)
         let numbers = showsNumberRow ? numberRowHeight * scale : 0
@@ -1583,7 +1306,7 @@ final class KeyboardViewController: UIInputViewController {
         let bottomGap = layer == .emoji ? 0 : (isLandscape ? 6 : 10) * scale
         let row = (keysNeeded * scale - numbers - bottomGap) / 4
         suggestionBar.frame = CGRect(x: left, y: 0, width: width, height: bar)
-        suggestionBar.isHidden = !(options.suggestionBar || options.dictationButton) || emojiSearch != nil || layer == .emoji
+        suggestionBar.isHidden = !options.suggestionBar || emojiSearch != nil || layer == .emoji
         emojiSearchView.frame = CGRect(x: left, y: 0, width: width, height: bar)
         emojiSearchView.fieldHeight = bar - searchResultsHeight
         let unit = width / CGFloat(columns)
@@ -1662,16 +1385,6 @@ final class KeyboardViewController: UIInputViewController {
             if emojiSearch == nil { place(emojiKey, 2 * eleventh - globeWidth / 2) }
             place(spaceKey, (emojiSearch == nil ? 5 : 7) * eleventh - (emojiSearch == nil ? globeWidth / 2 : globeWidth))
             place(returnKey, 2 * eleventh)
-            // Dictating: the space bar reaches over the emoji key to the middle of the keyboard;
-            // locked, it splits into return, end (wider) and delete.
-            if isMagnet {
-                let whole = CGRect(x: left + 2 * eleventh, y: y, width: 7 * eleventh, height: row)
-                let side = 1.5 * eleventh
-                let gap: CGFloat = 4
-                lockedReturnKey.frame = CGRect(x: whole.minX, y: y, width: side, height: row)
-                lockedDeleteKey.frame = CGRect(x: whole.maxX - side, y: y, width: side, height: row)
-                spaceKey.frame = lockedKeysShown ? whole.insetBy(dx: side + gap, dy: 0) : whole
-            }
         }
         let returnImage = emojiSearch != nil ? KeyIcons.searchDone : isEnglish ? KeyIcons.returnKey : KeyIcons.returnKeyMirrored
         if returnKey.image !== returnImage { returnKey.image = returnImage }
@@ -1773,10 +1486,11 @@ final class KeyboardViewController: UIInputViewController {
     /// Two spaces in quick succession after a word type a full stop and a space, a third turns
     /// it into a comma (، in Persian), when switched on in the app.
     @objc func insertSpace() {
-        // While dictating, the orange space bar types nothing; a tap on it ends a locked recording.
-        if isMagnet {
-            // Not micTapped: there a tap on a locked recording pauses it.
-            if state == .recording, !isHeld { endRecording() }
+        // A locked recording: the stop button at the bar's right end ends it; the rest types a space.
+        if isLocked, state == .recording, let point = spaceKey.touchPoint,
+           point.x > spaceKey.frame.maxX - SpaceVoiceView.endWidth(in: spaceKey.faceFrame.width) - 6 {
+            haptic(.impact(.light))
+            endRecording()
             return
         }
         if emojiSearch != nil {
@@ -1897,7 +1611,7 @@ final class KeyboardViewController: UIInputViewController {
             editEmojiSearch(adding: nil)
             return
         }
-        if barDictation, !liveText.isEmpty { settleShownText() }
+        if !liveText.isEmpty { settleShownText() }
         if let change = lastAutoZWNJ, (proxy.documentContextBeforeInput ?? "").hasSuffix(change.inserted) {
             lastAutoZWNJ = nil
             if lastChangeWasTypo { UsageStats.record { $0.autoCorrectionsUndone += 1 } }
@@ -2086,8 +1800,7 @@ final class KeyboardViewController: UIInputViewController {
     func updateSuggestions() {
         // The word lists load in the background and may finish after iOS put this keyboard away.
         guard isOnScreen else { return }
-        let dictating = !barDictation && (state == .recording || state == .transcribing || state == .starting)
-        guard options.suggestionBar, layer == .letters, !dictating else {
+        guard options.suggestionBar, layer == .letters else {
             suggestionBar.show([nil, nil, nil])
             return
         }
@@ -2541,7 +2254,7 @@ final class KeyboardViewController: UIInputViewController {
     /// Starts or stops following the phone's tilt, as the option, Reduce Motion and the
     /// keyboard's visibility allow.
     func updateTilt() {
-        // Not while dictating, which keeps the processor for the orb and the speech (Rooz, 2026-11-05).
+        // Not while dictating, which keeps the processor for the speech (Rooz, 2026-11-05).
         let dictating = state == .starting || state == .recording || state == .transcribing
         let wanted = options.tiltLetters && !UIAccessibility.isReduceMotionEnabled && view.window != nil && !dictating
         if wanted {
@@ -2563,7 +2276,7 @@ final class KeyboardViewController: UIInputViewController {
                 self.heldGravity = held
                 let dx = gravity.x - held.x, dy = gravity.y - held.y
                 var x = CGFloat(dx), y = -CGFloat(dy)
-                if self.view.bounds.width > self.view.bounds.height * 1.6 {
+                if self.isLandscape {
                     // Landscape, either way round: the screen's down is the side gravity pulls
                     // along the phone's width.
                     let side: Double = held.x >= 0 ? 1 : -1
@@ -2594,11 +2307,11 @@ final class KeyboardViewController: UIInputViewController {
         }
     }
 
-    /// The keyboard grows or shrinks at once, as when the dictation orb gives way to the keys.
+    /// The keyboard grows or shrinks at once (the number row, the suggestion bar).
     /// Only setting the constraint's constant left a taller keyboard squeezed in the old height
     /// until the next language switch laid it out again.
     func heightChanged() {
-        guard let heightConstraint, !isCompact else { return }
+        guard let heightConstraint else { return }
         heightConstraint.constant = fullHeight
         view.setNeedsUpdateConstraints()
         view.superview?.setNeedsLayout()
@@ -2694,7 +2407,7 @@ extension KeyboardViewController: UIGestureRecognizerDelegate {
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         if gestureRecognizer === spacePan { return !keyPopup.isShowingVariants }
         guard gestureRecognizer === glidePan else { return true }
-        guard layer == .letters, emojiSearch == nil, !isCompact, keyMenu.isHidden, settingsPanel?.superview == nil,
+        guard layer == .letters, emojiSearch == nil, keyMenu.isHidden, settingsPanel?.superview == nil,
               !keyPopup.isShowingVariants,
               lexicon.isLoaded else { return false }
         let point = glidePan.location(in: keysView)
@@ -2733,11 +2446,6 @@ enum KeyIcons {
     static let deleteLeft = leftToRight("delete.left")
     static let deleteRight = leftToRight("delete.right")
 
-    /// The split orange bar of a locked recording: fine return and delete as this right-to-left
-    /// keyboard draws them, and a check mark for ending the dictation.
-    static let lockedReturn = mirrored(leftToRight("return", size: 17, weight: .light))
-    static let lockedDelete = leftToRight("delete.right", size: 17, weight: .light)
-    static let lockedEnd = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold))
     /// The emoji key's face, drawn once: always the outline.
     /// Three dots under the face: a long press opens the menu (emoji, settings).
     static let emojiKey = menuKey(symbol: "face.smiling")
@@ -2761,59 +2469,6 @@ enum KeyIcons {
         UIImage.SymbolConfiguration(pointSize: 25, weight: .regular)
             .applying(UIImage.SymbolConfiguration(paletteColors: [.white, .systemOrange])))?.withRenderingMode(.alwaysOriginal)
     static let spaceMicOff = UIImage(systemName: "mic", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .regular))
-    /// The dictating space bar's face: rows of tiny diamond pyramids, as knurled on a metal
-    /// button, lit from above, each with a bright upper facet and a shaded lower one, inside a
-    /// shape rounded by `corner`.
-    static func knurl(size: CGSize, corner knurlCorner: CGFloat) -> UIImage? {
-        guard size.width > 4, size.height > 4 else { return nil }
-        let pitch: CGFloat = 3.2
-        let half = pitch / 2
-        let rect = CGRect(origin: .zero, size: size)
-        func orange(_ light: CGFloat) -> CGColor {
-            // 0 = deep groove, 1 = lit facet.
-            UIColor(red: 0.78 + 0.22 * light, green: 0.36 + 0.42 * light, blue: 0.02 + 0.38 * light * light, alpha: 1).cgColor
-        }
-        return UIGraphicsImageRenderer(size: size).image { renderer in
-            let context = renderer.cgContext
-            UIBezierPath(roundedRect: rect, cornerRadius: knurlCorner).addClip()
-            context.setFillColor(orange(0.05))
-            context.fill(rect)
-            var row = 0
-            var y: CGFloat = -half
-            while y < size.height + half {
-                var x: CGFloat = row % 2 == 0 ? 0 : half
-                x -= pitch
-                while x < size.width + pitch {
-                    let c = CGPoint(x: x, y: y)
-                    let r = half * 0.86
-                    let top = CGPoint(x: c.x, y: c.y - r), right = CGPoint(x: c.x + r, y: c.y)
-                    let bottom = CGPoint(x: c.x, y: c.y + r), left = CGPoint(x: c.x - r, y: c.y)
-                    for (a, b, light) in [(left, top, 1.0), (top, right, 0.78), (right, bottom, 0.3), (bottom, left, 0.5)] as [(CGPoint, CGPoint, CGFloat)] {
-                        context.move(to: a)
-                        context.addLine(to: b)
-                        context.addLine(to: c)
-                        context.closePath()
-                        context.setFillColor(orange(light))
-                        context.fillPath()
-                    }
-                    x += pitch
-                }
-                y += half
-                row += 1
-            }
-            // Light from above across the whole grip, and a soft shade inside the edge.
-            let space = CGColorSpaceCreateDeviceRGB()
-            if let sheen = CGGradient(colorsSpace: space, colors: [UIColor(white: 1, alpha: 0.22).cgColor,
-                                                                   UIColor(white: 1, alpha: 0).cgColor,
-                                                                   UIColor(red: 0.4, green: 0.15, blue: 0, alpha: 0.18).cgColor] as CFArray,
-                                      locations: [0, 0.5, 1]) {
-                context.drawLinearGradient(sheen, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
-            }
-            context.setStrokeColor(UIColor(red: 0.5, green: 0.2, blue: 0, alpha: 0.35).cgColor)
-            context.setLineWidth(1)
-            UIBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), cornerRadius: max(0, knurlCorner - 0.5)).stroke()
-        }
-    }
     static let searchDone = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .bold))
 
     static let space: UIImage = {

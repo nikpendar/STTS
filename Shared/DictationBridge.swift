@@ -21,11 +21,11 @@ enum DictationBridge {
     static let startHeld = "com.persianstt.startHeld"
     static let recording = "com.persianstt.recording"
     static let stop = "com.persianstt.stop"
-    /// Keyboard pauses a locked recording (no audio is kept) and resumes it.
+    /// Pauses a recording (no audio is kept) and resumes it; the keyboard no longer sends these.
     static let pause = "com.persianstt.pause"
     static let resume = "com.persianstt.resume"
     /// The app paused the recording itself: iOS took the microphone (a call, Siri, the system's
-    /// own dictation). The keyboard shows the pause; a tap on the orb resumes.
+    /// own dictation). The keyboard ends the recording with what was said.
     static let interrupted = "com.persianstt.interrupted"
     /// Keyboard abandons the transcription in progress.
     static let cancel = "com.persianstt.cancel"
@@ -607,9 +607,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var handwritingGuide = true
     /// A strip at the paper's outer edge that sends the word aside when tapped (Rooz, 2026-11-11).
     var handwritingStrip = true
-    /// Voice typing from a mic button at the right of the suggestion bar instead of the held
-    /// space bar: one tap records, the keys stay usable meanwhile (Rooz, 2026-11-13).
-    var dictationButton = false
     /// The handwriting pad's size: 0 small, 1 medium, 2 large (Rooz, 2026-11-09).
     var handwritingSize = 1
     static let handwritingSizeNames = ["کوچک", "متوسط", "بزرگ"]
@@ -649,6 +646,5 @@ struct KeyboardOptions: SharedSetting, Equatable {
         handwritingSize = try container.decodeIfPresent(Int.self, forKey: .handwritingSize) ?? 1
         handwritingGuide = try container.decodeIfPresent(Bool.self, forKey: .handwritingGuide) ?? true
         handwritingStrip = try container.decodeIfPresent(Bool.self, forKey: .handwritingStrip) ?? true
-        dictationButton = try container.decodeIfPresent(Bool.self, forKey: .dictationButton) ?? false
     }
 }

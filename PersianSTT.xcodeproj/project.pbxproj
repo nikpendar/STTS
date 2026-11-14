@@ -50,8 +50,6 @@
 		D10000000000000000000004 /* Handwriting.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000002 /* Handwriting.swift */; };
 		F10000000000000000000001 /* KeyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* KeyViews.swift */; };
 		F10000000000000000000002 /* KeyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* KeyViews.swift */; };
-		F10000000000000000000003 /* DictationOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* DictationOrb.swift */; };
-		F10000000000000000000004 /* DictationOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* DictationOrb.swift */; };
 		F10000000000000000000005 /* SuggestionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* SuggestionBar.swift */; };
 		F10000000000000000000006 /* SuggestionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* SuggestionBar.swift */; };
 		F10000000000000000000007 /* KeyboardSettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* KeyboardSettingsPanel.swift */; };
@@ -168,7 +166,6 @@
 		A20000000000000000000030 /* Lexicon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lexicon.swift; sourceTree = "<group>"; };
 		D20000000000000000000002 /* Handwriting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Handwriting.swift; sourceTree = "<group>"; };
 		F20000000000000000000001 /* KeyViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyViews.swift; sourceTree = "<group>"; };
-		F20000000000000000000002 /* DictationOrb.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationOrb.swift; sourceTree = "<group>"; };
 		F20000000000000000000003 /* SuggestionBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionBar.swift; sourceTree = "<group>"; };
 		F20000000000000000000004 /* KeyboardSettingsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardSettingsPanel.swift; sourceTree = "<group>"; };
 		F20000000000000000000005 /* KeyboardViewController+Dictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "KeyboardViewController+Dictation.swift"; sourceTree = "<group>"; };
@@ -305,7 +302,6 @@
 				A20000000000000000000031 /* GlideTyping.swift */,
 				D20000000000000000000002 /* Handwriting.swift */,
 				F20000000000000000000001 /* KeyViews.swift */,
-				F20000000000000000000002 /* DictationOrb.swift */,
 				F20000000000000000000003 /* SuggestionBar.swift */,
 				F20000000000000000000004 /* KeyboardSettingsPanel.swift */,
 				F20000000000000000000005 /* KeyboardViewController+Dictation.swift */,
@@ -614,7 +610,6 @@
 				A10000000000000000000032 /* GlideTyping.swift in Sources */,
 				D10000000000000000000003 /* Handwriting.swift in Sources */,
 				F10000000000000000000001 /* KeyViews.swift in Sources */,
-				F10000000000000000000003 /* DictationOrb.swift in Sources */,
 				F10000000000000000000005 /* SuggestionBar.swift in Sources */,
 				F10000000000000000000007 /* KeyboardSettingsPanel.swift in Sources */,
 				F10000000000000000000009 /* KeyboardViewController+Dictation.swift in Sources */,
@@ -645,7 +640,6 @@
 				A10000000000000000000033 /* GlideTyping.swift in Sources */,
 				D10000000000000000000004 /* Handwriting.swift in Sources */,
 				F10000000000000000000002 /* KeyViews.swift in Sources */,
-				F10000000000000000000004 /* DictationOrb.swift in Sources */,
 				F10000000000000000000006 /* SuggestionBar.swift in Sources */,
 				F10000000000000000000008 /* KeyboardSettingsPanel.swift in Sources */,
 				F1000000000000000000000A /* KeyboardViewController+Dictation.swift in Sources */,

@@ -46,7 +46,7 @@ final class KeyboardSession: ObservableObject {
     private var fedCount = 0
     /// The stream failed during the recording, so the final text comes from the whole recording.
     private var streamFailed = false
-    /// Watches the recording: the level for the keyboard's orb, and the end of speech.
+    /// Watches the recording: the level for the keyboard's voice wave, and the end of speech.
     private var monitorTask: Task<Void, Never>?
     private(set) var isCapturing = false
     /// Identifies the current dictation, so a cancelled one cannot report a late result.
@@ -264,7 +264,7 @@ final class KeyboardSession: ObservableObject {
 
     /// Every 0.05 s while recording: sends the level of the latest 0.1 s of audio to the
     /// keyboard (as one of `DictationBridge.levels` notifications, only when it changes), so the
-    /// orb keeps up with the voice; twice a second it drops a recording in which nobody has
+    /// wave keeps up with the voice; twice a second it drops a recording in which nobody has
     /// spoken for `noSpeechSeconds`. Silence never ends a recording: the keyboard does.
     /// The longest a held (or locked) recording runs.
     static let heldLimitSeconds = 300.0

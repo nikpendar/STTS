@@ -142,10 +142,10 @@ jobs:
             footprint "$PID" > out/footprint.txt 2>&1 || true
             sudo heap "$PID" > out/heap.txt 2>&1 || true
             sudo leaks "$PID" > out/leaks.txt 2>&1 || true
-            grep -E "KeyboardViewController|KeyView\b|GlideTrailView|DictationOrbView|KeysView" out/heap.txt | head -20 || true
+            grep -E "KeyboardViewController|KeyView\b|GlideTrailView|KeysView" out/heap.txt | head -20 || true
             # What holds the keyboards of earlier text fields: the references from the roots to the
             # first instances of the keyboard's views and controller.
-            for class in KeysView UIInputView _UIInputViewControllerState DictationOrbView; do
+            for class in KeysView UIInputView _UIInputViewControllerState SpaceVoiceView; do
               sudo heap --addresses="$class" --noContent "$PID" > "out/addresses-$class.txt" 2>&1 || true
               n=0
               for address in $(grep -E "0x[0-9a-f]{6,}.*[^A-Za-z_]$class([^A-Za-z_]|\$)" "out/addresses-$class.txt" \

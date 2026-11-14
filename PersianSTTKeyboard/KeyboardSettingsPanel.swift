@@ -20,14 +20,11 @@ extension KeyboardViewController {
         if new.handwritingSize != old.handwritingSize, handwritingPad != nil { heightChanged() }
         handwritingPad?.inkColor = new.handwritingInk.map { UIColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1) }
         if new.numberRow != old.numberRow || new.digitsOnLetters != old.digitsOnLetters { buildCharacterKeys() }
-        if new.suggestionBar != old.suggestionBar || new.dictationButton != old.dictationButton {
+        if new.suggestionBar != old.suggestionBar {
             view.setNeedsLayout()
             updateSuggestions()
-            updateSpaceImage()
-            updateBarMic()
         }
-        if new.numberRow != old.numberRow || new.suggestionBar != old.suggestionBar
-            || new.dictationButton != old.dictationButton { heightChanged() }
+        if new.numberRow != old.numberRow || new.suggestionBar != old.suggestionBar { heightChanged() }
         if new.tiltLetters != old.tiltLetters { updateTilt() }
     }
 }

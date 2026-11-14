@@ -25,26 +25,8 @@ final class SuggestionBar: UIView {
     }
 
     var onPick: ((Item) -> Void)?
-    /// The mic at the bar's right end (`KeyboardOptions.dictationButton`).
-    var onMic: (() -> Void)?
-    enum MicLook { case off, waiting, ready, recording, busy }
-    var showsMic = false {
-        didSet {
-            guard showsMic != oldValue else { return }
-            mic.isHidden = !showsMic
-            setNeedsLayout()
-        }
-    }
-    var micLook = MicLook.ready {
-        didSet { if micLook != oldValue { applyMicLook() } }
-    }
-    private let mic = UIButton(type: .system)
-    private static let micWidth: CGFloat = 38
     var textColor = UIColor.label {
-        didSet {
-            slots.forEach { $0.setTitleColor(textColor, for: .normal) }
-            applyMicLook()
-        }
+        didSet { slots.forEach { $0.setTitleColor(textColor, for: .normal) } }
     }
     /// Follows the letters' size setting: 19 points at the standard 23.
     var fontSize: CGFloat = 19 {
@@ -78,39 +60,6 @@ final class SuggestionBar: UIView {
             dividers.append(divider)
             addSubview(divider)
         }
-        mic.isHidden = true
-        mic.accessibilityIdentifier = "barMic"
-        mic.addAction(UIAction { [weak self] _ in self?.onMic?() }, for: .touchUpInside)
-        addSubview(mic)
-        applyMicLook()
-    }
-
-    /// Orange and beating while it records, dim while the text is being finished, crossed out
-    /// with no voice typing on in the app.
-    private func applyMicLook() {
-        let symbol: String
-        var tint = textColor
-        switch micLook {
-        case .off: symbol = "mic.slash"; tint = textColor.withAlphaComponent(0.45)
-        case .waiting: symbol = "mic"; tint = textColor.withAlphaComponent(0.6)
-        case .ready: symbol = "mic.fill"
-        case .recording: symbol = "mic.fill"; tint = .systemOrange
-        case .busy: symbol = "mic.fill"; tint = UIColor.systemOrange.withAlphaComponent(0.5)
-        }
-        mic.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)),
-                     for: .normal)
-        mic.tintColor = tint
-        mic.accessibilityLabel = micLook == .recording ? "پایان تایپ صوتی" : "تایپ صوتی"
-        mic.layer.removeAnimation(forKey: "beat")
-        guard micLook == .recording, !UIAccessibility.isReduceMotionEnabled else { return }
-        let beat = CABasicAnimation(keyPath: "transform.scale")
-        beat.fromValue = 1
-        beat.toValue = 1.18
-        beat.duration = 0.55
-        beat.autoreverses = true
-        beat.repeatCount = .infinity
-        beat.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        mic.layer.add(beat, forKey: "beat")
     }
 
     required init?(coder: NSCoder) {
@@ -172,14 +121,10 @@ final class SuggestionBar: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        // The mic, when shown, keeps the right end; the three slots share the rest.
-        let micWidth = showsMic ? Self.micWidth : 0
-        mic.frame = CGRect(x: bounds.width - micWidth, y: 0, width: micWidth, height: bounds.height)
-        let room = bounds.width - micWidth
-        let width = room / 3
+        let width = bounds.width / 3
         // Slot 0 is on the right.
         for (index, slot) in slots.enumerated() {
-            slot.frame = CGRect(x: room - CGFloat(index + 1) * width, y: 0, width: width, height: bounds.height)
+            slot.frame = CGRect(x: bounds.width - CGFloat(index + 1) * width, y: 0, width: width, height: bounds.height)
                 .insetBy(dx: 6, dy: 0)
         }
         for (index, divider) in dividers.enumerated() {

@@ -148,9 +148,9 @@ final class KeyView: UIControl {
             label.font = keyFont(for: storedTitle, size: fontSize)
             label.textColor = textColor
         }
-        imageView.isHidden = message != nil || (knurled && !imageOnGrip)
-        trailingImageView.isHidden = message != nil || knurled
-        labelClip.isHidden = knurled
+        imageView.isHidden = message != nil || overlay != nil
+        trailingImageView.isHidden = message != nil || overlay != nil
+        labelClip.isHidden = overlay != nil
         if depth != nil { applyDepth() }
         if message != nil || storedTitle != nil { accessibilityLabel = message ?? storedTitle }
         // A new letter or size moves a wide letter against the key's right edge (`layoutSubviews`):
@@ -190,79 +190,19 @@ final class KeyView: UIControl {
         text.unicodeScalars.allSatisfy { (0x06F0...0x06F9).contains($0.value) }
     }
 
-    /// The orange space bar while it dictates: its words and images give way to a fine diamond
-    /// grip in a rounded rectangle in its middle, raised like a knurled metal button.
-    var knurled = false {
+    /// Drawn over the face in place of the label and images: the dictating space bar's voice
+    /// view (`SpaceVoiceView`).
+    var overlay: UIView? {
         didSet {
-            guard knurled != oldValue else { return }
-            grip.isHidden = !knurled
+            guard overlay !== oldValue else { return }
+            oldValue?.removeFromSuperview()
+            if let overlay {
+                overlay.isUserInteractionEnabled = false
+                content.addSubview(overlay)
+            }
             updateLabel()
             setNeedsLayout()
         }
-    }
-    private let grip = UIImageView()
-    /// The image stays over the grip (the parts of the split orange bar).
-    var imageOnGrip = false {
-        didSet { if imageOnGrip != oldValue { updateLabel() } }
-    }
-
-    /// The image springs in: from small, turned and faint to its place.
-    func revealImage(delay: TimeInterval, animated: Bool) {
-        let alpha: CGFloat = dimsImage ? 0.4 : 1
-        imageView.layer.removeAllAnimations()
-        guard animated else {
-            imageView.alpha = alpha
-            imageView.transform = .identity
-            return
-        }
-        imageView.alpha = 0
-        imageView.transform = CGAffineTransform(scaleX: 0.3, y: 0.3).rotated(by: -0.5)
-        UIView.animate(withDuration: 0.55, delay: delay, usingSpringWithDamping: 0.55, initialSpringVelocity: 0.4,
-                       options: [.allowUserInteraction]) {
-            self.imageView.alpha = alpha
-            self.imageView.transform = .identity
-        }
-    }
-
-    /// Moves and turns what is drawn (not the touch area): the keys standing aside around the
-    /// dictation orb. Springs there unless `animated` is false.
-    func displace(_ transform: CATransform3D, animated: Bool) {
-        let from = layer.presentation()?.sublayerTransform ?? layer.sublayerTransform
-        layer.removeAnimation(forKey: "displace")
-        layer.sublayerTransform = transform
-        guard animated else { return }
-        let spring = CASpringAnimation(keyPath: "sublayerTransform")
-        spring.fromValue = NSValue(caTransform3D: from)
-        spring.toValue = NSValue(caTransform3D: transform)
-        spring.damping = 20
-        spring.stiffness = 220
-        spring.mass = 1
-        spring.duration = spring.settlingDuration
-        layer.add(spring, forKey: "displace")
-    }
-
-    /// A faint wobble in place, like app icons about to be removed on the Home Screen but
-    /// subtler, while the keys stand aside for dictation. Core Animation runs it outside the
-    /// app, so it costs no work here.
-    func jiggle(_ on: Bool) {
-        content.layer.removeAnimation(forKey: "jiggle")
-        content.layer.removeAnimation(forKey: "jiggleBob")
-        guard on else { return }
-        let angle = 2.4 * Double.pi / 180
-        let wobble = CAKeyframeAnimation(keyPath: "transform.rotation.z")
-        wobble.values = [0, angle, 0, -angle, 0]
-        wobble.duration = Double.random(in: 0.32...0.42)
-        wobble.timeOffset = Double.random(in: 0...wobble.duration)
-        wobble.repeatCount = .infinity
-        wobble.isAdditive = true
-        content.layer.add(wobble, forKey: "jiggle")
-        let bob = CAKeyframeAnimation(keyPath: "transform.translation.y")
-        bob.values = [0, -0.8, 0, 0.8, 0]
-        bob.duration = wobble.duration * 1.3
-        bob.timeOffset = Double.random(in: 0...bob.duration)
-        bob.repeatCount = .infinity
-        bob.isAdditive = true
-        content.layer.add(bob, forKey: "jiggleBob")
     }
 
     /// A second image at the right end of the key (the space bar's mic), in its own colours.
@@ -323,14 +263,6 @@ final class KeyView: UIControl {
         sheen.opacity = 0
         face.layer.addSublayer(sheen)
         content.addSubview(face)
-        grip.isHidden = true
-        grip.isUserInteractionEnabled = false
-        // Raised: a soft shadow under the button.
-        grip.layer.shadowColor = UIColor(red: 0.45, green: 0.2, blue: 0, alpha: 1).cgColor
-        grip.layer.shadowOpacity = 0.35
-        grip.layer.shadowRadius = 1
-        grip.layer.shadowOffset = CGSize(width: 0, height: 0.8)
-        content.addSubview(grip)
         highlight.backgroundColor = UIColor.label.withAlphaComponent(0.12)
         highlight.layer.cornerRadius = 6
         highlight.alpha = 0
@@ -396,7 +328,7 @@ final class KeyView: UIControl {
         highlight.frame = inner
         face.frame = inner
         // The dictating space bar is a capsule.
-        let corner = knurled ? inner.height / 2 : 6
+        let corner = overlay != nil ? inner.height / 2 : 6
         face.layer.cornerRadius = corner
         highlight.layer.cornerRadius = corner
         CATransaction.begin()
@@ -435,13 +367,8 @@ final class KeyView: UIControl {
             let width = min(inner.width / 3, image.size.width + 20)
             trailingImageView.frame = CGRect(x: inner.maxX - width, y: inner.minY, width: width, height: inner.height)
         }
-        trailingImageView.isHidden = message != nil || knurled
-        if knurled {
-            // The grip covers the whole capsule.
-            grip.frame = inner
-            if grip.image?.size != inner.size { grip.image = KeyIcons.knurl(size: inner.size, corner: corner) }
-            grip.layer.shadowPath = UIBezierPath(roundedRect: grip.bounds, cornerRadius: corner).cgPath
-        }
+        trailingImageView.isHidden = message != nil || overlay != nil
+        overlay?.frame = inner
         // Low landscape rows: a tall image shrinks instead of spilling out of the key.
         let size = imageView.image?.size ?? .zero
         imageView.contentMode = size.width > inner.width || size.height > inner.height ? .scaleAspectFit : .center
@@ -972,5 +899,138 @@ final class KeyMenuView: UIView {
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         highlight(at: nil)
+    }
+}
+
+/// Over the orange space bar while it dictates (Rooz, 2026-11-14). Held: a lock with arrows at
+/// the left end shows that sliding the finger there locks the recording, and the mic stays at
+/// the right end. Locked: the voice runs as a wave along the bar and a stop button takes the
+/// mic's place; the rest of the bar types a space.
+final class SpaceVoiceView: UIView {
+    enum Look { case held, locked }
+
+    var look = Look.held {
+        didSet { if look != oldValue { update() } }
+    }
+    /// How far the finger has slid toward the lock, 0...1: the lock comes to meet it.
+    var lockProgress: CGFloat = 0 {
+        didSet { if lockProgress != oldValue { setNeedsLayout() } }
+    }
+    /// The simulator draws animations on the processor.
+    var animates = true {
+        didSet { if animates != oldValue { update() } }
+    }
+
+    private let lock = UIImageView()
+    private let arrows = UIImageView()
+    private let end = UIImageView()
+    private let wave = CAShapeLayer()
+    /// The latest loudness readings, newest last, 0...1.
+    private var levels = [CGFloat](repeating: 0, count: 64)
+
+    private static let lockOpen = symbol("lock.open.fill", size: 14)
+    private static let lockClosed = symbol("lock.fill", size: 13)
+    private static let chevrons = symbol("chevron.left.2", size: 12)
+    private static let mic = symbol("mic.fill", size: 17)
+    private static let stop = UIImage(systemName: "stop.circle.fill", withConfiguration:
+        UIImage.SymbolConfiguration(pointSize: 25, weight: .regular)
+            .applying(UIImage.SymbolConfiguration(paletteColors: [.systemOrange, .white])))?.withRenderingMode(.alwaysOriginal)
+
+    private static func symbol(_ name: String, size: CGFloat) -> UIImage? {
+        UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: size, weight: .semibold))
+    }
+
+    /// The width at the bar's right end that ends a locked recording: as wide as the mic's place.
+    static func endWidth(in width: CGFloat) -> CGFloat { min(width / 3, 52) }
+
+    init() {
+        super.init(frame: .zero)
+        isUserInteractionEnabled = false
+        for view in [lock, arrows, end] {
+            view.contentMode = .center
+            view.tintColor = .white
+            addSubview(view)
+        }
+        wave.fillColor = UIColor.white.withAlphaComponent(0.92).cgColor
+        layer.addSublayer(wave)
+        update()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    /// A loudness step from the app (`DictationBridge.level`): room noise stays flat, speech
+    /// raises the wave.
+    func push(level step: Int) {
+        let db = -55 + 2 * CGFloat(step)
+        levels.removeFirst()
+        levels.append(pow(min(1, max(0, (db + 44) / 20)), 0.75))
+        if look == .locked { drawWave() }
+    }
+
+    func reset() {
+        levels = [CGFloat](repeating: 0, count: levels.count)
+        lockProgress = 0
+        look = .held
+        drawWave()
+    }
+
+    private func update() {
+        let locked = look == .locked
+        lock.image = locked ? Self.lockClosed : Self.lockOpen
+        lock.alpha = locked ? 0.75 : 1
+        arrows.image = Self.chevrons
+        arrows.isHidden = locked
+        end.image = locked ? Self.stop : Self.mic
+        wave.isHidden = !locked
+        arrows.layer.removeAnimation(forKey: "beckon")
+        if !locked, animates {
+            // The arrows pulse toward the lock.
+            let beckon = CAKeyframeAnimation(keyPath: "transform.translation.x")
+            beckon.values = [4, -4, 4]
+            beckon.duration = 1.1
+            beckon.repeatCount = .infinity
+            beckon.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            arrows.layer.add(beckon, forKey: "beckon")
+        }
+        setNeedsLayout()
+        drawWave()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let h = bounds.height
+        let endWidth = Self.endWidth(in: bounds.width)
+        end.frame = CGRect(x: bounds.maxX - endWidth, y: 0, width: endWidth, height: h)
+        let slide = look == .held ? lockProgress * 18 : 0
+        lock.frame = CGRect(x: 8 + slide, y: 0, width: 26, height: h)
+        arrows.frame = CGRect(x: lock.frame.maxX + 2, y: 0, width: 24, height: h)
+        drawWave()
+    }
+
+    private func drawWave() {
+        guard look == .locked, bounds.width > 0 else {
+            wave.path = nil
+            return
+        }
+        let left: CGFloat = 40
+        let right = bounds.width - Self.endWidth(in: bounds.width) - 4
+        let pitch: CGFloat = 4, barWidth: CGFloat = 2.2
+        let count = max(0, min(levels.count, Int((right - left) / pitch)))
+        let path = CGMutablePath()
+        let mid = bounds.midY
+        let tallest = bounds.height * 0.62
+        for i in 0..<count {
+            let level = levels[levels.count - count + i]
+            let height = max(barWidth, tallest * level)
+            let x = left + CGFloat(i) * pitch
+            path.addRoundedRect(in: CGRect(x: x, y: mid - height / 2, width: barWidth, height: height),
+                                cornerWidth: 1, cornerHeight: 1)
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        wave.path = path
+        CATransaction.commit()
     }
 }
