@@ -1,5 +1,6 @@
 import AVFoundation
 import UIKit
+import UserNotifications
 import os
 
 private let log = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "dictation")
@@ -52,7 +53,44 @@ final class KeyboardSession: ObservableObject {
     /// Identifies the current dictation, so a cancelled one cannot report a late result.
     private var dictationID = 0
 
+    /// The keyboard went off screen during a locked recording at this time (nil otherwise):
+    /// the recording goes on only if the screen locked, and its text waits for the keyboard to
+    /// come back to the same text field (Rooz, 2026-11-14).
+    private var awaySince: Date?
+    /// The screen locked while the keyboard was away (protected data went away: needs a passcode).
+    private var screenLocked = false
+    /// The screen was unlocked again at this time, the keyboard still away.
+    private var unlockedAt: Date?
+    /// The recording ended while the keyboard was away; its final text waits for it.
+    private var awayFinished = false
+    private var awayTimer: Timer?
+    /// When the live text last changed, for ending a recording after a silence while locked.
+    private var lastPartialAt = Date()
+    private var lastPartialText = ""
+    /// iOS locks protected data about 10 s after the screen locks; without it by then, another
+    /// app was opened and the recording is cancelled.
+    static let lockWaitSeconds = 20.0
+    /// After unlocking, the keyboard has this long to come back to the recording.
+    static let rejoinWaitSeconds = 30.0
+    private static let recordingNotice = "avak.recording"
+
     private init() {
+        observer.observe(DictationBridge.away) { [weak self] in
+            MainActor.assumeIsolated { self?.keyboardLeft() }
+        }
+        observer.observe(DictationBridge.rejoin) { [weak self] in
+            MainActor.assumeIsolated { self?.keyboardReturned() }
+        }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.protectedDataWillBecomeUnavailableNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.screenDidLock() }
+        }
+        NotificationCenter.default.addObserver(
+            forName: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.screenDidUnlock() }
+        }
         observer.observe(DictationBridge.ping) { [weak self] in
             MainActor.assumeIsolated {
                 if self?.isActive == true { DictationBridge.post(DictationBridge.alive) }
@@ -142,6 +180,8 @@ final class KeyboardSession: ObservableObject {
             DictationBridge.post(DictationBridge.alive)
             return
         }
+        // A recording that goes on while the screen is locked says so on the lock screen.
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, mode: .default,
@@ -195,6 +235,7 @@ final class KeyboardSession: ObservableObject {
     }
 
     func stop() {
+        endAway()
         dictationID += 1
         streamTask = nil
         monitorTask?.cancel()
@@ -230,6 +271,8 @@ final class KeyboardSession: ObservableObject {
         guard isActive else { return }
         Self.ambientNoise = collector.begin()
         server.clear()
+        endAway()
+        lastPartialText = ""
         isCapturing = true
         pausedSince = nil
         dictationID += 1
@@ -413,6 +456,10 @@ final class KeyboardSession: ObservableObject {
 
     /// Provisional text for the keyboard.
     private func publishPartial(_ text: String) {
+        if text != lastPartialText {
+            lastPartialText = text
+            lastPartialAt = Date()
+        }
         server.publish(DictationBridge.partialPrefix + text)
         DictationBridge.post(DictationBridge.partial)
     }
@@ -538,6 +585,100 @@ final class KeyboardSession: ObservableObject {
         log.info("correction for \(correction.id, privacy: .public)")
         PersonalModel.shared.add(id: correction.id, samples: dictation.samples,
                                  original: dictation.text, corrected: correction.corrected)
+    }
+
+    // MARK: - Locked screen
+
+    private func keyboardLeft() {
+        guard isCapturing else { return }
+        awaySince = Date()
+        screenLocked = !UIApplication.shared.isProtectedDataAvailable
+        unlockedAt = nil
+        awayFinished = false
+        lastPartialAt = Date()
+        log.info("keyboard left a locked recording\(self.screenLocked ? ", screen locked" : "", privacy: .public)")
+        if screenLocked { showRecordingNotice() }
+        awayTimer?.invalidate()
+        awayTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkAway() }
+        }
+    }
+
+    private func screenDidLock() {
+        guard awaySince != nil, !screenLocked else { return }
+        screenLocked = true
+        log.info("screen locked during a recording; it goes on")
+        showRecordingNotice(finished: awayFinished)
+    }
+
+    private func screenDidUnlock() {
+        guard awaySince != nil, screenLocked else { return }
+        unlockedAt = Date()
+    }
+
+    /// Once a second while the keyboard is away: cancels the recording if the screen did not
+    /// lock or the keyboard does not come back after unlocking, and ends it after a silence.
+    private func checkAway() {
+        guard let since = awaySince else {
+            endAway()
+            return
+        }
+        let now = Date()
+        guard screenLocked else {
+            if now.timeIntervalSince(since) > Self.lockWaitSeconds {
+                log.info("keyboard left without a screen lock; recording cancelled")
+                cancelAway()
+            }
+            return
+        }
+        if let unlocked = unlockedAt, now.timeIntervalSince(unlocked) > Self.rejoinWaitSeconds {
+            log.info("keyboard not back after unlocking; recording cancelled")
+            cancelAway()
+            return
+        }
+        if isCapturing, now.timeIntervalSince(lastPartialAt) > KeyboardOptions.load().lockedSilenceSeconds {
+            log.info("silence while the screen is locked; recording stopped")
+            finishCapture()
+        }
+        if !isCapturing, !awayFinished {
+            // Ended by the silence above or by the length limit: the text waits for the keyboard.
+            awayFinished = true
+            showRecordingNotice(finished: true)
+        }
+    }
+
+    /// The keyboard is back: it learns whether to go on with the recording or take its text.
+    private func keyboardReturned() {
+        guard awaySince != nil else { return }
+        let finished = awayFinished || !isCapturing
+        endAway()
+        log.info("keyboard back to a recording that \(finished ? "ended" : "goes on", privacy: .public)")
+        DictationBridge.post(finished ? DictationBridge.rejoinDone : DictationBridge.rejoinRecording)
+    }
+
+    private func cancelAway() {
+        cancelDictation()
+        server.clear()
+        endAway()
+    }
+
+    private func endAway() {
+        awaySince = nil
+        awayTimer?.invalidate()
+        awayTimer = nil
+        let center = UNUserNotificationCenter.current()
+        center.removeDeliveredNotifications(withIdentifiers: [Self.recordingNotice])
+        center.removePendingNotificationRequests(withIdentifiers: [Self.recordingNotice])
+    }
+
+    private func showRecordingNotice(finished: Bool = false) {
+        let content = UNMutableNotificationContent()
+        content.title = finished ? "ضبط آواک تمام شد" : "آواک در حال ضبط است"
+        content.body = finished
+            ? "قفل گوشی را باز کنید تا متن در همان برنامه نوشته شود."
+            : "به صحبت ادامه دهید. بعد از باز کردن قفل، متن در همان برنامه نوشته می‌شود."
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: Self.recordingNotice, content: content, trigger: nil))
     }
 
     private func cancelDictation() {

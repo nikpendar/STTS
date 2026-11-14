@@ -29,6 +29,15 @@ enum DictationBridge {
     static let interrupted = "com.persianstt.interrupted"
     /// Keyboard abandons the transcription in progress.
     static let cancel = "com.persianstt.cancel"
+    /// The keyboard went off screen during a locked recording (Rooz, 2026-11-14): the app keeps
+    /// recording if the screen locked, and cancels it if not (another app was opened).
+    static let away = "com.persianstt.away"
+    /// The keyboard is back and asks for the recording it left; the app answers that it is
+    /// still recording (`rejoinRecording`) or that its final text waits (`rejoinDone`), or not
+    /// at all when the recording was cancelled.
+    static let rejoin = "com.persianstt.rejoin"
+    static let rejoinRecording = "com.persianstt.rejoinRecording"
+    static let rejoinDone = "com.persianstt.rejoinDone"
     /// App has a provisional transcript of the recording so far on `transcriptPort`.
     static let partial = "com.persianstt.partial"
     /// App has a new time estimate on `transcriptPort`, for a live pass or the final transcription.

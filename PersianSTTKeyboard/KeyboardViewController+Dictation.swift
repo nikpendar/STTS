@@ -29,6 +29,7 @@ extension KeyboardViewController {
         if state == .checking || state == .noSession {
             cancelTimeout()
             state = .ready
+            askToRejoin()
         }
     }
 
@@ -55,6 +56,73 @@ extension KeyboardViewController {
         schedule(after: 0.8) { [weak self] in
             if self?.state == .starting { self?.state = .noSession }
         }
+    }
+
+    // MARK: - Screen lock
+
+    /// A locked recording when the keyboard goes off screen (the screen locking, or another app
+    /// or keyboard): what it typed so far is kept, and the app decides whether to go on.
+    func leaveLockedRecording() {
+        let before = isOnScreen ? proxy.documentContextBeforeInput ?? "" : ""
+        AwayDictation(tail: String(before.suffix(40)), liveText: liveText, livePrefix: livePrefix,
+                      liveDraft: liveDraft, settledWords: settledWords, recordingStart: recordingStart,
+                      savedAt: Date()).save()
+        log.info("keyboard left a locked recording")
+        DictationBridge.post(DictationBridge.away)
+        isHeld = false
+        isLocked = false
+        stopWhenRecording = false
+        liveText = ""
+        state = .ready
+    }
+
+    /// Once the session answers: a recording this keyboard (or an earlier one) left is asked for.
+    func askToRejoin() {
+        guard AwayDictation.load() != nil else { return }
+        rejoinAsked = true
+        DictationBridge.post(DictationBridge.rejoin)
+        // No answer: the app cancelled it.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self, self.rejoinAsked else { return }
+            self.rejoinAsked = false
+            AwayDictation.clear()
+        }
+    }
+
+    /// The app still has the recording: back in the same text field, the text said meanwhile
+    /// follows the words typed before, and a recording still going on goes on locked.
+    func rejoin(recording: Bool) {
+        guard rejoinAsked, let away = AwayDictation.load(), state == .ready else { return }
+        rejoinAsked = false
+        AwayDictation.clear()
+        let before = isOnScreen ? proxy.documentContextBeforeInput ?? "" : ""
+        let same = away.tail.isEmpty ? before.isEmpty : before.hasSuffix(String(away.tail.suffix(24)))
+        guard isOnScreen, same else {
+            log.info("back in another text field: the recording left behind is dropped")
+            DictationBridge.post(DictationBridge.cancel)
+            return
+        }
+        log.info("back to a recording that \(recording ? "goes on" : "ended", privacy: .public)")
+        liveText = away.liveText
+        livePrefix = away.livePrefix
+        liveDraft = away.liveDraft
+        settledWords = away.settledWords
+        recordingStart = away.recordingStart
+        // Its corrections could not be matched to the recording.
+        dictationEdited = true
+        isHeld = false
+        if recording {
+            isLocked = true
+            state = .recording
+        } else {
+            isLocked = false
+            lastRecordedSeconds = Date().timeIntervalSince(recordingStart)
+            state = .transcribing
+            schedule(after: 90) { [weak self] in
+                if self?.state == .transcribing { self?.transcriptionFailed() }
+            }
+        }
+        fetchTranscript()
     }
 
     /// Holding the space bar dictates as long as the finger stays down; lifting it ends the
@@ -176,7 +244,8 @@ extension KeyboardViewController {
     func fetchTranscript(final: Bool = false) {
         // The app hands each message out once. A keyboard iOS has not freed yet hears the same
         // notifications; were it to fetch, it would take this dictation's text and drop it.
-        guard state == .recording || state == .transcribing else { return }
+        // Nor one off screen, which would take the text and have nowhere to put it.
+        guard state == .recording || state == .transcribing, isOnScreen else { return }
         TranscriptClient.fetch { [weak self] batch in
             guard let self else { return }
             if batch == nil { log.error("transcript fetch failed (\(final ? "final" : "update", privacy: .public))") }
@@ -394,5 +463,36 @@ extension KeyboardViewController {
         var start = end
         while start > 0, !".؟!?…\n".contains(characters[start - 1]) { start -= 1 }
         return String(characters[start...])
+    }
+}
+
+/// What a keyboard keeps of a locked recording when it goes off screen, in its own defaults,
+/// so it or the next keyboard iOS opens can go on with it in the same text field.
+struct AwayDictation: Codable {
+    /// The last characters before the cursor when it left, to know the text field again.
+    var tail: String
+    var liveText: String
+    var livePrefix: String
+    var liveDraft: String
+    var settledWords: Int
+    var recordingStart: Date
+    var savedAt: Date
+
+    private static let key = "awayDictation"
+
+    /// nil once it is older than the longest recording.
+    static func load() -> AwayDictation? {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let away = try? JSONDecoder().decode(AwayDictation.self, from: data),
+              Date().timeIntervalSince(away.savedAt) < 400 else { return nil }
+        return away
+    }
+
+    func save() {
+        if let data = try? JSONEncoder().encode(self) { UserDefaults.standard.set(data, forKey: Self.key) }
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
     }
 }

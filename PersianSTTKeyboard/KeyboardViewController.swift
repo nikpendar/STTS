@@ -128,6 +128,8 @@ final class KeyboardViewController: UIInputViewController {
     var holdStartX: CGFloat = 0
     var isLocked = false
     static let lockDistance: CGFloat = 60
+    /// The keyboard asked the app for a locked recording it left on the lock screen.
+    var rejoinAsked = false
     /// The finger was lifted before the app confirmed the recording.
     var stopWhenRecording = false
     /// When the speech last changed, for ending a locked recording after a silence
@@ -277,6 +279,12 @@ final class KeyboardViewController: UIInputViewController {
         observer.observe(DictationBridge.progress) { [weak self] in
             MainActor.assumeIsolated { self?.fetchTranscript() }
         }
+        observer.observe(DictationBridge.rejoinRecording) { [weak self] in
+            MainActor.assumeIsolated { self?.rejoin(recording: true) }
+        }
+        observer.observe(DictationBridge.rejoinDone) { [weak self] in
+            MainActor.assumeIsolated { self?.rejoin(recording: false) }
+        }
         observer.observe(DictationBridge.done) { [weak self] in
             MainActor.assumeIsolated { self?.insertTranscript() }
         }
@@ -359,6 +367,11 @@ final class KeyboardViewController: UIInputViewController {
             touchModel = TouchModel()
             touchModel.save()
         }
+        // Back from a lock screen iOS kept this keyboard through: the recording goes on.
+        if state == .recording || state == .transcribing {
+            fetchTranscript()
+            return
+        }
         checkSession()
     }
 
@@ -372,10 +385,14 @@ final class KeyboardViewController: UIInputViewController {
         emojiReturnsToHandwriting = false
         motion?.stopDeviceMotionUpdates()
         if touchSaveScheduled { touchModel.save() }
-        if state == .starting || state == .recording {
-            // One the keyboard can no longer end (a finger still on the space bar, or locked)
-            // would keep the app's microphone and model running: it is cancelled. The words
-            // already typed stay.
+        if state == .recording, isLocked {
+            // The screen may be locking: the app goes on recording if it did, and the text
+            // follows when the keyboard is back in this text field.
+            leaveLockedRecording()
+        } else if state == .starting || state == .recording {
+            // One the keyboard can no longer end (a finger still on the space bar) would keep
+            // the app's microphone and model running: it is cancelled. The words already typed
+            // stay.
             DictationBridge.post(DictationBridge.cancel)
             isHeld = false
             isLocked = false
