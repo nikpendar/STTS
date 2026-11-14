@@ -1,0 +1,58 @@
+getpwuid_r did not find a match for uid 501
+Filtering the log data using "subsystem == "ir.nikpendar.PersianSTT" OR process CONTAINS "PersianSTTKeyboard""
+Timestamp                       Thread     Type        Activity             PID    TTL  
+2026-11-14 10:32:10.187896+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] controller 1368 loaded
+2026-11-14 10:32:10.627663+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x254, asked 254, window 874
+2026-11-14 10:32:13.476761+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] keyboard opened in 3292 ms
+2026-11-14 10:32:20.179112+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded AvakScribe.mlmodelc, compute units 3, memory 41 MB (peak 60 MB)
+2026-11-14 10:32:41.866094+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, held
+2026-11-14 10:32:44.761658+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live text: first after 2.5 s, 4 characters
+2026-11-14 10:32:44.778106+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] live text: first update heard in state recording
+2026-11-14 10:32:44.784120+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] live text: first shown, 3 characters
+2026-11-14 10:33:42.153488+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live text: 78 updates from 271 pieces in 59.9 s, last 362 characters, compute units 3
+2026-11-14 10:33:42.615634+0000 0xdd85     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:model] dictation done, memory 68 MB (peak 73 MB), dictionary boost chose 0 tokens since load
+2026-11-14 10:33:42.615720+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: 0.10 s of audio left, done in 0.46 s
+2026-11-14 10:33:42.689121+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] following dictation 1773083F-2B25-4FAE-A69A-9D38346E97C5 for edits
+2026-11-14 10:34:40.283672+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] edits finished
+2026-11-14 10:34:40.292020+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] sending correction for 1773083F-2B25-4FAE-A69A-9D38346E97C5
+2026-11-14 10:34:57.444026+0000 0xdd79     Info        0x64da1              18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] glide: 3 readings
+2026-11-14 10:36:25.890067+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x295, asked 295, window 874
+2026-11-14 10:36:37.415837+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x254, asked 254, window 874
+2026-11-14 10:36:39.647156+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, held
+2026-11-14 10:36:43.467806+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live text: 0 updates from 13 pieces in 3.2 s, last 0 characters, compute units 3
+2026-11-14 10:36:43.956047+0000 0x15995    Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:model] dictation done, memory 82 MB (peak 84 MB), dictionary boost chose 0 tokens since load
+2026-11-14 10:36:43.956207+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: 0.20 s of audio left, done in 0.49 s
+2026-11-14 10:36:43.956322+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: no speech
+2026-11-14 10:36:51.030406+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, held
+2026-11-14 10:36:52.513305+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live text: 0 updates from 5 pieces in 1.2 s, last 0 characters, compute units 3
+2026-11-14 10:36:52.895925+0000 0x15ea7    Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:model] dictation done, memory 82 MB (peak 84 MB), dictionary boost chose 0 tokens since load
+2026-11-14 10:36:52.895992+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: 0.00 s of audio left, done in 0.38 s
+2026-11-14 10:36:52.896029+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: no speech
+2026-11-14 10:37:07.936639+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] recording started, held
+2026-11-14 10:37:16.593475+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] live text: 0 updates from 40 pieces in 8.4 s, last 0 characters, compute units 3
+2026-11-14 10:37:16.989687+0000 0x159df    Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:model] dictation done, memory 84 MB (peak 86 MB), dictionary boost chose 0 tokens since load
+2026-11-14 10:37:16.989750+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: 0.10 s of audio left, done in 0.40 s
+2026-11-14 10:37:16.989797+0000 0xdd79     Info        0x0                  18116  0    PersianSTT: [ir.nikpendar.PersianSTT:dictation] final text: no speech
+2026-11-14 10:37:50.593033+0000 0x176da    Info        0x0                  33877  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] controller 3405 loaded
+2026-11-14 10:37:50.721046+0000 0x176da    Info        0x0                  33877  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 750x192, asked 192, window 402
+2026-11-14 10:37:51.038122+0000 0x176da    Info        0x0                  33877  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] keyboard opened in 447 ms
+2026-11-14 10:37:51.956950+0000 0x176da    Info        0x0                  33877  0    PersianSTT: [ir.nikpendar.PersianSTT:personal] repository has model v1, using v0
+2026-11-14 10:37:53.995209+0000 0x176da    Info        0x0                  33877  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded AvakScribe.mlmodelc, compute units 3, memory 81 MB (peak 157 MB)
+2026-11-14 10:37:54.086188+0000 0x176da    Info        0x0                  33877  0    PersianSTT: [ir.nikpendar.PersianSTT:personal] installed personal model v1
+2026-11-14 10:37:58.706995+0000 0x176da    Info        0x0                  33877  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3, memory 68 MB (peak 157 MB)
+2026-11-14 10:38:09.483447+0000 0x17d2e    Info        0x0                  34486  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] controller 9024 loaded
+2026-11-14 10:38:09.605858+0000 0x17d2e    Info        0x0                  34486  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x298, asked 298, window 874
+2026-11-14 10:38:09.799035+0000 0x17d2e    Info        0x0                  34486  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] keyboard opened in 318 ms
+2026-11-14 10:38:11.336983+0000 0x17d2e    Info        0x0                  34486  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3, memory 62 MB (peak 64 MB)
+2026-11-14 10:38:40.600947+0000 0x17d2e    Info        0x79753              34486  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] glide: 3 readings
+2026-11-14 10:38:45.127128+0000 0x18cd3    Info        0x0                  36179  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] controller 8557 loaded
+2026-11-14 10:38:45.221600+0000 0x18cd3    Info        0x0                  36179  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x298, asked 298, window 874
+2026-11-14 10:38:45.461565+0000 0x18cd3    Info        0x0                  36179  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] keyboard opened in 342 ms
+2026-11-14 10:38:47.036002+0000 0x18cd3    Info        0x0                  36179  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3, memory 58 MB (peak 58 MB)
+2026-11-14 10:39:07.725733+0000 0x19acf    Info        0x0                  37611  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] controller 7494 loaded
+2026-11-14 10:39:07.810640+0000 0x19acf    Info        0x0                  37611  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] layout 402x219, asked 219, window 874
+2026-11-14 10:39:08.010972+0000 0x19acf    Info        0x0                  37611  0    PersianSTT: [ir.nikpendar.PersianSTT:keyboard] keyboard opened in 290 ms
+2026-11-14 10:39:09.523425+0000 0x19acf    Info        0x0                  37611  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3, memory 57 MB (peak 59 MB)
+2026-11-14 10:39:28.570955+0000 0x1a399    Info        0x0                  38540  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3, memory 56 MB (peak 60 MB)
+2026-11-14 10:39:45.280251+0000 0x1aaaf    Info        0x0                  39304  0    PersianSTT: [ir.nikpendar.PersianSTT:model] loaded personal-v1.mlmodelc, compute units 3, memory 54 MB (peak 58 MB)
+Child process terminated with signal 15: Terminated

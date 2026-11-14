@@ -1,0 +1,2028 @@
+[
+  {
+    "pid" : 34486,
+    "enabled" : true,
+    "role" : "AXApplication",
+    "title" : null,
+    "content_required" : false,
+    "traits" : [
+
+    ],
+    "AXFrame" : "{{0, 0}, {402, 874}}",
+    "role_description" : "application",
+    "children" : [
+      {
+        "content_required" : false,
+        "AXUniqueId" : null,
+        "custom_actions" : [
+
+        ],
+        "pid" : 34486,
+        "children" : [
+          {
+            "subrole" : null,
+            "pid" : 34486,
+            "AXFrame" : "{{0, 0}, {402, 874}}",
+            "role_description" : "group",
+            "enabled" : true,
+            "role" : "AXGroup",
+            "title" : null,
+            "help" : null,
+            "AXValue" : null,
+            "AXLabel" : null,
+            "content_required" : false,
+            "custom_actions" : [
+
+            ],
+            "frame" : {
+              "width" : 402,
+              "height" : 874,
+              "y" : 0,
+              "x" : 0
+            },
+            "traits" : [
+
+            ],
+            "AXUniqueId" : null,
+            "children" : [
+              {
+                "custom_actions" : [
+
+                ],
+                "role" : "AXGroup",
+                "help" : null,
+                "pid" : 34486,
+                "type" : "Group",
+                "AXLabel" : null,
+                "subrole" : null,
+                "role_description" : "group",
+                "AXValue" : null,
+                "AXFrame" : "{{0, 0}, {402, 874}}",
+                "AXUniqueId" : null,
+                "content_required" : false,
+                "children" : [
+                  {
+                    "role" : "AXGroup",
+                    "type" : "Group",
+                    "role_description" : "group",
+                    "subrole" : null,
+                    "AXValue" : null,
+                    "AXFrame" : "{{0, 0}, {402, 874}}",
+                    "pid" : 34486,
+                    "traits" : [
+
+                    ],
+                    "AXLabel" : null,
+                    "content_required" : false,
+                    "enabled" : true,
+                    "frame" : {
+                      "x" : 0,
+                      "height" : 874,
+                      "y" : 0,
+                      "width" : 402
+                    },
+                    "custom_actions" : [
+
+                    ],
+                    "AXUniqueId" : null,
+                    "title" : null,
+                    "children" : [
+                      {
+                        "enabled" : true,
+                        "traits" : [
+
+                        ],
+                        "AXValue" : null,
+                        "AXFrame" : "{{0, 0}, {402, 874}}",
+                        "help" : null,
+                        "AXUniqueId" : null,
+                        "frame" : {
+                          "height" : 874,
+                          "x" : 0,
+                          "y" : 0,
+                          "width" : 402
+                        },
+                        "title" : null,
+                        "custom_actions" : [
+
+                        ],
+                        "children" : [
+                          {
+                            "content_required" : false,
+                            "type" : "StaticText",
+                            "AXLabel" : "آزمون دیکته",
+                            "AXUniqueId" : "testField",
+                            "pid" : 34486,
+                            "custom_actions" : [
+
+                            ],
+                            "children" : [
+
+                            ],
+                            "role" : "AXStaticText",
+                            "subrole" : null,
+                            "AXValue" : null,
+                            "role_description" : "text",
+                            "AXFrame" : "{{309, 89.833333333333329}, {77, 20.333333333333329}}",
+                            "enabled" : true,
+                            "frame" : {
+                              "height" : 20.333333333333329,
+                              "width" : 77,
+                              "y" : 89.833333333333329,
+                              "x" : 309
+                            },
+                            "title" : null,
+                            "help" : null,
+                            "traits" : [
+
+                            ]
+                          },
+                          {
+                            "help" : null,
+                            "content_required" : false,
+                            "pid" : 34486,
+                            "children" : [
+                              {
+                                "AXLabel" : null,
+                                "custom_actions" : [
+
+                                ],
+                                "subrole" : null,
+                                "role" : "AXGroup",
+                                "role_description" : "group",
+                                "AXUniqueId" : null,
+                                "content_required" : false,
+                                "AXValue" : null,
+                                "help" : null,
+                                "pid" : 34486,
+                                "children" : [
+                                  {
+                                    "children" : [
+
+                                    ],
+                                    "role" : "AXImage",
+                                    "custom_actions" : [
+
+                                    ],
+                                    "AXUniqueId" : null,
+                                    "content_required" : false,
+                                    "pid" : 34486,
+                                    "help" : null,
+                                    "AXFrame" : "{{0, 542}, {402, 298}}",
+                                    "subrole" : null,
+                                    "type" : "Image",
+                                    "role_description" : "image",
+                                    "AXLabel" : null,
+                                    "enabled" : true,
+                                    "title" : null,
+                                    "frame" : {
+                                      "height" : 298,
+                                      "width" : 402,
+                                      "y" : 542,
+                                      "x" : 0
+                                    },
+                                    "AXValue" : null,
+                                    "traits" : [
+
+                                    ]
+                                  },
+                                  {
+                                    "AXFrame" : "{{0, 542}, {402, 298}}",
+                                    "pid" : 34486,
+                                    "help" : null,
+                                    "subrole" : null,
+                                    "role" : "AXGroup",
+                                    "traits" : [
+
+                                    ],
+                                    "AXUniqueId" : null,
+                                    "custom_actions" : [
+
+                                    ],
+                                    "frame" : {
+                                      "width" : 402,
+                                      "height" : 298,
+                                      "y" : 542,
+                                      "x" : 0
+                                    },
+                                    "title" : null,
+                                    "content_required" : false,
+                                    "AXLabel" : null,
+                                    "role_description" : "group",
+                                    "enabled" : true,
+                                    "children" : [
+                                      {
+                                        "children" : [
+                                          {
+                                            "pid" : 34486,
+                                            "children" : [
+                                              {
+                                                "pid" : 34486,
+                                                "title" : null,
+                                                "custom_actions" : [
+
+                                                ],
+                                                "role_description" : "text",
+                                                "help" : null,
+                                                "traits" : [
+
+                                                ],
+                                                "AXUniqueId" : null,
+                                                "type" : "StaticText",
+                                                "AXLabel" : "این",
+                                                "role" : "AXStaticText",
+                                                "AXValue" : null,
+                                                "frame" : {
+                                                  "height" : 28,
+                                                  "width" : 27,
+                                                  "y" : 547,
+                                                  "x" : 321.66666666666669
+                                                },
+                                                "AXFrame" : "{{321.66666666666669, 547}, {27, 28}}",
+                                                "content_required" : false,
+                                                "subrole" : null,
+                                                "children" : [
+
+                                                ],
+                                                "enabled" : true
+                                              }
+                                            ],
+                                            "role" : "AXButton",
+                                            "role_description" : "button",
+                                            "title" : null,
+                                            "enabled" : true,
+                                            "AXLabel" : "این",
+                                            "AXValue" : null,
+                                            "type" : "Button",
+                                            "traits" : [
+
+                                            ],
+                                            "frame" : {
+                                              "height" : 38,
+                                              "width" : 122,
+                                              "y" : 542,
+                                              "x" : 274
+                                            },
+                                            "AXFrame" : "{{274, 542}, {122, 38}}",
+                                            "subrole" : null,
+                                            "AXUniqueId" : "suggestion-0",
+                                            "custom_actions" : [
+
+                                            ],
+                                            "help" : null,
+                                            "content_required" : false
+                                          },
+                                          {
+                                            "content_required" : false,
+                                            "traits" : [
+
+                                            ],
+                                            "subrole" : null,
+                                            "AXUniqueId" : "suggestion-1",
+                                            "AXFrame" : "{{140, 542}, {122, 38}}",
+                                            "children" : [
+                                              {
+                                                "AXLabel" : "در",
+                                                "content_required" : false,
+                                                "traits" : [
+
+                                                ],
+                                                "AXFrame" : "{{191, 547}, {20, 28}}",
+                                                "subrole" : null,
+                                                "pid" : 34486,
+                                                "frame" : {
+                                                  "height" : 28,
+                                                  "width" : 20,
+                                                  "y" : 547,
+                                                  "x" : 191
+                                                },
+                                                "AXValue" : null,
+                                                "role_description" : "text",
+                                                "help" : null,
+                                                "title" : null,
+                                                "AXUniqueId" : null,
+                                                "role" : "AXStaticText",
+                                                "type" : "StaticText",
+                                                "children" : [
+
+                                                ],
+                                                "enabled" : true,
+                                                "custom_actions" : [
+
+                                                ]
+                                              }
+                                            ],
+                                            "pid" : 34486,
+                                            "AXValue" : null,
+                                            "frame" : {
+                                              "width" : 122,
+                                              "height" : 38,
+                                              "y" : 542,
+                                              "x" : 140
+                                            },
+                                            "custom_actions" : [
+
+                                            ],
+                                            "role" : "AXButton",
+                                            "help" : null,
+                                            "type" : "Button",
+                                            "enabled" : true,
+                                            "title" : null,
+                                            "role_description" : "button",
+                                            "AXLabel" : "در"
+                                          },
+                                          {
+                                            "subrole" : null,
+                                            "role" : "AXButton",
+                                            "children" : [
+                                              {
+                                                "traits" : [
+
+                                                ],
+                                                "title" : null,
+                                                "AXValue" : null,
+                                                "AXUniqueId" : null,
+                                                "AXLabel" : "او",
+                                                "AXFrame" : "{{59, 547}, {16, 28}}",
+                                                "help" : null,
+                                                "frame" : {
+                                                  "height" : 28,
+                                                  "width" : 16,
+                                                  "y" : 547,
+                                                  "x" : 59
+                                                },
+                                                "custom_actions" : [
+
+                                                ],
+                                                "enabled" : true,
+                                                "role_description" : "text",
+                                                "role" : "AXStaticText",
+                                                "subrole" : null,
+                                                "content_required" : false,
+                                                "pid" : 34486,
+                                                "children" : [
+
+                                                ],
+                                                "type" : "StaticText"
+                                              }
+                                            ],
+                                            "traits" : [
+
+                                            ],
+                                            "custom_actions" : [
+
+                                            ],
+                                            "type" : "Button",
+                                            "AXLabel" : "او",
+                                            "enabled" : true,
+                                            "AXValue" : null,
+                                            "role_description" : "button",
+                                            "pid" : 34486,
+                                            "help" : null,
+                                            "AXFrame" : "{{6, 542}, {122, 38}}",
+                                            "title" : null,
+                                            "AXUniqueId" : "suggestion-2",
+                                            "frame" : {
+                                              "height" : 38,
+                                              "x" : 6,
+                                              "y" : 542,
+                                              "width" : 122
+                                            },
+                                            "content_required" : false
+                                          },
+                                          {
+                                            "enabled" : true,
+                                            "frame" : {
+                                              "width" : 1,
+                                              "height" : 19,
+                                              "y" : 551.5,
+                                              "x" : 267.5
+                                            },
+                                            "type" : "Group",
+                                            "custom_actions" : [
+
+                                            ],
+                                            "subrole" : null,
+                                            "help" : null,
+                                            "AXLabel" : null,
+                                            "AXValue" : null,
+                                            "role_description" : "group",
+                                            "AXFrame" : "{{267.5, 551.5}, {1, 19}}",
+                                            "traits" : [
+
+                                            ],
+                                            "role" : "AXGroup",
+                                            "content_required" : false,
+                                            "children" : [
+
+                                            ],
+                                            "pid" : 34486,
+                                            "title" : null,
+                                            "AXUniqueId" : null
+                                          },
+                                          {
+                                            "frame" : {
+                                              "width" : 1,
+                                              "height" : 19,
+                                              "y" : 551.5,
+                                              "x" : 133.5
+                                            },
+                                            "content_required" : false,
+                                            "traits" : [
+
+                                            ],
+                                            "role_description" : "group",
+                                            "role" : "AXGroup",
+                                            "help" : null,
+                                            "type" : "Group",
+                                            "custom_actions" : [
+
+                                            ],
+                                            "AXFrame" : "{{133.5, 551.5}, {1, 19}}",
+                                            "title" : null,
+                                            "enabled" : true,
+                                            "subrole" : null,
+                                            "children" : [
+
+                                            ],
+                                            "AXLabel" : null,
+                                            "pid" : 34486,
+                                            "AXValue" : null,
+                                            "AXUniqueId" : null
+                                          }
+                                        ],
+                                        "AXLabel" : null,
+                                        "role" : "AXGroup",
+                                        "title" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "type" : "Group",
+                                        "frame" : {
+                                          "height" : 38,
+                                          "y" : 542,
+                                          "width" : 402,
+                                          "x" : 0
+                                        },
+                                        "traits" : [
+
+                                        ],
+                                        "content_required" : false,
+                                        "role_description" : "group",
+                                        "subrole" : null,
+                                        "AXFrame" : "{{0, 542}, {402, 38}}",
+                                        "pid" : 34486,
+                                        "help" : null,
+                                        "enabled" : true,
+                                        "AXUniqueId" : null,
+                                        "AXValue" : null
+                                      },
+                                      {
+                                        "AXFrame" : "{{0, 542}, {402, 298}}",
+                                        "subrole" : null,
+                                        "content_required" : false,
+                                        "children" : [
+                                          {
+                                            "AXLabel" : null,
+                                            "children" : [
+
+                                            ],
+                                            "help" : null,
+                                            "traits" : [
+
+                                            ],
+                                            "role_description" : "group",
+                                            "title" : null,
+                                            "enabled" : true,
+                                            "role" : "AXGroup",
+                                            "custom_actions" : [
+
+                                            ],
+                                            "subrole" : null,
+                                            "content_required" : false,
+                                            "AXUniqueId" : null,
+                                            "pid" : 34486,
+                                            "type" : "Group",
+                                            "frame" : {
+                                              "height" : 298,
+                                              "y" : 542,
+                                              "x" : 0,
+                                              "width" : 402
+                                            },
+                                            "AXValue" : null,
+                                            "AXFrame" : "{{0, 542}, {402, 298}}"
+                                          }
+                                        ],
+                                        "role_description" : "group",
+                                        "title" : null,
+                                        "AXValue" : null,
+                                        "traits" : [
+
+                                        ],
+                                        "frame" : {
+                                          "width" : 402,
+                                          "y" : 542,
+                                          "x" : 0,
+                                          "height" : 298
+                                        },
+                                        "custom_actions" : [
+
+                                        ],
+                                        "type" : "Group",
+                                        "pid" : 34486,
+                                        "role" : "AXGroup",
+                                        "help" : null,
+                                        "enabled" : true,
+                                        "AXLabel" : null,
+                                        "AXUniqueId" : null
+                                      },
+                                      {
+                                        "role_description" : "button",
+                                        "AXFrame" : "{{361.80000000000001, 580}, {40.199999999999989, 44}}",
+                                        "traits" : [
+
+                                        ],
+                                        "frame" : {
+                                          "width" : 40.199999999999989,
+                                          "y" : 580,
+                                          "height" : 44,
+                                          "x" : 361.80000000000001
+                                        },
+                                        "type" : "Button",
+                                        "AXLabel" : "۰",
+                                        "children" : [
+
+                                        ],
+                                        "AXValue" : null,
+                                        "help" : null,
+                                        "AXUniqueId" : "number-9",
+                                        "custom_actions" : [
+
+                                        ],
+                                        "subrole" : null,
+                                        "content_required" : false,
+                                        "pid" : 34486,
+                                        "role" : "AXButton",
+                                        "title" : null,
+                                        "enabled" : true
+                                      },
+                                      {
+                                        "enabled" : true,
+                                        "AXLabel" : "۹",
+                                        "type" : "Button",
+                                        "traits" : [
+
+                                        ],
+                                        "frame" : {
+                                          "height" : 44,
+                                          "y" : 580,
+                                          "x" : 321.60000000000002,
+                                          "width" : 40.199999999999989
+                                        },
+                                        "AXFrame" : "{{321.60000000000002, 580}, {40.199999999999989, 44}}",
+                                        "help" : null,
+                                        "AXUniqueId" : "number-8",
+                                        "role" : "AXButton",
+                                        "content_required" : false,
+                                        "children" : [
+
+                                        ],
+                                        "custom_actions" : [
+
+                                        ],
+                                        "role_description" : "button",
+                                        "title" : null,
+                                        "AXValue" : null,
+                                        "subrole" : null,
+                                        "pid" : 34486
+                                      },
+                                      {
+                                        "frame" : {
+                                          "height" : 44,
+                                          "y" : 580,
+                                          "x" : 281.40000000000003,
+                                          "width" : 40.199999999999989
+                                        },
+                                        "type" : "Button",
+                                        "traits" : [
+
+                                        ],
+                                        "content_required" : false,
+                                        "enabled" : true,
+                                        "AXLabel" : "۸",
+                                        "AXFrame" : "{{281.40000000000003, 580}, {40.199999999999989, 44}}",
+                                        "role_description" : "button",
+                                        "subrole" : null,
+                                        "children" : [
+
+                                        ],
+                                        "help" : null,
+                                        "title" : null,
+                                        "AXValue" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "role" : "AXButton",
+                                        "pid" : 34486,
+                                        "AXUniqueId" : "number-7"
+                                      },
+                                      {
+                                        "subrole" : null,
+                                        "role" : "AXButton",
+                                        "AXValue" : null,
+                                        "AXFrame" : "{{241.20000000000002, 580}, {40.200000000000017, 44}}",
+                                        "frame" : {
+                                          "x" : 241.20000000000002,
+                                          "y" : 580,
+                                          "width" : 40.200000000000017,
+                                          "height" : 44
+                                        },
+                                        "role_description" : "button",
+                                        "help" : null,
+                                        "AXUniqueId" : "number-6",
+                                        "traits" : [
+
+                                        ],
+                                        "title" : null,
+                                        "enabled" : true,
+                                        "content_required" : false,
+                                        "pid" : 34486,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "children" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "AXLabel" : "۷"
+                                      },
+                                      {
+                                        "AXValue" : null,
+                                        "role_description" : "button",
+                                        "subrole" : null,
+                                        "title" : null,
+                                        "content_required" : false,
+                                        "type" : "Button",
+                                        "children" : [
+
+                                        ],
+                                        "frame" : {
+                                          "width" : 40.199999999999989,
+                                          "y" : 580,
+                                          "height" : 44,
+                                          "x" : 201
+                                        },
+                                        "custom_actions" : [
+
+                                        ],
+                                        "enabled" : true,
+                                        "help" : null,
+                                        "role" : "AXButton",
+                                        "AXFrame" : "{{201, 580}, {40.199999999999989, 44}}",
+                                        "AXLabel" : "۶",
+                                        "traits" : [
+
+                                        ],
+                                        "AXUniqueId" : "number-5",
+                                        "pid" : 34486
+                                      },
+                                      {
+                                        "help" : null,
+                                        "title" : null,
+                                        "AXValue" : null,
+                                        "AXUniqueId" : "number-4",
+                                        "children" : [
+
+                                        ],
+                                        "role" : "AXButton",
+                                        "frame" : {
+                                          "height" : 44,
+                                          "y" : 580,
+                                          "x" : 160.80000000000001,
+                                          "width" : 40.199999999999989
+                                        },
+                                        "role_description" : "button",
+                                        "enabled" : true,
+                                        "pid" : 34486,
+                                        "traits" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "custom_actions" : [
+
+                                        ],
+                                        "AXFrame" : "{{160.80000000000001, 580}, {40.199999999999989, 44}}",
+                                        "AXLabel" : "۵",
+                                        "content_required" : false,
+                                        "subrole" : null
+                                      },
+                                      {
+                                        "enabled" : true,
+                                        "role_description" : "button",
+                                        "title" : null,
+                                        "content_required" : false,
+                                        "children" : [
+
+                                        ],
+                                        "subrole" : null,
+                                        "AXLabel" : "۴",
+                                        "custom_actions" : [
+
+                                        ],
+                                        "AXValue" : null,
+                                        "help" : null,
+                                        "AXUniqueId" : "number-3",
+                                        "frame" : {
+                                          "x" : 120.60000000000002,
+                                          "y" : 580,
+                                          "width" : 40.199999999999989,
+                                          "height" : 44
+                                        },
+                                        "role" : "AXButton",
+                                        "AXFrame" : "{{120.60000000000002, 580}, {40.199999999999989, 44}}",
+                                        "pid" : 34486,
+                                        "traits" : [
+
+                                        ],
+                                        "type" : "Button"
+                                      },
+                                      {
+                                        "AXUniqueId" : "number-2",
+                                        "traits" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "frame" : {
+                                          "x" : 80.400000000000006,
+                                          "y" : 580,
+                                          "height" : 44,
+                                          "width" : 40.200000000000003
+                                        },
+                                        "custom_actions" : [
+
+                                        ],
+                                        "enabled" : true,
+                                        "content_required" : false,
+                                        "AXValue" : null,
+                                        "help" : null,
+                                        "AXFrame" : "{{80.400000000000006, 580}, {40.200000000000003, 44}}",
+                                        "role_description" : "button",
+                                        "pid" : 34486,
+                                        "role" : "AXButton",
+                                        "title" : null,
+                                        "subrole" : null,
+                                        "children" : [
+
+                                        ],
+                                        "AXLabel" : "۳"
+                                      },
+                                      {
+                                        "role_description" : "button",
+                                        "pid" : 34486,
+                                        "subrole" : null,
+                                        "AXLabel" : "۲",
+                                        "type" : "Button",
+                                        "content_required" : false,
+                                        "children" : [
+
+                                        ],
+                                        "enabled" : true,
+                                        "title" : null,
+                                        "frame" : {
+                                          "width" : 40.200000000000003,
+                                          "y" : 580,
+                                          "x" : 40.200000000000003,
+                                          "height" : 44
+                                        },
+                                        "custom_actions" : [
+
+                                        ],
+                                        "role" : "AXButton",
+                                        "AXUniqueId" : "number-1",
+                                        "traits" : [
+
+                                        ],
+                                        "AXFrame" : "{{40.200000000000003, 580}, {40.200000000000003, 44}}",
+                                        "AXValue" : null,
+                                        "help" : null
+                                      },
+                                      {
+                                        "AXFrame" : "{{0, 580}, {40.200000000000003, 44}}",
+                                        "AXUniqueId" : "number-0",
+                                        "content_required" : false,
+                                        "pid" : 34486,
+                                        "traits" : [
+
+                                        ],
+                                        "role" : "AXButton",
+                                        "enabled" : true,
+                                        "role_description" : "button",
+                                        "custom_actions" : [
+
+                                        ],
+                                        "children" : [
+
+                                        ],
+                                        "frame" : {
+                                          "width" : 40.200000000000003,
+                                          "y" : 580,
+                                          "x" : 0,
+                                          "height" : 44
+                                        },
+                                        "help" : null,
+                                        "type" : "Button",
+                                        "title" : null,
+                                        "subrole" : null,
+                                        "AXLabel" : "۱",
+                                        "AXValue" : null
+                                      },
+                                      {
+                                        "type" : "Button",
+                                        "AXUniqueId" : "letter-0-10",
+                                        "traits" : [
+
+                                        ],
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 624,
+                                          "x" : 365.45454545454555,
+                                          "width" : 36.545454545454561
+                                        },
+                                        "custom_actions" : [
+
+                                        ],
+                                        "pid" : 34486,
+                                        "AXLabel" : "چ",
+                                        "role" : "AXButton",
+                                        "help" : null,
+                                        "AXValue" : null,
+                                        "children" : [
+
+                                        ],
+                                        "role_description" : "button",
+                                        "AXFrame" : "{{365.45454545454555, 624}, {36.545454545454561, 51.5}}",
+                                        "enabled" : true,
+                                        "subrole" : null,
+                                        "title" : null,
+                                        "content_required" : false
+                                      },
+                                      {
+                                        "enabled" : true,
+                                        "AXFrame" : "{{328.90909090909099, 624}, {36.545454545454561, 51.5}}",
+                                        "type" : "Button",
+                                        "AXUniqueId" : "letter-0-9",
+                                        "AXValue" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "frame" : {
+                                          "width" : 36.545454545454561,
+                                          "y" : 624,
+                                          "height" : 51.5,
+                                          "x" : 328.90909090909099
+                                        },
+                                        "title" : null,
+                                        "AXLabel" : "ج",
+                                        "help" : null,
+                                        "role" : "AXButton",
+                                        "subrole" : null,
+                                        "traits" : [
+
+                                        ],
+                                        "content_required" : false,
+                                        "pid" : 34486,
+                                        "role_description" : "button",
+                                        "children" : [
+
+                                        ]
+                                      },
+                                      {
+                                        "children" : [
+
+                                        ],
+                                        "pid" : 34486,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "role" : "AXButton",
+                                        "subrole" : null,
+                                        "help" : null,
+                                        "AXUniqueId" : "letter-0-8",
+                                        "AXFrame" : "{{292.36363636363643, 624}, {36.545454545454561, 51.5}}",
+                                        "traits" : [
+
+                                        ],
+                                        "role_description" : "button",
+                                        "AXLabel" : "ح",
+                                        "frame" : {
+                                          "x" : 292.36363636363643,
+                                          "y" : 624,
+                                          "width" : 36.545454545454561,
+                                          "height" : 51.5
+                                        },
+                                        "title" : null,
+                                        "type" : "Button",
+                                        "AXValue" : null,
+                                        "enabled" : true,
+                                        "content_required" : false
+                                      },
+                                      {
+                                        "title" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "traits" : [
+
+                                        ],
+                                        "AXValue" : null,
+                                        "frame" : {
+                                          "width" : 36.545454545454533,
+                                          "y" : 624,
+                                          "height" : 51.5,
+                                          "x" : 255.81818181818184
+                                        },
+                                        "help" : null,
+                                        "role" : "AXButton",
+                                        "pid" : 34486,
+                                        "content_required" : false,
+                                        "children" : [
+
+                                        ],
+                                        "AXLabel" : "خ",
+                                        "AXFrame" : "{{255.81818181818184, 624}, {36.545454545454533, 51.5}}",
+                                        "type" : "Button",
+                                        "AXUniqueId" : "letter-0-7",
+                                        "subrole" : null,
+                                        "enabled" : true,
+                                        "role_description" : "button"
+                                      },
+                                      {
+                                        "title" : null,
+                                        "type" : "Button",
+                                        "AXFrame" : "{{219.27272727272731, 624}, {36.545454545454561, 51.5}}",
+                                        "traits" : [
+
+                                        ],
+                                        "help" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "frame" : {
+                                          "width" : 36.545454545454561,
+                                          "y" : 624,
+                                          "height" : 51.5,
+                                          "x" : 219.27272727272731
+                                        },
+                                        "role" : "AXButton",
+                                        "content_required" : false,
+                                        "AXUniqueId" : "letter-0-6",
+                                        "AXLabel" : "ه",
+                                        "pid" : 34486,
+                                        "children" : [
+
+                                        ],
+                                        "enabled" : true,
+                                        "role_description" : "button",
+                                        "subrole" : null,
+                                        "AXValue" : null
+                                      },
+                                      {
+                                        "type" : "Button",
+                                        "AXFrame" : "{{182.72727272727275, 624}, {36.545454545454561, 51.5}}",
+                                        "AXValue" : null,
+                                        "frame" : {
+                                          "width" : 36.545454545454561,
+                                          "y" : 624,
+                                          "x" : 182.72727272727275,
+                                          "height" : 51.5
+                                        },
+                                        "pid" : 34486,
+                                        "title" : null,
+                                        "content_required" : false,
+                                        "AXLabel" : "ع",
+                                        "role" : "AXButton",
+                                        "children" : [
+
+                                        ],
+                                        "custom_actions" : [
+
+                                        ],
+                                        "help" : null,
+                                        "subrole" : null,
+                                        "traits" : [
+
+                                        ],
+                                        "AXUniqueId" : "letter-0-5",
+                                        "role_description" : "button",
+                                        "enabled" : true
+                                      },
+                                      {
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 624,
+                                          "x" : 146.18181818181819,
+                                          "width" : 36.545454545454561
+                                        },
+                                        "traits" : [
+
+                                        ],
+                                        "AXUniqueId" : "letter-0-4",
+                                        "enabled" : true,
+                                        "title" : null,
+                                        "AXValue" : null,
+                                        "content_required" : false,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "AXFrame" : "{{146.18181818181819, 624}, {36.545454545454561, 51.5}}",
+                                        "subrole" : null,
+                                        "pid" : 34486,
+                                        "help" : null,
+                                        "type" : "Button",
+                                        "AXLabel" : "غ",
+                                        "role_description" : "button",
+                                        "children" : [
+
+                                        ],
+                                        "role" : "AXButton"
+                                      },
+                                      {
+                                        "pid" : 34486,
+                                        "enabled" : true,
+                                        "type" : "Button",
+                                        "frame" : {
+                                          "x" : 109.63636363636363,
+                                          "y" : 624,
+                                          "width" : 36.545454545454561,
+                                          "height" : 51.5
+                                        },
+                                        "role_description" : "button",
+                                        "AXLabel" : "ف",
+                                        "AXValue" : null,
+                                        "children" : [
+
+                                        ],
+                                        "role" : "AXButton",
+                                        "custom_actions" : [
+
+                                        ],
+                                        "content_required" : false,
+                                        "title" : null,
+                                        "subrole" : null,
+                                        "help" : null,
+                                        "AXFrame" : "{{109.63636363636363, 624}, {36.545454545454561, 51.5}}",
+                                        "traits" : [
+
+                                        ],
+                                        "AXUniqueId" : "letter-0-3"
+                                      },
+                                      {
+                                        "content_required" : false,
+                                        "help" : null,
+                                        "role_description" : "button",
+                                        "subrole" : null,
+                                        "traits" : [
+
+                                        ],
+                                        "AXLabel" : "ق",
+                                        "custom_actions" : [
+
+                                        ],
+                                        "pid" : 34486,
+                                        "enabled" : true,
+                                        "title" : null,
+                                        "AXUniqueId" : "letter-0-2",
+                                        "frame" : {
+                                          "x" : 73.090909090909093,
+                                          "y" : 624,
+                                          "width" : 36.545454545454547,
+                                          "height" : 51.5
+                                        },
+                                        "AXValue" : null,
+                                        "type" : "Button",
+                                        "AXFrame" : "{{73.090909090909093, 624}, {36.545454545454547, 51.5}}",
+                                        "children" : [
+
+                                        ],
+                                        "role" : "AXButton"
+                                      },
+                                      {
+                                        "traits" : [
+
+                                        ],
+                                        "children" : [
+
+                                        ],
+                                        "AXUniqueId" : "letter-0-1",
+                                        "help" : null,
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 624,
+                                          "width" : 36.545454545454547,
+                                          "x" : 36.545454545454547
+                                        },
+                                        "AXFrame" : "{{36.545454545454547, 624}, {36.545454545454547, 51.5}}",
+                                        "custom_actions" : [
+
+                                        ],
+                                        "role_description" : "button",
+                                        "role" : "AXButton",
+                                        "title" : null,
+                                        "AXValue" : null,
+                                        "type" : "Button",
+                                        "AXLabel" : "ص",
+                                        "content_required" : false,
+                                        "enabled" : true,
+                                        "subrole" : null,
+                                        "pid" : 34486
+                                      },
+                                      {
+                                        "type" : "Button",
+                                        "role" : "AXButton",
+                                        "role_description" : "button",
+                                        "AXUniqueId" : "letter-0-0",
+                                        "children" : [
+
+                                        ],
+                                        "content_required" : false,
+                                        "subrole" : null,
+                                        "help" : null,
+                                        "traits" : [
+
+                                        ],
+                                        "AXFrame" : "{{0, 624}, {36.545454545454547, 51.5}}",
+                                        "enabled" : true,
+                                        "AXValue" : null,
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 624,
+                                          "width" : 36.545454545454547,
+                                          "x" : 0
+                                        },
+                                        "custom_actions" : [
+
+                                        ],
+                                        "AXLabel" : "ض",
+                                        "pid" : 34486,
+                                        "title" : null
+                                      },
+                                      {
+                                        "custom_actions" : [
+
+                                        ],
+                                        "title" : null,
+                                        "enabled" : true,
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 675.5,
+                                          "width" : 36.545454545454561,
+                                          "x" : 365.45454545454555
+                                        },
+                                        "AXUniqueId" : "letter-1-10",
+                                        "help" : null,
+                                        "traits" : [
+
+                                        ],
+                                        "children" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "role" : "AXButton",
+                                        "pid" : 34486,
+                                        "role_description" : "button",
+                                        "subrole" : null,
+                                        "AXFrame" : "{{365.45454545454555, 675.5}, {36.545454545454561, 51.5}}",
+                                        "content_required" : false,
+                                        "AXValue" : null,
+                                        "AXLabel" : "گ"
+                                      },
+                                      {
+                                        "AXFrame" : "{{328.90909090909099, 675.5}, {36.545454545454561, 51.5}}",
+                                        "enabled" : true,
+                                        "help" : null,
+                                        "title" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "traits" : [
+
+                                        ],
+                                        "role" : "AXButton",
+                                        "AXValue" : null,
+                                        "AXUniqueId" : "letter-1-9",
+                                        "type" : "Button",
+                                        "subrole" : null,
+                                        "role_description" : "button",
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 675.5,
+                                          "x" : 328.90909090909099,
+                                          "width" : 36.545454545454561
+                                        },
+                                        "pid" : 34486,
+                                        "AXLabel" : "ک",
+                                        "content_required" : false,
+                                        "children" : [
+
+                                        ]
+                                      },
+                                      {
+                                        "enabled" : true,
+                                        "AXFrame" : "{{292.36363636363643, 675.5}, {36.545454545454561, 51.5}}",
+                                        "pid" : 34486,
+                                        "title" : null,
+                                        "children" : [
+
+                                        ],
+                                        "frame" : {
+                                          "x" : 292.36363636363643,
+                                          "y" : 675.5,
+                                          "height" : 51.5,
+                                          "width" : 36.545454545454561
+                                        },
+                                        "content_required" : false,
+                                        "AXUniqueId" : "letter-1-8",
+                                        "custom_actions" : [
+
+                                        ],
+                                        "AXValue" : null,
+                                        "traits" : [
+
+                                        ],
+                                        "subrole" : null,
+                                        "help" : null,
+                                        "type" : "Button",
+                                        "role_description" : "button",
+                                        "AXLabel" : "م",
+                                        "role" : "AXButton"
+                                      },
+                                      {
+                                        "enabled" : true,
+                                        "AXUniqueId" : "letter-1-7",
+                                        "role_description" : "button",
+                                        "AXFrame" : "{{255.81818181818184, 675.5}, {36.545454545454533, 51.5}}",
+                                        "children" : [
+
+                                        ],
+                                        "content_required" : false,
+                                        "AXValue" : null,
+                                        "role" : "AXButton",
+                                        "type" : "Button",
+                                        "pid" : 34486,
+                                        "title" : null,
+                                        "AXLabel" : "ن",
+                                        "frame" : {
+                                          "width" : 36.545454545454533,
+                                          "y" : 675.5,
+                                          "x" : 255.81818181818184,
+                                          "height" : 51.5
+                                        },
+                                        "subrole" : null,
+                                        "help" : null,
+                                        "traits" : [
+
+                                        ],
+                                        "custom_actions" : [
+
+                                        ]
+                                      },
+                                      {
+                                        "AXFrame" : "{{219.27272727272731, 675.5}, {36.545454545454561, 51.5}}",
+                                        "AXLabel" : "ت",
+                                        "traits" : [
+
+                                        ],
+                                        "title" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "AXUniqueId" : "letter-1-6",
+                                        "help" : null,
+                                        "role_description" : "button",
+                                        "AXValue" : null,
+                                        "role" : "AXButton",
+                                        "subrole" : null,
+                                        "content_required" : false,
+                                        "pid" : 34486,
+                                        "children" : [
+
+                                        ],
+                                        "enabled" : true,
+                                        "frame" : {
+                                          "x" : 219.27272727272731,
+                                          "y" : 675.5,
+                                          "width" : 36.545454545454561,
+                                          "height" : 51.5
+                                        },
+                                        "type" : "Button"
+                                      },
+                                      {
+                                        "title" : null,
+                                        "children" : [
+
+                                        ],
+                                        "traits" : [
+
+                                        ],
+                                        "enabled" : true,
+                                        "AXLabel" : "ا",
+                                        "AXValue" : null,
+                                        "role" : "AXButton",
+                                        "help" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "AXFrame" : "{{182.72727272727275, 675.5}, {36.545454545454561, 51.5}}",
+                                        "type" : "Button",
+                                        "AXUniqueId" : "letter-1-5",
+                                        "role_description" : "button",
+                                        "frame" : {
+                                          "x" : 182.72727272727275,
+                                          "y" : 675.5,
+                                          "width" : 36.545454545454561,
+                                          "height" : 51.5
+                                        },
+                                        "subrole" : null,
+                                        "content_required" : false,
+                                        "pid" : 34486
+                                      },
+                                      {
+                                        "custom_actions" : [
+
+                                        ],
+                                        "frame" : {
+                                          "width" : 36.545454545454561,
+                                          "y" : 675.5,
+                                          "x" : 146.18181818181819,
+                                          "height" : 51.5
+                                        },
+                                        "role" : "AXButton",
+                                        "role_description" : "button",
+                                        "AXLabel" : "ل",
+                                        "pid" : 34486,
+                                        "enabled" : true,
+                                        "content_required" : false,
+                                        "AXUniqueId" : "letter-1-4",
+                                        "children" : [
+
+                                        ],
+                                        "help" : null,
+                                        "AXFrame" : "{{146.18181818181819, 675.5}, {36.545454545454561, 51.5}}",
+                                        "traits" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "title" : null,
+                                        "subrole" : null,
+                                        "AXValue" : null
+                                      },
+                                      {
+                                        "custom_actions" : [
+
+                                        ],
+                                        "enabled" : true,
+                                        "type" : "Button",
+                                        "AXValue" : null,
+                                        "help" : null,
+                                        "frame" : {
+                                          "width" : 36.545454545454561,
+                                          "y" : 675.5,
+                                          "height" : 51.5,
+                                          "x" : 109.63636363636363
+                                        },
+                                        "role_description" : "button",
+                                        "AXUniqueId" : "letter-1-3",
+                                        "AXLabel" : "ب",
+                                        "pid" : 34486,
+                                        "children" : [
+
+                                        ],
+                                        "role" : "AXButton",
+                                        "content_required" : false,
+                                        "subrole" : null,
+                                        "AXFrame" : "{{109.63636363636363, 675.5}, {36.545454545454561, 51.5}}",
+                                        "title" : null,
+                                        "traits" : [
+
+                                        ]
+                                      },
+                                      {
+                                        "subrole" : null,
+                                        "help" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "title" : null,
+                                        "children" : [
+
+                                        ],
+                                        "content_required" : false,
+                                        "enabled" : true,
+                                        "role_description" : "button",
+                                        "AXFrame" : "{{73.090909090909093, 675.5}, {36.545454545454547, 51.5}}",
+                                        "traits" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "frame" : {
+                                          "x" : 73.090909090909093,
+                                          "y" : 675.5,
+                                          "height" : 51.5,
+                                          "width" : 36.545454545454547
+                                        },
+                                        "AXUniqueId" : "letter-1-2",
+                                        "pid" : 34486,
+                                        "AXLabel" : "ی",
+                                        "role" : "AXButton",
+                                        "AXValue" : null
+                                      },
+                                      {
+                                        "help" : null,
+                                        "enabled" : true,
+                                        "title" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "role_description" : "button",
+                                        "content_required" : false,
+                                        "AXLabel" : "س",
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 675.5,
+                                          "x" : 36.545454545454547,
+                                          "width" : 36.545454545454547
+                                        },
+                                        "AXValue" : null,
+                                        "children" : [
+
+                                        ],
+                                        "traits" : [
+
+                                        ],
+                                        "AXFrame" : "{{36.545454545454547, 675.5}, {36.545454545454547, 51.5}}",
+                                        "type" : "Button",
+                                        "role" : "AXButton",
+                                        "AXUniqueId" : "letter-1-1",
+                                        "subrole" : null,
+                                        "pid" : 34486
+                                      },
+                                      {
+                                        "children" : [
+
+                                        ],
+                                        "AXUniqueId" : "letter-1-0",
+                                        "help" : null,
+                                        "enabled" : true,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "AXFrame" : "{{0, 675.5}, {36.545454545454547, 51.5}}",
+                                        "AXLabel" : "ش",
+                                        "content_required" : false,
+                                        "role" : "AXButton",
+                                        "role_description" : "button",
+                                        "subrole" : null,
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 675.5,
+                                          "width" : 36.545454545454547,
+                                          "x" : 0
+                                        },
+                                        "traits" : [
+
+                                        ],
+                                        "AXValue" : null,
+                                        "pid" : 34486,
+                                        "type" : "Button",
+                                        "title" : null
+                                      },
+                                      {
+                                        "traits" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "AXUniqueId" : "backspaceKey",
+                                        "children" : [
+
+                                        ],
+                                        "AXLabel" : null,
+                                        "AXFrame" : "{{328.90909090909099, 727}, {73.090909090909065, 51.5}}",
+                                        "enabled" : true,
+                                        "role_description" : "button",
+                                        "content_required" : false,
+                                        "pid" : 34486,
+                                        "AXValue" : null,
+                                        "title" : null,
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 727,
+                                          "x" : 328.90909090909099,
+                                          "width" : 73.090909090909065
+                                        },
+                                        "role" : "AXButton",
+                                        "subrole" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "help" : null
+                                      },
+                                      {
+                                        "AXLabel" : "ث",
+                                        "custom_actions" : [
+
+                                        ],
+                                        "traits" : [
+
+                                        ],
+                                        "AXUniqueId" : "letter-2-8",
+                                        "role_description" : "button",
+                                        "title" : null,
+                                        "AXValue" : null,
+                                        "help" : null,
+                                        "content_required" : false,
+                                        "frame" : {
+                                          "width" : 36.545454545454561,
+                                          "y" : 727,
+                                          "height" : 51.5,
+                                          "x" : 292.36363636363643
+                                        },
+                                        "AXFrame" : "{{292.36363636363643, 727}, {36.545454545454561, 51.5}}",
+                                        "pid" : 34486,
+                                        "role" : "AXButton",
+                                        "subrole" : null,
+                                        "children" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "enabled" : true
+                                      },
+                                      {
+                                        "title" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "enabled" : true,
+                                        "AXUniqueId" : "letter-2-7",
+                                        "AXFrame" : "{{255.81818181818184, 727}, {36.545454545454533, 51.5}}",
+                                        "content_required" : false,
+                                        "subrole" : null,
+                                        "role" : "AXButton",
+                                        "AXValue" : null,
+                                        "type" : "Button",
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 727,
+                                          "x" : 255.81818181818184,
+                                          "width" : 36.545454545454533
+                                        },
+                                        "children" : [
+
+                                        ],
+                                        "pid" : 34486,
+                                        "traits" : [
+
+                                        ],
+                                        "role_description" : "button",
+                                        "AXLabel" : "و",
+                                        "help" : null
+                                      },
+                                      {
+                                        "AXValue" : null,
+                                        "content_required" : false,
+                                        "traits" : [
+
+                                        ],
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 727,
+                                          "x" : 219.27272727272731,
+                                          "width" : 36.545454545454561
+                                        },
+                                        "AXLabel" : "پ",
+                                        "role" : "AXButton",
+                                        "title" : null,
+                                        "help" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "pid" : 34486,
+                                        "type" : "Button",
+                                        "AXUniqueId" : "letter-2-6",
+                                        "subrole" : null,
+                                        "enabled" : true,
+                                        "AXFrame" : "{{219.27272727272731, 727}, {36.545454545454561, 51.5}}",
+                                        "role_description" : "button",
+                                        "children" : [
+
+                                        ]
+                                      },
+                                      {
+                                        "custom_actions" : [
+
+                                        ],
+                                        "AXLabel" : "د",
+                                        "AXUniqueId" : "letter-2-5",
+                                        "help" : null,
+                                        "children" : [
+
+                                        ],
+                                        "traits" : [
+
+                                        ],
+                                        "title" : null,
+                                        "role_description" : "button",
+                                        "type" : "Button",
+                                        "content_required" : false,
+                                        "enabled" : true,
+                                        "frame" : {
+                                          "width" : 36.545454545454561,
+                                          "y" : 727,
+                                          "height" : 51.5,
+                                          "x" : 182.72727272727275
+                                        },
+                                        "role" : "AXButton",
+                                        "subrole" : null,
+                                        "pid" : 34486,
+                                        "AXFrame" : "{{182.72727272727275, 727}, {36.545454545454561, 51.5}}",
+                                        "AXValue" : null
+                                      },
+                                      {
+                                        "children" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "AXLabel" : "ذ",
+                                        "frame" : {
+                                          "width" : 36.545454545454561,
+                                          "y" : 727,
+                                          "x" : 146.18181818181819,
+                                          "height" : 51.5
+                                        },
+                                        "AXFrame" : "{{146.18181818181819, 727}, {36.545454545454561, 51.5}}",
+                                        "custom_actions" : [
+
+                                        ],
+                                        "role_description" : "button",
+                                        "role" : "AXButton",
+                                        "subrole" : null,
+                                        "AXValue" : null,
+                                        "help" : null,
+                                        "AXUniqueId" : "letter-2-4",
+                                        "content_required" : false,
+                                        "enabled" : true,
+                                        "traits" : [
+
+                                        ],
+                                        "pid" : 34486,
+                                        "title" : null
+                                      },
+                                      {
+                                        "custom_actions" : [
+
+                                        ],
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 727,
+                                          "x" : 109.63636363636363,
+                                          "width" : 36.545454545454561
+                                        },
+                                        "role" : "AXButton",
+                                        "subrole" : null,
+                                        "children" : [
+
+                                        ],
+                                        "traits" : [
+
+                                        ],
+                                        "AXFrame" : "{{109.63636363636363, 727}, {36.545454545454561, 51.5}}",
+                                        "AXLabel" : "ر",
+                                        "type" : "Button",
+                                        "content_required" : false,
+                                        "enabled" : true,
+                                        "help" : null,
+                                        "role_description" : "button",
+                                        "AXUniqueId" : "letter-2-3",
+                                        "title" : null,
+                                        "AXValue" : null,
+                                        "pid" : 34486
+                                      },
+                                      {
+                                        "enabled" : true,
+                                        "pid" : 34486,
+                                        "type" : "Button",
+                                        "role_description" : "button",
+                                        "subrole" : null,
+                                        "traits" : [
+
+                                        ],
+                                        "AXLabel" : "ز",
+                                        "role" : "AXButton",
+                                        "content_required" : false,
+                                        "AXValue" : null,
+                                        "children" : [
+
+                                        ],
+                                        "help" : null,
+                                        "AXFrame" : "{{73.090909090909093, 727}, {36.545454545454547, 51.5}}",
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 727,
+                                          "width" : 36.545454545454547,
+                                          "x" : 73.090909090909093
+                                        },
+                                        "title" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "AXUniqueId" : "letter-2-2"
+                                      },
+                                      {
+                                        "title" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "enabled" : true,
+                                        "AXUniqueId" : "letter-2-1",
+                                        "children" : [
+
+                                        ],
+                                        "role" : "AXButton",
+                                        "pid" : 34486,
+                                        "AXLabel" : "ط",
+                                        "AXValue" : null,
+                                        "role_description" : "button",
+                                        "type" : "Button",
+                                        "AXFrame" : "{{36.545454545454547, 727}, {36.545454545454547, 51.5}}",
+                                        "help" : null,
+                                        "content_required" : false,
+                                        "subrole" : null,
+                                        "traits" : [
+
+                                        ],
+                                        "frame" : {
+                                          "x" : 36.545454545454547,
+                                          "y" : 727,
+                                          "height" : 51.5,
+                                          "width" : 36.545454545454547
+                                        }
+                                      },
+                                      {
+                                        "help" : null,
+                                        "role_description" : "button",
+                                        "AXUniqueId" : "letter-2-0",
+                                        "role" : "AXButton",
+                                        "content_required" : false,
+                                        "children" : [
+
+                                        ],
+                                        "custom_actions" : [
+
+                                        ],
+                                        "title" : null,
+                                        "AXValue" : null,
+                                        "AXLabel" : "ظ",
+                                        "type" : "Button",
+                                        "AXFrame" : "{{0, 727}, {36.545454545454547, 51.5}}",
+                                        "pid" : 34486,
+                                        "traits" : [
+
+                                        ],
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 727,
+                                          "x" : 0,
+                                          "width" : 36.545454545454547
+                                        },
+                                        "enabled" : true,
+                                        "subrole" : null
+                                      },
+                                      {
+                                        "AXFrame" : "{{328.90909090909093, 788.5}, {73.090909090909065, 51.5}}",
+                                        "type" : "Button",
+                                        "help" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "role" : "AXButton",
+                                        "enabled" : true,
+                                        "AXValue" : null,
+                                        "AXLabel" : "return",
+                                        "AXUniqueId" : "returnKey",
+                                        "role_description" : "button",
+                                        "pid" : 34486,
+                                        "content_required" : false,
+                                        "children" : [
+
+                                        ],
+                                        "traits" : [
+
+                                        ],
+                                        "subrole" : null,
+                                        "title" : null,
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 788.5,
+                                          "x" : 328.90909090909093,
+                                          "width" : 73.090909090909065
+                                        }
+                                      },
+                                      {
+                                        "frame" : {
+                                          "width" : 182.72727272727275,
+                                          "y" : 788.5,
+                                          "x" : 146.18181818181819,
+                                          "height" : 51.5
+                                        },
+                                        "content_required" : false,
+                                        "children" : [
+
+                                        ],
+                                        "AXLabel" : "فاصله",
+                                        "subrole" : null,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "pid" : 34486,
+                                        "traits" : [
+
+                                        ],
+                                        "title" : null,
+                                        "role" : "AXButton",
+                                        "type" : "Button",
+                                        "AXValue" : null,
+                                        "AXUniqueId" : "spaceKey",
+                                        "enabled" : true,
+                                        "help" : "برای دیکته نگه دارید",
+                                        "AXFrame" : "{{146.18181818181819, 788.5}, {182.72727272727275, 51.5}}",
+                                        "role_description" : "button"
+                                      },
+                                      {
+                                        "role_description" : "button",
+                                        "AXLabel" : "شکلک",
+                                        "pid" : 34486,
+                                        "AXUniqueId" : "emojiKey",
+                                        "subrole" : null,
+                                        "title" : null,
+                                        "frame" : {
+                                          "width" : 73.090909090909093,
+                                          "y" : 788.5,
+                                          "height" : 51.5,
+                                          "x" : 73.090909090909093
+                                        },
+                                        "role" : "AXButton",
+                                        "AXValue" : null,
+                                        "AXFrame" : "{{73.090909090909093, 788.5}, {73.090909090909093, 51.5}}",
+                                        "traits" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "enabled" : true,
+                                        "help" : null,
+                                        "content_required" : false,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "children" : [
+
+                                        ]
+                                      },
+                                      {
+                                        "role_description" : "button",
+                                        "help" : null,
+                                        "AXLabel" : "۱۲۳",
+                                        "AXValue" : null,
+                                        "role" : "AXButton",
+                                        "title" : null,
+                                        "subrole" : null,
+                                        "AXFrame" : "{{0, 788.5}, {73.090909090909093, 51.5}}",
+                                        "content_required" : false,
+                                        "children" : [
+
+                                        ],
+                                        "traits" : [
+
+                                        ],
+                                        "enabled" : true,
+                                        "custom_actions" : [
+
+                                        ],
+                                        "type" : "Button",
+                                        "AXUniqueId" : "layerKey",
+                                        "frame" : {
+                                          "height" : 51.5,
+                                          "y" : 788.5,
+                                          "width" : 73.090909090909093,
+                                          "x" : 0
+                                        },
+                                        "pid" : 34486
+                                      }
+                                    ],
+                                    "AXValue" : null,
+                                    "type" : "Group"
+                                  }
+                                ],
+                                "traits" : [
+
+                                ],
+                                "title" : null,
+                                "enabled" : true,
+                                "AXFrame" : "{{0, 542}, {402, 298}}",
+                                "frame" : {
+                                  "height" : 298,
+                                  "y" : 542,
+                                  "x" : 0,
+                                  "width" : 402
+                                },
+                                "type" : "Group"
+                              }
+                            ],
+                            "AXValue" : null,
+                            "role_description" : "group",
+                            "role" : "AXGroup",
+                            "enabled" : true,
+                            "AXUniqueId" : null,
+                            "subrole" : null,
+                            "title" : null,
+                            "custom_actions" : [
+
+                            ],
+                            "AXLabel" : null,
+                            "AXFrame" : "{{0, 146}, {402, 694}}",
+                            "frame" : {
+                              "x" : 0,
+                              "y" : 146,
+                              "width" : 402,
+                              "height" : 694
+                            },
+                            "traits" : [
+
+                            ],
+                            "type" : "Group"
+                          }
+                        ],
+                        "role_description" : "group",
+                        "subrole" : null,
+                        "role" : "AXGroup",
+                        "pid" : 34486,
+                        "type" : "Group",
+                        "content_required" : false,
+                        "AXLabel" : null
+                      }
+                    ],
+                    "help" : null
+                  }
+                ],
+                "traits" : [
+
+                ],
+                "title" : null,
+                "frame" : {
+                  "x" : 0,
+                  "y" : 0,
+                  "width" : 402,
+                  "height" : 874
+                },
+                "enabled" : true
+              }
+            ],
+            "type" : "Group"
+          }
+        ],
+        "AXValue" : null,
+        "type" : "Group",
+        "help" : null,
+        "frame" : {
+          "x" : 0,
+          "y" : 0,
+          "width" : 402,
+          "height" : 874
+        },
+        "AXFrame" : "{{0, 0}, {402, 874}}",
+        "role_description" : "group",
+        "title" : null,
+        "AXLabel" : null,
+        "role" : "AXGroup",
+        "enabled" : true,
+        "traits" : [
+
+        ],
+        "subrole" : null
+      }
+    ],
+    "custom_actions" : [
+
+    ],
+    "AXValue" : null,
+    "AXLabel" : "آواک",
+    "type" : "Application",
+    "help" : null,
+    "subrole" : null,
+    "AXUniqueId" : null,
+    "frame" : {
+      "height" : 874,
+      "y" : 0,
+      "x" : 0,
+      "width" : 402
+    }
+  }
+]
