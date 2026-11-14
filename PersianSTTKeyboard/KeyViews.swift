@@ -927,6 +927,11 @@ final class SpaceVoiceView: UIView {
     var lockProgress: CGFloat = 0 {
         didSet { if lockProgress != oldValue { setNeedsLayout() } }
     }
+    /// A locked recording paused with the button at the left end: the wave stands still and
+    /// fades, and the button resumes.
+    var paused = false {
+        didSet { if paused != oldValue { update() } }
+    }
     /// The simulator draws animations on the processor.
     var animates = true {
         didSet { if animates != oldValue { update() } }
@@ -940,11 +945,26 @@ final class SpaceVoiceView: UIView {
     private var levels = [CGFloat](repeating: 0, count: 64)
 
     private static let lockOpen = symbol("lock.open.fill", size: 14)
-    private static let lockClosed = symbol("lock.fill", size: 13)
+    private static let pause = button(symbol: "pause.fill")
+    private static let resume = button(symbol: "mic.fill")
     private static let chevrons = symbol("chevron.left.2", size: 12)
     private static let mic = symbol("mic.fill", size: 17)
     /// A white circle the size of the space bar's mic circle with an orange square in it, drawn
     /// here: the palette symbol came out as a plain white circle.
+    /// A white circle the size of the stop button with an orange symbol in it.
+    private static func button(symbol name: String) -> UIImage? {
+        guard let circle = UIImage(systemName: "circle.fill", withConfiguration:
+            UIImage.SymbolConfiguration(pointSize: 25, weight: .regular)),
+              let mark = UIImage(systemName: name, withConfiguration:
+            UIImage.SymbolConfiguration(pointSize: 11, weight: .bold)) else { return nil }
+        let size = circle.size
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            circle.withTintColor(.white).draw(at: .zero)
+            mark.withTintColor(.systemOrange).draw(at: CGPoint(x: (size.width - mark.size.width) / 2,
+                                                               y: (size.height - mark.size.height) / 2))
+        }.withRenderingMode(.alwaysOriginal)
+    }
+
     private static let stop: UIImage? = {
         guard let circle = UIImage(systemName: "circle.fill", withConfiguration:
             UIImage.SymbolConfiguration(pointSize: 25, weight: .regular)) else { return nil }
@@ -986,6 +1006,7 @@ final class SpaceVoiceView: UIView {
     /// raises the wave.
     func push(level step: Int) {
         let db = -55 + 2 * CGFloat(step)
+        guard !paused else { return }
         levels.removeFirst()
         levels.append(pow(min(1, max(0, (db + 44) / 20)), 0.75))
         if look == .locked { drawWave() }
@@ -994,14 +1015,15 @@ final class SpaceVoiceView: UIView {
     func reset() {
         levels = [CGFloat](repeating: 0, count: levels.count)
         lockProgress = 0
+        paused = false
         look = .held
         drawWave()
     }
 
     private func update() {
         let locked = look == .locked
-        lock.image = locked ? Self.lockClosed : Self.lockOpen
-        lock.alpha = locked ? 0.75 : 1
+        lock.image = locked ? (paused ? Self.resume : Self.pause) : Self.lockOpen
+        wave.opacity = paused ? 0.4 : 1
         arrows.image = Self.chevrons
         arrows.isHidden = locked
         end.image = locked ? Self.stop : Self.mic
@@ -1025,7 +1047,14 @@ final class SpaceVoiceView: UIView {
         let h = bounds.height
         if let image = end.image { KeyView.placeAtEnd(end, image: image, in: bounds) }
         let slide = look == .held ? lockProgress * 18 : 0
-        lock.frame = CGRect(x: 8 + slide, y: 0, width: 26, height: h)
+        if look == .locked, let image = lock.image {
+            // The pause button mirrors the stop button at the other end.
+            KeyView.placeAtEnd(lock, image: image, in: bounds)
+            lock.frame.origin.x = bounds.maxX - lock.frame.maxX
+        } else {
+            lock.contentMode = .center
+            lock.frame = CGRect(x: 8 + slide, y: 0, width: 26, height: h)
+        }
         arrows.frame = CGRect(x: lock.frame.maxX + 2, y: 0, width: 24, height: h)
         drawWave()
     }
@@ -1035,7 +1064,7 @@ final class SpaceVoiceView: UIView {
             wave.path = nil
             return
         }
-        let left: CGFloat = 40
+        let left = min(bounds.height, bounds.width / 3) + 4
         let right = bounds.width - min(bounds.height, bounds.width / 3) - 4
         let pitch: CGFloat = 4, barWidth: CGFloat = 2.2
         let count = max(0, min(levels.count, Int((right - left) / pitch)))

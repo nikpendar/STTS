@@ -37,12 +37,25 @@ extension KeyboardViewController {
         beginTranscribing()
     }
 
+    /// Pauses or resumes a locked recording. `tell`: false when the app paused it itself.
+    func setPaused(_ paused: Bool, tell: Bool = true) {
+        guard paused != isPaused, state == .recording else { return }
+        isPaused = paused
+        haptic(.impact(.light))
+        if tell { DictationBridge.post(paused ? DictationBridge.pause : DictationBridge.resume) }
+        updateSpaceVoice()
+    }
+
     /// iOS took the microphone (a call, Siri, its own dictation) and the app paused the
-    /// recording: it ends with what was said.
+    /// recording: a locked one shows the pause and goes on after a tap on the button; a held
+    /// one ends with what was said.
     func microphoneTaken() {
         guard state == .recording else { return }
+        if isLocked {
+            setPaused(true, tell: false)
+            return
+        }
         isHeld = false
-        isLocked = false
         endRecording()
     }
 
