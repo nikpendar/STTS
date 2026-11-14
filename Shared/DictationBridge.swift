@@ -609,6 +609,10 @@ struct KeyboardOptions: SharedSetting, Equatable {
     var handwritingStrip = true
     /// The handwriting pad's size: 0 small, 1 medium, 2 large (Rooz, 2026-11-09).
     var handwritingSize = 1
+    /// A locked recording ends after this many seconds with no new words, 5 s to 5 min
+    /// (Rooz, 2026-11-14).
+    var lockedSilenceSeconds = 8.0
+    static let lockedSilenceChoices: [Double] = [5, 8, 10, 15, 30, 60, 120, 300]
     static let handwritingSizeNames = ["کوچک", "متوسط", "بزرگ"]
 
     /// The pause after the last stroke that ends a handwritten word: 1.0 s slowest, 0.3 s fastest.
@@ -646,5 +650,6 @@ struct KeyboardOptions: SharedSetting, Equatable {
         handwritingSize = try container.decodeIfPresent(Int.self, forKey: .handwritingSize) ?? 1
         handwritingGuide = try container.decodeIfPresent(Bool.self, forKey: .handwritingGuide) ?? true
         handwritingStrip = try container.decodeIfPresent(Bool.self, forKey: .handwritingStrip) ?? true
+        lockedSilenceSeconds = min(300, max(5, try container.decodeIfPresent(Double.self, forKey: .lockedSilenceSeconds) ?? 8))
     }
 }

@@ -239,12 +239,26 @@ struct ContentView: View {
                     SettingLabel("خاموش شدن خودکار تایپ صوتی", symbol: "timer", color: .orange)
                 }
                 .onChange(of: sessionMinutes) { _, _ in keyboard.idleMinutesChanged() }
+                Picker(selection: $options.lockedSilenceSeconds) {
+                    ForEach(KeyboardOptions.lockedSilenceChoices, id: \.self) { seconds in
+                        Text(Self.durationName(seconds)).tag(seconds)
+                    }
+                } label: {
+                    SettingLabel("پایان ضبط قفل‌شده بعد از سکوت", symbol: "lock", color: .orange)
+                }
             } header: {
                 Text("تایپ صوتی").font(.app(.footnote))
             } footer: {
-                Text("تایپ صوتی بعد از این مدت بی‌استفاده خاموش می‌شود. روشن ماندنش باتری مصرف می‌کند.").font(.app(.footnote))
+                Text("تایپ صوتی بعد از این مدت بی‌استفاده خاموش می‌شود. روشن ماندنش باتری مصرف می‌کند. ضبطی که روی اسپیس قفل شده، اگر در این مدت کلمه‌ی تازه‌ای شنیده نشود، خودش تمام می‌شود.").font(.app(.footnote))
             }
         }
+    }
+
+    /// ۵ ثانیه, ۲ دقیقه.
+    static func durationName(_ seconds: Double) -> String {
+        let persian = { (n: Int) in String(String(n).map { Array("۰۱۲۳۴۵۶۷۸۹")[$0.wholeNumberValue ?? 0] }) }
+        let whole = Int(seconds)
+        return whole >= 60 && whole % 60 == 0 ? "\(persian(whole / 60)) دقیقه" : "\(persian(whole)) ثانیه"
     }
 
     /// Where digits are: nowhere extra, a row above the letters, or small on the top row's letters.

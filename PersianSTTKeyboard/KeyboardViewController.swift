@@ -130,10 +130,10 @@ final class KeyboardViewController: UIInputViewController {
     static let lockDistance: CGFloat = 60
     /// The finger was lifted before the app confirmed the recording.
     var stopWhenRecording = false
-    /// When the speech last changed, for ending a locked recording after a silence.
+    /// When the speech last changed, for ending a locked recording after a silence
+    /// (`KeyboardOptions.lockedSilenceSeconds`).
     var lastHeard = Date()
     var silenceTimer: Timer?
-    static let lockedSilence: TimeInterval = 8
     var recordingStart = Date()
     /// Set once the view is about to show: the height constraint waits for it.
     var willAppear = false
@@ -793,7 +793,7 @@ final class KeyboardViewController: UIInputViewController {
             silenceTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self, self.isLocked, self.state == .recording else { return }
-                    if Date().timeIntervalSince(self.lastHeard) > Self.lockedSilence { self.endRecording() }
+                    if Date().timeIntervalSince(self.lastHeard) > self.options.lockedSilenceSeconds { self.endRecording() }
                 }
             }
         } else {
