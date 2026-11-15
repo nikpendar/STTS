@@ -81,7 +81,13 @@ final class FileReader: AudioStreamReader {
     func read(seconds: Double) throws -> [Float] {
         guard !finished else { return [] }
         let format = file.processingFormat
-        let frames = AVAudioFrameCount(max(0.1, seconds) * format.sampleRate)
+        // Reading at the end throws, so the end is found by position.
+        let left = max(0, file.length - file.framePosition)
+        let frames = AVAudioFrameCount(min(AVAudioFramePosition(max(0.1, seconds) * format.sampleRate), left))
+        guard frames > 0 else {
+            finished = true
+            return try resampler.convert(nil, last: true)
+        }
         guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames) else {
             throw AudioLoaderError.conversionFailed
         }

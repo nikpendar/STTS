@@ -137,8 +137,8 @@ final class AudioWriter: @unchecked Sendable {
     static func samples(_ url: URL, from start: Double, to end: Double) throws -> [Float] {
         let file = try AVAudioFile(forReading: url)
         let rate = file.processingFormat.sampleRate
-        file.framePosition = AVAudioFramePosition(start * rate)
-        let count = AVAudioFrameCount(max(0, end - start) * rate)
+        file.framePosition = min(file.length, AVAudioFramePosition(start * rate))
+        let count = AVAudioFrameCount(min(AVAudioFramePosition(max(0, end - start) * rate), file.length - file.framePosition))
         guard count > 0, let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: count) else { return [] }
         try file.read(into: buffer, frameCount: count)
         let resampler = try AudioStream.Resampler(from: file.processingFormat)
