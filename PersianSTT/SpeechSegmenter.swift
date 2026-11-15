@@ -33,7 +33,9 @@ struct SpeechSegmenter {
     mutating func add(level: Float) -> Decision {
         frames += 1
         // The room's noise: the quietest 0.3 s of the last 15 s (median of three, so a click
-        // does not count). People pause well within 15 s, so speech is never taken for noise.
+        // does not count). People pause well within 15 s, so speech is never taken for noise;
+        // it rises at most 5% a frame, so a recording that starts with speech is not taken for
+        // a loud room (it was: the first pause of a voice message was missed).
         recent.append(level)
         if recent.count > 150 { recent.removeFirst() }
         if recent.count >= 3 {
@@ -42,7 +44,7 @@ struct SpeechSegmenter {
                 let a = recent[i - 1], b = recent[i], c = recent[i + 1]
                 quietest = min(quietest, max(min(a, b), min(max(a, b), c)))
             }
-            noise = max(0.0003, quietest)
+            noise = max(0.0003, min(quietest, noise * 1.05))
         }
         let quiet = max(3 * noise, 0.0015)
         let loud = max(2 * quiet, 0.004)

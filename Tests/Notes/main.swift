@@ -51,6 +51,8 @@ func cuts(_ levels: [Float]) -> [(Int, Bool)] {
 let noise: Float = 0.001, voice: Float = 0.05
 var c = cuts(levels([(noise, 10), (voice, 40), (noise, 15), (voice, 30), (noise, 15)]))
 check("cut at pauses", c.count == 2 && c[0].1 && c[1].1, "\(c)")
+c = cuts(levels([(voice, 25), (noise, 15), (voice, 25), (noise, 15)]))
+check("speech from the first frame", c.count == 2 && c.allSatisfy { $0.1 }, "\(c)")
 c = cuts(levels([(noise, 120)]))
 check("silence dropped", c.count == 2 && !c[0].1, "\(c)")
 c = cuts(levels([(noise, 5)] + Array(repeating: [(voice, 8), (noise, 2)], count: 40).flatMap { $0 }))
@@ -81,10 +83,8 @@ for name in ["speech.ogg", "speech60.ogg", "speech-stereo.opus", "speech.m4a", "
         var speechPieces = 0
         var i = 0
         var marks: [String] = []
-        var levels: [String] = []
         while i + 1600 <= all.count {
             let level = SpeechSegmenter.level(all[i..<(i + 1600)])
-            levels.append(String(format: "%.4f", level))
             if case .cut(let speech) = segmenter.add(level: level) {
                 marks.append("\(i / 1600 + 1)\(speech ? "" : "s")")
                 if speech { speechPieces += 1 }
@@ -92,7 +92,6 @@ for name in ["speech.ogg", "speech60.ogg", "speech-stereo.opus", "speech.m4a", "
             i += 1600
         }
         print("     cuts \(marks)")
-        if name.hasSuffix("mp3") || name.hasSuffix("wav") { print("     levels \(levels.joined(separator: " "))") }
         if segmenter.end() { speechPieces += 1 }
         print("     \(name): \(String(format: "%.2f", seconds)) s (wav \(String(format: "%.2f", refSeconds)) s), rms \(rms), duration field \(String(format: "%.2f", reader.duration)), pieces \(speechPieces)")
         check("file \(name) length", abs(seconds - refSeconds) < 0.15, "\(seconds) vs \(refSeconds)")
