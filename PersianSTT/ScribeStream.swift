@@ -10,8 +10,8 @@ enum ScribeError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .missing(let what): return "فایل مدل پیدا نشد: \(what)"
-        case .unreadable(let what): return "فایل مدل باز نشد: \(what)"
+        case .missing(let what): return L("فایل مدل پیدا نشد: \(what)", "Model file not found: \(what)")
+        case .unreadable(let what): return L("فایل مدل باز نشد: \(what)", "Model file could not be opened: \(what)")
         }
     }
 }

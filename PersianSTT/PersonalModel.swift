@@ -184,7 +184,7 @@ final class PersonalModel: ObservableObject {
             sent += 1
         }
         pending = queuedFiles().count
-        if sent > 0 { status = "\(sent) اصلاح به مخزن فرستاده شد" }
+        if sent > 0 { status = L("\(sent) اصلاح به مخزن فرستاده شد", "\(sent) corrections sent to the repository") }
     }
 
     enum GitHubError: LocalizedError {
@@ -192,10 +192,10 @@ final class PersonalModel: ObservableObject {
 
         var errorDescription: String? {
             switch self {
-            case .unauthorized: return "توکن GitHub درست نیست یا منقضی شده است."
-            case .notFound: return "مخزن پیدا نشد یا توکن به آن دسترسی ندارد."
-            case .failed(let code): return "GitHub خطا داد (\(code))."
-            case .offline(let message): return "GitHub در دسترس نیست: \(message)"
+            case .unauthorized: return L("توکن GitHub درست نیست یا منقضی شده است.", "The GitHub token is wrong or has expired.")
+            case .notFound: return L("مخزن پیدا نشد یا توکن به آن دسترسی ندارد.", "Repository not found, or the token has no access to it.")
+            case .failed(let code): return L("GitHub خطا داد (\(code)).", "GitHub returned an error (\(code)).")
+            case .offline(let message): return L("GitHub در دسترس نیست: \(message)", "GitHub is not reachable: \(message)")
             }
         }
     }
@@ -274,8 +274,8 @@ final class PersonalModel: ObservableObject {
             raw.setValue("application/vnd.github.raw+json", forHTTPHeaderField: "Accept")
             if let reply = try? await send(raw), reply.1 == 200,
                let training = try? JSONDecoder().decode(TrainingStatus.self, from: reply.0) {
-                var line = "\(training.samples) نمونه در مخزن"
-                if let trained = training.trainedOn { line += "، \(trained) در آخرین آموزش" }
+                var line = L("\(training.samples) نمونه در مخزن", "\(training.samples) samples in the repository")
+                if let trained = training.trainedOn { line += L("، \(trained) در آخرین آموزش", ", \(trained) in the last training") }
                 if let result = training.result, !result.isEmpty { line += "\n" + result }
                 status = line
             }
@@ -290,7 +290,7 @@ final class PersonalModel: ObservableObject {
             }
             guard code == 200 else {
                 available = nil
-                if status.isEmpty { status = "هنوز مدل شخصی منتشر نشده است" }
+                if status.isEmpty { status = L("هنوز مدل شخصی منتشر نشده است", "No personal model has been published yet") }
                 return
             }
             let latest = try JSONDecoder().decode(GitHubRelease.self, from: data)
@@ -341,7 +341,7 @@ final class PersonalModel: ObservableObject {
         progressObservation = nil
         guard let file else {
             downloadProgress = nil
-            status = "دانلود ناموفق بود" + (error.map { ": \($0)" } ?? "")
+            status = L("دانلود ناموفق بود", "Download failed") + (error.map { ": \($0)" } ?? "")
             return
         }
         downloadProgress = 1
@@ -352,7 +352,7 @@ final class PersonalModel: ObservableObject {
             }
             let valid = await Task.detached { Self.sha256(of: file) == release.sha256 }.value
             guard valid else {
-                status = "فایل دانلودشده سالم نبود"
+                status = L("فایل دانلودشده سالم نبود", "The downloaded file was damaged")
                 log.error("downloaded model v\(release.version) failed the checksum")
                 return
             }
@@ -363,7 +363,7 @@ final class PersonalModel: ObservableObject {
                 try FileManager.default.copyItem(at: compiled, to: target)
                 try? FileManager.default.removeItem(at: compiled)
             } catch {
-                status = "آماده کردن مدل ناموفق بود: \(error.localizedDescription)"
+                status = L("آماده کردن مدل ناموفق بود: \(error.localizedDescription)", "Preparing the model failed: \(error.localizedDescription)")
                 return
             }
             var values = URLResourceValues()
@@ -373,7 +373,7 @@ final class PersonalModel: ObservableObject {
             removeModels(except: target)
             setVersion(release.version)
             available = nil
-            status = "نسخه‌ی \(release.version) نصب شد"
+            status = L("نسخه‌ی \(release.version) نصب شد", "Version \(release.version) installed")
             log.info("installed personal model v\(release.version)")
             Transcriber.shared.reloadModel()
         }

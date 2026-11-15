@@ -21,7 +21,7 @@ final class ModelImporter: ObservableObject {
         case notModel
 
         var errorDescription: String? {
-            "این فایل مدل گفتار نیست. فایل مدل گفتار با پسوند aar را انتخاب کنید (اگر zip است، اول در Files بازش کنید)."
+            L("این فایل مدل گفتار نیست. فایل مدل گفتار با پسوند aar را انتخاب کنید (اگر zip است، اول در Files بازش کنید).", "This is not the speech model. Choose the speech model's .aar file (if it is a zip, open it in Files first).")
         }
     }
 
@@ -56,17 +56,17 @@ final class ModelImporter: ObservableObject {
     func importModel(from source: URL) {
         guard progress == nil else { return }
         progress = 0
-        message = "در حال آماده کردن مدل… ممکن است یک دقیقه طول بکشد."
+        message = L("در حال آماده کردن مدل… ممکن است یک دقیقه طول بکشد.", "Preparing the model… This can take a minute.")
         Task {
             do {
                 try await Self.install(source)
                 log.info("imported \(source.lastPathComponent, privacy: .public)")
-                message = "مدل وارد شد."
+                message = L("مدل وارد شد.", "Model imported.")
                 Transcriber.shared.reloadModel()
             } catch {
                 log.error("import failed: \(error.localizedDescription, privacy: .public)")
                 message = error is ImportError ? error.localizedDescription
-                    : "فایل مدل باز نشد؛ ممکن است ناقص کپی شده باشد. " + error.localizedDescription
+                    : L("فایل مدل باز نشد؛ ممکن است ناقص کپی شده باشد. ", "The model file could not be opened; it may be incompletely copied. ") + error.localizedDescription
             }
             progress = nil
         }

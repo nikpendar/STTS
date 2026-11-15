@@ -88,17 +88,17 @@ final class WatchLink: NSObject, WCSessionDelegate, @unchecked Sendable {
         do {
             // The keyboard's dictation and this one share the model's stream.
             if await MainActor.run(body: { KeyboardSession.shared.isCapturing }) {
-                return send(id: id, error: "کیبورد آواک روی گوشی در حال دیکته است.")
+                return send(id: id, error: L("کیبورد آواک روی گوشی در حال دیکته است.", "The Avak keyboard on the phone is dictating."))
             }
             guard let engine = await Transcriber.shared.readyEngine() else {
-                return send(id: id, error: "مدل گفتار روی گوشی نصب نیست. اپ آواک را روی گوشی باز کنید.")
+                return send(id: id, error: L("مدل گفتار روی گوشی نصب نیست. اپ آواک را روی گوشی باز کنید.", "The speech model is not installed on the phone. Open the Avak app on the phone."))
             }
             try audio.write(to: url)
             let samples = try AudioLoader.loadSamples(url: url)
             let raw = try await engine.transcribe(samples)
             let text = DictationBridge.removingPauseMarks(raw).trimmingCharacters(in: .whitespaces)
             guard !text.isEmpty else {
-                return send(id: id, error: "صدایی شنیده نشد.")
+                return send(id: id, error: L("صدایی شنیده نشد.", "No speech was heard."))
             }
             // As in the keyboard: numbers, ZWNJ and the personal dictionary.
             let options = KeyboardOptions.load()
@@ -112,7 +112,7 @@ final class WatchLink: NSObject, WCSessionDelegate, @unchecked Sendable {
             await MainActor.run { AppUsage.recordDictation(words: words, seconds: seconds) }
         } catch {
             log.error("watch dictation failed: \(error.localizedDescription, privacy: .public)")
-            send(id: id, error: "تبدیل به متن ناموفق بود.")
+            send(id: id, error: L("تبدیل به متن ناموفق بود.", "Turning speech into text failed."))
         }
     }
 

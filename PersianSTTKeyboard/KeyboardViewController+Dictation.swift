@@ -15,7 +15,7 @@ extension KeyboardViewController {
         #endif
         guard fullAccess else {
             state = .noSession
-            showStatus("Allow Full Access را روشن کنید")
+            showStatus(L("Allow Full Access را روشن کنید", "Turn on Allow Full Access"))
             return
         }
         state = .checking
@@ -203,7 +203,7 @@ extension KeyboardViewController {
         replaceLiveText(with: "")
         liveText = ""
         state = .ready
-        showStatus("صدایی شنیده نشد", transient: true)
+        showStatus(L("صدایی شنیده نشد", "No speech heard"), transient: true)
     }
 
     func recordingStarted() {
@@ -446,7 +446,7 @@ extension KeyboardViewController {
             if !undone {
                 // The text changed since; older steps would not fit it either.
                 undoSteps = []
-                showStatus("چیزی برای برگرداندن نیست", transient: true)
+                showStatus(L("چیزی برای برگرداندن نیست", "Nothing to undo"), transient: true)
             }
         case .text:
             break

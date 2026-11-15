@@ -16,7 +16,7 @@ struct KeyboardTestView: View {
     var body: some View {
         VStack {
             if testAudio != nil {
-                Text(document.text.isEmpty ? "آزمون دیکته" : document.text)
+                Text(document.text.isEmpty ? L("آزمون دیکته", "Dictation test") : document.text)
                     .accessibilityIdentifier("testField")
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .padding()
@@ -24,7 +24,7 @@ struct KeyboardTestView: View {
             } else if UserDefaults.standard.bool(forKey: "keyboardAccessory") {
                 AccessoryTextView()
             } else {
-                TextField("آزمون کیبورد", text: $text)
+                TextField(L("آزمون کیبورد", "Keyboard test"), text: $text)
                     .textFieldStyle(.roundedBorder)
                     .focused($focused)
                     .padding()

@@ -53,16 +53,16 @@ final class KeyboardSettingsPanel: UIView {
     }
 
     private static let sections: [(title: String, rows: [Row])] = [
-        ("ردیف پیشنهاد", [Row(title: "نمایش ردیف پیشنهاد", key: \.suggestionBar),
-                          Row(title: "پیش‌بینی کلمه‌ی بعدی", key: \.predictNextWord)]),
-        ("اصلاح خودکار", [Row(title: "اصلاح غلط تایپی", key: \.correctTypos),
-                          Row(title: "نیم‌فاصله‌ی خودکار", key: \.autoZWNJ),
-                          Row(title: "دو فاصله: نقطه، سه فاصله: ویرگول", key: \.doubleSpacePunctuation)]),
-        ("بازخورد کلیدها", [Row(title: "بزرگ‌نمایی حرف هنگام تایپ", key: \.keyPreview),
-                            Row(title: "کلیدهای سه‌بعدی", key: \.tiltLetters),
-                            Row(title: "صدای کلیدها", key: \.keySounds),
-                            Row(title: "لرزش (هپتیک)", key: \.haptics)]),
-        ("لمس", [Row(title: "یادگیری محل لمس", key: \.learnTouches)]),
+        (L("ردیف پیشنهاد", "Suggestion Bar"), [Row(title: L("نمایش ردیف پیشنهاد", "Show Suggestion Bar"), key: \.suggestionBar),
+                          Row(title: L("پیش‌بینی کلمه‌ی بعدی", "Predict Next Word"), key: \.predictNextWord)]),
+        (L("اصلاح خودکار", "Auto-Correction"), [Row(title: L("اصلاح غلط تایپی", "Correct Typos"), key: \.correctTypos),
+                          Row(title: L("نیم‌فاصله‌ی خودکار", "Automatic ZWNJ"), key: \.autoZWNJ),
+                          Row(title: L("دو فاصله: نقطه، سه فاصله: ویرگول", "Two Spaces: Period, Three: Comma"), key: \.doubleSpacePunctuation)]),
+        (L("بازخورد کلیدها", "Key Feedback"), [Row(title: L("بزرگ‌نمایی حرف هنگام تایپ", "Key Preview While Typing"), key: \.keyPreview),
+                            Row(title: L("کلیدهای سه‌بعدی", "3D Keys"), key: \.tiltLetters),
+                            Row(title: L("صدای کلیدها", "Key Sounds"), key: \.keySounds),
+                            Row(title: L("لرزش (هپتیک)", "Haptics"), key: \.haptics)]),
+        (L("لمس", "Touch"), [Row(title: L("یادگیری محل لمس", "Learn Touch Positions"), key: \.learnTouches)]),
     ]
 
     private let header = UIView()
@@ -70,7 +70,7 @@ final class KeyboardSettingsPanel: UIView {
     private let closeButton = UIButton(type: .system)
     private let scroll = UIScrollView()
     private let stack = UIStackView()
-    private let numbers = UISegmentedControl(items: ["خاموش", "ردیف جدا", "روی حروف"])
+    private let numbers = UISegmentedControl(items: [L("خاموش", "Off"), L("ردیف جدا", "Own Row"), L("روی حروف", "On Letters")])
     private let handwritingSpeed = UISegmentedControl(items: KeyboardOptions.handwritingSpeedNames)
     private let appButton = UIButton(type: .system)
     /// The title's mark: a gear in a soft round tile, and a hairline under the title, so the
@@ -90,14 +90,14 @@ final class KeyboardSettingsPanel: UIView {
         super.init(frame: frame)
         semanticContentAttribute = .forceRightToLeft
 
-        titleLabel.text = "تنظیمات کیبورد"
+        titleLabel.text = L("تنظیمات کیبورد", "Keyboard Settings")
         // Larger, so it stands apart from the rows below it. The app's font has no bold face:
         // asking for bold handed back another font.
         titleLabel.font = AppFont.font(ofSize: 20)
         titleLabel.textAlignment = .right
         closeButton.setImage(UIImage(systemName: "keyboard.chevron.compact.down",
                                      withConfiguration: UIImage.SymbolConfiguration(pointSize: 18)), for: .normal)
-        closeButton.accessibilityLabel = "بستن تنظیمات"
+        closeButton.accessibilityLabel = L("بستن تنظیمات", "Close Settings")
         closeButton.accessibilityIdentifier = "settingsClose"
         closeButton.addAction(UIAction { [weak self] _ in self?.onClose?() }, for: .touchUpInside)
         badge.layer.cornerRadius = 8
@@ -121,7 +121,7 @@ final class KeyboardSettingsPanel: UIView {
         for section in Self.sections {
             addSectionTitle(section.title)
             for row in section.rows { addSwitch(row) }
-            if section.title == "ردیف پیشنهاد" { addNumbers() }
+            if section.title == L("ردیف پیشنهاد", "Suggestion Bar") { addNumbers() }
         }
         handwritingSpeed.semanticContentAttribute = .forceRightToLeft
         handwritingSpeed.setTitleTextAttributes([.font: AppFont.font(ofSize: 13)], for: .normal)
@@ -130,9 +130,9 @@ final class KeyboardSettingsPanel: UIView {
             self.options.handwritingSpeed = Double(self.handwritingSpeed.selectedSegmentIndex) / 2
             self.onChange?(self.options)
         }, for: .valueChanged)
-        addSectionTitle("سرعت دست‌خط")
+        addSectionTitle(L("سرعت دست‌خط", "Handwriting Speed"))
         stack.addArrangedSubview(handwritingSpeed)
-        let note = makeLabel("رنگ‌ها، تصویر زمینه، قلم دست‌خط و واژه‌نامه در برنامه‌ی آواک.", size: 13, secondary: true)
+        let note = makeLabel(L("رنگ‌ها، تصویر زمینه، قلم دست‌خط و واژه‌نامه در برنامه‌ی آواک.", "Colours, background photo, handwriting pen and dictionary are in the Avak app."), size: 13, secondary: true)
         note.numberOfLines = 0
         stack.addArrangedSubview(note)
         if DictationBridge.keyboardOpensApp {
@@ -140,7 +140,7 @@ final class KeyboardSettingsPanel: UIView {
             config.cornerStyle = .capsule
             config.image = UIImage(systemName: "gearshape", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14))
             config.imagePadding = 6
-            config.attributedTitle = AttributedString("بقیه‌ی تنظیمات در آواک",
+            config.attributedTitle = AttributedString(L("بقیه‌ی تنظیمات در آواک", "More Settings in Avak"),
                                                       attributes: AttributeContainer([.font: AppFont.font(ofSize: 15)]))
             appButton.configuration = config
             appButton.semanticContentAttribute = .forceRightToLeft
@@ -221,7 +221,7 @@ final class KeyboardSettingsPanel: UIView {
             self.options.digitsOnLetters = place == 2
             self.onChange?(self.options)
         }, for: .valueChanged)
-        addSectionTitle("اعداد")
+        addSectionTitle(L("اعداد", "Numbers"))
         stack.addArrangedSubview(numbers)
     }
 

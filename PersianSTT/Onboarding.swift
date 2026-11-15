@@ -275,11 +275,14 @@ struct Onboarding: View {
     private func languageButton(_ code: String, title: String) -> some View {
         Button {
             language = code
+            AppLanguage.english = code == "en"
+            // The app's own language too, for iOS's prompts such as the microphone's.
+            UserDefaults.standard.set([code], forKey: "AppleLanguages")
             withAnimation { page = 1 }
         } label: {
             HStack {
                 Text(title)
-                    .font(code == "fa" ? .app(.headline) : .system(.headline))
+                    .font(code == "fa" ? (AppFont.name.map { .custom($0, size: 17, relativeTo: .headline) } ?? .headline) : .system(.headline))
                 Spacer()
                 if language == code { Image(systemName: "checkmark") }
             }

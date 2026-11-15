@@ -23,6 +23,8 @@ struct ContentView: View {
     @State private var options = KeyboardOptions.saved
     @State private var dictionary = PersonalDictionary.saved
     @State private var shortcuts = TypedShortcuts.savedWithSamples()
+    /// "fa" or "en": the app's and the keyboard's own words (Rooz, 2026-11-15).
+    @AppStorage(AppLanguage.key) private var language = Onboarding.persian ? "fa" : "en"
     /// The «خواندن متن» page in the main list.
     static let showsReadAloud = false
     @State private var photoItem: PhotosPickerItem?
@@ -56,80 +58,86 @@ struct ContentView: View {
                 // Voice.
                 Section {
                     NavigationLink { speechPage } label: {
-                        SettingLabel("گفتار", symbol: "waveform", color: .red)
+                        SettingLabel(L("گفتار", "Speech"), symbol: "waveform", color: .red)
                     }
-                    NavigationLink { page("واژه‌نامه‌ی شخصی") { DictionaryPage(dictionary: $dictionary) } } label: {
+                    NavigationLink { page(L("واژه‌نامه‌ی شخصی", "Personal Dictionary")) { DictionaryPage(dictionary: $dictionary) } } label: {
                         LabeledContent {
-                            Text(dictionary.entries.isEmpty ? "" : dictionary.entries.count.formatted(.number.locale(Locale(identifier: "fa_IR"))))
+                            Text(dictionary.entries.isEmpty ? "" : dictionary.entries.count.formatted(.number.locale(AppLanguage.locale)))
                         } label: {
-                            SettingLabel("واژه‌نامه‌ی شخصی", symbol: "character.book.closed.fill", color: .teal)
+                            SettingLabel(L("واژه‌نامه‌ی شخصی", "Personal Dictionary"), symbol: "character.book.closed.fill", color: .teal)
                         }
                     }
                     // A build with the model inside has nothing to import.
                     if !needsModel, Transcriber.bundledModel == nil {
-                        NavigationLink { page("مدل گفتار") { modelSection } } label: {
+                        NavigationLink { page(L("مدل گفتار", "Speech Model")) { modelSection } } label: {
                             LabeledContent {
                                 Text(model.modelName.isEmpty ? "—" : model.modelName).lineLimit(1)
                             } label: {
-                                SettingLabel("مدل گفتار", symbol: "cpu", color: .purple)
+                                SettingLabel(L("مدل گفتار", "Speech Model"), symbol: "cpu", color: .purple)
                             }
                         }
                     }
                     // Nor learning from corrections in the build with the model inside (Rooz, 2026-11-05).
                     if Transcriber.bundledModel == nil {
-                        NavigationLink { page("یادگیری از اصلاح‌ها") { trainingSection } } label: {
+                        NavigationLink { page(L("یادگیری از اصلاح‌ها", "Learning from Corrections")) { trainingSection } } label: {
                             LabeledContent {
-                                Text(trainingUpload ? "روشن" : "خاموش")
+                                Text(trainingUpload ? L("روشن", "On") : L("خاموش", "Off"))
                             } label: {
-                                SettingLabel("یادگیری از اصلاح‌ها", symbol: "brain.head.profile", color: .green)
+                                SettingLabel(L("یادگیری از اصلاح‌ها", "Learning from Corrections"), symbol: "brain.head.profile", color: .green)
                             }
                         }
                     }
                 } header: {
-                    Text("صدا").font(.app(.footnote))
+                    Text(L("صدا", "Voice")).font(.app(.footnote))
                 }
 
                 // Typing.
                 Section {
                     NavigationLink { typingPage } label: {
-                        SettingLabel("تایپ و پیشنهاد کلمه", symbol: "character.cursor.ibeam", color: .blue)
+                        SettingLabel(L("تایپ و پیشنهاد کلمه", "Typing and Suggestions"), symbol: "character.cursor.ibeam", color: .blue)
                     }
-                    NavigationLink { page("میان‌برهای تایپ") { ShortcutsPage(shortcuts: $shortcuts) } } label: {
+                    NavigationLink { page(L("میان‌برهای تایپ", "Typing Shortcuts")) { ShortcutsPage(shortcuts: $shortcuts) } } label: {
                         LabeledContent {
-                            Text(shortcuts.entries.isEmpty ? "" : shortcuts.entries.count.formatted(.number.locale(Locale(identifier: "fa_IR"))))
+                            Text(shortcuts.entries.isEmpty ? "" : shortcuts.entries.count.formatted(.number.locale(AppLanguage.locale)))
                         } label: {
-                            SettingLabel("میان‌برهای تایپ", symbol: "text.insert", color: .indigo)
+                            SettingLabel(L("میان‌برهای تایپ", "Typing Shortcuts"), symbol: "text.insert", color: .indigo)
                         }
                     }
                     NavigationLink { appearancePage } label: {
-                        SettingLabel("ظاهر دکمه‌ها", symbol: "paintpalette.fill", color: .pink)
+                        SettingLabel(L("ظاهر دکمه‌ها", "Key Appearance"), symbol: "paintpalette.fill", color: .pink)
                     }
-                    NavigationLink { page("دست‌خط") { HandwritingPage(options: $options) } } label: {
-                        SettingLabel("دست‌خط", symbol: "pencil.and.scribble", color: .indigo)
+                    NavigationLink { page(L("دست‌خط", "Handwriting")) { HandwritingPage(options: $options) } } label: {
+                        SettingLabel(L("دست‌خط", "Handwriting"), symbol: "pencil.and.scribble", color: .indigo)
                     }
                 } header: {
-                    Text("تایپ").font(.app(.footnote))
+                    Text(L("تایپ", "Typing")).font(.app(.footnote))
                 }
 
                 Section {
                     // Hidden until the Persian voice is finished (Rooz, 2026-11-04).
                     if Self.showsReadAloud {
                         NavigationLink { ReadAloudPage() } label: {
-                            SettingLabel("خواندن متن", symbol: "speaker.wave.2.fill", color: .mint)
+                            SettingLabel(L("خواندن متن", "Read Aloud"), symbol: "speaker.wave.2.fill", color: .mint)
                         }
                     }
-                    NavigationLink { page("راه‌اندازی کیبورد") { setupSection } } label: {
-                        SettingLabel("راه‌اندازی کیبورد", symbol: "keyboard", color: .gray)
+                    NavigationLink { page(L("راه‌اندازی کیبورد", "Keyboard Setup")) { setupSection } } label: {
+                        SettingLabel(L("راه‌اندازی کیبورد", "Keyboard Setup"), symbol: "keyboard", color: .gray)
                     }
-                    NavigationLink { page("گزارش کارکرد") { UsageReportPage(dictionary: $dictionary) } } label: {
-                        SettingLabel("گزارش کارکرد", symbol: "chart.bar.fill", color: .indigo)
+                    NavigationLink { page(L("گزارش کارکرد", "Usage Report")) { UsageReportPage(dictionary: $dictionary) } } label: {
+                        SettingLabel(L("گزارش کارکرد", "Usage Report"), symbol: "chart.bar.fill", color: .indigo)
                     }
-                    NavigationLink { page("گزارش خرابی‌ها") { CrashReportsPage() } } label: {
-                        SettingLabel("گزارش خرابی‌ها", symbol: "ladybug.fill", color: .orange)
+                    NavigationLink { page(L("گزارش خرابی‌ها", "Crash Reports")) { CrashReportsPage() } } label: {
+                        SettingLabel(L("گزارش خرابی‌ها", "Crash Reports"), symbol: "ladybug.fill", color: .orange)
+                    }
+                    Picker(selection: $language) {
+                        Text("فارسی").font(AppFont.name.map { .custom($0, size: 17, relativeTo: .body) } ?? .body).tag("fa")
+                        Text("English").font(.system(.body)).tag("en")
+                    } label: {
+                        SettingLabel(L("زبان", "Language"), symbol: "globe", color: .teal)
                     }
                     privacyLink
                 } header: {
-                    Text("سایر").font(.app(.footnote))
+                    Text(L("سایر", "Other")).font(.app(.footnote))
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -146,8 +154,14 @@ struct ContentView: View {
         .fileImporter(isPresented: $pickingModel, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result { importer.importModel(from: url) }
         }
-        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.layoutDirection, language == "en" ? .leftToRight : .rightToLeft)
         .font(.app(.body))
+        .onChange(of: language) { _, new in
+            AppLanguage.english = new == "en"
+            UserDefaults.standard.set([new], forKey: "AppleLanguages")
+            options.english = AppLanguage.english
+            navigationID = UUID()
+        }
         .onChange(of: style) { _, new in new.save() }
         .onChange(of: options) { _, new in new.save() }
         .onChange(of: dictionary) { _, new in new.save() }
@@ -161,6 +175,8 @@ struct ContentView: View {
             }
             // The keyboard's own settings panel may have changed them since.
             options = KeyboardOptions.load()
+            AppLanguage.english = language == "en"
+            options.english = AppLanguage.english
             options.save()
             dictionary.save()
             shortcuts.save()
@@ -189,7 +205,8 @@ struct ContentView: View {
                 importer.importWaitingModel()
                 syncTraining()
                 CrashReports.shared.collectFromKeyboard()
-                let latest = KeyboardOptions.load()
+                var latest = KeyboardOptions.load()
+                latest.english = AppLanguage.english
                 if latest != options { options = latest }
             }
         }
@@ -206,10 +223,10 @@ struct ContentView: View {
     }
 
     private var speechPage: some View {
-        page("گفتار") {
+        page(L("گفتار", "Speech")) {
             Section {
                 Toggle(isOn: $noiseSuppression) {
-                    SettingLabel("حذف نویز", symbol: "waveform.badge.minus", color: .green)
+                    SettingLabel(L("حذف نویز", "Noise Reduction"), symbol: "waveform.badge.minus", color: .green)
                 }
                 .onChange(of: noiseSuppression) { _, _ in keyboard.noiseSuppressionChanged() }
                 if noiseSuppression {
@@ -217,26 +234,26 @@ struct ContentView: View {
                     Button {
                         AVCaptureDevice.showSystemUserInterface(.microphoneModes)
                     } label: {
-                        SettingLabel("فقط صدای من", symbol: "person.wave.2.fill", color: .purple)
+                        SettingLabel(L("فقط صدای من", "Only My Voice"), symbol: "person.wave.2.fill", color: .purple)
                     }
                     .disabled(!keyboard.isActive)
                 }
             } header: {
-                Text("میکروفون").font(.app(.footnote))
+                Text(L("میکروفون", "Microphone")).font(.app(.footnote))
             } footer: {
                 if noiseSuppression {
-                    Text("برای «فقط صدای من»، تایپ صوتی را روشن کنید و در منوی باز شده Voice Isolation را انتخاب کنید.").font(.app(.footnote))
+                    Text(L("برای «فقط صدای من»، تایپ صوتی را روشن کنید و در منوی باز شده Voice Isolation را انتخاب کنید.", "For Only My Voice, turn on voice typing and choose Voice Isolation in the menu that opens.")).font(.app(.footnote))
                 }
             }
 
             Section {
                 Picker(selection: $sessionMinutes) {
-                    Text("۱۰ دقیقه").tag(10)
-                    Text("۳۰ دقیقه").tag(30)
-                    Text("۱ ساعت").tag(60)
-                    Text("هرگز").tag(0)
+                    Text(L("۱۰ دقیقه", "10 minutes")).tag(10)
+                    Text(L("۳۰ دقیقه", "30 minutes")).tag(30)
+                    Text(L("۱ ساعت", "1 hour")).tag(60)
+                    Text(L("هرگز", "Never")).tag(0)
                 } label: {
-                    SettingLabel("خاموش شدن خودکار تایپ صوتی", symbol: "timer", color: .orange)
+                    SettingLabel(L("خاموش شدن خودکار تایپ صوتی", "Turn Off Voice Typing After"), symbol: "timer", color: .orange)
                 }
                 .onChange(of: sessionMinutes) { _, _ in keyboard.idleMinutesChanged() }
                 Picker(selection: $options.lockedSilenceSeconds) {
@@ -244,20 +261,21 @@ struct ContentView: View {
                         Text(Self.durationName(seconds)).tag(seconds)
                     }
                 } label: {
-                    SettingLabel("پایان ضبط قفل‌شده بعد از سکوت", symbol: "lock", color: .orange)
+                    SettingLabel(L("پایان ضبط قفل‌شده بعد از سکوت", "End Locked Recording After Silence"), symbol: "lock", color: .orange)
                 }
             } header: {
-                Text("تایپ صوتی").font(.app(.footnote))
+                Text(L("تایپ صوتی", "Voice Typing")).font(.app(.footnote))
             } footer: {
-                Text("تایپ صوتی بعد از این مدت بی‌استفاده خاموش می‌شود. روشن ماندنش باتری مصرف می‌کند. ضبطی که روی اسپیس قفل شده، اگر در این مدت کلمه‌ی تازه‌ای شنیده نشود، خودش تمام می‌شود.").font(.app(.footnote))
+                Text(L("تایپ صوتی بعد از این مدت بی‌استفاده خاموش می‌شود. روشن ماندنش باتری مصرف می‌کند. ضبطی که روی اسپیس قفل شده، اگر در این مدت کلمه‌ی تازه‌ای شنیده نشود، خودش تمام می‌شود.", "Voice typing turns off after this long unused; keeping it on uses battery. A recording locked on the space bar ends by itself when no new word is heard for this long.")).font(.app(.footnote))
             }
         }
     }
 
-    /// ۵ ثانیه, ۲ دقیقه.
+    /// ۵ ثانیه, ۲ دقیقه (5 s, 2 min in English).
     static func durationName(_ seconds: Double) -> String {
-        let persian = { (n: Int) in String(String(n).map { Array("۰۱۲۳۴۵۶۷۸۹")[$0.wholeNumberValue ?? 0] }) }
         let whole = Int(seconds)
+        if AppLanguage.english { return whole >= 60 && whole % 60 == 0 ? "\(whole / 60) min" : "\(whole) s" }
+        let persian = { (n: Int) in String(String(n).map { Array("۰۱۲۳۴۵۶۷۸۹")[$0.wholeNumberValue ?? 0] }) }
         return whole >= 60 && whole % 60 == 0 ? "\(persian(whole / 60)) دقیقه" : "\(persian(whole)) ثانیه"
     }
 
@@ -272,109 +290,109 @@ struct ContentView: View {
     }
 
     private var typingPage: some View {
-        page("تایپ و پیشنهاد کلمه") {
+        page(L("تایپ و پیشنهاد کلمه", "Typing and Suggestions")) {
             Section {
                 Toggle(isOn: $options.suggestionBar.animation(.easeInOut(duration: 0.3))) {
-                    SettingLabel("نمایش ردیف پیشنهاد", symbol: "rectangle.topthird.inset.filled", color: .cyan)
+                    SettingLabel(L("نمایش ردیف پیشنهاد", "Show Suggestion Bar"), symbol: "rectangle.topthird.inset.filled", color: .cyan)
                 }
                 // Off, the bar's own option stays in view, greyed, so turning it back on finds it
                 // as it was.
                 Toggle(isOn: $options.predictNextWord) {
-                    SettingLabel("پیش‌بینی کلمه‌ی بعدی", symbol: "text.append", color: .blue)
+                    SettingLabel(L("پیش‌بینی کلمه‌ی بعدی", "Predict Next Word"), symbol: "text.append", color: .blue)
                 }
                 .disabled(!options.suggestionBar)
                 .opacity(options.suggestionBar ? 1 : 0.45)
             } header: {
-                Text("ردیف پیشنهاد").font(.app(.footnote))
+                Text(L("ردیف پیشنهاد", "Suggestion Bar")).font(.app(.footnote))
             } footer: {
                 Text(options.suggestionBar
-                     ? "کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند و کلمه‌های خودتان هم یاد گرفته می‌شوند."
-                     : "ردیف بالای کلیدها پنهان است و کیبورد کوتاه‌تر می‌شود.")
+                     ? L("کلمه‌هایی که بیشتر بعد از کلمه‌ی قبلی می‌آیند پیشنهاد می‌شوند و کلمه‌های خودتان هم یاد گرفته می‌شوند.", "Words that most often follow the previous word are suggested, and your own words are learned too.")
+                     : L("ردیف بالای کلیدها پنهان است و کیبورد کوتاه‌تر می‌شود.", "The bar above the keys is hidden and the keyboard is shorter."))
                     .font(.app(.footnote))
             }
 
             Section {
                 // Corrects on a space, with or without the row.
                 Toggle(isOn: $options.correctTypos) {
-                    SettingLabel("اصلاح غلط تایپی", symbol: "checkmark.seal.fill", color: .green)
+                    SettingLabel(L("اصلاح غلط تایپی", "Correct Typos"), symbol: "checkmark.seal.fill", color: .green)
                 }
                 Toggle(isOn: $options.autoZWNJ) {
-                    SettingLabel("نیم‌فاصله‌ی خودکار", symbol: "wand.and.stars", color: .indigo)
+                    SettingLabel(L("نیم‌فاصله‌ی خودکار", "Automatic ZWNJ"), symbol: "wand.and.stars", color: .indigo)
                 }
                 Toggle(isOn: $options.doubleSpacePunctuation) {
-                    SettingLabel("دو فاصله: نقطه، سه فاصله: ویرگول", symbol: "space", color: .orange)
+                    SettingLabel(L("دو فاصله: نقطه، سه فاصله: ویرگول", "Two Spaces: Period, Three: Comma"), symbol: "space", color: .orange)
                 }
             } header: {
-                Text("اصلاح خودکار").font(.app(.footnote))
+                Text(L("اصلاح خودکار", "Auto-Correction")).font(.app(.footnote))
             } footer: {
-                Text("با زدن فاصله، کلمه‌ای که به‌روشنی غلط تایپ شده درست می‌شود و «میخوام» می‌شود «می‌خوام». پاک کردن بلافاصله بعد از آن، تایپ شما را برمی‌گرداند."
-                     + (options.autoZWNJ ? "" : " بدون نیم‌فاصله‌ی خودکار، دو بار زدن سریع یک حرف پیوندی نیم‌فاصله می‌گذارد: «م ی ی» ← «می‌»."))
+                Text(L("با زدن فاصله، کلمه‌ای که به‌روشنی غلط تایپ شده درست می‌شود و «میخوام» می‌شود «می‌خوام». پاک کردن بلافاصله بعد از آن، تایپ شما را برمی‌گرداند.", "On space, a clearly mistyped word is corrected and Persian words get their zero-width non-joiner (ZWNJ). Deleting right after puts back what you typed.")
+                     + (options.autoZWNJ ? "" : L(" بدون نیم‌فاصله‌ی خودکار، دو بار زدن سریع یک حرف پیوندی نیم‌فاصله می‌گذارد: «م ی ی» ← «می‌».", " Without automatic ZWNJ, tapping a joining letter twice quickly adds a ZWNJ.")))
                     .font(.app(.footnote))
             }
 
             Section {
                 Picker(selection: numbersPlace) {
-                    Text("خاموش").tag(0)
-                    Text("ردیف جدا بالای حروف").tag(1)
-                    Text("روی حروف ردیف اول").tag(2)
+                    Text(L("خاموش", "Off")).tag(0)
+                    Text(L("ردیف جدا بالای حروف", "Separate Row Above Letters")).tag(1)
+                    Text(L("روی حروف ردیف اول", "On the Top Row Letters")).tag(2)
                 } label: {
-                    SettingLabel("اعداد", symbol: "number", color: .teal)
+                    SettingLabel(L("اعداد", "Numbers"), symbol: "number", color: .teal)
                 }
             } header: {
-                Text("اعداد").font(.app(.footnote))
+                Text(L("اعداد", "Numbers")).font(.app(.footnote))
             } footer: {
                 Text(options.digitsOnLetters
-                     ? "عدد کوچک بالای هر حرف ردیف اول است (ض ۱ تا ج ۰). نگه داشتن کلید، حرف و عدد فارسی و انگلیسی را نشان می‌دهد."
+                     ? L("عدد کوچک بالای هر حرف ردیف اول است (ض ۱ تا ج ۰). نگه داشتن کلید، حرف و عدد فارسی و انگلیسی را نشان می‌دهد.", "A small digit sits above each top-row letter. Holding a key shows its letter and the Persian and English digit.")
                      : options.numberRow
-                        ? "ردیف کوتاه اعداد کیبورد را کمی بلندتر می‌کند. نگه داشتن هر عدد، شکل فارسی و انگلیسی آن را نشان می‌دهد."
-                        : "اعداد در صفحه‌ی ۱۲۳ هستند.")
+                        ? L("ردیف کوتاه اعداد کیبورد را کمی بلندتر می‌کند. نگه داشتن هر عدد، شکل فارسی و انگلیسی آن را نشان می‌دهد.", "The short number row makes the keyboard a little taller. Holding a digit shows its Persian and English forms.")
+                        : L("اعداد در صفحه‌ی ۱۲۳ هستند.", "Numbers are on the 123 page."))
                     .font(.app(.footnote))
             }
 
             Section {
                 Toggle(isOn: $options.keyPreview) {
-                    SettingLabel("بزرگ‌نمایی حرف هنگام تایپ", symbol: "character.magnify", color: .purple)
+                    SettingLabel(L("بزرگ‌نمایی حرف هنگام تایپ", "Key Preview While Typing"), symbol: "character.magnify", color: .purple)
                 }
                 Toggle(isOn: $options.tiltLetters) {
-                    SettingLabel("کلیدهای سه‌بعدی", symbol: "cube.transparent", color: .teal)
+                    SettingLabel(L("کلیدهای سه‌بعدی", "3D Keys"), symbol: "cube.transparent", color: .teal)
                 }
                 Toggle(isOn: $options.keySounds) {
-                    SettingLabel("صدای کلیدها", symbol: "speaker.wave.2.fill", color: .pink)
+                    SettingLabel(L("صدای کلیدها", "Key Sounds"), symbol: "speaker.wave.2.fill", color: .pink)
                 }
                 Toggle(isOn: $options.haptics) {
-                    SettingLabel("لرزش (هپتیک)", symbol: "iphone.radiowaves.left.and.right", color: .red)
+                    SettingLabel(L("لرزش (هپتیک)", "Haptics"), symbol: "iphone.radiowaves.left.and.right", color: .red)
                 }
             } header: {
-                Text("بازخورد کلیدها").font(.app(.footnote))
+                Text(L("بازخورد کلیدها", "Key Feedback")).font(.app(.footnote))
             } footer: {
-                Text("صدا با سوییچ بی‌صدای گوشی قطع می‌شود. لرزش برای کلیدها، اصلاح کلمه و دسته‌های شکلک فرق دارد.").font(.app(.footnote))
+                Text(L("صدا با سوییچ بی‌صدای گوشی قطع می‌شود. لرزش برای کلیدها، اصلاح کلمه و دسته‌های شکلک فرق دارد.", "Sounds follow the phone's silent switch. Haptics differ for keys, word corrections and emoji categories.")).font(.app(.footnote))
             }
 
             Section {
                 Toggle(isOn: $options.learnTouches) {
-                    SettingLabel("یادگیری محل لمس (TapMap)", symbol: "hand.point.up.left.fill", color: .orange)
+                    SettingLabel(L("یادگیری محل لمس (TapMap)", "Learn Touch Positions (TapMap)"), symbol: "hand.point.up.left.fill", color: .orange)
                 }
                 NavigationLink {
-                    page("نقشه‌ی لمس شما") { TapMapPage() }
+                    page(L("نقشه‌ی لمس شما", "Your Touch Map")) { TapMapPage() }
                 } label: {
-                    SettingLabel("نقشه‌ی لمس شما", symbol: "scope", color: .blue)
+                    SettingLabel(L("نقشه‌ی لمس شما", "Your Touch Map"), symbol: "scope", color: .blue)
                 }
                 Button(role: .destructive) {
                     options.touchResets += 1
                     TouchModel.clearFromKeyboard()
                 } label: {
-                    SettingLabel("پاک کردن یادگرفته‌های لمس", symbol: "arrow.counterclockwise", color: .red)
+                    SettingLabel(L("پاک کردن یادگرفته‌های لمس", "Clear Learned Touches"), symbol: "arrow.counterclockwise", color: .red)
                 }
             } header: {
-                Text("لمس هوشمند").font(.app(.footnote))
+                Text(L("لمس هوشمند", "Smart Touch")).font(.app(.footnote))
             } footer: {
-                Text("کیبورد یاد می‌گیرد هر حرف را کجای کلید می‌زنید و لمس نزدیک مرز دو کلید را به حرف درست می‌دهد.").font(.app(.footnote))
+                Text(L("کیبورد یاد می‌گیرد هر حرف را کجای کلید می‌زنید و لمس نزدیک مرز دو کلید را به حرف درست می‌دهد.", "The keyboard learns where on each key you tap and gives a touch near the border of two keys to the right letter.")).font(.app(.footnote))
             }
         }
     }
 
     private var appearancePage: some View {
-        page("ظاهر دکمه‌ها") {
+        page(L("ظاهر دکمه‌ها", "Key Appearance")) {
             Section {
                 KeyPreview(style: style)
                     .listRowBackground(KeyPreviewBackground(style: style))
@@ -382,48 +400,48 @@ struct ContentView: View {
                 // Each slider sits in the row of the setting it belongs to, under its title, so
                 // every line between rows starts where the titles do.
                 VStack(alignment: .leading, spacing: 6) {
-                    SettingLabel("اندازه‌ی حروف", symbol: "textformat.size", color: .orange)
+                    SettingLabel(L("اندازه‌ی حروف", "Letter Size"), symbol: "textformat.size", color: .orange)
                     SliderLine(small: "textformat.size.smaller", large: "textformat.size.larger") {
                         Slider(value: Binding { style.letterSize ?? KeyStyle.standardLetterSize } set: { style.letterSize = $0.rounded() },
                                in: 16...32, step: 1)
                     } value: {
-                        Text(Int(style.letterSize ?? KeyStyle.standardLetterSize).formatted(.number.locale(Locale(identifier: "fa_IR"))))
+                        Text(Int(style.letterSize ?? KeyStyle.standardLetterSize).formatted(.number.locale(AppLanguage.locale)))
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
                             .frame(minWidth: 40, alignment: .trailing)
                     }
                 }
                 ColorPicker(selection: backgroundColorBinding, supportsOpacity: false) {
-                    SettingLabel("رنگ پس‌زمینه‌ی کیبورد", symbol: "keyboard.fill", color: .brown)
+                    SettingLabel(L("رنگ پس‌زمینه‌ی کیبورد", "Keyboard Background Colour"), symbol: "keyboard.fill", color: .brown)
                 }
                 VStack(spacing: 6) {
                     ColorPicker(selection: colorBinding(\.fill), supportsOpacity: false) {
-                        SettingLabel("رنگ دکمه", symbol: "square.fill", color: .pink)
+                        SettingLabel(L("رنگ دکمه", "Key Colour"), symbol: "square.fill", color: .pink)
                     }
                     opacitySlider(\.fill)
                 }
                 VStack(spacing: 6) {
                     ColorPicker(selection: colorBinding(\.stroke), supportsOpacity: false) {
-                        SettingLabel("رنگ دور دکمه", symbol: "square", color: .indigo)
+                        SettingLabel(L("رنگ دور دکمه", "Key Border Colour"), symbol: "square", color: .indigo)
                     }
                     opacitySlider(\.stroke)
                 }
                 ColorPicker(selection: textColorBinding, supportsOpacity: false) {
-                    SettingLabel("رنگ حروف", symbol: "textformat", color: .teal)
+                    SettingLabel(L("رنگ حروف", "Letter Colour"), symbol: "textformat", color: .teal)
                 }
-                Button("بازگشت به پیش‌فرض") { style = .standard }
+                Button(L("بازگشت به پیش‌فرض", "Reset to Default")) { style = .standard }
             } footer: {
-                Text("تغییرها دفعه‌ی بعد که کیبورد باز شود اعمال می‌شوند.").font(.app(.footnote))
+                Text(L("تغییرها دفعه‌ی بعد که کیبورد باز شود اعمال می‌شوند.", "Changes apply the next time the keyboard opens.")).font(.app(.footnote))
             }
 
             Section {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        BackgroundChoice(image: nil, title: "بدون عکس", selected: style.backgroundImage == nil) {
+                        BackgroundChoice(image: nil, title: L("بدون عکس", "No Photo"), selected: style.backgroundImage == nil) {
                             style.backgroundImage = nil
                         }
                         if let id = style.backgroundImage, KeyboardBackground.isPhoto(id) {
-                            BackgroundChoice(image: KeyboardBackground.image(id, size: .zero), title: "عکس شما", selected: true) {}
+                            BackgroundChoice(image: KeyboardBackground.image(id, size: .zero), title: L("عکس شما", "Your Photo"), selected: true) {}
                         }
                         ForEach(KeyboardBackground.presets) { preset in
                             BackgroundChoice(image: KeyboardBackground.thumbnail(preset.id), title: preset.name,
@@ -436,12 +454,12 @@ struct ContentView: View {
                 }
                 .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
                 PhotosPicker(selection: $photoItem, matching: .images) {
-                    SettingLabel("انتخاب عکس از گالری", symbol: "photo.fill", color: .orange)
+                    SettingLabel(L("انتخاب عکس از گالری", "Choose Photo from Library"), symbol: "photo.fill", color: .orange)
                 }
             } header: {
-                Text("عکس پس‌زمینه").font(.app(.footnote))
+                Text(L("عکس پس‌زمینه", "Background Photo")).font(.app(.footnote))
             } footer: {
-                Text("عکس جای رنگ پس‌زمینه را می‌گیرد و وسط آن به اندازه‌ی کیبورد بریده می‌شود. اگر رنگ حروف را انتخاب نکرده باشید، حروف روی عکس تیره روشن و روی عکس روشن تیره می‌شوند.").font(.app(.footnote))
+                Text(L("عکس جای رنگ پس‌زمینه را می‌گیرد و وسط آن به اندازه‌ی کیبورد بریده می‌شود. اگر رنگ حروف را انتخاب نکرده باشید، حروف روی عکس تیره روشن و روی عکس روشن تیره می‌شوند.", "The photo replaces the background colour and its middle is cropped to the keyboard's size. Unless you chose a letter colour, letters are light on a dark photo and dark on a light one.")).font(.app(.footnote))
             }
             .onChange(of: photoItem) { _, item in
                 guard let item else { return }
@@ -458,20 +476,20 @@ struct ContentView: View {
 
     private var setupSection: some View {
         Section {
-            SetupStep(number: "۱", text: "Settings › General › Keyboard › Keyboards › Add New Keyboard")
-            SetupStep(number: "۲", text: "«آواک» را انتخاب و Allow Full Access را روشن کنید.")
-            SetupStep(number: "۳", text: "در هر اپی با 🌐 به این کیبورد بروید و برای دیکته کلید فاصله را نگه دارید.")
+            SetupStep(number: L("۱", "1"), text: "Settings › General › Keyboard › Keyboards › Add New Keyboard")
+            SetupStep(number: L("۲", "2"), text: L("«آواک» را انتخاب و Allow Full Access را روشن کنید.", "Choose Avak and turn on Allow Full Access."))
+            SetupStep(number: L("۳", "3"), text: L("در هر اپی با 🌐 به این کیبورد بروید و برای دیکته کلید فاصله را نگه دارید.", "In any app switch to this keyboard with 🌐 and hold the space bar to dictate."))
             Button {
                 showingGuide = true
             } label: {
-                SettingLabel("راهنمای قدم‌به‌قدم", symbol: "book.fill", color: .orange)
+                SettingLabel(L("راهنمای قدم‌به‌قدم", "Step-by-Step Guide"), symbol: "book.fill", color: .orange)
             }
             Button {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
                 }
             } label: {
-                SettingLabel("باز کردن تنظیمات آیفون", symbol: "gearshape.fill", color: .gray)
+                SettingLabel(L("باز کردن تنظیمات آیفون", "Open iPhone Settings"), symbol: "gearshape.fill", color: .gray)
             }
         }
     }
@@ -490,7 +508,7 @@ struct ContentView: View {
             .shadow(color: .purple.opacity(keyboard.isActive ? 0.4 : 0), radius: 14)
             .background(SessionRipple(trigger: sessionStarts))
 
-            Text("آواک")
+            Text(L("آواک", "Avak"))
                 .font(.app(.title2))
             Text(statusText)
                 .font(.app(.subheadline))
@@ -500,7 +518,7 @@ struct ContentView: View {
             Button {
                 keyboard.isActive ? keyboard.stop() : keyboard.start()
             } label: {
-                Text(keyboard.isActive ? "خاموش کردن تایپ صوتی" : "روشن کردن تایپ صوتی")
+                Text(keyboard.isActive ? L("خاموش کردن تایپ صوتی", "Turn Off Voice Typing") : L("روشن کردن تایپ صوتی", "Turn On Voice Typing"))
                     .font(.app(.headline))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
@@ -520,7 +538,7 @@ struct ContentView: View {
 
     private var privacyLink: some View {
         Link(destination: Self.privacyPolicyURL) {
-            SettingLabel("سیاست حریم خصوصی", symbol: "hand.raised.fill", color: .blue)
+            SettingLabel(L("سیاست حریم خصوصی", "Privacy Policy"), symbol: "hand.raised.fill", color: .blue)
         }
         .foregroundStyle(.primary)
     }
@@ -530,13 +548,13 @@ struct ContentView: View {
     private var trainingSection: some View {
         Section {
             Toggle(isOn: $trainingUpload) {
-                SettingLabel("ارسال اصلاح‌ها برای آموزش", symbol: "arrow.up.circle.fill", color: .blue)
+                SettingLabel(L("ارسال اصلاح‌ها برای آموزش", "Send Corrections for Training"), symbol: "arrow.up.circle.fill", color: .blue)
             }
             .onChange(of: trainingUpload) { _, on in
                 if on { Task { await personal.upload() } }
             }
             HStack {
-                SettingLabel("توکن GitHub", symbol: "key.fill", color: .yellow)
+                SettingLabel(L("توکن GitHub", "GitHub Token"), symbol: "key.fill", color: .yellow)
                 SecureField("github_pat_…", text: $trainingToken)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -552,57 +570,57 @@ struct ContentView: View {
                     LabeledContent {
                         Text("\(personal.pending)")
                     } label: {
-                        SettingLabel("ارسال اصلاح‌های در صف", symbol: "tray.and.arrow.up.fill", color: .orange)
+                        SettingLabel(L("ارسال اصلاح‌های در صف", "Send Queued Corrections"), symbol: "tray.and.arrow.up.fill", color: .orange)
                     }
                 }
             }
             Toggle(isOn: $trainingAutoUpdate) {
-                SettingLabel("دانلود خودکار مدل جدید", symbol: "arrow.down.circle.fill", color: .green)
+                SettingLabel(L("دانلود خودکار مدل جدید", "Download New Model Automatically"), symbol: "arrow.down.circle.fill", color: .green)
             }
-            LabeledContent("مدل در حال استفاده",
-                           value: personal.version > 0 ? "شخصی، نسخه‌ی \(personal.version)" : "مدل اصلی")
+            LabeledContent(L("مدل در حال استفاده", "Model in Use"),
+                           value: personal.version > 0 ? L("شخصی، نسخه‌ی \(personal.version)", "Personal, version \(personal.version)") : L("مدل اصلی", "Original Model"))
             if let progress = personal.downloadProgress {
                 ProgressView(value: progress) {
-                    Text(progress >= 1 ? "در حال آماده کردن مدل…" : "در حال دانلود مدل جدید…")
+                    Text(progress >= 1 ? L("در حال آماده کردن مدل…", "Preparing the model…") : L("در حال دانلود مدل جدید…", "Downloading the new model…"))
                 }
             } else if let release = personal.available {
                 Button {
                     personal.download()
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("دانلود نسخه‌ی \(release.version)")
+                        Text(L("دانلود نسخه‌ی \(release.version)", "Download Version \(release.version)"))
                         Text(releaseSummary(release))
                             .font(.app(.caption))
                             .foregroundStyle(.secondary)
                     }
                 }
             } else {
-                Button("بررسی نسخه‌ی جدید") {
+                Button(L("بررسی نسخه‌ی جدید", "Check for New Version")) {
                     Task { await personal.check() }
                 }
                 .disabled(trainingToken.isEmpty)
             }
             if personal.version > 0 {
-                Button("بازگشت به مدل اصلی", role: .destructive) {
+                Button(L("بازگشت به مدل اصلی", "Back to the Original Model"), role: .destructive) {
                     personal.useBaseModel()
                 }
             }
             privacyLink
         } footer: {
             Text((personal.status.isEmpty ? "" : personal.status + "\n\n")
-                 + "وقتی متن دیکته‌شده را با تایپ یا دیکته‌ی دوباره اصلاح کنید، صدای آن دیکته و متن درست به مخزن خصوصی خودتان در GitHub فرستاده می‌شود و جای دیگری نمی‌رود. "
-                 + "سرور رایگان GitHub هر چند ساعت، اگر اصلاح تازه‌ای باشد، مدل را با همه‌ی نمونه‌ها آموزش می‌دهد و فقط وقتی نسخه‌ی جدید روی نمونه‌های کنارگذاشته دقیق‌تر باشد آن را منتشر می‌کند. "
-                 + "توکن فقط در Keychain همین آیفون نگه داشته می‌شود.").font(.app(.footnote))
+                 + L("وقتی متن دیکته‌شده را با تایپ یا دیکته‌ی دوباره اصلاح کنید، صدای آن دیکته و متن درست به مخزن خصوصی خودتان در GitHub فرستاده می‌شود و جای دیگری نمی‌رود. ", "When you correct dictated text by typing or dictating again, the recording of that dictation and the corrected text are sent to your own private GitHub repository and nowhere else. ")
+                 + L("سرور رایگان GitHub هر چند ساعت، اگر اصلاح تازه‌ای باشد، مدل را با همه‌ی نمونه‌ها آموزش می‌دهد و فقط وقتی نسخه‌ی جدید روی نمونه‌های کنارگذاشته دقیق‌تر باشد آن را منتشر می‌کند. ", "Every few hours, if there are new corrections, GitHub's free server trains the model on all samples and publishes the new version only when it is more accurate on held-out samples. ")
+                 + L("توکن فقط در Keychain همین آیفون نگه داشته می‌شود.", "The token is kept only in this iPhone's Keychain.")).font(.app(.footnote))
         }
     }
 
     private func releaseSummary(_ release: PersonalModel.Release) -> String {
-        var parts = ["\(release.size >> 20) مگابایت"]
-        if let samples = release.samples { parts.append("\(samples) نمونه") }
+        var parts = [L("\(release.size >> 20) مگابایت", "\(release.size >> 20) MB")]
+        if let samples = release.samples { parts.append(L("\(samples) نمونه", "\(samples) samples")) }
         if let before = release.werBefore, let after = release.werAfter {
-            parts.append(String(format: "خطای کلمه %.1f٪ ← %.1f٪", before, after))
+            parts.append(String(format: L("خطای کلمه %.1f٪ ← %.1f٪", "word errors %.1f%% → %.1f%%"), before, after))
         }
-        return parts.joined(separator: "، ")
+        return parts.joined(separator: L("، ", ", "))
     }
 
     private func syncTraining() {
@@ -613,16 +631,16 @@ struct ContentView: View {
     }
 
     private var statusText: String {
-        if model.isBusy && model.modelName.isEmpty || model.status.hasPrefix("در حال بارگذاری") {
-            return "در حال بارگذاری مدل…"
+        if model.isBusy && model.modelName.isEmpty || model.status.hasPrefix(L("در حال بارگذاری", "Loading")) {
+            return L("در حال بارگذاری مدل…", "Loading the model…")
         }
         if needsModel {
-            return "برای دیکته، یک بار فایل مدل گفتار را وارد کنید."
+            return L("برای دیکته، یک بار فایل مدل گفتار را وارد کنید.", "To dictate, import the speech model file once.")
         }
         if keyboard.isActive {
-            return "کیبورد آماده است. به اپ قبلی برگردید و با نگه‌داشتن کلید فاصله دیکته کنید."
+            return L("کیبورد آماده است. به اپ قبلی برگردید و با نگه‌داشتن کلید فاصله دیکته کنید.", "The keyboard is ready. Go back to the previous app and hold the space bar to dictate.")
         }
-        return keyboard.message.isEmpty ? "برای دیکته با کیبورد، تایپ صوتی را روشن کنید." : keyboard.message
+        return keyboard.message.isEmpty ? L("برای دیکته با کیبورد، تایپ صوتی را روشن کنید.", "To dictate with the keyboard, turn on voice typing.") : keyboard.message
     }
 
     /// No model is loaded and none is loading.
@@ -635,24 +653,24 @@ struct ContentView: View {
             Button {
                 pickingModel = true
             } label: {
-                SettingLabel(needsModel ? "وارد کردن مدل از Files" : "جایگزینی مدل از Files",
+                SettingLabel(needsModel ? L("وارد کردن مدل از Files", "Import Model from Files") : L("جایگزینی مدل از Files", "Replace Model from Files"),
                              symbol: "square.and.arrow.down.fill", color: .blue)
             }
             .disabled(importer.progress != nil)
             if importer.progress != nil {
                 ProgressView {
-                    Text("در حال آماده کردن مدل…").font(.app(.subheadline))
+                    Text(L("در حال آماده کردن مدل…", "Preparing the model…")).font(.app(.subheadline))
                 }
             }
-            LabeledContent("مدل", value: model.modelName.isEmpty ? "—" : model.modelName)
-            LabeledContent("وضعیت مدل", value: model.status)
+            LabeledContent(L("مدل", "Model"), value: model.modelName.isEmpty ? "—" : model.modelName)
+            LabeledContent(L("وضعیت مدل", "Model Status"), value: model.status)
         } header: {
-            Text("مدل گفتار").font(.app(.footnote))
+            Text(L("مدل گفتار", "Speech Model")).font(.app(.footnote))
         } footer: {
             Text((importer.message.isEmpty ? "" : importer.message + "\n\n")
-                 + "فایل مدل گفتار (پسوند aar، حدود ۱۰۰ مگابایت) فقط یک بار لازم است و با نصب نسخه‌های بعدی روی همین برنامه می‌ماند؛ اگر برنامه را پاک کنید، مدل هم پاک می‌شود. "
-                 + "آن را از بخش Artifacts همان اجرا در GitHub با نام AvakScribeModel دانلود کنید، از zip خارج کنید و با AirDrop یا iCloud Drive به آیفون بفرستید و اینجا انتخاب کنید. "
-                 + "راه دیگر: آیفون را به Mac وصل کنید، در Finder آیفون را انتخاب کنید و در بخش Files فایل را روی «آواک» بکشید.").font(.app(.footnote))
+                 + L("فایل مدل گفتار (پسوند aar، حدود ۱۰۰ مگابایت) فقط یک بار لازم است و با نصب نسخه‌های بعدی روی همین برنامه می‌ماند؛ اگر برنامه را پاک کنید، مدل هم پاک می‌شود. ", "The speech model file (.aar, about 100 MB) is needed once and stays when newer versions are installed over this app; deleting the app deletes the model too. ")
+                 + L("آن را از بخش Artifacts همان اجرا در GitHub با نام AvakScribeModel دانلود کنید، از zip خارج کنید و با AirDrop یا iCloud Drive به آیفون بفرستید و اینجا انتخاب کنید. ", "Download it from the run's Artifacts on GitHub as AvakScribeModel, unzip it, send it to the iPhone with AirDrop or iCloud Drive and choose it here. ")
+                 + L("راه دیگر: آیفون را به Mac وصل کنید، در Finder آیفون را انتخاب کنید و در بخش Files فایل را روی «آواک» بکشید.", "Or connect the iPhone to a Mac, select the iPhone in Finder and drag the file onto Avak under Files.")).font(.app(.footnote))
         }
     }
 
@@ -696,7 +714,7 @@ struct ContentView: View {
         SliderLine(small: "circle.dotted", large: "circle.fill") {
             Slider(value: Binding { style[keyPath: path].a } set: { style[keyPath: path].a = $0 }, in: 0...1)
         } value: {
-            Text(Int(style[keyPath: path].a * 100).formatted(.number.locale(Locale(identifier: "fa_IR"))) + "٪")
+            Text(Int(style[keyPath: path].a * 100).formatted(.number.locale(AppLanguage.locale)) + L("٪", "%"))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .frame(minWidth: 40, alignment: .trailing)
@@ -737,58 +755,58 @@ private struct HandwritingPage: View {
             SliderLine(small: "tortoise.fill", large: "hare.fill") {
                 Slider(value: $options.handwritingSpeed, in: 0...1)
             } value: {
-                Text(options.handwritingPause.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "fa_IR"))) + " ثانیه")
+                Text(options.handwritingPause.formatted(.number.precision(.fractionLength(1)).locale(AppLanguage.locale)) + L(" ثانیه", " s"))
                     .font(.app(.footnote))
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 52)
             }
         } header: {
-            Text("سرعت").font(.app(.footnote))
+            Text(L("سرعت", "Speed")).font(.app(.footnote))
         } footer: {
-            Text("مکث پس از بلند کردن انگشت تا کلمه به متن تبدیل شود. سریع: می‌شود بی‌وقفه نوشت. آرام: برای نوشتن با حوصله‌تر.").font(.app(.footnote))
+            Text(L("مکث پس از بلند کردن انگشت تا کلمه به متن تبدیل شود. سریع: می‌شود بی‌وقفه نوشت. آرام: برای نوشتن با حوصله‌تر.", "The pause after lifting your finger before the word turns into text. Fast: write without stopping. Slow: for more careful writing.")).font(.app(.footnote))
         }
 
         Section {
             Picker(selection: $options.handwritingSize) {
                 ForEach(0..<3) { Text(KeyboardOptions.handwritingSizeNames[$0]).tag($0) }
             } label: {
-                SettingLabel("اندازه‌ی صفحه", symbol: "arrow.up.and.down", color: .orange)
+                SettingLabel(L("اندازه‌ی صفحه", "Pad Size"), symbol: "arrow.up.and.down", color: .orange)
             }
         } footer: {
-            Text("روی صفحه‌ی دست‌خط هم می‌شود دستگیره‌ی بالای آن را گرفت و کمی بالا یا پایین کشید تا یک اندازه بزرگ‌تر یا کوچک‌تر شود. دو ضربه روی دستگیره اندازه‌ی متوسط را برمی‌گرداند.").font(.app(.footnote))
+            Text(L("روی صفحه‌ی دست‌خط هم می‌شود دستگیره‌ی بالای آن را گرفت و کمی بالا یا پایین کشید تا یک اندازه بزرگ‌تر یا کوچک‌تر شود. دو ضربه روی دستگیره اندازه‌ی متوسط را برمی‌گرداند.", "On the handwriting pad you can also drag its top handle up or down a little for one size larger or smaller. Double-tapping the handle restores the medium size.")).font(.app(.footnote))
         }
 
         Section {
             Toggle(isOn: $options.handwritingSlide) {
-                SettingLabel("کنار رفتن نوشته", symbol: "arrow.left.and.right", color: .teal)
+                SettingLabel(L("کنار رفتن نوشته", "Slide Writing Aside"), symbol: "arrow.left.and.right", color: .teal)
             }
         } footer: {
             Text(options.handwritingSlide
-                 ? "کلمه‌ی نوشته‌شده مثل کاغذ از زیر قلم کنار می‌رود (فارسی به راست، انگلیسی به چپ) و چند ثانیه بعد از آخرین نوشتن محو می‌شود."
-                 : "هر کلمه همان لحظه که خوانده شد، از جایی که شروع شده دود می‌شود و بالا می‌رود؛ سرعتش با سرعت دست‌خط است.").font(.app(.footnote))
+                 ? L("کلمه‌ی نوشته‌شده مثل کاغذ از زیر قلم کنار می‌رود (فارسی به راست، انگلیسی به چپ) و چند ثانیه بعد از آخرین نوشتن محو می‌شود.", "The written word slides out from under the pen like paper (Persian to the right, English to the left) and fades a few seconds after you last wrote.")
+                 : L("هر کلمه همان لحظه که خوانده شد، از جایی که شروع شده دود می‌شود و بالا می‌رود؛ سرعتش با سرعت دست‌خط است.", "Each word turns to smoke where it started as soon as it is read and rises; its speed follows the handwriting speed.")).font(.app(.footnote))
         }
 
         Section {
             Toggle(isOn: $options.handwritingGuide) {
-                SettingLabel("خط راهنما", symbol: "ruler", color: .gray)
+                SettingLabel(L("خط راهنما", "Guide Line"), symbol: "ruler", color: .gray)
             }
         } footer: {
-            Text("یک خط کم‌رنگ هم‌رنگ حروف روی کاغذ، تا اندازه و راستای نوشته یکدست بماند.").font(.app(.footnote))
+            Text(L("یک خط کم‌رنگ هم‌رنگ حروف روی کاغذ، تا اندازه و راستای نوشته یکدست بماند.", "A faint line in the letter colour on the paper, to keep the writing's size and direction even.")).font(.app(.footnote))
         }
 
         Section {
             Toggle(isOn: $options.handwritingStrip) {
-                SettingLabel("نوار کنار بردن", symbol: "arrow.right.to.line", color: .gray)
+                SettingLabel(L("نوار کنار بردن", "Slide-Aside Strip"), symbol: "arrow.right.to.line", color: .gray)
             }
         } footer: {
-            Text("نواری کم‌رنگ در لبه‌ی کاغذ (فارسی راست، انگلیسی چپ). یک ضربه روی آن کلمه را همان لحظه می‌خواند و کنار می‌برد؛ روی خود نوار هم می‌شود نوشت.").font(.app(.footnote))
+            Text(L("نواری کم‌رنگ در لبه‌ی کاغذ (فارسی راست، انگلیسی چپ). یک ضربه روی آن کلمه را همان لحظه می‌خواند و کنار می‌برد؛ روی خود نوار هم می‌شود نوشت.", "A faint strip at the paper's edge (right for Persian, left for English). A tap on it reads the word at once and slides it aside; you can also write on the strip.")).font(.app(.footnote))
         }
 
         Section {
             SliderLine(small: "line.diagonal", large: "scribble.variable") {
                 Slider(value: $options.handwritingInkWidth, in: KeyboardOptions.handwritingWidths, step: 0.5)
             } value: {
-                Text(options.handwritingInkWidth.formatted(.number.precision(.fractionLength(0...1)).locale(Locale(identifier: "fa_IR"))))
+                Text(options.handwritingInkWidth.formatted(.number.precision(.fractionLength(0...1)).locale(AppLanguage.locale)))
                     .font(.app(.footnote))
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 28)
@@ -798,11 +816,11 @@ private struct HandwritingPage: View {
             } set: { automatic in
                 options.handwritingInk = automatic ? nil : KeyStyle.RGBA(r: 0.0, g: 0.48, b: 1.0, a: 1)
             }) {
-                SettingLabel("هم‌رنگ حروف کیبورد", symbol: "circle.lefthalf.filled", color: .gray)
+                SettingLabel(L("هم‌رنگ حروف کیبورد", "Same as Keyboard Letters"), symbol: "circle.lefthalf.filled", color: .gray)
             }
             if options.handwritingInk != nil {
                 ColorPicker(selection: inkBinding, supportsOpacity: false) {
-                    SettingLabel("رنگ قلم", symbol: "paintbrush.pointed.fill", color: .blue)
+                    SettingLabel(L("رنگ قلم", "Pen Colour"), symbol: "paintbrush.pointed.fill", color: .blue)
                 }
             }
             PenSample(width: options.handwritingInkWidth,
@@ -810,7 +828,7 @@ private struct HandwritingPage: View {
                 .frame(height: 70)
                 .listRowBackground(Color(.secondarySystemGroupedBackground))
         } header: {
-            Text("قلم").font(.app(.footnote))
+            Text(L("قلم", "Pen")).font(.app(.footnote))
         }
     }
 
@@ -900,14 +918,14 @@ private struct KeyboardGateView: View {
                         .font(.system(size: 54, weight: .medium))
                         .foregroundStyle(.orange)
                         .padding(.top, 40)
-                    Text("اول کیبورد آواک را آماده کنید")
+                    Text(L("اول کیبورد آواک را آماده کنید", "Set Up the Avak Keyboard First"))
                         .font(.app(.title2))
                         .multilineTextAlignment(.center)
                     VStack(alignment: .leading, spacing: 14) {
-                        step(done: gate.isAdded, title: "افزودن کیبورد",
-                             text: "تنظیمات › آواک › کیبوردها › آواک را روشن کنید.")
-                        step(done: gate.hasFullAccess, title: "روشن کردن دسترسی کامل",
-                             text: "در همان صفحه «اجازه‌ی دسترسی کامل» را روشن کنید. دیکته، رنگ‌ها و واژه‌نامه بدون آن کار نمی‌کنند.")
+                        step(done: gate.isAdded, title: L("افزودن کیبورد", "Add the Keyboard"),
+                             text: L("تنظیمات › آواک › کیبوردها › آواک را روشن کنید.", "Settings › Avak › Keyboards › turn on Avak."))
+                        step(done: gate.hasFullAccess, title: L("روشن کردن دسترسی کامل", "Turn On Full Access"),
+                             text: L("در همان صفحه «اجازه‌ی دسترسی کامل» را روشن کنید. دیکته، رنگ‌ها و واژه‌نامه بدون آن کار نمی‌کنند.", "On the same page turn on Allow Full Access. Dictation, colours and the dictionary do not work without it."))
                     }
                     .padding(16)
                     .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -917,7 +935,7 @@ private struct KeyboardGateView: View {
                             UIApplication.shared.open(url)
                         }
                     } label: {
-                        Text("باز کردن تنظیمات")
+                        Text(L("باز کردن تنظیمات", "Open Settings"))
                             .font(.app(.headline))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)
@@ -927,11 +945,11 @@ private struct KeyboardGateView: View {
 
                     Group {
                         VStack(spacing: 8) {
-                            Text("بعد از افزودن کیبورد و روشن کردن دسترسی کامل، اینجا بزنید و با کلید کره کیبورد آواک را انتخاب کنید تا تأیید شود.")
+                            Text(L("بعد از افزودن کیبورد و روشن کردن دسترسی کامل، اینجا بزنید و با کلید کره کیبورد آواک را انتخاب کنید تا تأیید شود.", "After adding the keyboard and turning on Full Access, tap here and switch to the Avak keyboard with the globe key to confirm."))
                                 .font(.app(.footnote))
                                 .foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
-                            TextField("اینجا بزنید", text: $probe)
+                            TextField(L("اینجا بزنید", "Tap here"), text: $probe)
                                 .focused($probing)
                                 .multilineTextAlignment(.center)
                                 .padding(12)
@@ -942,7 +960,7 @@ private struct KeyboardGateView: View {
                 .padding(.horizontal, 24)
             }
         }
-        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.layoutDirection, AppLanguage.english ? .leftToRight : .rightToLeft)
         .font(.app(.body))
         .onChange(of: gate.isReady) { _, ready in if ready { probing = false } }
     }
@@ -1026,13 +1044,13 @@ private struct CrashReportsPage: View {
     var body: some View {
         Section {
             if reports.isEmpty {
-                Text("گزارشی نیست.")
+                Text(L("گزارشی نیست.", "No reports."))
                     .foregroundStyle(.secondary)
             }
             ForEach(reports) { report in
                 ShareLink(item: report.url) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("\(report.source) · \(report.date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(Locale(identifier: "fa_IR"))))")
+                        Text("\(report.source) · \(report.date.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(AppLanguage.locale)))")
                             .font(.app(.subheadline))
                             .foregroundStyle(.secondary)
                         Text(report.summary)
@@ -1041,14 +1059,14 @@ private struct CrashReportsPage: View {
                 }
             }
         } footer: {
-            Text("iOS خرابی‌ها، گیرکردن‌ها و بسته شدن‌های ناگهانی برنامه و کیبورد را ثبت می‌کند و حداکثر یک روز بعد به برنامه می‌دهد. چیزی خودکار فرستاده نمی‌شود؛ برای فرستادن، روی گزارش بزنید.")
+            Text(L("iOS خرابی‌ها، گیرکردن‌ها و بسته شدن‌های ناگهانی برنامه و کیبورد را ثبت می‌کند و حداکثر یک روز بعد به برنامه می‌دهد. چیزی خودکار فرستاده نمی‌شود؛ برای فرستادن، روی گزارش بزنید.", "iOS records crashes, hangs and sudden exits of the app and keyboard and hands them to the app within a day. Nothing is sent automatically; to send one, tap the report."))
         }
         if !reports.isEmpty {
             Section {
                 ShareLink(items: reports.map(\.url)) {
-                    Text("فرستادن همه")
+                    Text(L("فرستادن همه", "Send All"))
                 }
-                Button("پاک کردن همه", role: .destructive) {
+                Button(L("پاک کردن همه", "Delete All"), role: .destructive) {
                     CrashReports.removeAll()
                     reports = []
                 }
@@ -1091,9 +1109,9 @@ private struct ShortcutsPage: View {
 
     var body: some View {
         Section {
-            TextField("میان‌بر، یک کلمه (مثل آدف)", text: $shortcut)
+            TextField(L("میان‌بر، یک کلمه (مثل آدف)", "Shortcut, one word (like omw)"), text: $shortcut)
                 .rightAligned()
-            TextField("متن کامل", text: $text)
+            TextField(L("متن کامل", "Full text"), text: $text)
                 .rightAligned()
             Button {
                 shortcuts.entries.insert(.init(shortcut: shortcut.trimmingCharacters(in: .whitespaces),
@@ -1101,13 +1119,13 @@ private struct ShortcutsPage: View {
                 shortcut = ""
                 text = ""
             } label: {
-                Label("افزودن", systemImage: "plus.circle.fill")
+                Label(L("افزودن", "Add"), systemImage: "plus.circle.fill")
             }
             .disabled(!canAdd)
         } header: {
-            Text("میان‌بر تازه").font(.app(.footnote))
+            Text(L("میان‌بر تازه", "New Shortcut")).font(.app(.footnote))
         } footer: {
-            Text("در کیبورد میان‌بر را بنویسید: متن کاملش وسط نوار پیشنهاد می‌آید و با فاصله جایش می‌نشیند؛ پاک کردن بلافاصله میان‌بر را برمی‌گرداند. فقط در تایپ کار می‌کند، نه در گفتار. میان‌برهای «جایگزینی متن» تنظیمات آیفون (عمومی › صفحه‌کلید) هم کار می‌کنند. کیبورد میان‌بر تازه را دفعه‌ی بعد که باز شود می‌خواند.")
+            Text(L("در کیبورد میان‌بر را بنویسید: متن کاملش وسط نوار پیشنهاد می‌آید و با فاصله جایش می‌نشیند؛ پاک کردن بلافاصله میان‌بر را برمی‌گرداند. فقط در تایپ کار می‌کند، نه در گفتار. میان‌برهای «جایگزینی متن» تنظیمات آیفون (عمومی › صفحه‌کلید) هم کار می‌کنند. کیبورد میان‌بر تازه را دفعه‌ی بعد که باز شود می‌خواند.", "Type the shortcut on the keyboard: its full text appears in the middle of the suggestion bar and replaces it on space; deleting right after puts the shortcut back. Works in typing only, not in speech. The iPhone's Text Replacement shortcuts (General › Keyboard) work too. The keyboard reads a new shortcut the next time it opens."))
                 .font(.app(.footnote))
         }
 
@@ -1115,22 +1133,22 @@ private struct ShortcutsPage: View {
             Section {
                 ForEach($shortcuts.entries) { $entry in
                     HStack(spacing: 8) {
-                        TextField("میان‌بر", text: $entry.shortcut)
+                        TextField(L("میان‌بر", "Shortcut"), text: $entry.shortcut)
                             .rightAligned()
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: 90)
                         Image(systemName: "arrow.left")
                             .font(.footnote)
                             .foregroundStyle(.tertiary)
-                        TextField("متن کامل", text: $entry.text)
+                        TextField(L("متن کامل", "Full text"), text: $entry.text)
                             .rightAligned()
                     }
                 }
                 .onDelete { shortcuts.entries.remove(atOffsets: $0) }
             } header: {
-                Text("میان‌برهای شما").font(.app(.footnote))
+                Text(L("میان‌برهای شما", "Your Shortcuts")).font(.app(.footnote))
             } footer: {
-                Text("برای پاک کردن، ردیف را به کنار بکشید.").font(.app(.footnote))
+                Text(L("برای پاک کردن، ردیف را به کنار بکشید.", "To delete, swipe the row aside.")).font(.app(.footnote))
             }
         }
     }
@@ -1153,22 +1171,22 @@ private struct DictionaryPage: View {
 
     @ViewBuilder private var sections: some View {
         Section {
-            TextField("درستش", text: $written)
+            TextField(L("درستش", "Correct form"), text: $written)
                 .rightAligned()
-            TextField("آنچه مدل می‌نویسد (اختیاری)", text: $heard)
+            TextField(L("آنچه مدل می‌نویسد (اختیاری)", "What the model writes (optional)"), text: $heard)
                 .rightAligned()
             Button {
                 add(heard: heard, written: written)
                 heard = ""
                 written = ""
             } label: {
-                Label("افزودن", systemImage: "plus.circle.fill")
+                Label(L("افزودن", "Add"), systemImage: "plus.circle.fill")
             }
             .disabled(!canAdd)
         } header: {
-            Text("واژه‌ی تازه").font(.app(.footnote))
+            Text(L("واژه‌ی تازه", "New Word")).font(.app(.footnote))
         } footer: {
-            Text("مدل هنگام تشخیص گفتار نام‌ها و اصطلاح‌های شما را به واژه‌های نزدیک دیگر ترجیح می‌دهد. اگر باز هم شکل دیگری نوشت، آن شکل را در «آنچه مدل می‌نویسد» بگذارید تا بعد از تشخیص با نوشته‌ی درست جایگزین شود. فاصله و نیم‌فاصله و ی و ک عربی در مقایسه مهم نیستند و فقط کلمه‌ی کامل جایگزین می‌شود. این واژه‌نامه فقط برای گفتار است؛ مثلاً «شکلک لبخند» در «آنچه مدل می‌نویسد» و 😊 در «درستش». میان‌بر تایپ صفحه‌ی جدای خودش را دارد.")
+            Text(L("مدل هنگام تشخیص گفتار نام‌ها و اصطلاح‌های شما را به واژه‌های نزدیک دیگر ترجیح می‌دهد. اگر باز هم شکل دیگری نوشت، آن شکل را در «آنچه مدل می‌نویسد» بگذارید تا بعد از تشخیص با نوشته‌ی درست جایگزین شود. فاصله و نیم‌فاصله و ی و ک عربی در مقایسه مهم نیستند و فقط کلمه‌ی کامل جایگزین می‌شود. این واژه‌نامه فقط برای گفتار است؛ مثلاً «شکلک لبخند» در «آنچه مدل می‌نویسد» و 😊 در «درستش». میان‌بر تایپ صفحه‌ی جدای خودش را دارد.", "When recognizing speech the model prefers your names and terms over similar words. If it still writes another form, put that form under What the model writes and it is replaced with the correct form after recognition. Spaces, ZWNJ and Arabic ye and kaf do not matter in the comparison, and only whole words are replaced. This dictionary is for speech only; typing shortcuts have their own page."))
                 .font(.app(.footnote))
         }
 
@@ -1176,21 +1194,21 @@ private struct DictionaryPage: View {
             Section {
                 ForEach($dictionary.entries) { $entry in
                     HStack(spacing: 8) {
-                        TextField("آنچه مدل می‌نویسد", text: $entry.heard)
+                        TextField(L("آنچه مدل می‌نویسد", "What the model writes"), text: $entry.heard)
                             .rightAligned()
                             .foregroundStyle(.secondary)
                         Image(systemName: "arrow.left")
                             .font(.footnote)
                             .foregroundStyle(.tertiary)
-                        TextField("درستش", text: $entry.written)
+                        TextField(L("درستش", "Correct form"), text: $entry.written)
                             .rightAligned()
                     }
                 }
                 .onDelete { dictionary.entries.remove(atOffsets: $0) }
             } header: {
-                Text("واژه‌های شما").font(.app(.footnote))
+                Text(L("واژه‌های شما", "Your Words")).font(.app(.footnote))
             } footer: {
-                Text("برای پاک کردن، ردیف را به کنار بکشید.").font(.app(.footnote))
+                Text(L("برای پاک کردن، ردیف را به کنار بکشید.", "To delete, swipe the row aside.")).font(.app(.footnote))
             }
         }
 
@@ -1200,7 +1218,7 @@ private struct DictionaryPage: View {
                     HStack(spacing: 8) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(suggestion.heard) ← \(suggestion.written)")
-                            Text("\(suggestion.count) بار اصلاح شده")
+                            Text(L("\(suggestion.count) بار اصلاح شده", "corrected \(suggestion.count) times"))
                                 .font(.app(.caption))
                                 .foregroundStyle(.secondary)
                         }
@@ -1221,9 +1239,9 @@ private struct DictionaryPage: View {
                     }
                 }
             } header: {
-                Text("پیشنهاد از اصلاح‌های شما").font(.app(.footnote))
+                Text(L("پیشنهاد از اصلاح‌های شما", "Suggested from Your Corrections")).font(.app(.footnote))
             } footer: {
-                Text("کلمه‌هایی که در متن دیکته‌شده \(DictionarySuggestions.minimum) بار یا بیشتر به یک شکل اصلاح کرده‌اید. برای این کار تایپ صوتی و دسترسی کامل کیبورد باید روشن باشند.")
+                Text(L("کلمه‌هایی که در متن دیکته‌شده \(DictionarySuggestions.minimum) بار یا بیشتر به یک شکل اصلاح کرده‌اید. برای این کار تایپ صوتی و دسترسی کامل کیبورد باید روشن باشند.", "Words you corrected the same way \(DictionarySuggestions.minimum) times or more in dictated text. This needs voice typing and the keyboard's Full Access on."))
                     .font(.app(.footnote))
             }
         }
@@ -1267,17 +1285,17 @@ private struct TapMapPage: View {
     var body: some View {
         Section {
             Picker("", selection: $english) {
-                Text("فارسی").tag(false)
+                Text(L("فارسی", "Persian")).tag(false)
                 Text("English").tag(true)
             }
             .pickerStyle(.segmented)
             map(model)
                 .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 8, trailing: 4))
-            LabeledContent("لمس‌های یادگرفته", value: "\(model.touches(layout: english ? "en.p" : "fa.p"))")
+            LabeledContent(L("لمس‌های یادگرفته", "Learned Touches"), value: "\(model.touches(layout: english ? "en.p" : "fa.p"))")
         } footer: {
             Text(model.isEmpty
-                 ? "هر حرف وسط کلید خودش است. با تایپ کردن، کیبورد یاد می‌گیرد هر کلید را کجا می‌زنید و حرف‌ها کم‌کم به همان‌جا جابه‌جا می‌شوند."
-                 : "هر حرف جایی است که معمولاً آن کلید را می‌زنید؛ ابر رنگی محدوده‌ی لمس‌هاست و هرچه پررنگ‌تر، لمس بیشتری دیده شده؛ خط از وسط کلید تا جای تازه‌ی حرف است. کیبورد لمس نزدیک مرز کلیدها را با همین نقشه به حرف درست می‌دهد.")
+                 ? L("هر حرف وسط کلید خودش است. با تایپ کردن، کیبورد یاد می‌گیرد هر کلید را کجا می‌زنید و حرف‌ها کم‌کم به همان‌جا جابه‌جا می‌شوند.", "Each letter is in the middle of its key. As you type, the keyboard learns where you tap each key and the letters gradually move there.")
+                 : L("هر حرف جایی است که معمولاً آن کلید را می‌زنید؛ ابر رنگی محدوده‌ی لمس‌هاست و هرچه پررنگ‌تر، لمس بیشتری دیده شده؛ خط از وسط کلید تا جای تازه‌ی حرف است. کیبورد لمس نزدیک مرز کلیدها را با همین نقشه به حرف درست می‌دهد.", "Each letter is where you usually tap its key; the coloured cloud is the spread of touches, darker where more were seen; the line runs from the key's middle to the letter's new place. The keyboard uses this map to give touches near key borders to the right letter."))
                 .font(.app(.footnote))
         }
         .onAppear { model = TouchModel.fromKeyboard() ?? TouchModel() }
@@ -1405,7 +1423,8 @@ private struct BackgroundChoice: View {
 extension Font {
     /// The app font (`AppFont`) at the size of a text style, scaling with Dynamic Type.
     static func app(_ style: Font.TextStyle) -> Font {
-        guard let name = AppFont.name else { return .system(style) }
+        // English words in the system font, which the app font (Persian only) lacks.
+        guard let name = AppFont.name, !AppLanguage.english else { return .system(style) }
         let uiStyle: UIFont.TextStyle
         switch style {
         case .largeTitle: uiStyle = .largeTitle
@@ -1428,6 +1447,6 @@ extension View {
     /// Persian text fields start on the right: under the right-to-left layout SwiftUI still
     /// starts them on the left.
     func rightAligned() -> some View {
-        multilineTextAlignment(.trailing).environment(\.layoutDirection, .leftToRight)
+        multilineTextAlignment(AppLanguage.english ? .leading : .trailing).environment(\.layoutDirection, .leftToRight)
     }
 }

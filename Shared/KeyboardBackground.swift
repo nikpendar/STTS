@@ -10,14 +10,14 @@ enum KeyboardBackground {
         let name: String
     }
 
-    static let presets: [Preset] = [
-        Preset(id: "aurora", name: "شفق"),
-        Preset(id: "sunset", name: "غروب"),
-        Preset(id: "ocean", name: "دریا"),
-        Preset(id: "night", name: "شب پرستاره"),
-        Preset(id: "tile", name: "کاشی"),
-        Preset(id: "pastel", name: "پاستل"),
-    ]
+    static var presets: [Preset] { [
+        Preset(id: "aurora", name: L("شفق", "Aurora")),
+        Preset(id: "sunset", name: L("غروب", "Sunset")),
+        Preset(id: "ocean", name: L("دریا", "Ocean")),
+        Preset(id: "night", name: L("شب پرستاره", "Starry Night")),
+        Preset(id: "tile", name: L("کاشی", "Tile")),
+        Preset(id: "pastel", name: L("پاستل", "Pastel")),
+    ] }
 
     private static let photoPrefix = "photo:"
     static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.keyboardBackground")

@@ -164,7 +164,10 @@ final class KeyboardViewController: UIInputViewController {
     var undoSteps: [UndoStep] = []
     /// Features turned on or off in the app.
     var options = KeyboardOptions.standard {
-        didSet { Haptics.isOn = options.haptics }
+        didSet {
+            Haptics.isOn = options.haptics
+            AppLanguage.english = options.english
+        }
     }
     /// The user's own words, put into each dictation (set in the app).
     var dictionary = PersonalDictionary.standard
@@ -557,14 +560,14 @@ final class KeyboardViewController: UIInputViewController {
         cancelTimeout()
         liveText = ""
         state = .ready
-        showStatus("متنی تشخیص داده نشد", transient: true)
+        showStatus(L("متنی تشخیص داده نشد", "No text recognized"), transient: true)
     }
 
     /// No session: the app opens and starts one (`DictationBridge.keyboardOpensApp`), else
     /// the space bar says to.
     func askForSession() {
         if !DictationBridge.keyboardOpensApp || !open(DictationBridge.sessionURL) {
-            showStatus("آواک را باز کنید و تایپ صوتی را روشن کنید", transient: true)
+            showStatus(L("آواک را باز کنید و تایپ صوتی را روشن کنید", "Open Avak and turn on voice typing"), transient: true)
         }
     }
 
@@ -798,7 +801,7 @@ final class KeyboardViewController: UIInputViewController {
                 spaceKey.accent = .systemOrange
                 spaceKey.overlay = spaceVoice
             }
-            spaceKey.accessibilityLabel = isLocked ? "فاصله؛ پایان ضبط در سمت راست" : "در حال ضبط"
+            spaceKey.accessibilityLabel = isLocked ? L("فاصله؛ پایان ضبط در سمت راست", "Space; stop recording at the right end") : L("در حال ضبط", "Recording")
         } else if spaceKey.overlay != nil {
             spaceKey.overlay = nil
             spaceKey.accent = nil
@@ -852,7 +855,7 @@ final class KeyboardViewController: UIInputViewController {
         emojiPanel.onCategoryChange = { [weak self] in self?.haptic(.category) }
         keysView.addSubview(emojiPanel)
         emojiSearchKey.accessibilityIdentifier = "emojiSearchKey"
-        emojiSearchKey.accessibilityLabel = "جستجوی شکلک"
+        emojiSearchKey.accessibilityLabel = L("جستجوی شکلک", "Search Emoji")
         emojiSearchKey.plain = true
         emojiSearchKey.isHidden = true
         emojiSearchKey.addAction(UIAction { [weak self] _ in self?.click(.modifier) }, for: .touchDown)
@@ -868,7 +871,7 @@ final class KeyboardViewController: UIInputViewController {
         layerKey.accessibilityIdentifier = "layerKey"
         layerKey.addTarget(self, action: #selector(toggleLayer), for: .touchUpInside)
         globeKey.accessibilityIdentifier = "globeKey"
-        globeKey.accessibilityLabel = "کیبورد بعدی"
+        globeKey.accessibilityLabel = L("کیبورد بعدی", "Next Keyboard")
         globeKey.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
         globeKey.isHidden = true
         emojiKey.accessibilityIdentifier = "emojiKey"
@@ -887,7 +890,7 @@ final class KeyboardViewController: UIInputViewController {
         spaceKey.addGestureRecognizer(spaceHold)
         // Once the hold has begun, sliding the finger moves toward the lock, not to English.
         spacePan.require(toFail: spaceHold)
-        spaceKey.accessibilityHint = "برای دیکته نگه دارید"
+        spaceKey.accessibilityHint = L("برای دیکته نگه دارید", "Hold to dictate")
         shiftKey.accessibilityIdentifier = "shiftKey"
         shiftKey.addTarget(self, action: #selector(toggleShift), for: .touchUpInside)
         keysView.addSubview(shiftKey)
@@ -916,9 +919,9 @@ final class KeyboardViewController: UIInputViewController {
         keysView.addGestureRecognizer(glidePan)
 
         keyMenu.items = [
-            KeyMenuView.Item(title: "شکلک", symbol: "face.smiling") { [weak self] in self?.toggleEmoji() },
-            KeyMenuView.Item(title: "دست‌خط", symbol: "scribble") { [weak self] in self?.showHandwriting() },
-            KeyMenuView.Item(title: "تنظیمات", symbol: "gearshape") { [weak self] in self?.showSettings() },
+            KeyMenuView.Item(title: L("شکلک", "Emoji"), symbol: "face.smiling") { [weak self] in self?.toggleEmoji() },
+            KeyMenuView.Item(title: L("دست‌خط", "Handwriting"), symbol: "scribble") { [weak self] in self?.showHandwriting() },
+            KeyMenuView.Item(title: L("تنظیمات", "Settings"), symbol: "gearshape") { [weak self] in self?.showSettings() },
         ]
         keyMenu.onSelect = { [weak self] item in
             self?.closeMenu()
@@ -1012,7 +1015,7 @@ final class KeyboardViewController: UIInputViewController {
         }
         applyTilt()
         let onLetters = layer == .letters
-        layerKey.title = layer == .emoji && emojiReturnsToHandwriting ? "برگشت"
+        layerKey.title = layer == .emoji && emojiReturnsToHandwriting ? L("برگشت", "Back")
             : isEnglish ? (onLetters ? "123" : "ABC") : (onLetters ? "۱۲۳" : "الفبا")
         shiftKey.isHidden = !(isEnglish && layer == .letters)
         moreKey.isHidden = !(layer == .symbols || layer == .moreSymbols)
@@ -1024,7 +1027,7 @@ final class KeyboardViewController: UIInputViewController {
         emojiKey.image = layer == .emoji ? KeyIcons.menuKey(symbol: "keyboard") : KeyIcons.emojiKey
         // A key hidden while it was pressed (emoji, 123) comes back unpressed.
         for key in [emojiKey, globeKey, layerKey, moreKey, shiftKey, returnKey, spaceKey] { key.isHighlighted = false }
-        emojiKey.accessibilityLabel = layer == .emoji ? "حروف" : "شکلک"
+        emojiKey.accessibilityLabel = layer == .emoji ? L("حروف", "Letters") : L("شکلک", "Emoji")
         lastGlide = nil
         wordTouches.removeAll()
         deletedTouches.removeAll()
@@ -2361,7 +2364,7 @@ final class KeyboardViewController: UIInputViewController {
             panel.onOpenApp = { [weak self] in
                 guard let self else { return }
                 if !self.open(DictationBridge.settingsURL) {
-                    self.showStatus("برای بقیه‌ی تنظیمات آواک را باز کنید", transient: true)
+                    self.showStatus(L("برای بقیه‌ی تنظیمات آواک را باز کنید", "Open Avak for the other settings"), transient: true)
                 }
             }
         }

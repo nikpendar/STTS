@@ -104,11 +104,17 @@ jobs:
           KB=$APP/PlugIns/PersianSTTKeyboard.appex
           plutil -replace CFBundleDisplayName -string "PersianSTT" "$APP/Info.plist"
           plutil -replace CFBundleDisplayName -string "Persian Dictation" "$KB/Info.plist"
+          # The microphone prompt in the app's language: English for en (the guide's English also
+          # sets the app's language to en), Persian otherwise.
+          MIC_FA="برای تبدیل صدای شما به متن، به میکروفون نیاز است. صدا روی همین گوشی به متن تبدیل می‌شود و فقط اگر «ارسال اصلاح‌ها برای آموزش» را روشن کنید، دیکته‌های اصلاح‌شده برای آموزش فرستاده می‌شوند."
+          MIC_EN="Avak needs the microphone to turn your speech into text. Speech is turned into text on this iPhone; only if you turn on sending corrections for training are corrected dictations sent."
           for lang in Base en fa; do
             mkdir -p "$APP/$lang.lproj" "$KB/$lang.lproj"
-            printf '"CFBundleDisplayName" = "%s";\n' "آواک" > "$APP/$lang.lproj/InfoPlist.strings"
+            if [ "$lang" = en ]; then MIC="$MIC_EN"; else MIC="$MIC_FA"; fi
+            printf '"CFBundleDisplayName" = "%s";\n"NSMicrophoneUsageDescription" = "%s";\n' "آواک" "$MIC" > "$APP/$lang.lproj/InfoPlist.strings"
             printf '"CFBundleDisplayName" = "%s";\n' "آواک" > "$KB/$lang.lproj/InfoPlist.strings"
           done
+          plutil -lint "$APP/en.lproj/InfoPlist.strings"
           plutil -lint "$APP/fa.lproj/InfoPlist.strings" "$KB/fa.lproj/InfoPlist.strings"
           # The app and key font (AppFont in Shared/DictationBridge.swift) is licensed, so the public
           # repository keeps it encrypted; the FONT_KEY secret decrypts it.

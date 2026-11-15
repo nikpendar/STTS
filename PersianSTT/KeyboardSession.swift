@@ -223,11 +223,11 @@ final class KeyboardSession: ObservableObject {
             server.start()
             corrections.start()
             isActive = true
-            message = "کیبورد آماده است. به اپ قبلی برگردید."
+            message = L("کیبورد آماده است. به اپ قبلی برگردید.", "The keyboard is ready. Go back to the previous app.")
             resetIdleTimer()
             DictationBridge.post(DictationBridge.alive)
         } catch {
-            message = "روشن کردن تایپ صوتی ناموفق بود: \(error.localizedDescription)"
+            message = L("روشن کردن تایپ صوتی ناموفق بود: \(error.localizedDescription)", "Turning on voice typing failed: \(error.localizedDescription)")
             stop()
         }
     }
@@ -248,7 +248,7 @@ final class KeyboardSession: ObservableObject {
         corrections.stop()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         if isActive {
-            message = "تایپ صوتی خاموش شد."
+            message = L("تایپ صوتی خاموش شد.", "Voice typing turned off.")
             DictationBridge.post(DictationBridge.ended)
         }
         isActive = false
@@ -671,10 +671,10 @@ final class KeyboardSession: ObservableObject {
 
     private func showRecordingNotice(finished: Bool = false) {
         let content = UNMutableNotificationContent()
-        content.title = finished ? "ضبط آواک تمام شد" : "آواک در حال ضبط است"
+        content.title = finished ? L("ضبط آواک تمام شد", "Avak recording finished") : L("آواک در حال ضبط است", "Avak is recording")
         content.body = finished
-            ? "قفل گوشی را باز کنید تا متن در همان برنامه نوشته شود."
-            : "به صحبت ادامه دهید. بعد از باز کردن قفل، متن در همان برنامه نوشته می‌شود."
+            ? L("قفل گوشی را باز کنید تا متن در همان برنامه نوشته شود.", "Unlock the phone to have the text written in the same app.")
+            : L("به صحبت ادامه دهید. بعد از باز کردن قفل، متن در همان برنامه نوشته می‌شود.", "Keep talking. After you unlock, the text is written in the same app.")
         UNUserNotificationCenter.current().add(
             UNNotificationRequest(identifier: Self.recordingNotice, content: content, trigger: nil))
     }

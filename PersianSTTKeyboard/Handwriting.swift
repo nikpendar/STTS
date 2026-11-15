@@ -43,7 +43,7 @@ final class InkRecognizer {
     func prepare() {
         #if canImport(MLKitDigitalInkRecognition)
         guard let identifier = DigitalInkRecognitionModelIdentifier(forLanguageTag: language) else {
-            set(.failed("مدل فارسی دست‌خط پیدا نشد"))
+            set(.failed(L("مدل فارسی دست‌خط پیدا نشد", "Persian handwriting model not found")))
             return
         }
         let model = DigitalInkRecognitionModel(modelIdentifier: identifier)
@@ -67,7 +67,7 @@ final class InkRecognizer {
             let error = note.userInfo?[ModelDownloadUserInfoKey.error.rawValue] as? NSError
             NSLog("handwriting model download failed: %@", String(describing: error))
             self?.lastError = error.map { "\($0.domain) \($0.code) \($0.userInfo)" }
-            self?.set(.failed("دانلود مدل دست‌خط نشد"))
+            self?.set(.failed(L("دانلود مدل دست‌خط نشد", "Handwriting model download failed")))
         })
         manager.download(model, conditions: ModelDownloadConditions(allowsCellularAccess: true, allowsBackgroundDownloading: false))
         #else
@@ -398,7 +398,7 @@ final class HandwritingPadView: UIView {
         layer.addSublayer(ink)
         layer.addSublayer(inkHead)
         applyInkStyle()
-        status.font = keyFont(for: "دست‌خط", size: 15)
+        status.font = keyFont(for: L("دست‌خط", "Handwriting"), size: 15)
         status.textAlignment = .center
         status.numberOfLines = 3
         status.adjustsFontSizeToFitWidth = true
@@ -423,10 +423,10 @@ final class HandwritingPadView: UIView {
             candidateRow.addArrangedSubview(button)
             candidateButtons.append(button)
         }
-        for (button, symbol, label) in [(spaceButton, "space", "فاصله"), (deleteButton, "delete.right", "پاک کردن"),
-                                        (closeButton, "keyboard", "صفحه‌کلید"), (emojiButton, "face.smiling", "شکلک"),
-                                        (returnButton, "return", "خط بعد"),
-                                        (collapseButton, "arrow.down.right.and.arrow.up.left", "کوچک کردن")] {
+        for (button, symbol, label) in [(spaceButton, "space", L("فاصله", "Space")), (deleteButton, "delete.right", L("پاک کردن", "Delete")),
+                                        (closeButton, "keyboard", L("صفحه‌کلید", "Keyboard")), (emojiButton, "face.smiling", L("شکلک", "Emoji")),
+                                        (returnButton, "return", L("خط بعد", "Return")),
+                                        (collapseButton, "arrow.down.right.and.arrow.up.left", L("کوچک کردن", "Shrink"))] {
             button.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .medium)), for: .normal)
             button.accessibilityLabel = label
             button.tintColor = .label
@@ -437,7 +437,7 @@ final class HandwritingPadView: UIView {
         }
         expandButton.setImage(UIImage(systemName: "arrow.up.left.and.arrow.down.right",
                                       withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)), for: .normal)
-        expandButton.accessibilityLabel = "تمام‌صفحه"
+        expandButton.accessibilityLabel = L("تمام‌صفحه", "Full Screen")
         expandButton.tintColor = .label
         expandButton.addAction(UIAction { [weak self] _ in self?.setFullPaper(true) }, for: .touchUpInside)
         expandButton.addAction(UIAction { [weak self] _ in self?.onFeedback?() }, for: .touchDown)
@@ -461,7 +461,7 @@ final class HandwritingPadView: UIView {
         gripPill.layer.cornerRadius = 2.5
         gripPill.isUserInteractionEnabled = false
         grip.addSubview(gripPill)
-        grip.accessibilityLabel = "اندازه‌ی صفحه‌ی دست‌خط"
+        grip.accessibilityLabel = L("اندازه‌ی صفحه‌ی دست‌خط", "Handwriting Pad Size")
         let hold = UILongPressGestureRecognizer(target: self, action: #selector(dragGrip(_:)))
         hold.minimumPressDuration = 0
         hold.allowableMovement = .greatestFiniteMagnitude
@@ -482,14 +482,14 @@ final class HandwritingPadView: UIView {
         swipeDown.direction = .down
         swipeDown.addTarget(self, action: #selector(swipeReturn))
         addGestureRecognizer(swipeDown)
-        hint.font = keyFont(for: "پاک کردن", size: 13)
+        hint.font = keyFont(for: L("پاک کردن", "Delete"), size: 13)
         hint.textAlignment = .center
         hint.textColor = textColor.withAlphaComponent(0.4)
         hint.adjustsFontSizeToFitWidth = true
         hint.minimumScaleFactor = 0.7
         hint.isUserInteractionEnabled = false
         hint.isHidden = true
-        hint.text = "پاک کردن: دو انگشت به چپ یا راست   ·   اینتر: دو انگشت به پایین"
+        hint.text = L("پاک کردن: دو انگشت به چپ یا راست   ·   اینتر: دو انگشت به پایین", "Delete: two fingers left or right   ·   Return: two fingers down")
         addSubview(hint)
     }
 
@@ -755,13 +755,13 @@ final class HandwritingPadView: UIView {
     private func show(_ state: InkRecognizer.State) {
         switch state {
         case .unavailable:
-            status.text = InkRecognizer.isBuiltIn ? "" : "دست‌خط در این نسخه نیست"
+            status.text = InkRecognizer.isBuiltIn ? "" : L("دست‌خط در این نسخه نیست", "Handwriting is not in this version")
         case .downloading:
-            status.text = "دانلود مدل دست‌خط فارسی (یک بار، حدود ۱۳ مگابایت)…"
+            status.text = L("دانلود مدل دست‌خط فارسی (یک بار، حدود ۱۳ مگابایت)…", "Downloading the Persian handwriting model (once, about 13 MB)…")
         case .ready:
-            status.text = strokes.isEmpty && pending.isEmpty ? "اینجا بنویسید" : ""
+            status.text = strokes.isEmpty && pending.isEmpty ? L("اینجا بنویسید", "Write here") : ""
         case .failed(let message):
-            status.text = message + "\nدسترسی کامل کیبورد و اینترنت لازم است"
+            status.text = message + L("\nدسترسی کامل کیبورد و اینترنت لازم است", "\nThe keyboard's Full Access and internet are needed")
         }
     }
 
@@ -972,7 +972,7 @@ final class HandwritingPadView: UIView {
             let texts = self.rank?(found) ?? found
             guard let best = texts.first else {
                 self.lastWord = nil
-                if self.recognizer.state == .ready { self.status.text = "خوانده نشد؛ دوباره بنویسید" }
+                if self.recognizer.state == .ready { self.status.text = L("خوانده نشد؛ دوباره بنویسید", "Not read; write again") }
                 return
             }
             // In the text at once, with a light tap; the other readings stay a tap away.

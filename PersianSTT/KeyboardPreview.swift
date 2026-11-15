@@ -9,10 +9,10 @@ struct KeyboardPreview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("کیبورد آواک")
+            Text(L("کیبورد آواک", "Avak Keyboard"))
                 .font(.headline)
                 .padding(.horizontal)
-            Text("متن دیکته‌شده اینجا نوشته می‌شود")
+            Text(L("متن دیکته‌شده اینجا نوشته می‌شود", "Dictated text is written here"))
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .padding(.horizontal, 10)

@@ -642,12 +642,15 @@ struct KeyboardOptions: SharedSetting, Equatable {
     /// A locked recording ends after this many seconds with no new words, 5 s to 5 min
     /// (Rooz, 2026-11-14).
     var lockedSilenceSeconds = 8.0
+    /// The app's messages and settings in English, chosen on the guide's first page: the keyboard's
+    /// own messages follow it (Rooz, 2026-11-15).
+    var english = false
     static let lockedSilenceChoices: [Double] = [5, 8, 10, 15, 30, 60, 120, 300]
-    static let handwritingSizeNames = ["کوچک", "متوسط", "بزرگ"]
+    static var handwritingSizeNames: [String] { [L("کوچک", "Small"), L("متوسط", "Medium"), L("بزرگ", "Large")] }
 
     /// The pause after the last stroke that ends a handwritten word: 1.0 s slowest, 0.3 s fastest.
     var handwritingPause: TimeInterval { 1.0 - 0.7 * max(0, min(1, handwritingSpeed)) }
-    static let handwritingSpeedNames = ["آرام", "متوسط", "سریع"]
+    static var handwritingSpeedNames: [String] { [L("آرام", "Slow"), L("متوسط", "Medium"), L("سریع", "Fast")] }
     static let handwritingWidths = 2.0...10.0
 
     static let standard = KeyboardOptions()
@@ -681,5 +684,21 @@ struct KeyboardOptions: SharedSetting, Equatable {
         handwritingGuide = try container.decodeIfPresent(Bool.self, forKey: .handwritingGuide) ?? true
         handwritingStrip = try container.decodeIfPresent(Bool.self, forKey: .handwritingStrip) ?? true
         lockedSilenceSeconds = min(300, max(5, try container.decodeIfPresent(Double.self, forKey: .lockedSilenceSeconds) ?? 8))
+        english = try container.decodeIfPresent(Bool.self, forKey: .english) ?? false
     }
+}
+
+/// The language of the app's and the keyboard's own words: Persian, or English when it was chosen
+/// on the guide's first page (the app keeps it as "onboardingLanguage"; the keyboard gets it with
+/// `KeyboardOptions.english`).
+enum AppLanguage {
+    static let key = "onboardingLanguage"
+    static var english = UserDefaults.standard.string(forKey: key) == "en"
+    /// Digits and dates in the words' language.
+    static var locale: Locale { Locale(identifier: english ? "en_US" : "fa_IR") }
+}
+
+/// The Persian words, or the English ones when the app is in English.
+func L(_ fa: String, _ en: String) -> String {
+    AppLanguage.english ? en : fa
 }

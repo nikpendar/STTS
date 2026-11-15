@@ -94,9 +94,9 @@ struct UsageReportPage: View {
 
     var body: some View {
         Section {
-            row("زمان صرفه‌جویی‌شده", duration(stats.secondsSaved), symbol: "clock.fill", color: .green)
+            row(L("زمان صرفه‌جویی‌شده", "Time Saved"), duration(stats.secondsSaved), symbol: "clock.fill", color: .green)
         } footer: {
-            Text("در مقایسه با تایپ روی گوشی (حدود ۳۰ کلمه در دقیقه): زمان تایپ کلمه‌های دیکته‌شده منهای زمان گفتنشان، به‌علاوه‌ی حرف‌هایی که پیشنهادها لازم نکردند.")
+            Text(L("در مقایسه با تایپ روی گوشی (حدود ۳۰ کلمه در دقیقه): زمان تایپ کلمه‌های دیکته‌شده منهای زمان گفتنشان، به‌علاوه‌ی حرف‌هایی که پیشنهادها لازم نکردند.", "Compared with typing on the phone (about 30 words a minute): the time to type the dictated words less the time spent saying them, plus the letters the suggestions spared."))
         }
         accuracySection
         if !mistakes.isEmpty {
@@ -105,7 +105,7 @@ struct UsageReportPage: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(mistake.heard) ← \(mistake.written)")
-                            Text("\(number(mistake.count)) بار")
+                            Text(L("\(number(mistake.count)) بار", "\(number(mistake.count)) times"))
                                 .font(.app(.caption))
                                 .foregroundStyle(.secondary)
                         }
@@ -114,7 +114,7 @@ struct UsageReportPage: View {
                             dictionary.entries.append(PersonalDictionary.Entry(heard: mistake.heard, written: mistake.written))
                             refresh()
                         } label: {
-                            Label("افزودن به واژه‌نامه", systemImage: "plus.circle.fill")
+                            Label(L("افزودن به واژه‌نامه", "Add to Dictionary"), systemImage: "plus.circle.fill")
                                 .labelStyle(.iconOnly)
                                 .font(.title3)
                         }
@@ -122,52 +122,52 @@ struct UsageReportPage: View {
                     }
                 }
             } header: {
-                Text("غلط‌های پرتکرار دیکته")
+                Text(L("غلط‌های پرتکرار دیکته", "Frequent Dictation Mistakes"))
             } footer: {
-                Text("با + به واژه‌نامه‌ی شخصی اضافه می‌شود و از آن به بعد خودکار درست نوشته می‌شود.")
+                Text(L("با + به واژه‌نامه‌ی شخصی اضافه می‌شود و از آن به بعد خودکار درست نوشته می‌شود.", "+ adds it to the personal dictionary, and from then on it is written correctly."))
             }
         }
         Section {
-            row("کلمه‌های نوشته‌شده با صدا", number(stats.voiceWords), symbol: "waveform", color: .red)
-            row("تعداد دیکته‌ها", number(stats.dictations), symbol: "mic.fill", color: .orange)
-            row("مدت صحبت", duration(stats.voiceSeconds), symbol: "timer", color: .orange)
-            row("دیکته‌هایی که خودتان اصلاح کردید", number(stats.voiceFixes), symbol: "pencil", color: .pink)
-            row("کلمه‌های اصلاح‌شده در دیکته‌ها", number(stats.voiceWordsFixed), symbol: "text.badge.xmark", color: .pink)
+            row(L("کلمه‌های نوشته‌شده با صدا", "Words Written by Voice"), number(stats.voiceWords), symbol: "waveform", color: .red)
+            row(L("تعداد دیکته‌ها", "Dictations"), number(stats.dictations), symbol: "mic.fill", color: .orange)
+            row(L("مدت صحبت", "Speaking Time"), duration(stats.voiceSeconds), symbol: "timer", color: .orange)
+            row(L("دیکته‌هایی که خودتان اصلاح کردید", "Dictations You Corrected"), number(stats.voiceFixes), symbol: "pencil", color: .pink)
+            row(L("کلمه‌های اصلاح‌شده در دیکته‌ها", "Words Corrected in Dictations"), number(stats.voiceWordsFixed), symbol: "text.badge.xmark", color: .pink)
         } header: {
-            Text("صدا")
+            Text(L("صدا", "Voice"))
         }
         Section {
-            row("کلمه‌های نوشته‌شده با کشیدن", number(stats.glideWords), symbol: "scribble", color: .blue)
-            row("طول خط‌های کشیده‌شده", meters(stats.glideMeters), symbol: "ruler.fill", color: .blue)
-            row("غلط‌هایی که خودکار اصلاح شد", number(stats.autoCorrections), symbol: "checkmark.circle.fill", color: .teal)
-            row("اصلاح‌هایی که برگرداندید", number(stats.autoCorrectionsUndone), symbol: "arrow.uturn.backward.circle.fill", color: .gray)
-            row("کلمه‌های انتخاب‌شده از پیشنهادها", number(stats.predictionsPicked), symbol: "text.word.spacing", color: .purple)
-            row("حرف‌هایی که لازم نشد تایپ کنید", number(stats.lettersSaved), symbol: "character.cursor.ibeam", color: .purple)
+            row(L("کلمه‌های نوشته‌شده با کشیدن", "Words Written by Gliding"), number(stats.glideWords), symbol: "scribble", color: .blue)
+            row(L("طول خط‌های کشیده‌شده", "Length of Glide Lines"), meters(stats.glideMeters), symbol: "ruler.fill", color: .blue)
+            row(L("غلط‌هایی که خودکار اصلاح شد", "Typos Corrected Automatically"), number(stats.autoCorrections), symbol: "checkmark.circle.fill", color: .teal)
+            row(L("اصلاح‌هایی که برگرداندید", "Corrections You Undid"), number(stats.autoCorrectionsUndone), symbol: "arrow.uturn.backward.circle.fill", color: .gray)
+            row(L("کلمه‌های انتخاب‌شده از پیشنهادها", "Words Picked from Suggestions"), number(stats.predictionsPicked), symbol: "text.word.spacing", color: .purple)
+            row(L("حرف‌هایی که لازم نشد تایپ کنید", "Letters You Did Not Have to Type"), number(stats.lettersSaved), symbol: "character.cursor.ibeam", color: .purple)
         } header: {
-            Text("تایپ")
+            Text(L("تایپ", "Typing"))
         } footer: {
             if let since = AppUsage.since {
-                Text("از \(since.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(Locale(identifier: "fa_IR")))). آمار کیبورد هر بار که کیبورد بسته می‌شود به‌روز می‌شود.")
+                Text(L("از ", "Since ") + since.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(AppLanguage.locale)) + L(". آمار کیبورد هر بار که کیبورد بسته می‌شود به‌روز می‌شود.", ". The keyboard's counts update while it is open and each time it closes."))
             } else {
-                Text("آمار کیبورد هر بار که کیبورد بسته می‌شود به‌روز می‌شود.")
+                Text(L("آمار کیبورد هر بار که کیبورد بسته می‌شود به‌روز می‌شود.", "The keyboard's counts update while it is open and each time it closes."))
             }
         }
         Section {
             if let exportURL {
                 ShareLink(item: exportURL) {
-                    Label("فرستادن آمار برای ما", systemImage: "paperplane.fill")
+                    Label(L("فرستادن آمار برای ما", "Send Us the Counts"), systemImage: "paperplane.fill")
                 }
             }
             Button(role: .destructive) {
                 confirmingReset = true
             } label: {
-                Label("ریست کامل آمار", systemImage: "arrow.counterclockwise")
+                Label(L("ریست کامل آمار", "Reset All Counts"), systemImage: "arrow.counterclockwise")
             }
         } footer: {
-            Text("فقط عددها فرستاده می‌شود، نه متنی که نوشته‌اید.")
+            Text(L("فقط عددها فرستاده می‌شود، نه متنی که نوشته‌اید.", "Only the numbers are sent, not the text you wrote."))
         }
-        .confirmationDialog("همه‌ی آمار صفر شود؟", isPresented: $confirmingReset, titleVisibility: .visible) {
-            Button("ریست", role: .destructive) {
+        .confirmationDialog(L("همه‌ی آمار صفر شود؟", "Reset all counts to zero?"), isPresented: $confirmingReset, titleVisibility: .visible) {
+            Button(L("ریست", "Reset"), role: .destructive) {
                 AppUsage.reset()
                 refresh()
             }
@@ -189,24 +189,24 @@ struct UsageReportPage: View {
             .prefix(8)
         let updates = Set((UserDefaults.standard.array(forKey: PersonalModel.updatesKey) as? [Date] ?? []).map { UsageStats.week(of: $0) })
         Section {
-            row("دقت دیکته", stats.accuracy.map(percent) ?? "هنوز کافی نیست", symbol: "target", color: .mint)
-            row("کلمه‌های سنجیده‌شده", number(max(0, stats.checkedWords)), symbol: "text.magnifyingglass", color: .mint)
+            row(L("دقت دیکته", "Dictation Accuracy"), stats.accuracy.map(percent) ?? L("هنوز کافی نیست", "Not enough yet"), symbol: "target", color: .mint)
+            row(L("کلمه‌های سنجیده‌شده", "Words Checked"), number(max(0, stats.checkedWords)), symbol: "text.magnifyingglass", color: .mint)
             ForEach(Array(weeks), id: \.key) { week in
                 LabeledContent {
                     Text(percent(max(0, 1 - Double(week.value[1]) / Double(week.value[0])))).monospacedDigit()
                 } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(weekTitle(week.key))
-                        Text("\(number(week.value[0])) کلمه" + (updates.contains(week.key) ? " · مدل شخصی تازه" : ""))
+                        Text(L("\(number(week.value[0])) کلمه", "\(number(week.value[0])) words") + (updates.contains(week.key) ? L(" · مدل شخصی تازه", " · new personal model") : ""))
                             .font(.app(.caption))
                             .foregroundStyle(updates.contains(week.key) ? Color.green : Color.secondary)
                     }
                 }
             }
         } header: {
-            Text("دقت روی صدای شما")
+            Text(L("دقت روی صدای شما", "Accuracy on Your Voice"))
         } footer: {
-            Text("از اصلاح‌هایی که روی متن دیکته‌شده انجام می‌دهید: کلمه‌های عوض‌شده، حذف‌شده یا اضافه‌شده تقسیم بر کلمه‌های دیکته. دیکته‌ی اصلاح‌نشده درست حساب می‌شود و بازنویسی‌های بزرگ (بیش از نیمی از کلمه‌ها) شمرده نمی‌شوند.")
+            Text(L("از اصلاح‌هایی که روی متن دیکته‌شده انجام می‌دهید: کلمه‌های عوض‌شده، حذف‌شده یا اضافه‌شده تقسیم بر کلمه‌های دیکته. دیکته‌ی اصلاح‌نشده درست حساب می‌شود و بازنویسی‌های بزرگ (بیش از نیمی از کلمه‌ها) شمرده نمی‌شوند.", "From your edits of dictated text: words changed, deleted or added, divided by the dictated words. An uncorrected dictation counts as right, and large rewrites (more than half the words) are not counted."))
         }
     }
 
@@ -216,15 +216,15 @@ struct UsageReportPage: View {
 
     /// "این هفته", "هفته‌ی پیش" or the week's first day.
     private func weekTitle(_ key: String) -> String {
-        if key == UsageStats.week() { return "این هفته" }
-        if key == UsageStats.week(of: Date().addingTimeInterval(-7 * 86_400)) { return "هفته‌ی پیش" }
+        if key == UsageStats.week() { return L("این هفته", "This week") }
+        if key == UsageStats.week(of: Date().addingTimeInterval(-7 * 86_400)) { return L("هفته‌ی پیش", "Last week") }
         let parts = key.split(separator: "-").compactMap { Int($0) }
         var components = DateComponents()
         components.yearForWeekOfYear = parts.first
         components.weekOfYear = parts.last
         components.weekday = 2
         guard parts.count == 2, let date = Calendar(identifier: .iso8601).date(from: components) else { return key }
-        return "هفته‌ی " + date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(Self.persian))
+        return L("هفته‌ی ", "Week of ") + date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(Self.persian))
     }
 
     private func row(_ title: String, _ value: String, symbol: String, color: Color) -> some View {
@@ -243,7 +243,7 @@ struct UsageReportPage: View {
         }
     }
 
-    private static let persian = Locale(identifier: "fa_IR")
+    private static var persian: Locale { AppLanguage.locale }
 
     private func number(_ value: Int) -> String {
         value.formatted(.number.locale(Self.persian))
@@ -254,14 +254,14 @@ struct UsageReportPage: View {
         let hours = total / 3600
         let minutes = (total % 3600) / 60
         let rest = total % 60
-        if hours > 0 { return "\(number(hours)) ساعت و \(number(minutes)) دقیقه" }
-        if minutes > 0 { return "\(number(minutes)) دقیقه و \(number(rest)) ثانیه" }
-        return "\(number(rest)) ثانیه"
+        if hours > 0 { return L("\(number(hours)) ساعت و \(number(minutes)) دقیقه", "\(number(hours)) h \(number(minutes)) min") }
+        if minutes > 0 { return L("\(number(minutes)) دقیقه و \(number(rest)) ثانیه", "\(number(minutes)) min \(number(rest)) s") }
+        return L("\(number(rest)) ثانیه", "\(number(rest)) s")
     }
 
     private func meters(_ value: Double) -> String {
         value >= 1000
-            ? "\((value / 1000).formatted(.number.precision(.fractionLength(2)).locale(Self.persian))) کیلومتر"
-            : "\(value.formatted(.number.precision(.fractionLength(1)).locale(Self.persian))) متر"
+            ? L("\((value / 1000).formatted(.number.precision(.fractionLength(2)).locale(Self.persian))) کیلومتر", "\((value / 1000).formatted(.number.precision(.fractionLength(2)).locale(Self.persian))) km")
+            : L("\(value.formatted(.number.precision(.fractionLength(1)).locale(Self.persian))) متر", "\(value.formatted(.number.precision(.fractionLength(1)).locale(Self.persian))) m")
     }
 }

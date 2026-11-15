@@ -142,7 +142,7 @@ final class Transcriber: ObservableObject {
     static let shared = Transcriber()
 
     /// The model's state, for the settings page.
-    @Published var status = "در حال بارگذاری مدل…"
+    @Published var status = L("در حال بارگذاری مدل…", "Loading the model…")
     @Published var isBusy = true
     @Published var modelName = ""
     /// A model is loaded. Builds without a bundled model need one imported (`ModelImporter`).
@@ -171,7 +171,7 @@ final class Transcriber: ObservableObject {
         engine = nil
         hasModel = false
         isBusy = true
-        status = "در حال بارگذاری مدل…"
+        status = L("در حال بارگذاری مدل…", "Loading the model…")
         loadTask = Task { await loadModel() }
     }
 
@@ -191,13 +191,13 @@ final class Transcriber: ObservableObject {
         // A personal model trained on the user's corrections comes first, then the one
         // imported from Files, then one inside the app (only in builds that bundle it).
         guard let url = PersonalModel.shared.modelFile ?? ModelImporter.installedModel ?? Self.bundledModel else {
-            status = "مدل گفتار نصب نیست."
+            status = L("مدل گفتار نصب نیست.", "The speech model is not installed.")
             modelName = ""
             isBusy = false
             return
         }
         guard let resources = Self.resources else {
-            status = "فایل‌های همراه مدل در اپ نیست."
+            status = L("فایل‌های همراه مدل در اپ نیست.", "The model's companion files are missing from the app.")
             isBusy = false
             return
         }
@@ -208,7 +208,7 @@ final class Transcriber: ObservableObject {
             hasModel = true
             let memory = MemoryFootprint.megabytes
             log.info("loaded \(url.lastPathComponent, privacy: .public), compute units \(engine.computeUnits.rawValue), memory \(Int(memory.now)) MB (peak \(Int(memory.peak)) MB)")
-            status = engine.computeUnits == .cpuOnly ? "آماده (CPU)" : "آماده"
+            status = engine.computeUnits == .cpuOnly ? L("آماده (CPU)", "Ready (CPU)") : L("آماده", "Ready")
         } catch {
             log.error("cannot load \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
             // A personal model that does not load is dropped for the imported one.
@@ -217,7 +217,7 @@ final class Transcriber: ObservableObject {
                 return
             }
             status = url == ModelImporter.installedModel
-                ? "فایل مدل باز نشد؛ ممکن است ناقص کپی شده باشد. دوباره وارد کنید."
+                ? L("فایل مدل باز نشد؛ ممکن است ناقص کپی شده باشد. دوباره وارد کنید.", "The model file could not be opened; it may be incompletely copied. Import it again.")
                 : error.localizedDescription
         }
         isBusy = false

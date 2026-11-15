@@ -96,7 +96,7 @@ final class CrashReports: NSObject, MXMetricManagerSubscriber {
             at: folder, includingPropertiesForKeys: [.creationDateKey])) ?? []
         return urls.filter { $0.pathExtension == "json" }.map { url in
             let date = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
-            let source = url.lastPathComponent.hasPrefix("keyboard") ? "کیبورد" : "برنامه"
+            let source = url.lastPathComponent.hasPrefix("keyboard") ? L("کیبورد", "Keyboard") : L("برنامه", "App")
             return Report(url: url, date: date, source: source, summary: summary(of: url))
         }.sorted { $0.date > $1.date }
     }
@@ -108,23 +108,23 @@ final class CrashReports: NSObject, MXMetricManagerSubscriber {
     /// The kinds of diagnostics in a payload, with the first crash's exception and signal.
     private static func summary(of url: URL) -> String {
         guard let data = try? Data(contentsOf: url),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return "نامعلوم" }
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return L("نامعلوم", "Unknown") }
         let kinds: [(key: String, name: String)] = [
-            ("crashDiagnostics", "خرابی"), ("hangDiagnostics", "گیرکردن"),
-            ("cpuExceptionDiagnostics", "مصرف زیاد پردازنده"), ("diskWriteExceptionDiagnostics", "نوشتن زیاد روی حافظه"),
-            ("appLaunchDiagnostics", "باز شدن کند"),
+            ("crashDiagnostics", L("خرابی", "Crash")), ("hangDiagnostics", L("گیرکردن", "Hang")),
+            ("cpuExceptionDiagnostics", L("مصرف زیاد پردازنده", "High CPU use")), ("diskWriteExceptionDiagnostics", L("نوشتن زیاد روی حافظه", "Heavy disk writes")),
+            ("appLaunchDiagnostics", L("باز شدن کند", "Slow launch")),
         ]
         var parts = kinds.compactMap { kind -> String? in
             guard let list = json[kind.key] as? [Any], !list.isEmpty else { return nil }
             return list.count > 1 ? "\(kind.name) ×\(list.count)" : kind.name
         }
-        if json["applicationExitMetrics"] != nil { parts.append("بسته شدن ناگهانی (گزارش روزانه)") }
+        if json["applicationExitMetrics"] != nil { parts.append(L("بسته شدن ناگهانی (گزارش روزانه)", "Sudden exit (daily report)")) }
         if let crash = (json["crashDiagnostics"] as? [[String: Any]])?.first,
            let meta = crash["diagnosticMetaData"] as? [String: Any] {
             let detail = [meta["exceptionType"], meta["signal"], meta["terminationReason"]]
                 .compactMap { $0.map { "\($0)" } }.joined(separator: ", ")
             if !detail.isEmpty { parts.append(detail) }
         }
-        return parts.isEmpty ? "گزارش بدون مورد" : parts.joined(separator: " · ")
+        return parts.isEmpty ? L("گزارش بدون مورد", "Report with no entries") : parts.joined(separator: " · ")
     }
 }

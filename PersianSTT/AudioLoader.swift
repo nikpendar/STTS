@@ -6,8 +6,8 @@ enum AudioLoaderError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unsupportedFormat: return "قالب فایل صوتی پشتیبانی نمی‌شود."
-        case .conversionFailed: return "تبدیل فایل صوتی ناموفق بود."
+        case .unsupportedFormat: return L("قالب فایل صوتی پشتیبانی نمی‌شود.", "This audio format is not supported.")
+        case .conversionFailed: return L("تبدیل فایل صوتی ناموفق بود.", "Converting the audio file failed.")
         }
     }
 }
