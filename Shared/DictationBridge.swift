@@ -93,6 +93,8 @@ enum DictationBridge {
     }
     /// Opens the app's settings from the keyboard's settings panel.
     static let settingsURL = URL(string: "persianstt://settings")!
+    /// Opens the app's Full Access steps from the keyboard that lacks it.
+    static let fullAccessURL = URL(string: "persianstt://fullaccess")!
 
     /// Posted by the keyboard each time it opens with Full Access, after it marks
     /// `fullAccessPasteboard`, so the app can tell the keyboard is added and allowed.
@@ -562,8 +564,8 @@ struct TypedShortcuts: SharedSetting, Equatable {
 
     /// Common Persian and English shortcuts, added once to the user's own (Rooz, 2026-11-15).
     static let samples: [Entry] = [
-        ("سلع", "سلام علیکم"), ("صبخ", "صبح بخیر"), ("شبخ", "شب بخیر"), ("ممن", "ممنونم، لطف کردید."),
-        ("خدن", "خداحافظ"), ("انش", "ان‌شاءالله"), ("تبکم", "تبریک می‌گم!"),
+        ("درش", "درود بر شما"), ("صبخ", "صبح بخیر"), ("شبخ", "شب بخیر"), ("ممن", "ممنونم، لطف کردید."),
+        ("خدن", "خداحافظ"), ("مفق", "با آرزوی موفقیت"), ("تبکم", "تبریک می‌گم!"),
         ("میرس", "چند دقیقه دیگه می‌رسم."), ("جلس", "الان جلسه‌ام، بعداً تماس می‌گیرم."),
         ("omw", "On my way!"), ("brb", "Be right back."), ("ty", "Thank you!"), ("lmk", "Let me know."),
         ("idk", "I don't know."), ("btw", "by the way"), ("asap", "as soon as possible"),
@@ -572,6 +574,16 @@ struct TypedShortcuts: SharedSetting, Equatable {
     /// The saved shortcuts, with the samples added the first time (none the user already has).
     static func savedWithSamples() -> TypedShortcuts {
         var value = saved
+        // The first samples (2026-11-15) had two that Rooz replaced the same day; untouched ones change.
+        let replacedKey = "typedShortcutSamplesReplaced"
+        if !UserDefaults.standard.bool(forKey: replacedKey) {
+            UserDefaults.standard.set(true, forKey: replacedKey)
+            let replaced = ["سلع|سلام علیکم": Entry(shortcut: "درش", text: "درود بر شما"),
+                            "انش|ان‌شاءالله": Entry(shortcut: "مفق", text: "با آرزوی موفقیت")]
+            let before = value.entries
+            value.entries = value.entries.map { replaced[$0.shortcut + "|" + $0.text] ?? $0 }
+            if value.entries != before { value.save() }
+        }
         let key = "typedShortcutSamplesAdded"
         guard !UserDefaults.standard.bool(forKey: key) else { return value }
         UserDefaults.standard.set(true, forKey: key)

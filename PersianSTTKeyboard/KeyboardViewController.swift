@@ -166,7 +166,7 @@ final class KeyboardViewController: UIInputViewController {
     var options = KeyboardOptions.standard {
         didSet {
             Haptics.isOn = options.haptics
-            AppLanguage.english = options.english
+            updateMessageLanguage()
         }
     }
     /// The user's own words, put into each dictation (set in the app).
@@ -381,6 +381,7 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        hideFullAccessNotice()
         finishEdits()
         UsageStats.publish()
         settingsPanel?.removeFromSuperview()
@@ -574,8 +575,8 @@ final class KeyboardViewController: UIInputViewController {
     /// Extensions cannot call UIApplication.open, so the host's UIApplication is found
     /// through the responder chain and its open method is called dynamically.
     @discardableResult
-    func open(_ url: URL) -> Bool {
-        guard hasFullAccess else { return false }
+    func open(_ url: URL, needsFullAccess: Bool = true) -> Bool {
+        guard hasFullAccess || !needsFullAccess else { return false }
         typealias OpenURL = @convention(c) (
             AnyObject, Selector, NSURL, NSDictionary, (@convention(block) (Bool) -> Void)?) -> Void
         let selector = NSSelectorFromString("openURL:options:completionHandler:")
@@ -718,7 +719,14 @@ final class KeyboardViewController: UIInputViewController {
         didSet {
             UserDefaults.standard.set(isEnglish, forKey: Self.englishKey)
             updatePrimaryLanguage()
+            updateMessageLanguage()
         }
+    }
+
+    /// The keyboard's messages (space bar, handwriting, panels) in English when the app is in
+    /// English or the English layout is up (Rooz, 2026-11-15).
+    func updateMessageLanguage() {
+        AppLanguage.english = options.english || isEnglish
     }
 
     /// Tells iOS which language is typed: text views that follow the keyboard's language put
@@ -757,6 +765,8 @@ final class KeyboardViewController: UIInputViewController {
     let menuShield = UIControl()
     /// The keyboard's own settings over the keys (`KeyboardSettingsPanel`), made when first opened.
     var settingsPanel: KeyboardSettingsPanel?
+    /// Says dictation needs Full Access, over the keys (`showFullAccessNotice`).
+    var fullAccessNotice: UIView?
     let emojiPanel = EmojiPanel()
     let emojiSearchView = EmojiSearchView()
     /// On the emoji panel, beside backspace (Persian) or ABC (English): opens the search.

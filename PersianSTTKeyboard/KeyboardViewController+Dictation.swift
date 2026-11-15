@@ -15,6 +15,7 @@ extension KeyboardViewController {
         #endif
         guard fullAccess else {
             state = .noSession
+            log.info("no Full Access")
             showStatus(L("Allow Full Access را روشن کنید", "Turn on Allow Full Access"))
             return
         }
@@ -23,6 +24,81 @@ extension KeyboardViewController {
         schedule(after: 0.6) { [weak self] in
             if self?.state == .checking { self?.state = .noSession }
         }
+    }
+
+    var hasFullAccessForDictation: Bool {
+        #if targetEnvironment(simulator)
+        return true
+        #else
+        return hasFullAccess
+        #endif
+    }
+
+    /// Holding the space bar without Full Access: a notice over the keys says dictation needs it
+    /// and how to turn it on, with a button that opens Avak's own guide (Rooz, 2026-11-15).
+    func showFullAccessNotice() {
+        haptic(.impact(.rigid))
+        fullAccessNotice?.removeFromSuperview()
+        let notice = UIView(frame: keysView.bounds)
+        notice.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        notice.backgroundColor = keyStyle.backgroundColor ?? .secondarySystemBackground
+        notice.layer.cornerRadius = 12
+        notice.layer.cornerCurve = .continuous
+
+        let title = UILabel()
+        title.text = L("دیکته بدون «دسترسی کامل» کار نمی‌کند", "Dictation needs Full Access")
+        title.font = keyFont(for: title.text, size: 17)
+        let body = UILabel()
+        body.text = L("تنظیمات › عمومی › صفحه‌کلید › کیبوردها › آواک › «اجازه‌ی دسترسی کامل» را روشن کنید. بعد به همین‌جا برگردید و دوباره کلید فاصله را نگه دارید.",
+                      "Settings › General › Keyboard › Keyboards › Avak › turn on Allow Full Access. Then come back here and hold the space bar again.")
+        body.font = keyFont(for: body.text, size: 14)
+        body.numberOfLines = 0
+        for label in [title, body] {
+            label.textColor = keyStyle.textColor
+            label.textAlignment = .center
+            label.adjustsFontSizeToFitWidth = true
+            label.minimumScaleFactor = 0.7
+        }
+        var config = UIButton.Configuration.filled()
+        config.cornerStyle = .capsule
+        config.baseBackgroundColor = .systemOrange
+        config.attributedTitle = AttributedString(L("راهنما در آواک", "Guide in Avak"),
+                                                  attributes: AttributeContainer([.font: keyFont(for: L("راهنما در آواک", "Guide in Avak"), size: 15)]))
+        let guide = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
+            // Opening the app may not work without Full Access; the steps above stay.
+            self?.open(DictationBridge.fullAccessURL, needsFullAccess: false)
+        })
+        var closeConfig = UIButton.Configuration.plain()
+        closeConfig.image = UIImage(systemName: "xmark.circle.fill")
+        closeConfig.baseForegroundColor = .secondaryLabel
+        let close = UIButton(configuration: closeConfig, primaryAction: UIAction { [weak self] _ in
+            self?.hideFullAccessNotice()
+        })
+        close.accessibilityLabel = L("بستن", "Close")
+
+        let stack = UIStackView(arrangedSubviews: [title, body, guide])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        close.translatesAutoresizingMaskIntoConstraints = false
+        notice.addSubview(stack)
+        notice.addSubview(close)
+        NSLayoutConstraint.activate([
+            stack.centerYAnchor.constraint(equalTo: notice.centerYAnchor),
+            stack.leadingAnchor.constraint(equalTo: notice.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: notice.trailingAnchor, constant: -20),
+            stack.topAnchor.constraint(greaterThanOrEqualTo: notice.topAnchor, constant: 8),
+            close.topAnchor.constraint(equalTo: notice.topAnchor, constant: 2),
+            close.trailingAnchor.constraint(equalTo: notice.trailingAnchor, constant: -2),
+        ])
+        keysView.addSubview(notice)
+        fullAccessNotice = notice
+    }
+
+    func hideFullAccessNotice() {
+        fullAccessNotice?.removeFromSuperview()
+        fullAccessNotice = nil
     }
 
     func sessionIsAlive() {
@@ -139,7 +215,7 @@ extension KeyboardViewController {
                 holdStartX = press.location(in: view).x
                 startDictation(held: true)
             case .noSession, .checking:
-                askForSession()
+                if hasFullAccessForDictation { askForSession() } else { showFullAccessNotice() }
             default:
                 break
             }

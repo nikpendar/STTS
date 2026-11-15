@@ -185,6 +185,11 @@ struct ContentView: View {
             if !onboardingDone { showingGuide = true }
         }
         .onOpenURL { url in
+            // From a keyboard without Full Access: it lost it, so the setup steps show again.
+            if url.host == "fullaccess" {
+                gate.forgetFullAccess()
+                return
+            }
             if url.host == "session" {
                 // Straight to the session page, whatever page was open. Voice typing starts only
                 // when the link carries the bridge key, i.e. came from our keyboard; a link from
@@ -883,6 +888,13 @@ final class KeyboardGate: ObservableObject {
             UserDefaults.standard.set(true, forKey: "keyboardFullAccessSeen")
             Task { @MainActor in self?.check() }
         }
+        check()
+    }
+
+    /// The keyboard said it has no Full Access: asked again until it reports it back.
+    func forgetFullAccess() {
+        UserDefaults.standard.set(false, forKey: Self.seenKey)
+        UIPasteboard.remove(withName: DictationBridge.fullAccessPasteboard)
         check()
     }
 
