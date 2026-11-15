@@ -106,8 +106,8 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
     /// Fills the first section: emoji for `text` (the words before the cursor), then the
     /// recently used ones.
     func refresh(for text: String) {
-        var first = Self.suggestions(for: text)
-        for emoji in Self.recent where !first.contains(emoji) {
+        var first = Self.suggestions(for: text).map(Self.toned)
+        for emoji in Self.recent.map(Self.toned) where !first.contains(emoji) {
             first.append(emoji)
         }
         if first.isEmpty { first = Self.starters }
@@ -115,7 +115,7 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         grid.reloadData()
     }
 
-    static let starters = ["😂", "❤️", "👍", "🙏", "😍", "😊", "🌹", "🎉"]
+    static let starters = ["😂", "❤️", "👍🏻", "🙏🏻", "😍", "😊", "🌹", "🎉"]
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -292,7 +292,8 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
                 // The emoji's own name (the first term in each language) ranks a little higher.
                 best = min(best, rank * 2 + (position == 0 ? 0 : 1))
             }
-            if best != .max, isDrawable(entry.emoji) { ranked.append((entry.emoji, best, index)) }
+            let emoji = toned(entry.emoji)
+            if best != .max, isDrawable(emoji) { ranked.append((emoji, best, index)) }
         }
         ranked.sort { ($0.rank, $0.index) < ($1.rank, $1.index) }
         return ranked.prefix(limit).map(\.emoji)
@@ -364,6 +365,21 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         return emojis
     }
 
+    /// People and hands in the light skin tone, as the lists have them (Rooz, 2026-11-15): the
+    /// names file and older recents keep the default yellow forms.
+    static func toned(_ emoji: String) -> String {
+        lightForms[emoji.replacingOccurrences(of: "\u{FE0F}", with: "")] ?? emoji
+    }
+
+    private static let lightForms: [String: String] = {
+        var forms: [String: String] = [:]
+        for emoji in all.flatMap(\.emojis) where emoji.unicodeScalars.contains(where: { $0.value == 0x1F3FB }) {
+            let base = String(String.UnicodeScalarView(emoji.unicodeScalars.filter { $0.value != 0x1F3FB && $0.value != 0xFE0F }))
+            forms[base] = emoji
+        }
+        return forms
+    }()
+
     /// The categories with only the emoji this iOS can draw.
     static let standard: [Category] = all.map { category in
         var category = category
@@ -408,7 +424,7 @@ final class EmojiPanel: UIView, UICollectionViewDataSource, UICollectionViewDele
         Category(symbol: "face.smiling", title: "شکلک‌ها", emojis: list(
             "😀😃😄😁😆😅🤣😂🙂🙃🫠😉😊😇🥰😍🤩😘😗☺️😚😙🥲😋😛😜🤪😝🤑🤗🤭🫢🫣🤫🤔🫡🤐🤨😐😑😶🫥😶‍🌫️😏😒🙄😬😮‍💨🤥🫨🙂‍↔️🙂‍↕️😌😔😪🤤😴🫩😷🤒🤕🤢🤮🤧🥵🥶🥴😵😵‍💫🤯🤠🥳🥸😎🤓🧐😕🫤😟🙁☹️😮😯😲😳🫪🥺🥹😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀☠️💩🤡👹👺👻👽👾🤖😺😸😹😻😼😽🙀😿😾🙈🙉🙊")),
         Category(symbol: "hand.wave", title: "آدم‌ها و دست‌ها", emojis: list(
-            "👋🤚🖐️✋🖖🫱🫲🫳🫴🫷🫸👌🤌🤏✌️🤞🫰🤟🤘🤙👈👉👆🖕👇☝️🫵👍👎✊👊🤛🤜👏🙌🫶👐🤲🤝🙏✍️💅🤳💪🦾🦿🦵🦶👂🦻👃🧠🫀🫁🦷🦴👀👁️👅👄🫦👶🧒👦👧🧑👱👨🧔🧔‍♂️🧔‍♀️👨‍🦰👨‍🦱👨‍🦳👨‍🦲👩👩‍🦰🧑‍🦰👩‍🦱🧑‍🦱👩‍🦳🧑‍🦳👩‍🦲🧑‍🦲👱‍♀️👱‍♂️🧓👴👵🙍🙍‍♂️🙍‍♀️🙎🙎‍♂️🙎‍♀️🙅🙅‍♂️🙅‍♀️🙆🙆‍♂️🙆‍♀️💁💁‍♂️💁‍♀️🙋🙋‍♂️🙋‍♀️🧏🧏‍♂️🧏‍♀️🙇🙇‍♂️🙇‍♀️🤦🤦‍♂️🤦‍♀️🤷🤷‍♂️🤷‍♀️🧑‍⚕️👨‍⚕️👩‍⚕️🧑‍🎓👨‍🎓👩‍🎓🧑‍🏫👨‍🏫👩‍🏫🧑‍⚖️👨‍⚖️👩‍⚖️🧑‍🌾👨‍🌾👩‍🌾🧑‍🍳👨‍🍳👩‍🍳🧑‍🔧👨‍🔧👩‍🔧🧑‍🏭👨‍🏭👩‍🏭🧑‍💼👨‍💼👩‍💼🧑‍🔬👨‍🔬👩‍🔬🧑‍💻👨‍💻👩‍💻🧑‍🎤👨‍🎤👩‍🎤🧑‍🎨👨‍🎨👩‍🎨🧑‍✈️👨‍✈️👩‍✈️🧑‍🚀👨‍🚀👩‍🚀🧑‍🚒👨‍🚒👩‍🚒👮👮‍♂️👮‍♀️🕵️🕵️‍♂️🕵️‍♀️💂💂‍♂️💂‍♀️🥷👷👷‍♂️👷‍♀️🫅🤴👸👳👳‍♂️👳‍♀️👲🧕🤵🤵‍♂️🤵‍♀️👰👰‍♂️👰‍♀️🤰🫃🫄🤱👩‍🍼👨‍🍼🧑‍🍼👼🎅🤶🧑‍🎄🦸🦸‍♂️🦸‍♀️🦹🦹‍♂️🦹‍♀️🧙🧙‍♂️🧙‍♀️🧚🧚‍♂️🧚‍♀️🧛🧛‍♂️🧛‍♀️🧜🧜‍♂️🧜‍♀️🧝🧝‍♂️🧝‍♀️🧞🧞‍♂️🧞‍♀️🧟🧟‍♂️🧟‍♀️🧌🫈💆💆‍♂️💆‍♀️💇💇‍♂️💇‍♀️🚶🚶‍♂️🚶‍♀️🚶‍➡️🚶‍♀️‍➡️🚶‍♂️‍➡️🧍🧍‍♂️🧍‍♀️🧎🧎‍♂️🧎‍♀️🧎‍➡️🧎‍♀️‍➡️🧎‍♂️‍➡️🧑‍🦯🧑‍🦯‍➡️👨‍🦯👨‍🦯‍➡️👩‍🦯👩‍🦯‍➡️🧑‍🦼🧑‍🦼‍➡️👨‍🦼👨‍🦼‍➡️👩‍🦼👩‍🦼‍➡️🧑‍🦽🧑‍🦽‍➡️👨‍🦽👨‍🦽‍➡️👩‍🦽👩‍🦽‍➡️🏃🏃‍♂️🏃‍♀️🏃‍➡️🏃‍♀️‍➡️🏃‍♂️‍➡️🧑‍🩰💃🕺🕴️👯👯‍♂️👯‍♀️🧖🧖‍♂️🧖‍♀️🧗🧗‍♂️🧗‍♀️🤺🏇⛷️🏂🏌️🏌️‍♂️🏌️‍♀️🏄🏄‍♂️🏄‍♀️🚣🚣‍♂️🚣‍♀️🏊🏊‍♂️🏊‍♀️⛹️⛹️‍♂️⛹️‍♀️🏋️🏋️‍♂️🏋️‍♀️🚴🚴‍♂️🚴‍♀️🚵🚵‍♂️🚵‍♀️🤸🤸‍♂️🤸‍♀️🤼🤼‍♂️🤼‍♀️🤽🤽‍♂️🤽‍♀️🤾🤾‍♂️🤾‍♀️🤹🤹‍♂️🤹‍♀️🧘🧘‍♂️🧘‍♀️🛀🛌🧑‍🤝‍🧑👭👫👬💏👩‍❤️‍💋‍👨👨‍❤️‍💋‍👨👩‍❤️‍💋‍👩💑👩‍❤️‍👨👨‍❤️‍👨👩‍❤️‍👩👨‍👩‍👦👨‍👩‍👧👨‍👩‍👧‍👦👨‍👩‍👦‍👦👨‍👩‍👧‍👧👨‍👨‍👦👨‍👨‍👧👨‍👨‍👧‍👦👨‍👨‍👦‍👦👨‍👨‍👧‍👧👩‍👩‍👦👩‍👩‍👧👩‍👩‍👧‍👦👩‍👩‍👦‍👦👩‍👩‍👧‍👧👨‍👦👨‍👦‍👦👨‍👧👨‍👧‍👦👨‍👧‍👧👩‍👦👩‍👦‍👦👩‍👧👩‍👧‍👦👩‍👧‍👧🗣️👤👥🫂👪🧑‍🧑‍🧒🧑‍🧑‍🧒‍🧒🧑‍🧒🧑‍🧒‍🧒👣🫆")),
+            "👋🏻🤚🏻🖐🏻✋🏻🖖🏻🫱🏻🫲🏻🫳🏻🫴🏻🫷🏻🫸🏻👌🏻🤌🏻🤏🏻✌🏻🤞🏻🫰🏻🤟🏻🤘🏻🤙🏻👈🏻👉🏻👆🏻🖕🏻👇🏻☝🏻🫵🏻👍🏻👎🏻✊🏻👊🏻🤛🏻🤜🏻👏🏻🙌🏻🫶🏻👐🏻🤲🏻🤝🏻🙏🏻✍🏻💅🏻🤳🏻💪🏻🦾🦿🦵🏻🦶🏻👂🏻🦻🏻👃🏻🧠🫀🫁🦷🦴👀👁️👅👄🫦👶🏻🧒🏻👦🏻👧🏻🧑🏻👱🏻👨🏻🧔🏻🧔🏻‍♂️🧔🏻‍♀️👨🏻‍🦰👨🏻‍🦱👨🏻‍🦳👨🏻‍🦲👩🏻👩🏻‍🦰🧑🏻‍🦰👩🏻‍🦱🧑🏻‍🦱👩🏻‍🦳🧑🏻‍🦳👩🏻‍🦲🧑🏻‍🦲👱🏻‍♀️👱🏻‍♂️🧓🏻👴🏻👵🏻🙍🏻🙍🏻‍♂️🙍🏻‍♀️🙎🏻🙎🏻‍♂️🙎🏻‍♀️🙅🏻🙅🏻‍♂️🙅🏻‍♀️🙆🏻🙆🏻‍♂️🙆🏻‍♀️💁🏻💁🏻‍♂️💁🏻‍♀️🙋🏻🙋🏻‍♂️🙋🏻‍♀️🧏🏻🧏🏻‍♂️🧏🏻‍♀️🙇🏻🙇🏻‍♂️🙇🏻‍♀️🤦🏻🤦🏻‍♂️🤦🏻‍♀️🤷🏻🤷🏻‍♂️🤷🏻‍♀️🧑🏻‍⚕️👨🏻‍⚕️👩🏻‍⚕️🧑🏻‍🎓👨🏻‍🎓👩🏻‍🎓🧑🏻‍🏫👨🏻‍🏫👩🏻‍🏫🧑🏻‍⚖️👨🏻‍⚖️👩🏻‍⚖️🧑🏻‍🌾👨🏻‍🌾👩🏻‍🌾🧑🏻‍🍳👨🏻‍🍳👩🏻‍🍳🧑🏻‍🔧👨🏻‍🔧👩🏻‍🔧🧑🏻‍🏭👨🏻‍🏭👩🏻‍🏭🧑🏻‍💼👨🏻‍💼👩🏻‍💼🧑🏻‍🔬👨🏻‍🔬👩🏻‍🔬🧑🏻‍💻👨🏻‍💻👩🏻‍💻🧑🏻‍🎤👨🏻‍🎤👩🏻‍🎤🧑🏻‍🎨👨🏻‍🎨👩🏻‍🎨🧑🏻‍✈️👨🏻‍✈️👩🏻‍✈️🧑🏻‍🚀👨🏻‍🚀👩🏻‍🚀🧑🏻‍🚒👨🏻‍🚒👩🏻‍🚒👮🏻👮🏻‍♂️👮🏻‍♀️🕵🏻🕵🏻‍♂️🕵🏻‍♀️💂🏻💂🏻‍♂️💂🏻‍♀️🥷🏻👷🏻👷🏻‍♂️👷🏻‍♀️🫅🏻🤴🏻👸🏻👳🏻👳🏻‍♂️👳🏻‍♀️👲🏻🧕🏻🤵🏻🤵🏻‍♂️🤵🏻‍♀️👰🏻👰🏻‍♂️👰🏻‍♀️🤰🏻🫃🏻🫄🏻🤱🏻👩🏻‍🍼👨🏻‍🍼🧑🏻‍🍼👼🏻🎅🏻🤶🏻🧑🏻‍🎄🦸🏻🦸🏻‍♂️🦸🏻‍♀️🦹🏻🦹🏻‍♂️🦹🏻‍♀️🧙🏻🧙🏻‍♂️🧙🏻‍♀️🧚🏻🧚🏻‍♂️🧚🏻‍♀️🧛🏻🧛🏻‍♂️🧛🏻‍♀️🧜🏻🧜🏻‍♂️🧜🏻‍♀️🧝🏻🧝🏻‍♂️🧝🏻‍♀️🧞🧞‍♂️🧞‍♀️🧟🧟‍♂️🧟‍♀️🧌🫈💆🏻💆🏻‍♂️💆🏻‍♀️💇🏻💇🏻‍♂️💇🏻‍♀️🚶🏻🚶🏻‍♂️🚶🏻‍♀️🚶🏻‍➡️🚶🏻‍♀️‍➡️🚶🏻‍♂️‍➡️🧍🏻🧍🏻‍♂️🧍🏻‍♀️🧎🏻🧎🏻‍♂️🧎🏻‍♀️🧎🏻‍➡️🧎🏻‍♀️‍➡️🧎🏻‍♂️‍➡️🧑🏻‍🦯🧑🏻‍🦯‍➡️👨🏻‍🦯👨🏻‍🦯‍➡️👩🏻‍🦯👩🏻‍🦯‍➡️🧑🏻‍🦼🧑🏻‍🦼‍➡️👨🏻‍🦼👨🏻‍🦼‍➡️👩🏻‍🦼👩🏻‍🦼‍➡️🧑🏻‍🦽🧑🏻‍🦽‍➡️👨🏻‍🦽👨🏻‍🦽‍➡️👩🏻‍🦽👩🏻‍🦽‍➡️🏃🏻🏃🏻‍♂️🏃🏻‍♀️🏃🏻‍➡️🏃🏻‍♀️‍➡️🏃🏻‍♂️‍➡️🧑🏻‍🩰💃🏻🕺🏻🕴🏻👯🏻👯🏻‍♂️👯🏻‍♀️🧖🏻🧖🏻‍♂️🧖🏻‍♀️🧗🏻🧗🏻‍♂️🧗🏻‍♀️🤺🏇🏻⛷️🏂🏻🏌🏻🏌🏻‍♂️🏌🏻‍♀️🏄🏻🏄🏻‍♂️🏄🏻‍♀️🚣🏻🚣🏻‍♂️🚣🏻‍♀️🏊🏻🏊🏻‍♂️🏊🏻‍♀️⛹🏻⛹🏻‍♂️⛹🏻‍♀️🏋🏻🏋🏻‍♂️🏋🏻‍♀️🚴🏻🚴🏻‍♂️🚴🏻‍♀️🚵🏻🚵🏻‍♂️🚵🏻‍♀️🤸🏻🤸🏻‍♂️🤸🏻‍♀️🤼🏻🤼🏻‍♂️🤼🏻‍♀️🤽🏻🤽🏻‍♂️🤽🏻‍♀️🤾🏻🤾🏻‍♂️🤾🏻‍♀️🤹🏻🤹🏻‍♂️🤹🏻‍♀️🧘🏻🧘🏻‍♂️🧘🏻‍♀️🛀🏻🛌🏻🧑🏻‍🤝‍🧑🏻👭🏻👫🏻👬🏻💏🏻👩🏻‍❤️‍💋‍👨🏻👨🏻‍❤️‍💋‍👨🏻👩🏻‍❤️‍💋‍👩🏻💑🏻👩🏻‍❤️‍👨🏻👨🏻‍❤️‍👨🏻👩🏻‍❤️‍👩🏻👨‍👩‍👦👨‍👩‍👧👨‍👩‍👧‍👦👨‍👩‍👦‍👦👨‍👩‍👧‍👧👨‍👨‍👦👨‍👨‍👧👨‍👨‍👧‍👦👨‍👨‍👦‍👦👨‍👨‍👧‍👧👩‍👩‍👦👩‍👩‍👧👩‍👩‍👧‍👦👩‍👩‍👦‍👦👩‍👩‍👧‍👧👨‍👦👨‍👦‍👦👨‍👧👨‍👧‍👦👨‍👧‍👧👩‍👦👩‍👦‍👦👩‍👧👩‍👧‍👦👩‍👧‍👧🗣️👤👥🫂👪🧑‍🧑‍🧒🧑‍🧑‍🧒‍🧒🧑‍🧒🧑‍🧒‍🧒👣🫆")),
         Category(symbol: "heart", title: "قلب‌ها و نمادها", emojis: list(
             "💌💘💝💖💗💓💞💕💟❣️💔❤️‍🔥❤️‍🩹❤️🩷🧡💛💚💙🩵💜🤎🖤🩶🤍💋💯💢🫯💥💫💦💨🕳️💬👁️‍🗨️🗨️🗯️💭💤🏧🚮🚰♿🚹🚺🚻🚼🚾🛂🛃🛄🛅⚠️🚸⛔🚫🚳🚭🚯🚱🚷📵🔞☢️☣️⬆️↗️➡️↘️⬇️↙️⬅️↖️↕️↔️↩️↪️⤴️⤵️🔃🔄🔙🔚🔛🔜🔝🛐⚛️🕉️✡️☸️☯️✝️☦️☪️☮️🕎🔯🪯♈♉♊♋♌♍♎♏♐♑♒♓⛎🔀🔁🔂▶️⏩⏭️⏯️◀️⏪⏮️🔼⏫🔽⏬⏸️⏹️⏺️⏏️🎦🔅🔆📶🛜📳📴♀️♂️⚧️✖️➕➖➗🟰♾️‼️⁉️❓❔❕❗〰️💱💲⚕️♻️⚜️🔱📛🔰⭕✅☑️✔️❌❎➰➿〽️✳️✴️❇️©️®️™️🫟#️⃣*️⃣0️⃣1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣8️⃣9️⃣🔟🔠🔡🔢🔣🔤🅰️🆎🅱️🆑🆒🆓ℹ️🆔Ⓜ️🆕🆖🅾️🆗🅿️🆘🆙🆚🈁🈂️🈷️🈶🈯🉐🈹🈚🈲🉑🈸🈴🈳㊗️㊙️🈺🈵🔴🟠🟡🟢🔵🟣🟤⚫⚪🟥🟧🟨🟩🟦🟪🟫⬛⬜◼️◻️◾◽▪️▫️🔶🔷🔸🔹🔺🔻💠🔘🔳🔲")),
         Category(symbol: "leaf", title: "حیوانات و طبیعت", emojis: list(

@@ -1,6 +1,6 @@
 """Rewrites the emoji lists of PersianSTTKeyboard/EmojiPanel.swift from Unicode's emoji-test.txt,
-in Unicode's order (the order of the iOS emoji keyboard): every fully-qualified emoji, without
-the skin-tone variants. The panel hides at run time those the device's iOS cannot draw.
+in Unicode's order (the order of the iOS emoji keyboard): every fully-qualified emoji, people
+and hands in the light skin tone where Unicode has it (Rooz, 2026-11-15), the other tones left out. The panel hides at run time those the device's iOS cannot draw.
 
 usage: make_emoji_lists.py <emoji-test.txt>
 emoji-test.txt: https://raw.githubusercontent.com/unicode-org/unicodetools/main/unicodetools/data/emoji/17.0/emoji-test.txt
@@ -25,7 +25,16 @@ for line in open(sys.argv[1], encoding='utf-8'):
         if not rest.strip().startswith('fully-qualified'):
             continue
         emoji = ''.join(chr(int(c, 16)) for c in codes.split())
-        if skin.search(emoji):
+        tones = set(skin.findall(emoji))
+        if tones == {'\U0001F3FB'}:
+            # The light skin tone takes the place of the default yellow form listed before it.
+            base = skin.sub('', emoji)
+            for items in lists.values():
+                for i, item in enumerate(items):
+                    if item.replace('\uFE0F', '') == base.replace('\uFE0F', ''):
+                        items[i] = emoji
+            continue
+        if tones:
             continue
         name = {
             'Smileys & Emotion': 'symbols' if subgroup in ('heart', 'emotion') else 'smileys',

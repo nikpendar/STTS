@@ -180,8 +180,6 @@ final class KeyboardSession: ObservableObject {
             DictationBridge.post(DictationBridge.alive)
             return
         }
-        // A recording that goes on while the screen is locked says so on the lock screen.
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, mode: .default,

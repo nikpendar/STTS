@@ -1,4 +1,7 @@
 import UIKit
+import os
+
+private let usageLog = Logger(subsystem: "ir.nikpendar.PersianSTT", category: "usage")
 
 /// What the keyboard (and the app's own dictations) did for the user, for the report page in
 /// the app (`UsageReport`). The keyboard counts from its install on and never resets; it puts
@@ -153,24 +156,48 @@ struct UsageStats: Codable, Equatable {
             .flatMap { try? JSONDecoder().decode(UsageStats.self, from: $0) } ?? UsageStats()
     }()
     private static var unsaved = false
+    private static var publishQueued = false
 
-    /// Keyboard side: counts something; `publish()` hands the totals to the app.
+    /// Keyboard side: counts something and hands the totals to the app a moment later, while
+    /// the keyboard is still on screen (a write while it closes may not reach the app).
     static func record(_ change: (inout UsageStats) -> Void) {
         change(&current)
         unsaved = true
+        guard !publishQueued else { return }
+        publishQueued = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            publishQueued = false
+            publish()
+        }
     }
 
-    /// Keyboard side: saves the totals and puts them on the pasteboard for the app.
-    static func publish() {
-        guard unsaved, let data = try? JSONEncoder().encode(current) else { return }
+    /// Keyboard side: saves the totals and puts them on the pasteboard for the app, as text like
+    /// the keyboard's other reports. `force` writes them again even when nothing changed, as a
+    /// reinstall or restart can clear the pasteboard.
+    static func publish(force: Bool = false) {
+        guard unsaved || force, let data = try? JSONEncoder().encode(current) else { return }
         unsaved = false
         UserDefaults.standard.set(data, forKey: defaultsKey)
-        UIPasteboard(name: pasteboardName, create: true)?.setData(data, forPasteboardType: pasteboardType)
+        guard let board = UIPasteboard(name: pasteboardName, create: true) else {
+            usageLog.error("usage pasteboard unavailable")
+            return
+        }
+        board.string = String(decoding: data, as: UTF8.self)
+        usageLog.info("usage published: \(current.voiceWords) voice words, \(current.dictations) dictations, \(current.glideWords) glide words")
     }
 
     /// App side: the keyboard's latest totals, nil when it never published any.
     static func fromKeyboard() -> UsageStats? {
-        UIPasteboard(name: pasteboardName, create: false)?.data(forPasteboardType: pasteboardType)
-            .flatMap { try? JSONDecoder().decode(UsageStats.self, from: $0) }
+        guard let board = UIPasteboard(name: pasteboardName, create: false) else {
+            usageLog.info("usage: no keyboard pasteboard")
+            return nil
+        }
+        let data = board.string.map { Data($0.utf8) } ?? board.data(forPasteboardType: pasteboardType)
+        guard let data, let stats = try? JSONDecoder().decode(UsageStats.self, from: data) else {
+            usageLog.info("usage: keyboard pasteboard empty or unreadable")
+            return nil
+        }
+        usageLog.info("usage read: \(stats.voiceWords) voice words, \(stats.dictations) dictations")
+        return stats
     }
 }

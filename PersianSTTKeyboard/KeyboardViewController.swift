@@ -337,6 +337,7 @@ final class KeyboardViewController: UIInputViewController {
         // Tells the app the keyboard is added and has Full Access (the app opens only then).
         if hasFullAccess {
             UIPasteboard(name: DictationBridge.fullAccessPasteboard, create: true)?.string = "on"
+            UsageStats.publish(force: true)
             DictationBridge.post(DictationBridge.fullAccess)
         }
         var view: UIView? = self.view.window

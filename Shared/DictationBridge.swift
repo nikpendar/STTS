@@ -560,6 +560,27 @@ struct TypedShortcuts: SharedSetting, Equatable {
     static let pasteboardName = UIPasteboard.Name("ir.nikpendar.PersianSTT.typedShortcuts")
     static let defaultsKey = "typedShortcuts"
 
+    /// Common Persian and English shortcuts, added once to the user's own (Rooz, 2026-11-15).
+    static let samples: [Entry] = [
+        ("سلع", "سلام علیکم"), ("صبخ", "صبح بخیر"), ("شبخ", "شب بخیر"), ("ممن", "ممنونم، لطف کردید."),
+        ("خدن", "خداحافظ"), ("انش", "ان‌شاءالله"), ("تبکم", "تبریک می‌گم!"),
+        ("میرس", "چند دقیقه دیگه می‌رسم."), ("جلس", "الان جلسه‌ام، بعداً تماس می‌گیرم."),
+        ("omw", "On my way!"), ("brb", "Be right back."), ("ty", "Thank you!"), ("lmk", "Let me know."),
+        ("idk", "I don't know."), ("btw", "by the way"), ("asap", "as soon as possible"),
+    ].map { Entry(shortcut: $0.0, text: $0.1) }
+
+    /// The saved shortcuts, with the samples added the first time (none the user already has).
+    static func savedWithSamples() -> TypedShortcuts {
+        var value = saved
+        let key = "typedShortcutSamplesAdded"
+        guard !UserDefaults.standard.bool(forKey: key) else { return value }
+        UserDefaults.standard.set(true, forKey: key)
+        let have = Set(value.entries.map { PersonalDictionary.key($0.shortcut) })
+        value.entries += samples.filter { !have.contains(PersonalDictionary.key($0.shortcut)) }
+        value.save()
+        return value
+    }
+
     /// The shortcuts by `PersonalDictionary.key`, one-word ones only.
     var byKey: [String: String] {
         var found: [String: String] = [:]

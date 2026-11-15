@@ -22,7 +22,7 @@ struct ContentView: View {
     @State private var style = KeyStyle.saved
     @State private var options = KeyboardOptions.saved
     @State private var dictionary = PersonalDictionary.saved
-    @State private var shortcuts = TypedShortcuts.saved
+    @State private var shortcuts = TypedShortcuts.savedWithSamples()
     /// The «خواندن متن» page in the main list.
     static let showsReadAloud = false
     @State private var photoItem: PhotosPickerItem?

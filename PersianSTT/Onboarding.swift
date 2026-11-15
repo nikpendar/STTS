@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 
 /// The first-run guide: a few short pages from adding the keyboard to the first dictation, in
 /// Persian (right to left) or English, chosen on its first page (the phone's language at first). Shown once on first launch and
@@ -23,6 +24,15 @@ struct Onboarding: View {
     @State private var pickingModel = false
     /// CI only: launch argument `-onboardingPage <n>` opens the guide on that page for screenshots.
     @State private var page = UserDefaults.standard.integer(forKey: "onboardingPage")
+    /// The page last shown, so the guide goes on from it when iOS relaunches the app after the
+    /// user changed its keyboard or Full Access in Settings (Rooz, 2026-11-15).
+    private static let resumeKey = "onboardingResumePage"
+    /// Allowed, denied or not asked yet; asked only from the notifications page.
+    @State private var notifications = UNAuthorizationStatus.notDetermined
+    /// The keyboard reported Full Access, i.e. it is added and allowed.
+    @StateObject private var gate = KeyboardGate()
+    @State private var probe = ""
+    @FocusState private var probing: Bool
 
     /// "fa" or "en", chosen on the first page; launch argument `-onboardingLanguage en` sets it in CI.
     @AppStorage("onboardingLanguage") private var language = Onboarding.persian ? "fa" : "en"
@@ -33,13 +43,13 @@ struct Onboarding: View {
         Locale.preferredLanguages.first.map { $0.hasPrefix("fa") } ?? true
     }
 
-    private enum Step { case language, welcome, keyboard, fullAccess, model, training, session }
+    private enum Step { case language, welcome, keyboard, fullAccess, model, training, notifications, session }
 
     /// A build with the model inside has nothing to import and does not learn from corrections.
     private var steps: [Step] {
         Transcriber.bundledModel == nil
-            ? [.language, .welcome, .keyboard, .fullAccess, .model, .training, .session]
-            : [.language, .welcome, .keyboard, .fullAccess, .session]
+            ? [.language, .welcome, .keyboard, .fullAccess, .model, .training, .notifications, .session]
+            : [.language, .welcome, .keyboard, .fullAccess, .notifications, .session]
     }
 
     var body: some View {
@@ -98,7 +108,20 @@ struct Onboarding: View {
         .fileImporter(isPresented: $pickingModel, allowedContentTypes: [.item]) { result in
             if case .success(let url) = result { importer.importModel(from: url) }
         }
-        .onAppear { page = min(max(page, 0), steps.count - 1) }
+        .onAppear {
+            if page == 0, !done { page = UserDefaults.standard.integer(forKey: Self.resumeKey) }
+            page = min(max(page, 0), steps.count - 1)
+            refreshNotifications()
+        }
+        .onChange(of: page) { _, new in
+            probing = false
+            UserDefaults.standard.set(new, forKey: Self.resumeKey)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            gate.check()
+            refreshNotifications()
+        }
+        .onChange(of: gate.isReady) { _, ready in if ready { probing = false } }
     }
 
     private func answerTraining(_ send: Bool) {
@@ -108,6 +131,7 @@ struct Onboarding: View {
     }
 
     private func finish() {
+        UserDefaults.standard.removeObject(forKey: Self.resumeKey)
         done = true
         dismiss()
     }
@@ -146,7 +170,10 @@ struct Onboarding: View {
                      title: fa ? "روشن کردن دسترسی کامل" : "Turn on Full Access",
                      text: fa ? "در همان صفحه «اجازه‌ی دسترسی کامل» (Allow Full Access) را روشن کنید و «اجازه دادن» را بزنید.\n\nکیبورد با دسترسی کامل متن دیکته‌شده را از برنامه‌ی آواک می‌گیرد و تنظیمات شما مثل رنگ‌ها و واژه‌نامه را می‌خواند. بدون آن، دیکته و این تنظیمات کار نمی‌کنند. چیزی که تایپ می‌کنید بدون اجازه‌ی شما از آیفون بیرون نمی‌رود."
                               : "On the same page, turn on Allow Full Access and confirm with Allow.\n\nWith Full Access the keyboard receives the dictated text from the Avak app and reads your settings, such as colours and your dictionary. Without it, dictation and these settings do not work. What you type does not leave the iPhone without your permission.") {
-                settingsButton
+                VStack(spacing: 14) {
+                    settingsButton
+                    keyboardCheck
+                }
             }
 
         case .model:
@@ -195,11 +222,42 @@ struct Onboarding: View {
                 }
             }
 
+        case .notifications:
+            StepPage(symbol: "bell.badge.fill", color: .pink, font: font,
+                     title: fa ? "ضبط با صفحه‌ی قفل" : "Recording on the lock screen",
+                     text: fa ? "اگر ضبط را با کشیدن کلید فاصله به چپ قفل کرده باشید و صفحه‌ی آیفون قفل شود، آواک به ضبط ادامه می‌دهد و بعد از باز کردن قفل، متن را در همان جا می‌نویسد.\n\nبرای اینکه روی صفحه‌ی قفل ببینید ضبط ادامه دارد، آواک اجازه‌ی اعلان می‌خواهد. بدون آن هم ضبط کار می‌کند، فقط روی صفحه‌ی قفل چیزی نشان داده نمی‌شود."
+                              : "If you locked a recording by sliding the space bar to the left and the iPhone's screen locks, Avak keeps recording and writes the text where you were once you unlock.\n\nTo show on the lock screen that it is still recording, Avak asks to send notifications. Recording works without them too; the lock screen just shows nothing.") {
+                VStack(spacing: 12) {
+                    switch notifications {
+                    case .authorized, .provisional, .ephemeral:
+                        Label(fa ? "اعلان‌ها روشن است." : "Notifications are on.", systemImage: "checkmark.circle.fill")
+                            .font(font(.subheadline))
+                            .foregroundStyle(.green)
+                    case .denied:
+                        Text(fa ? "اعلان‌ها خاموش است. برای روشن کردن: تنظیمات › آواک › اعلان‌ها." : "Notifications are off. To turn them on: Settings › Avak › Notifications.")
+                            .font(font(.footnote))
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    default:
+                        Button { askNotifications() } label: {
+                            wideLabel(fa ? "اجازه‌ی اعلان" : "Allow Notifications", symbol: "bell")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .buttonBorderShape(.capsule)
+                        Button { withAnimation { page = min(page + 1, steps.count - 1) } } label: {
+                            wideLabel(fa ? "فعلاً نه" : "Not Now", symbol: "bell.slash")
+                        }
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
+                    }
+                }
+            }
+
         case .session:
             StepPage(symbol: "waveform", color: .red, font: font,
                      title: fa ? "روشن کردن تایپ صوتی" : "Turn on voice typing",
-                     text: fa ? "تایپ صوتی میکروفون را برای کیبورد آماده نگه می‌دارد. آن را اینجا یا در صفحه‌ی اول آواک روشن کنید؛ بعد از مدتی بی‌استفاده خودش خاموش می‌شود.\n\nدر هر برنامه با کلید \(Image(systemName: "globe")) به آواک بروید، کلید فاصله را نگه دارید و حرف بزنید؛ با رها کردن، متن نوشته می‌شود. برای حرف زدن طولانی انگشت را بالا بکشید تا قفل شود و برای پایان روی دایره بزنید."
-                              : "Voice typing keeps the microphone ready for the keyboard. Turn it on here or on the first page of Avak; it turns off by itself after a while unused.\n\nIn any app switch to Avak with the \(Image(systemName: "globe")) key, hold the space bar and speak; let go and the text is written. For longer dictation, slide up to lock and tap the circle to finish.") {
+                     text: fa ? "تایپ صوتی میکروفون را برای کیبورد آماده نگه می‌دارد. آن را اینجا یا در صفحه‌ی اول آواک روشن کنید؛ بعد از مدتی بی‌استفاده خودش خاموش می‌شود.\n\nدر هر برنامه با کلید \(Image(systemName: "globe")) به آواک بروید، کلید فاصله را نگه دارید و حرف بزنید؛ با رها کردن، متن نوشته می‌شود. برای حرف زدن طولانی، کلید فاصله را نگه دارید و انگشت را به چپ بکشید تا قفل شود؛ برای پایان، دکمه‌ی توقف در سمت راست کلید فاصله را بزنید."
+                              : "Voice typing keeps the microphone ready for the keyboard. Turn it on here or on the first page of Avak; it turns off by itself after a while unused.\n\nIn any app switch to Avak with the \(Image(systemName: "globe")) key, hold the space bar and speak; let go and the text is written. For longer dictation, hold the space bar and slide left to lock it; to finish, tap the stop button at the right end of the space bar.") {
                 Button {
                     keyboard.isActive ? keyboard.stop() : keyboard.start()
                 } label: {
@@ -232,6 +290,47 @@ struct Onboarding: View {
         .buttonStyle(.bordered)
         .buttonBorderShape(.capsule)
         .tint(language == code ? .accentColor : .secondary)
+    }
+
+    private func refreshNotifications() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            let status = settings.authorizationStatus
+            Task { @MainActor in notifications = status }
+        }
+    }
+
+    /// iOS asks once; either answer moves on to the next page.
+    private func askNotifications() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in
+            Task { @MainActor in
+                refreshNotifications()
+                withAnimation { page = min(page + 1, steps.count - 1) }
+            }
+        }
+    }
+
+    /// Confirms the keyboard is added and has Full Access: only the keyboard can tell, the first
+    /// time it opens with Full Access, so the user switches to it in a field here.
+    @ViewBuilder
+    private var keyboardCheck: some View {
+        if gate.isReady {
+            Label(fa ? "کیبورد آواک آماده است." : "The Avak keyboard is ready.", systemImage: "checkmark.circle.fill")
+                .font(font(.subheadline))
+                .foregroundStyle(.green)
+        } else {
+            VStack(spacing: 8) {
+                Text(fa ? "بعد از روشن کردن دسترسی کامل، اینجا بزنید و با کلید \(Image(systemName: "globe")) کیبورد آواک را انتخاب کنید تا تأیید شود."
+                        : "After turning on Full Access, tap here and switch to the Avak keyboard with the \(Image(systemName: "globe")) key to confirm.")
+                    .font(font(.footnote))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                TextField(fa ? "اینجا بزنید" : "Tap here", text: $probe)
+                    .focused($probing)
+                    .multilineTextAlignment(.center)
+                    .padding(12)
+                    .background(Color(.secondarySystemBackground), in: Capsule())
+            }
+        }
     }
 
     /// Opens the app's own page in Settings, which lists its keyboard and Full Access.
