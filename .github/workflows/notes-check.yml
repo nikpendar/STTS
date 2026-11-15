@@ -1,0 +1,73 @@
+# The notes page (branch claude/project-thread-ltq6zg): checks its Persian text rules, pause cutter
+# and audio file reader on a Mac (Tests/Notes), with Ogg Opus voice messages made by ffmpeg, and
+# compiles the app for iPhone as build.yml does. No IPA is kept; builds for Rooz stay on main.
+name: Notes check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/project-thread-ltq6zg]
+    paths:
+      - PersianSTT/**
+      - PersianSTT.xcodeproj/**
+      - Shared/**
+      - Tests/Notes/**
+      - .github/workflows/notes-check.yml
+
+jobs:
+  logic:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audio files
+        run: |
+          which ffmpeg || brew install ffmpeg
+          mkdir -p audio
+          say -v Samantha -o audio/speech.aiff "Good morning, this is the first part. [[slnc 2000]] Here comes the second part of the message. [[slnc 2000]] And this is the end."
+          ffmpeg -loglevel error -y -i audio/speech.aiff -ar 16000 -ac 1 audio/speech.wav
+          ffmpeg -loglevel error -y -i audio/speech.wav -c:a libopus -b:a 24k -application voip audio/speech.ogg
+          ffmpeg -loglevel error -y -i audio/speech.wav -c:a libopus -b:a 24k -frame_duration 60 audio/speech60.ogg
+          ffmpeg -loglevel error -y -i audio/speech.wav -ac 2 -ar 48000 -c:a libopus -b:a 32k -f ogg audio/speech-stereo.opus
+          ffmpeg -loglevel error -y -i audio/speech.wav -c:a aac -b:a 48k audio/speech.m4a
+          ffmpeg -loglevel error -y -i audio/speech.wav -c:a libmp3lame -b:a 64k audio/speech.mp3
+          ls -l audio
+      - name: Build and run
+        run: |
+          if ! swiftc -O -module-name Notes PersianSTT/PersianText.swift PersianSTT/SpeechSegmenter.swift \
+            PersianSTT/AudioStreamReader.swift PersianSTT/AudioLoader.swift Tests/Notes/main.swift -o notes-test 2> build.txt; then
+            cat build.txt
+            grep "error:" build.txt | head -20 | sed 's/^/::error::/'
+            exit 1
+          fi
+          set -o pipefail
+          ./notes-test audio | tee result.txt || { grep "^FAIL" result.txt | sed 's/^/::error::/'; exit 1; }
+
+  app:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Select Xcode
+        run: |
+          XC="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n1)"
+          if [ -n "$XC" ]; then sudo xcode-select -s "$XC"; fi
+          xcodebuild -version
+      - name: Sidecars and voice
+        run: bash ./setup.sh sidecars
+      - name: Handwriting library
+        run: pod install --repo-update
+      - name: Handwriting model
+        run: bash scripts/ink_model.sh
+      - name: Build
+        run: |
+          set -a; . ./config.env; set +a
+          set -o pipefail
+          xcodebuild -workspace PersianSTT.xcworkspace -scheme PersianSTT \
+            -configuration Release -sdk iphoneos -destination generic/platform=iOS \
+            SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            TRAINING_REPO="$TRAINING_REPO" build 2>&1 | tee build.log | grep -E "error:|warning: .*(Note|PersianText|AudioStream|SpeechSegmenter)" | head -60 \
+            || true
+          if ! grep -q "BUILD SUCCEEDED" build.log; then
+            grep -E "error:" build.log | sort -u | head -40 | sed 's/^/::error::/'
+            exit 1
+          fi
+          plutil -p build/Release-iphoneos/PersianSTT.app/Info.plist | grep -A3 CFBundleDocumentTypes

@@ -12,6 +12,10 @@ final class PersianSpeech: ObservableObject {
 
     @Published private(set) var isSpeaking = false
     @Published private(set) var error: String?
+    /// The sentence being heard (UTF-16 range in the text given to `speak(_:highlighting:)`).
+    @Published private(set) var spokenRange: NSRange?
+    /// Ranges of the buffers scheduled and not yet played to the end (main queue only).
+    private var queuedRanges: [NSRange?] = []
 
     /// The folder with the voice files, nil in a build without them.
     static var directory: URL? {
@@ -47,6 +51,11 @@ final class PersianSpeech: ObservableObject {
     }
 
     func speak(_ text: String) {
+        speak(text, highlighting: false)
+    }
+
+    /// Reads `text`; with `highlighting`, sentence by sentence so `spokenRange` follows the voice.
+    func speak(_ text: String, highlighting: Bool) {
         stop()
         let run = nextRun()
         let stress = PersianPhonemizer.Stress(rawValue: UserDefaults.standard.string(forKey: Self.stressKey) ?? "") ?? .rules
@@ -57,6 +66,22 @@ final class PersianSpeech: ObservableObject {
             do {
                 try loadIfNeeded()
                 guard let phonemizer, let voice else { return }
+                if highlighting {
+                    let ns = text as NSString
+                    let ranges = PersianText.sentenceRanges(text)
+                    if ranges.isEmpty { DispatchQueue.main.async { self.finish(run) } }
+                    for (i, range) in ranges.enumerated() {
+                        guard isCurrent(run) else { return }
+                        var samples: [Float] = []
+                        for sentence in try phonemizer.sentences(ns.substring(with: range), stress: stress) {
+                            guard isCurrent(run) else { return }
+                            samples += try voice.synthesize(sentence, speed: speed)
+                        }
+                        let last = i == ranges.count - 1
+                        DispatchQueue.main.async { self.play(samples, rate: voice.sampleRate, run: run, last: last, range: range) }
+                    }
+                    return
+                }
                 let sentences = try phonemizer.sentences(text, stress: stress)
                 if sentences.isEmpty { DispatchQueue.main.async { self.finish(run) } }
                 for (i, sentence) in sentences.enumerated() {
@@ -76,6 +101,8 @@ final class PersianSpeech: ObservableObject {
 
     func stop() {
         _ = nextRun()
+        queuedRanges = []
+        spokenRange = nil
         player.stop()
         if engine.isRunning { engine.stop() }
         releaseAudioSession()
@@ -108,7 +135,7 @@ final class PersianSpeech: ObservableObject {
         return run == currentRun
     }
 
-    private func play(_ samples: [Float], rate: Double, run: Int, last: Bool) {
+    private func play(_ samples: [Float], rate: Double, run: Int, last: Bool, range: NSRange? = nil) {
         guard isCurrent(run), !samples.isEmpty else {
             if last { finish(run) }
             return
@@ -127,9 +154,15 @@ final class PersianSpeech: ObservableObject {
             guard let format, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(samples.count)) else { return }
             buffer.frameLength = buffer.frameCapacity
             samples.withUnsafeBufferPointer { buffer.floatChannelData![0].update(from: $0.baseAddress!, count: samples.count) }
+            queuedRanges.append(range)
+            if queuedRanges.count == 1 { spokenRange = range }
             player.scheduleBuffer(buffer, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-                guard last else { return }
-                DispatchQueue.main.async { self?.finish(run) }
+                DispatchQueue.main.async {
+                    guard let self, self.isCurrent(run) else { return }
+                    if !self.queuedRanges.isEmpty { self.queuedRanges.removeFirst() }
+                    self.spokenRange = self.queuedRanges.first ?? nil
+                    if last { self.finish(run) }
+                }
             }
             if !player.isPlaying { player.play() }
         } catch {
@@ -140,6 +173,8 @@ final class PersianSpeech: ObservableObject {
 
     private func finish(_ run: Int) {
         guard isCurrent(run) else { return }
+        queuedRanges = []
+        spokenRange = nil
         player.stop()
         if engine.isRunning { engine.stop() }
         releaseAudioSession()

@@ -10,6 +10,13 @@
 		C10000000000000000000005 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000005 /* UsageStats.swift */; };
 		C10000000000000000000015 /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000005 /* UsageStats.swift */; };
 		C10000000000000000000006 /* UsageReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000006 /* UsageReport.swift */; };
+		C10000000000000000000020 /* PersianText.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000020 /* PersianText.swift */; };
+		C10000000000000000000021 /* AudioStreamReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000021 /* AudioStreamReader.swift */; };
+		C10000000000000000000022 /* SpeechSegmenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000022 /* SpeechSegmenter.swift */; };
+		C10000000000000000000023 /* Notes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000023 /* Notes.swift */; };
+		C10000000000000000000024 /* NoteDictation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000024 /* NoteDictation.swift */; };
+		C10000000000000000000025 /* NoteTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000025 /* NoteTextView.swift */; };
+		C10000000000000000000026 /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000026 /* NotesView.swift */; };
 		A1000000000000000000004C /* OnnxModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* OnnxModel.swift */; };
 		A1000000000000000000004D /* PersianPhonemizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* PersianPhonemizer.swift */; };
 		A1000000000000000000004E /* PersianSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* PersianSpeech.swift */; };
@@ -136,6 +143,13 @@
 /* Begin PBXFileReference section */
 		C20000000000000000000005 /* UsageStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStats.swift; sourceTree = "<group>"; };
 		C20000000000000000000006 /* UsageReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageReport.swift; sourceTree = "<group>"; };
+		C20000000000000000000020 /* PersianText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianText.swift; sourceTree = "<group>"; };
+		C20000000000000000000021 /* AudioStreamReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioStreamReader.swift; sourceTree = "<group>"; };
+		C20000000000000000000022 /* SpeechSegmenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechSegmenter.swift; sourceTree = "<group>"; };
+		C20000000000000000000023 /* Notes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notes.swift; sourceTree = "<group>"; };
+		C20000000000000000000024 /* NoteDictation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteDictation.swift; sourceTree = "<group>"; };
+		C20000000000000000000025 /* NoteTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteTextView.swift; sourceTree = "<group>"; };
+		C20000000000000000000026 /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
 		A20000000000000000000042 /* OnnxModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnnxModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* PersianPhonemizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianPhonemizer.swift; sourceTree = "<group>"; };
 		A20000000000000000000044 /* PersianSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersianSpeech.swift; sourceTree = "<group>"; };
@@ -274,6 +288,13 @@
 				A200000000000000000000E1 /* EzafeTagger.swift */,
 				B20000000000000000000020 /* WatchLink.swift */,
 				C20000000000000000000006 /* UsageReport.swift */,
+				C20000000000000000000020 /* PersianText.swift */,
+				C20000000000000000000021 /* AudioStreamReader.swift */,
+				C20000000000000000000022 /* SpeechSegmenter.swift */,
+				C20000000000000000000023 /* Notes.swift */,
+				C20000000000000000000024 /* NoteDictation.swift */,
+				C20000000000000000000025 /* NoteTextView.swift */,
+				C20000000000000000000026 /* NotesView.swift */,
 				A20000000000000000000046 /* OnnxRuntime-Bridging-Header.h */,
 				A2000000000000000000000E /* Info.plist */,
 				A200000000000000000000D0 /* PrivacyInfo.xcprivacy */,
@@ -622,6 +643,13 @@
 				B10000000000000000000020 /* WatchLink.swift in Sources */,
 				C10000000000000000000005 /* UsageStats.swift in Sources */,
 				C10000000000000000000006 /* UsageReport.swift in Sources */,
+				C10000000000000000000020 /* PersianText.swift in Sources */,
+				C10000000000000000000021 /* AudioStreamReader.swift in Sources */,
+				C10000000000000000000022 /* SpeechSegmenter.swift in Sources */,
+				C10000000000000000000023 /* Notes.swift in Sources */,
+				C10000000000000000000024 /* NoteDictation.swift in Sources */,
+				C10000000000000000000025 /* NoteTextView.swift in Sources */,
+				C10000000000000000000026 /* NotesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

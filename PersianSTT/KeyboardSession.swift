@@ -167,6 +167,9 @@ final class KeyboardSession: ObservableObject {
             resetIdleTimer()
             return
         }
+        // The keyboard needs the microphone and the model: a note's recording in the app ends
+        // (its text so far stays in the note); a note's file transcription waits for the session.
+        NoteRecorder.shared.stop()
         // Loads the model now if nothing has yet, so the first dictation does not wait for it.
         _ = Transcriber.shared
         Task {

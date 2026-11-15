@@ -87,6 +87,9 @@ final class WatchLink: NSObject, WCSessionDelegate, @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: url) }
         do {
             // The keyboard's dictation and this one share the model's stream.
+            if await MainActor.run(body: { NoteRecorder.shared.isRecording || FileTranscriber.shared.job != nil }) {
+                return send(id: id, error: L("اپ آواک روی گوشی در حال نوشتن یادداشت است.", "The Avak app on the phone is writing a note."))
+            }
             if await MainActor.run(body: { KeyboardSession.shared.isCapturing }) {
                 return send(id: id, error: L("کیبورد آواک روی گوشی در حال دیکته است.", "The Avak keyboard on the phone is dictating."))
             }

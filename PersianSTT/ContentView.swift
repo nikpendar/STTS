@@ -12,6 +12,10 @@ struct ContentView: View {
     @ObservedObject private var keyboard = KeyboardSession.shared
     @ObservedObject private var personal = PersonalModel.shared
     @ObservedObject private var importer = ModelImporter.shared
+    @ObservedObject private var notes = NotesStore.shared
+    /// The notes page pushed by code (an audio file shared to the app), and the note to open there.
+    @State private var showingNotes = false
+    @State private var openingNote: UUID?
     @StateObject private var gate = KeyboardGate()
     @State private var pickingModel = false
     @AppStorage(PersonalModel.uploadKey) private var trainingUpload = false
@@ -54,6 +58,16 @@ struct ContentView: View {
                 .listRowBackground(Color.clear)
 
                 if needsModel { modelSection }
+
+                Section {
+                    NavigationLink { NotesListView(opening: $openingNote) } label: {
+                        LabeledContent {
+                            Text(notes.notes.isEmpty ? "" : notes.notes.count.formatted(.number.locale(AppLanguage.locale)))
+                        } label: {
+                            SettingLabel(L("یادداشت‌ها", "Notes"), symbol: "note.text", color: .yellow)
+                        }
+                    }
+                }
 
                 // Voice.
                 Section {
@@ -141,6 +155,7 @@ struct ContentView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(isPresented: $showingNotes) { NotesListView(opening: $openingNote) }
         }
         .id(navigationID)
         .fullScreenCover(isPresented: $showingGuide) { Onboarding() }
@@ -185,6 +200,13 @@ struct ContentView: View {
             if !onboardingDone { showingGuide = true }
         }
         .onOpenURL { url in
+            // An audio file shared to the app (a Telegram or WhatsApp voice message): a note.
+            if url.isFileURL {
+                navigationID = UUID()
+                openingNote = FileTranscriber.shared.transcribe(url)
+                showingNotes = true
+                return
+            }
             // From a keyboard without Full Access: it lost it, so the setup steps show again.
             if url.host == "fullaccess" {
                 gate.forgetFullAccess()
@@ -204,6 +226,7 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
+            if phase == .background { notes.flush() }
             if phase == .active {
                 gate.check()
                 model.loadNewModelIfNeeded()
