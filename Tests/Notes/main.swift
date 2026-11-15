@@ -80,10 +80,19 @@ for name in ["speech.ogg", "speech60.ogg", "speech-stereo.opus", "speech.m4a", "
         var segmenter = SpeechSegmenter()
         var speechPieces = 0
         var i = 0
+        var marks: [String] = []
+        var levels: [String] = []
         while i + 1600 <= all.count {
-            if case .cut(let speech) = segmenter.add(level: SpeechSegmenter.level(all[i..<(i + 1600)])), speech { speechPieces += 1 }
+            let level = SpeechSegmenter.level(all[i..<(i + 1600)])
+            levels.append(String(format: "%.4f", level))
+            if case .cut(let speech) = segmenter.add(level: level) {
+                marks.append("\(i / 1600 + 1)\(speech ? "" : "s")")
+                if speech { speechPieces += 1 }
+            }
             i += 1600
         }
+        print("     cuts \(marks)")
+        if name.hasSuffix("mp3") || name.hasSuffix("wav") { print("     levels \(levels.joined(separator: " "))") }
         if segmenter.end() { speechPieces += 1 }
         print("     \(name): \(String(format: "%.2f", seconds)) s (wav \(String(format: "%.2f", refSeconds)) s), rms \(rms), duration field \(String(format: "%.2f", reader.duration)), pieces \(speechPieces)")
         check("file \(name) length", abs(seconds - refSeconds) < 0.15, "\(seconds) vs \(refSeconds)")
