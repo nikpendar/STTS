@@ -915,8 +915,9 @@ final class KeyMenuView: UIView {
 
 /// Over the orange space bar while it dictates (Rooz, 2026-11-14). Held: a lock with arrows at
 /// the left end shows that sliding the finger there locks the recording, and the mic stays at
-/// the right end. Locked: the voice runs as a wave along the bar and a stop button takes the
-/// mic's place; the rest of the bar types a space.
+/// the right end. Locked: the voice moves bars in place, like the Dynamic Island while it
+/// records, flat when nobody speaks (Rooz, 2026-11-16), and a stop button takes the mic's place;
+/// the rest of the bar types a space.
 final class SpaceVoiceView: UIView {
     enum Look { case held, locked }
 
@@ -936,8 +937,12 @@ final class SpaceVoiceView: UIView {
     private let arrows = UIImageView()
     private let end = UIImageView()
     private let wave = CAShapeLayer()
-    /// The latest loudness readings, newest last, 0...1.
-    private var levels = [CGFloat](repeating: 0, count: 64)
+    /// The flat line shown while it is quiet, under the bars.
+    private let baseline = CAShapeLayer()
+    /// Loudness smoothed over the readings, 0...1: rises fast, falls a little slower.
+    private var loudness: CGFloat = 0
+    /// Each bar's share of the loudness, changed a little with every reading so the bars move.
+    private var shares = [CGFloat](repeating: 0.7, count: 32)
 
     private static let lockOpen = symbol("lock.open.fill", size: 14)
     private static let lockClosed = symbol("lock.fill", size: 13)
@@ -974,6 +979,10 @@ final class SpaceVoiceView: UIView {
             addSubview(view)
         }
         wave.fillColor = UIColor.white.withAlphaComponent(0.92).cgColor
+        baseline.strokeColor = UIColor.white.withAlphaComponent(0.8).cgColor
+        baseline.lineWidth = 1.5
+        baseline.lineCap = .round
+        layer.addSublayer(baseline)
         layer.addSublayer(wave)
         update()
     }
@@ -986,13 +995,18 @@ final class SpaceVoiceView: UIView {
     /// raises the wave.
     func push(level step: Int) {
         let db = -55 + 2 * CGFloat(step)
-        levels.removeFirst()
-        levels.append(pow(min(1, max(0, (db + 44) / 20)), 0.75))
-        if look == .locked { drawWave() }
+        var target = pow(min(1, max(0, (db + 44) / 20)), 0.75)
+        if target < 0.06 { target = 0 }
+        loudness += (target - loudness) * (target > loudness ? 0.65 : 0.35)
+        if loudness < 0.02 { loudness = 0 }
+        for i in shares.indices {
+            shares[i] = shares[i] * 0.35 + CGFloat.random(in: 0.35...1) * 0.65
+        }
+        if look == .locked { drawWave(animated: animates) }
     }
 
     func reset() {
-        levels = [CGFloat](repeating: 0, count: levels.count)
+        loudness = 0
         lockProgress = 0
         look = .held
         drawWave()
@@ -1006,6 +1020,7 @@ final class SpaceVoiceView: UIView {
         arrows.isHidden = locked
         end.image = locked ? Self.stop : Self.mic
         wave.isHidden = !locked
+        baseline.isHidden = !locked
         arrows.layer.removeAnimation(forKey: "beckon")
         if !locked, animates {
             // The arrows pulse toward the lock.
@@ -1030,28 +1045,45 @@ final class SpaceVoiceView: UIView {
         drawWave()
     }
 
-    private func drawWave() {
+    /// Bars side by side across the free part of the bar, tallest in the middle, their heights
+    /// the loudness; quiet, they shrink into a flat line.
+    private func drawWave(animated: Bool = false) {
         guard look == .locked, bounds.width > 0 else {
             wave.path = nil
+            baseline.path = nil
             return
         }
         let left: CGFloat = 40
-        let right = bounds.width - min(bounds.height, bounds.width / 3) - 4
-        let pitch: CGFloat = 4, barWidth: CGFloat = 2.2
-        let count = max(0, min(levels.count, Int((right - left) / pitch)))
-        let path = CGMutablePath()
+        let right = bounds.width - min(bounds.height, bounds.width / 3) - 6
+        let pitch: CGFloat = 5, barWidth: CGFloat = 3
+        let count = max(0, min(shares.count, Int((right - left) / pitch)))
+        let start = left + ((right - left) - CGFloat(count) * pitch) / 2
         let mid = bounds.midY
-        let tallest = bounds.height * 0.62
+        let tallest = bounds.height * 0.66
+        let path = CGMutablePath()
         for i in 0..<count {
-            let level = levels[levels.count - count + i]
-            let height = max(barWidth, tallest * level)
-            let x = left + CGFloat(i) * pitch
+            let middle = sin(.pi * (CGFloat(i) + 0.5) / CGFloat(count))
+            let height = max(0.01, tallest * loudness * shares[i] * (0.35 + 0.65 * middle))
+            let x = start + CGFloat(i) * pitch
             path.addRoundedRect(in: CGRect(x: x, y: mid - height / 2, width: barWidth, height: height),
-                                cornerWidth: 1, cornerHeight: 1)
+                                cornerWidth: min(barWidth, height) / 2, cornerHeight: min(barWidth, height) / 2)
         }
+        let line = CGMutablePath()
+        line.move(to: CGPoint(x: start, y: mid))
+        line.addLine(to: CGPoint(x: start + CGFloat(max(0, count - 1)) * pitch + barWidth, y: mid))
         CATransaction.begin()
+        if animated, let old = wave.path {
+            let move = CABasicAnimation(keyPath: "path")
+            move.fromValue = wave.presentation()?.path ?? old
+            move.duration = 0.12
+            move.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            wave.add(move, forKey: "path")
+        }
         CATransaction.setDisableActions(true)
         wave.path = path
+        baseline.path = line
+        // The line shows only while it is quiet.
+        baseline.opacity = Float(max(0, 1 - loudness * 6))
         CATransaction.commit()
     }
 }
