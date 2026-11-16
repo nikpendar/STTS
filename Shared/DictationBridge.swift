@@ -93,8 +93,6 @@ enum DictationBridge {
     }
     /// Opens the app's settings from the keyboard's settings panel.
     static let settingsURL = URL(string: "persianstt://settings")!
-    /// Opens the app's Full Access steps from the keyboard that lacks it.
-    static let fullAccessURL = URL(string: "persianstt://fullaccess")!
 
     /// Posted by the keyboard each time it opens with Full Access, after it marks
     /// `fullAccessPasteboard`, so the app can tell the keyboard is added and allowed.

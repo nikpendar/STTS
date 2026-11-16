@@ -16,7 +16,7 @@ extension KeyboardViewController {
         guard fullAccess else {
             state = .noSession
             log.info("no Full Access")
-            showStatus(L("Allow Full Access را روشن کنید", "Turn on Allow Full Access"))
+            showFullAccessStatus()
             return
         }
         state = .checking
@@ -24,6 +24,13 @@ extension KeyboardViewController {
         schedule(after: 0.6) { [weak self] in
             if self?.state == .checking { self?.state = .noSession }
         }
+    }
+
+    /// The space bar says to turn on Full Access only on the Persian layout: the English one
+    /// has no dictation (Rooz, 2026-11-16).
+    func showFullAccessStatus() {
+        guard !hasFullAccessForDictation else { return }
+        showStatus(canDictateOnSpace ? L("Allow Full Access را روشن کنید", "Turn on Allow Full Access") : nil)
     }
 
     var hasFullAccessForDictation: Bool {
@@ -35,7 +42,8 @@ extension KeyboardViewController {
     }
 
     /// Holding the space bar without Full Access: a notice over the keys says dictation needs it
-    /// and how to turn it on, with a button that opens Avak's own guide (Rooz, 2026-11-15).
+    /// and how to turn it on (Rooz, 2026-11-15). A keyboard without Full Access cannot open the
+    /// app, so it has no button for that (Rooz, 2026-11-16). The path is iOS's English one.
     func showFullAccessNotice() {
         haptic(.impact(.rigid))
         fullAccessNotice?.removeFromSuperview()
@@ -49,8 +57,9 @@ extension KeyboardViewController {
         title.text = L("دیکته بدون «دسترسی کامل» کار نمی‌کند", "Dictation needs Full Access")
         title.font = keyFont(for: title.text, size: 17)
         let body = UILabel()
-        body.text = L("تنظیمات › عمومی › صفحه‌کلید › کیبوردها › آواک › «اجازه‌ی دسترسی کامل» را روشن کنید. بعد به همین‌جا برگردید و دوباره کلید فاصله را نگه دارید.",
-                      "Settings › General › Keyboard › Keyboards › Avak › turn on Allow Full Access. Then come back here and hold the space bar again.")
+        let path = "Settings › General › Keyboard › Keyboards › آواک › Allow Full Access"
+        body.text = L("این مسیر را در تنظیمات آیفون باز و روشن کنید:\n\u{2066}\(path)\u{2069}\nبعد به همین‌جا برگردید و دوباره کلید فاصله را نگه دارید.",
+                      "Open and turn on in iPhone Settings:\n\(path)\nThen come back here and hold the space bar again.")
         body.font = keyFont(for: body.text, size: 14)
         body.numberOfLines = 0
         for label in [title, body] {
@@ -59,15 +68,6 @@ extension KeyboardViewController {
             label.adjustsFontSizeToFitWidth = true
             label.minimumScaleFactor = 0.7
         }
-        var config = UIButton.Configuration.filled()
-        config.cornerStyle = .capsule
-        config.baseBackgroundColor = .systemOrange
-        config.attributedTitle = AttributedString(L("راهنما در آواک", "Guide in Avak"),
-                                                  attributes: AttributeContainer([.font: keyFont(for: L("راهنما در آواک", "Guide in Avak"), size: 15)]))
-        let guide = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
-            // Opening the app may not work without Full Access; the steps above stay.
-            self?.open(DictationBridge.fullAccessURL, needsFullAccess: false)
-        })
         var closeConfig = UIButton.Configuration.plain()
         closeConfig.image = UIImage(systemName: "xmark.circle.fill")
         closeConfig.baseForegroundColor = .secondaryLabel
@@ -76,7 +76,7 @@ extension KeyboardViewController {
         })
         close.accessibilityLabel = L("بستن", "Close")
 
-        let stack = UIStackView(arrangedSubviews: [title, body, guide])
+        let stack = UIStackView(arrangedSubviews: [title, body])
         stack.axis = .vertical
         stack.alignment = .center
         stack.spacing = 10

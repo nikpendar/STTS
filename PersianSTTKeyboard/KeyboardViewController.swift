@@ -575,8 +575,8 @@ final class KeyboardViewController: UIInputViewController {
     /// Extensions cannot call UIApplication.open, so the host's UIApplication is found
     /// through the responder chain and its open method is called dynamically.
     @discardableResult
-    func open(_ url: URL, needsFullAccess: Bool = true) -> Bool {
-        guard hasFullAccess || !needsFullAccess else { return false }
+    func open(_ url: URL) -> Bool {
+        guard hasFullAccess else { return false }
         typealias OpenURL = @convention(c) (
             AnyObject, Selector, NSURL, NSDictionary, (@convention(block) (Bool) -> Void)?) -> Void
         let selector = NSSelectorFromString("openURL:options:completionHandler:")
@@ -719,14 +719,21 @@ final class KeyboardViewController: UIInputViewController {
         didSet {
             UserDefaults.standard.set(isEnglish, forKey: Self.englishKey)
             updatePrimaryLanguage()
-            updateMessageLanguage()
+            if state == .noSession { showFullAccessStatus() }
         }
     }
 
-    /// The keyboard's messages (space bar, handwriting, panels) in English when the app is in
-    /// English or the English layout is up (Rooz, 2026-11-15).
+    /// The keyboard's messages (space bar, handwriting, panels) in the app's language, set in
+    /// its settings, whatever the layout (Rooz, 2026-11-16). Without Full Access the keyboard
+    /// cannot read the app's settings, so the phone's language decides.
     func updateMessageLanguage() {
-        AppLanguage.english = options.english || isEnglish
+        #if targetEnvironment(simulator)
+        let readsSettings = true
+        #else
+        let readsSettings = hasFullAccess
+        #endif
+        AppLanguage.english = readsSettings ? options.english
+            : !(Locale.preferredLanguages.first?.hasPrefix("fa") ?? false)
     }
 
     /// Tells iOS which language is typed: text views that follow the keyboard's language put
