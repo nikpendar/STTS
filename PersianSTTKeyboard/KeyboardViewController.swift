@@ -739,6 +739,9 @@ final class KeyboardViewController: UIInputViewController {
     /// Tells iOS which language is typed: text views that follow the keyboard's language put
     /// the cursor of an empty line on the left, left to right, for English, and on the right for
     /// Persian, as with the system keyboards. Apps that fix their own alignment ignore it.
+    /// Info.plist says "mul" (several languages), not fa-IR: search fields such as Safari's and
+    /// Contacts' took the fixed fa-IR and put the cursor on the right on the English layout too
+    /// (Rooz, 2026-11-16).
     func updatePrimaryLanguage() {
         let language = isEnglish ? "en-US" : "fa-IR"
         if primaryLanguage != language { primaryLanguage = language }
