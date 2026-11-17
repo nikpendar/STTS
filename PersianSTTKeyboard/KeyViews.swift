@@ -1001,7 +1001,7 @@ final class SpaceVoiceView: UIView {
     func push(level step: Int) {
         let db = -55 + 2 * CGFloat(step)
         let value = pow(min(1, max(0, (db + 44) / 20)), 0.75)
-        target = value < 0.06 ? 0 : value
+        target = value < 0.1 ? 0 : value
         if !animates { tick() }
     }
 
