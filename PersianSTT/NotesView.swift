@@ -163,6 +163,17 @@ struct NotesListView: View {
             HStack(spacing: 10) {
                 searchField
                 if store.notes.count > 1 { sortMenu }
+                Button {
+                    open = OpenNote(id: store.create(folder: currentFolder).id)
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.body.weight(.medium))
+                        .frame(width: 38, height: 38)
+                        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .accessibilityLabel(L("یادداشت تازه", "New Note"))
             }
             filters
         }
@@ -180,7 +191,7 @@ struct NotesListView: View {
         .animation(.easeInOut(duration: 0.2), value: collapsed)
     }
 
-    /// Search, with the sort button beside it (Rooz, 2026-11-17), so it stays at the top too.
+    /// Search, with the sort and new-note buttons beside it (Rooz, 2026-11-17), at the top.
     private var searchField: some View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
