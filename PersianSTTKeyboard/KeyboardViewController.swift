@@ -725,15 +725,21 @@ final class KeyboardViewController: UIInputViewController {
 
     /// The keyboard's messages (space bar, handwriting, panels) in the app's language, set in
     /// its settings, whatever the layout (Rooz, 2026-11-16). Without Full Access the keyboard
-    /// cannot read the app's settings, so the phone's language decides.
+    /// cannot read the app's settings: it keeps the language it last read, Persian before it
+    /// ever read one, not the phone's (Rooz, 2026-11-17).
     func updateMessageLanguage() {
         #if targetEnvironment(simulator)
         let readsSettings = true
         #else
         let readsSettings = hasFullAccess
         #endif
-        AppLanguage.english = readsSettings ? options.english
-            : !(Locale.preferredLanguages.first?.hasPrefix("fa") ?? false)
+        let key = "appLanguageEnglish"
+        if readsSettings {
+            AppLanguage.english = options.english
+            UserDefaults.standard.set(options.english, forKey: key)
+        } else {
+            AppLanguage.english = UserDefaults.standard.bool(forKey: key)
+        }
     }
 
     /// Tells iOS which language is typed: text views that follow the keyboard's language put
