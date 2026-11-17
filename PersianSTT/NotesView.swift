@@ -54,7 +54,6 @@ struct NotesListView: View {
                 }
             }
         }
-        .searchable(text: $query, prompt: L("جستجو در یادداشت‌ها", "Search notes"))
         .navigationTitle(collapsed && !store.notes.isEmpty ? L("یادداشت‌ها (\(count))", "Notes (\(count))") : L("یادداشت‌ها", "Notes"))
         .navigationBarTitleDisplayMode(.large)
         .toolbarRole(.editor)
@@ -62,33 +61,6 @@ struct NotesListView: View {
             NoteEditorView(id: item.id, dictateOnOpen: item.dictate)
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                if store.notes.count > 1 {
-                    Menu {
-                        Picker(selection: $order) {
-                            ForEach(NotesStore.Order.allCases, id: \.self) { item in
-                                Text(item.name).tag(item.rawValue)
-                            }
-                        } label: {
-                            Text(L("مرتب‌سازی بر اساس", "Sort By"))
-                        }
-                        Picker(selection: $reversed) {
-                            if order == NotesStore.Order.title.rawValue {
-                                Text(L("الف تا ی", "A to Z")).tag(false)
-                                Text(L("ی تا الف", "Z to A")).tag(true)
-                            } else {
-                                Text(L("جدیدترین اول", "Newest First")).tag(false)
-                                Text(L("قدیمی‌ترین اول", "Oldest First")).tag(true)
-                            }
-                        } label: {
-                            Text(L("ترتیب", "Order"))
-                        }
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                    }
-                    .accessibilityLabel(L("مرتب‌سازی", "Sort"))
-                }
-            }
             ToolbarItemGroup(placement: .bottomBar) {
                 Spacer()
                 Button { importing = true } label: {
@@ -179,21 +151,23 @@ struct NotesListView: View {
         .contextMenu { NoteMenu(note: note, merge: { merging = note }, share: { sharing = $0 }) }
     }
 
-    /// The count (while the large title shows), then the folder and tag filters. Always there
-    /// (empty, without height, when it has nothing), so its bottom edge is known.
+    /// The count (while the large title shows), search with the sort button, then the folder and
+    /// tag filters, pinned at the top while the notes scroll.
     private var header: some View {
-        let hasFilters = !store.folders.isEmpty || !store.tags.isEmpty || store.notes.contains(where: \.pinned)
-        let shows = !collapsed || hasFilters
         return VStack(alignment: .leading, spacing: 8) {
             if !collapsed {
                 Text(countText)
                     .font(.app(.subheadline))
                     .foregroundStyle(.secondary)
             }
+            HStack(spacing: 10) {
+                searchField
+                if store.notes.count > 1 { sortMenu }
+            }
             filters
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, shows ? 6 : 0)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.systemGroupedBackground))
         .background {
@@ -204,6 +178,56 @@ struct NotesListView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: collapsed)
+    }
+
+    /// Search, with the sort button beside it (Rooz, 2026-11-17), so it stays at the top too.
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField(L("جستجو در یادداشت‌ها", "Search notes"), text: $query)
+                .font(.app(.body))
+                .submitLabel(.search)
+                .autocorrectionDisabled()
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("پاک کردن", "Clear"))
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 38)
+        .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private var sortMenu: some View {
+        Menu {
+            Picker(selection: $order) {
+                ForEach(NotesStore.Order.allCases, id: \.self) { item in
+                    Text(item.name).tag(item.rawValue)
+                }
+            } label: {
+                Text(L("مرتب‌سازی بر اساس", "Sort By"))
+            }
+            Picker(selection: $reversed) {
+                if order == NotesStore.Order.title.rawValue {
+                    Text(L("الف تا ی", "A to Z")).tag(false)
+                    Text(L("ی تا الف", "Z to A")).tag(true)
+                } else {
+                    Text(L("جدیدترین اول", "Newest First")).tag(false)
+                    Text(L("قدیمی‌ترین اول", "Oldest First")).tag(true)
+                }
+            } label: {
+                Text(L("ترتیب", "Order"))
+            }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
+                .font(.body.weight(.medium))
+                .frame(width: 38, height: 38)
+                .background(Color(.tertiarySystemFill), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .accessibilityLabel(L("مرتب‌سازی", "Sort"))
     }
 
     /// An empty header above the notes; where it is on screen tells whether the list has
