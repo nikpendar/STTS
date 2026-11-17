@@ -31,6 +31,9 @@ struct NotesListView: View {
 
     @State private var sharing: [URL]?
     @State private var merging: Note?
+    @AppStorage("notesOrder") private var order = NotesStore.Order.modified.rawValue
+    /// Oldest first, or Z to A for titles.
+    @AppStorage("notesOrderReversed") private var reversed = false
     /// The large title has scrolled away: the inline title carries the count (Rooz, 2026-11-17).
     @State private var collapsed = false
     @State private var headerBottom: CGFloat?
@@ -59,6 +62,33 @@ struct NotesListView: View {
             NoteEditorView(id: item.id, dictateOnOpen: item.dictate)
         }
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if store.notes.count > 1 {
+                    Menu {
+                        Picker(selection: $order) {
+                            ForEach(NotesStore.Order.allCases, id: \.self) { item in
+                                Text(item.name).tag(item.rawValue)
+                            }
+                        } label: {
+                            Text(L("مرتب‌سازی بر اساس", "Sort By"))
+                        }
+                        Picker(selection: $reversed) {
+                            if order == NotesStore.Order.title.rawValue {
+                                Text(L("الف تا ی", "A to Z")).tag(false)
+                                Text(L("ی تا الف", "Z to A")).tag(true)
+                            } else {
+                                Text(L("جدیدترین اول", "Newest First")).tag(false)
+                                Text(L("قدیمی‌ترین اول", "Oldest First")).tag(true)
+                            }
+                        } label: {
+                            Text(L("ترتیب", "Order"))
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                    }
+                    .accessibilityLabel(L("مرتب‌سازی", "Sort"))
+                }
+            }
             ToolbarItemGroup(placement: .bottomBar) {
                 Spacer()
                 Button { importing = true } label: {
@@ -117,7 +147,7 @@ struct NotesListView: View {
     private func row(_ note: Note) -> some View {
         HStack(spacing: 8) {
             Button { open = OpenNote(id: note.id) } label: {
-                NoteRow(note: note).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                NoteRow(note: note, showsCreated: order == NotesStore.Order.created.rawValue).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             Menu {
@@ -217,7 +247,7 @@ struct NotesListView: View {
     }
 
     private var visible: [Note] {
-        store.sorted.filter { note in
+        store.sorted(by: NotesStore.Order(rawValue: order) ?? .modified, ascending: reversed).filter { note in
             switch filter {
             case .all: break
             case .pinned: if !note.pinned { return false }
@@ -285,6 +315,8 @@ struct NotesListView: View {
 
 private struct NoteRow: View {
     let note: Note
+    /// The date the note was made instead of last edited (the list sorted by date created).
+    var showsCreated = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -293,7 +325,7 @@ private struct NoteRow: View {
                 Text(note.title).font(.app(.headline)).lineLimit(1)
             }
             HStack(spacing: 6) {
-                Text(NotesStore.dateText(note.modified)).foregroundStyle(.secondary)
+                Text(NotesStore.dateText(showsCreated ? note.created : note.modified)).foregroundStyle(.secondary)
                 Text(note.preview.isEmpty ? " " : note.preview).foregroundStyle(.secondary).lineLimit(1)
             }
             .font(.app(.subheadline))

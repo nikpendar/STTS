@@ -87,8 +87,35 @@ final class NotesStore: ObservableObject {
     func note(_ id: UUID) -> Note? { notes.first { $0.id == id } }
 
     /// Pinned first, then the most recently changed.
-    var sorted: [Note] {
-        notes.sorted { a, b in a.pinned != b.pinned ? a.pinned : a.modified > b.modified }
+    var sorted: [Note] { sorted(by: .modified) }
+
+    /// How the list is ordered (Rooz, 2026-11-17); pinned notes come first in every order.
+    enum Order: String, CaseIterable {
+        case modified, created, title
+
+        var name: String {
+            switch self {
+            case .modified: return L("تاریخ ویرایش", "Date Edited")
+            case .created: return L("تاریخ ساخت", "Date Created")
+            case .title: return L("عنوان", "Title")
+            }
+        }
+    }
+
+    /// `order` (newest first for dates, alphabetical for titles), or its reverse with `ascending`.
+    func sorted(by order: Order, ascending: Bool = false) -> [Note] {
+        let collator = Locale(identifier: AppLanguage.english ? "en_US" : "fa_IR")
+        return notes.sorted { a, b in
+            if a.pinned != b.pinned { return a.pinned }
+            switch order {
+            case .modified: return ascending ? a.modified < b.modified : a.modified > b.modified
+            case .created: return ascending ? a.created < b.created : a.created > b.created
+            case .title:
+                let result = a.title.compare(b.title, options: [.caseInsensitive, .diacriticInsensitive], locale: collator)
+                if result == .orderedSame { return a.modified > b.modified }
+                return ascending ? result == .orderedDescending : result == .orderedAscending
+            }
+        }
     }
 
     var folders: [String] {
