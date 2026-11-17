@@ -13,7 +13,6 @@ struct NotesListView: View {
     @State private var filter: Filter = .all
     @State private var open: OpenNote?
     @State private var importing = false
-    @AppStorage(NotesSettings.latinDigitsKey) private var latinDigits = false
     /// A note to open when the page appears (an audio file shared to the app).
     @Binding var opening: UUID?
 
@@ -30,42 +29,30 @@ struct NotesListView: View {
         case tag(String)
     }
 
+    @State private var sharing: [URL]?
+    @State private var merging: Note?
+    /// The large title has scrolled away: the inline title carries the count (Rooz, 2026-11-17).
+    @State private var collapsed = false
+    @State private var headerBottom: CGFloat?
+
     var body: some View {
         List {
-            if let job = files.job {
-                Section { TranscriptionBanner(job: job) }
-            }
-            if let message = files.message {
-                Section {
-                    Text(message).font(.app(.footnote)).foregroundStyle(.secondary)
-                }
-            }
             if store.notes.isEmpty {
                 emptyState
             } else {
-                filters
-                ForEach(visible) { note in
-                    NavigationLink { NoteEditorView(id: note.id) } label: { NoteRow(note: note) }
-                        .swipeActions(edge: .leading) {
-                            Button {
-                                store.update(note.id, touch: false) { $0.pinned.toggle() }
-                            } label: {
-                                Label(note.pinned ? L("برداشتن سنجاق", "Unpin") : L("سنجاق", "Pin"),
-                                      systemImage: note.pinned ? "pin.slash" : "pin")
-                            }
-                            .tint(.orange)
-                        }
-                        .swipeActions(edge: .trailing) {
-                            Button(role: .destructive) { store.delete(note.id) } label: {
-                                Label(L("حذف", "Delete"), systemImage: "trash")
-                            }
-                        }
-                        .contextMenu { NoteMenu(note: note) }
+                // The count and the filters sit above the notes as the section's header, so the
+                // notes' card keeps its rounded corners and no separator shows above the first.
+                Section {
+                    ForEach(visible) { note in
+                        row(note)
+                    }
+                } header: {
+                    scrollMarker
                 }
             }
         }
         .searchable(text: $query, prompt: L("جستجو در یادداشت‌ها", "Search notes"))
-        .navigationTitle(L("یادداشت‌ها", "Notes"))
+        .navigationTitle(collapsed && !store.notes.isEmpty ? L("یادداشت‌ها (\(count))", "Notes (\(count))") : L("یادداشت‌ها", "Notes"))
         .navigationBarTitleDisplayMode(.large)
         .toolbarRole(.editor)
         .navigationDestination(item: $open) { item in
@@ -73,42 +60,143 @@ struct NotesListView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .bottomBar) {
-                Menu {
-                    Button { importing = true } label: {
-                        Label(L("تبدیل فایل صوتی به متن", "Transcribe an Audio File"), systemImage: "waveform.badge.plus")
-                    }
-                    Picker(selection: $latinDigits) {
-                        Text(L("فارسی (۱۲۳)", "Persian (۱۲۳)")).tag(false)
-                        Text(L("لاتین (123)", "Latin (123)")).tag(true)
-                    } label: {
-                        Label(L("ارقام متن گفتاری", "Digits in Dictated Text"), systemImage: "textformat.123")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
+                Spacer()
+                Button { importing = true } label: {
+                    Image(systemName: "waveform.badge.plus")
                 }
-                Spacer()
-                Text(countText).font(.app(.caption)).foregroundStyle(.secondary)
-                Spacer()
+                .disabled(files.job != nil)
+                .accessibilityLabel(L("تبدیل فایل صوتی به متن", "Transcribe an Audio File"))
                 Button {
                     open = OpenNote(id: store.create(folder: currentFolder).id, dictate: true)
                 } label: {
                     Image(systemName: "mic.fill")
                 }
                 .accessibilityLabel(L("یادداشت صوتی", "Voice Note"))
-                Button {
-                    open = OpenNote(id: store.create(folder: currentFolder).id)
-                } label: {
-                    Image(systemName: "square.and.pencil")
+            }
+        }
+        // The count under the large title and the filters stay at the top while the notes
+        // scroll (Rooz, 2026-11-17); once the large title has gone, the count moves into the title.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if !store.notes.isEmpty { header }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if files.job != nil || files.message != nil {
+                VStack(alignment: .leading, spacing: 6) {
+                    if let job = files.job { TranscriptionBanner(job: job) }
+                    if let message = files.message {
+                        HStack(alignment: .top) {
+                            Text(message).font(.app(.footnote)).foregroundStyle(.secondary)
+                            Spacer()
+                            Button { files.message = nil } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                                .buttonStyle(.plain)
+                        }
+                    }
                 }
-                .accessibilityLabel(L("یادداشت تازه", "New Note"))
+                .padding(12)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
             }
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: Self.audioTypes) { result in
             if case .success(let url) = result, let id = files.transcribe(url) { open = OpenNote(id: id) }
         }
+        .sheet(item: $merging) { note in
+            NavigationStack { MergeView(target: note) }
+                .environment(\.layoutDirection, AppLanguage.english ? .leftToRight : .rightToLeft)
+        }
+        .sheet(item: Binding(get: { sharing.map(SharedFiles.init) }, set: { if $0 == nil { sharing = nil } })) { files in
+            ShareSheet(items: files.urls)
+        }
         .onAppear(perform: openPending)
         .onChange(of: opening) { _, _ in openPending() }
         .font(.app(.body))
+    }
+
+    /// A note in the list: opens on a tap; its ⋯ menu gives a title, the folder, merging and sharing.
+    private func row(_ note: Note) -> some View {
+        HStack(spacing: 8) {
+            Button { open = OpenNote(id: note.id) } label: {
+                NoteRow(note: note).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Menu {
+                NoteMenu(note: note, merge: { merging = note }, share: { sharing = $0 })
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 36, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(L("گزینه‌های یادداشت", "Note Options"))
+        }
+        .swipeActions(edge: .leading) {
+            Button {
+                store.update(note.id, touch: false) { $0.pinned.toggle() }
+            } label: {
+                Label(note.pinned ? L("برداشتن سنجاق", "Unpin") : L("سنجاق", "Pin"),
+                      systemImage: note.pinned ? "pin.slash" : "pin")
+            }
+            .tint(.orange)
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) { store.delete(note.id) } label: {
+                Label(L("حذف", "Delete"), systemImage: "trash")
+            }
+        }
+        .contextMenu { NoteMenu(note: note, merge: { merging = note }, share: { sharing = $0 }) }
+    }
+
+    /// The count (while the large title shows), then the folder and tag filters. Always there
+    /// (empty, without height, when it has nothing), so its bottom edge is known.
+    private var header: some View {
+        let hasFilters = !store.folders.isEmpty || !store.tags.isEmpty || store.notes.contains(where: \.pinned)
+        let shows = !collapsed || hasFilters
+        return VStack(alignment: .leading, spacing: 8) {
+            if !collapsed {
+                Text(countText)
+                    .font(.app(.subheadline))
+                    .foregroundStyle(.secondary)
+            }
+            filters
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, shows ? 6 : 0)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.systemGroupedBackground))
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { headerBottom = geometry.frame(in: .global).maxY }
+                    .onChange(of: geometry.frame(in: .global).maxY) { _, y in headerBottom = y }
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: collapsed)
+    }
+
+    /// An empty header above the notes; where it is on screen tells whether the list has
+    /// scrolled the large title away.
+    private var scrollMarker: some View {
+        Color.clear
+            .frame(height: 1)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear { track(geometry.frame(in: .global).minY) }
+                        .onChange(of: geometry.frame(in: .global).minY) { _, y in track(y) }
+                }
+            }
+    }
+
+    /// The notes' top edge `y` against the bottom of the pinned header: about 50 points under
+    /// it the large title has collapsed into the bar.
+    private func track(_ y: CGFloat) {
+        guard let bottom = headerBottom else { return }
+        // Apart thresholds, so the count line coming and going cannot flip it back and forth.
+        if !collapsed, y < bottom - 30 { collapsed = true }
+        if collapsed, y > bottom - 6 { collapsed = false }
     }
 
     private func openPending() {
@@ -122,9 +210,10 @@ struct NotesListView: View {
         return nil
     }
 
+    private var count: String { store.notes.count.formatted(.number.locale(AppLanguage.locale)) }
+
     private var countText: String {
-        let count = store.notes.count.formatted(.number.locale(AppLanguage.locale))
-        return L("\(count) یادداشت", "\(count) notes")
+        L("\(count) یادداشت", store.notes.count == 1 ? "1 note" : "\(count) notes")
     }
 
     private var visible: [Note] {
@@ -152,10 +241,8 @@ struct NotesListView: View {
                     ForEach(folders, id: \.self) { chip($0, .folder($0), symbol: "folder") }
                     ForEach(tags, id: \.self) { chip("#" + $0, .tag($0)) }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 2)
             }
-            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-            .listRowBackground(Color.clear)
         }
     }
 
@@ -222,21 +309,115 @@ private struct NoteRow: View {
     }
 }
 
-/// Pin, folder and delete, for the list and the editor.
+/// A note's title, folder, merging, sharing, pin and delete: the ⋯ menu and the long press in the list.
 private struct NoteMenu: View {
     let note: Note
+    var merge: () -> Void
+    var share: ([URL]) -> Void
     @ObservedObject private var store = NotesStore.shared
 
     var body: some View {
+        Button { TitlePrompt.ask(for: note) } label: {
+            Label(note.hasCustomTitle ? L("تغییر عنوان", "Rename") : L("عنوان", "Title"), systemImage: "character.cursor.ibeam")
+        }
+        FolderMenu(note: note)
+        Button(action: merge) {
+            Label(L("ادغام با یادداشت‌های دیگر", "Merge with Other Notes"), systemImage: "arrow.triangle.merge")
+        }
+        .disabled(store.notes.count < 2 || store.isBusy(note.id))
+        Menu {
+            Button { share([NoteExport.text(note)].compactMap { $0 }) } label: {
+                Label(L("متن", "Text"), systemImage: "doc.plaintext")
+            }
+            Button { share([NoteExport.pdf(note)].compactMap { $0 }) } label: {
+                Label("PDF", systemImage: "doc.richtext")
+            }
+            if !note.audioFiles.isEmpty {
+                Button { share(note.audioFiles.map { store.audioURL(note.id, $0) }) } label: {
+                    Label(L("صدای یادداشت", "Note Audio"), systemImage: "waveform")
+                }
+            }
+        } label: {
+            Label(L("اشتراک‌گذاری", "Share"), systemImage: "square.and.arrow.up")
+        }
+        .disabled(note.isEmpty)
+        Divider()
         Button {
             store.update(note.id, touch: false) { $0.pinned.toggle() }
         } label: {
             Label(note.pinned ? L("برداشتن سنجاق", "Unpin") : L("سنجاق کردن", "Pin"), systemImage: note.pinned ? "pin.slash" : "pin")
         }
-        FolderMenu(note: note)
         Button(role: .destructive) { store.delete(note.id) } label: {
             Label(L("حذف یادداشت", "Delete Note"), systemImage: "trash")
         }
+        .disabled(store.isBusy(note.id))
+    }
+}
+
+/// A note's own title, asked in an alert; an empty one goes back to the first line.
+enum TitlePrompt {
+    @MainActor static func ask(for note: Note) {
+        let alert = UIAlertController(title: L("عنوان یادداشت", "Note Title"),
+                                      message: L("خالی بگذارید تا خط اول یادداشت عنوانش باشد.", "Leave empty to use the first line."),
+                                      preferredStyle: .alert)
+        alert.addTextField {
+            $0.text = note.customTitle
+            $0.placeholder = note.title
+            $0.clearButtonMode = .whileEditing
+        }
+        alert.addAction(UIAlertAction(title: L("انصراف", "Cancel"), style: .cancel))
+        alert.addAction(UIAlertAction(title: L("ذخیره", "Save"), style: .default) { _ in
+            let title = PersianText.unifyingLetters(alert.textFields?.first?.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            NotesStore.shared.update(note.id, touch: false) { $0.customTitle = title.isEmpty ? nil : title }
+        })
+        UIApplication.shared.topController?.present(alert, animated: true)
+    }
+}
+
+/// Picks the notes to merge into one: their text follows its own, oldest first.
+private struct MergeView: View {
+    let target: Note
+    @ObservedObject private var store = NotesStore.shared
+    @State private var chosen = Set<UUID>()
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(store.sorted.filter { $0.id != target.id && !store.isBusy($0.id) }) { note in
+                    Button {
+                        if chosen.contains(note.id) { chosen.remove(note.id) } else { chosen.insert(note.id) }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: chosen.contains(note.id) ? "checkmark.circle.fill" : "circle")
+                                .font(.title3)
+                                .foregroundStyle(chosen.contains(note.id) ? Color.accentColor : Color.secondary)
+                            NoteRow(note: note)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            } header: {
+                Text(L("یادداشت‌هایی را که به «\(target.title)» اضافه شوند انتخاب کنید. متن، صدا و تکه‌های گفتارشان به آن منتقل و خودشان حذف می‌شوند.",
+                       "Choose the notes to add to “\(target.title)”. Their text, audio and dictated pieces move into it and they are deleted."))
+                    .font(.app(.footnote))
+                    .textCase(nil)
+            }
+        }
+        .navigationTitle(L("ادغام", "Merge"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) { Button(L("انصراف", "Cancel")) { dismiss() } }
+            ToolbarItem(placement: .confirmationAction) {
+                Button(chosen.isEmpty ? L("ادغام", "Merge") : L("ادغام \(chosen.count.formatted(.number.locale(AppLanguage.locale)))", "Merge \(chosen.count)")) {
+                    store.merge(Array(chosen), into: target.id)
+                    dismiss()
+                }
+                .disabled(chosen.isEmpty)
+            }
+        }
+        .font(.app(.body))
     }
 }
 
@@ -384,6 +565,18 @@ struct NoteEditorView: View {
     }
 
     private func header(_ note: Note) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if note.hasCustomTitle {
+                Text(note.title).font(.app(.headline)).foregroundStyle(.primary)
+            }
+            headerLine(note)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func headerLine(_ note: Note) -> some View {
         HStack(spacing: 8) {
             Text(NotesStore.dateText(note.modified, full: true))
             if let folder = note.folder { Label(folder, systemImage: "folder").labelStyle(.titleAndIcon) }
@@ -392,8 +585,6 @@ struct NoteEditorView: View {
         }
         .font(.app(.caption))
         .foregroundStyle(.secondary)
-        .padding(.horizontal, 16)
-        .padding(.top, 4)
     }
 
     @ViewBuilder private var bottomBar: some View {

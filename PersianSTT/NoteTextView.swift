@@ -110,7 +110,21 @@ final class NoteEditorController: ObservableObject {
 /// .isRightToLeft`), Arabic letters typed or pasted become Persian ones, and pasted text gets
 /// Persian ZWNJ and spacing (`PersianText.normalized`).
 final class NoteUITextView: UITextView {
-    var defaultRTL = !AppLanguage.english
+    /// The side an empty line starts from: the active keyboard's language (Persian on the right,
+    /// English on the left, Rooz 2026-11-17), or the app's language before any is known.
+    var defaultRTL: Bool { keyboardRTL ?? !AppLanguage.english }
+    private var keyboardRTL: Bool?
+
+    /// Reads the active keyboard's language (the Avak keyboard reports fa-IR or en-US by layout)
+    /// and turns the line at the cursor to its side when that line has no letters yet.
+    func keyboardChanged() {
+        guard let language = textInputMode?.primaryLanguage?.lowercased(),
+              language != "mul", language != "emoji", language != "dictation" else { return }
+        let rtl = ["fa", "ar", "he", "ur", "ps", "ckb", "ku", "yi", "dv"].contains { language.hasPrefix($0) }
+        guard rtl != keyboardRTL else { return }
+        keyboardRTL = rtl
+        applyDirections(around: NSRange(location: min(selectedRange.location, textStorage.length), length: 0))
+    }
     var bodyFont: UIFont = AppFont.font(ofSize: 19)
 
     func attributes(color: UIColor = .label) -> [NSAttributedString.Key: Any] {
@@ -185,6 +199,10 @@ struct NoteTextView: UIViewRepresentable {
         view.setNote(text)
         controller.textView = view
         controller.onChange = onChange
+        context.coordinator.inputModes = NotificationCenter.default.addObserver(
+            forName: UITextInputMode.currentInputModeDidChangeNotification, object: nil, queue: .main) { [weak view] _ in
+            MainActor.assumeIsolated { view?.keyboardChanged() }
+        }
         return view
     }
 
@@ -206,6 +224,11 @@ struct NoteTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         private let parent: NoteTextView
         private var edited = NSRange(location: 0, length: 0)
+        var inputModes: NSObjectProtocol?
+
+        deinit {
+            if let inputModes { NotificationCenter.default.removeObserver(inputModes) }
+        }
 
         init(_ parent: NoteTextView) { self.parent = parent }
 
@@ -222,6 +245,11 @@ struct NoteTextView: UIViewRepresentable {
 
         func textViewDidBeginEditing(_ textView: UITextView) {
             parent.controller.focused = true
+            (textView as? NoteUITextView)?.keyboardChanged()
+        }
+
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            (textView as? NoteUITextView)?.keyboardChanged()
         }
 
         func textViewDidEndEditing(_ textView: UITextView) {

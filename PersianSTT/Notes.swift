@@ -34,16 +34,22 @@ struct Note: Codable, Identifiable, Hashable {
     /// The audio file a transcribed file came from (its name), shown in the note.
     var source: String?
 
+    /// A title the user gave the note (the list's menu); without one the first line is the title.
+    var customTitle: String?
+
     var title: String {
+        if let customTitle, !customTitle.isEmpty { return customTitle }
         let line = body.split(whereSeparator: \.isNewline).lazy
             .map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
         return line.map { String($0.prefix(80)) } ?? L("یادداشت بدون متن", "Empty note")
     }
 
-    /// The text after the title line, for the list.
+    var hasCustomTitle: Bool { !(customTitle ?? "").isEmpty }
+
+    /// The text after the title line (or from the start, under a title of its own), for the list.
     var preview: String {
         let lines = body.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        return lines.dropFirst().prefix(2).joined(separator: " ")
+        return lines.dropFirst(hasCustomTitle ? 0 : 1).prefix(2).joined(separator: " ")
     }
 
     var tags: [String] { PersianText.hashtags(in: body) }
@@ -121,6 +127,40 @@ final class NotesStore: ObservableObject {
         notes.removeAll { $0.id == id }
         let folder = folder(of: id)
         queue.async { try? FileManager.default.removeItem(at: folder) }
+    }
+
+    /// Notes that can go into another one: not recording, not being transcribed.
+    func isBusy(_ id: UUID) -> Bool {
+        NoteRecorder.shared.isRecording(id) || FileTranscriber.shared.job?.noteID == id
+    }
+
+    /// Puts `sources` into note `id`, oldest first after its own text, a blank line between
+    /// them; their audio and dictated pieces move with them, and the sources are deleted.
+    func merge(_ sources: [UUID], into id: UUID) {
+        let fm = FileManager.default
+        let others = sources.filter { $0 != id && !isBusy($0) }.compactMap(note).sorted { $0.created < $1.created }
+        guard note(id) != nil, !others.isEmpty else { return }
+        try? fm.createDirectory(at: folder(of: id), withIntermediateDirectories: true)
+        for other in others {
+            for file in other.audioFiles {
+                try? fm.moveItem(at: audioURL(other.id, file), to: audioURL(id, file))
+            }
+        }
+        update(id) { note in
+            for other in others {
+                let text = other.body.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !text.isEmpty {
+                    let own = note.body.trimmingCharacters(in: .newlines)
+                    note.body = own.isEmpty ? text : own + "\n\n" + text
+                }
+                note.segments += other.segments
+                note.audioFiles += other.audioFiles
+                if note.folder == nil { note.folder = other.folder }
+                note.created = min(note.created, other.created)
+            }
+        }
+        save(note(id)!, now: true)
+        for other in others { delete(other.id) }
     }
 
     /// Deletes a note left empty (no text, no audio), as Notes does when one leaves it.
