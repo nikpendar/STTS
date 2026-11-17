@@ -941,6 +941,11 @@ final class SpaceVoiceView: UIView {
     private let baseline = CAShapeLayer()
     /// Loudness smoothed over the readings, 0...1: rises fast, falls a little slower.
     private var loudness: CGFloat = 0
+    /// The latest reading, 0...1. The app sends one only when the level changes, so a silence
+    /// sends nothing more: a timer keeps moving the bars toward it (Rooz, 2026-11-17, the bars
+    /// stayed up on the last word).
+    private var target: CGFloat = 0
+    private var ticker: Timer?
     /// Each bar's share of the loudness, changed a little with every reading so the bars move.
     private var shares = [CGFloat](repeating: 0.7, count: 32)
 
@@ -995,18 +1000,47 @@ final class SpaceVoiceView: UIView {
     /// raises the wave.
     func push(level step: Int) {
         let db = -55 + 2 * CGFloat(step)
-        var target = pow(min(1, max(0, (db + 44) / 20)), 0.75)
-        if target < 0.06 { target = 0 }
-        loudness += (target - loudness) * (target > loudness ? 0.65 : 0.35)
-        if loudness < 0.02 { loudness = 0 }
-        for i in shares.indices {
-            shares[i] = shares[i] * 0.35 + CGFloat.random(in: 0.35...1) * 0.65
-        }
-        if look == .locked { drawWave(animated: animates) }
+        let value = pow(min(1, max(0, (db + 44) / 20)), 0.75)
+        target = value < 0.06 ? 0 : value
+        if !animates { tick() }
     }
+
+    /// 20 times a second while locked: the loudness follows the latest reading (up fast, down
+    /// within about a third of a second) and the bars change a little.
+    private func tick() {
+        loudness += (target - loudness) * (target > loudness ? 0.6 : 0.3)
+        if loudness < 0.02 { loudness = 0 }
+        if loudness > 0 {
+            for i in shares.indices {
+                shares[i] = shares[i] * 0.5 + CGFloat.random(in: 0.35...1) * 0.5
+            }
+        }
+        drawWave()
+    }
+
+    private func runTicker(_ run: Bool) {
+        if run, ticker == nil {
+            let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.tick() }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            ticker = timer
+        } else if !run {
+            ticker?.invalidate()
+            ticker = nil
+        }
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil { runTicker(false) } else { update() }
+    }
+
+    deinit { ticker?.invalidate() }
 
     func reset() {
         loudness = 0
+        target = 0
         lockProgress = 0
         look = .held
         drawWave()
@@ -1021,6 +1055,7 @@ final class SpaceVoiceView: UIView {
         end.image = locked ? Self.stop : Self.mic
         wave.isHidden = !locked
         baseline.isHidden = !locked
+        runTicker(locked && animates && window != nil)
         arrows.layer.removeAnimation(forKey: "beckon")
         if !locked, animates {
             // The arrows pulse toward the lock.
@@ -1047,7 +1082,7 @@ final class SpaceVoiceView: UIView {
 
     /// Bars side by side across the free part of the bar, tallest in the middle, their heights
     /// the loudness; quiet, they shrink into a flat line.
-    private func drawWave(animated: Bool = false) {
+    private func drawWave() {
         guard look == .locked, bounds.width > 0 else {
             wave.path = nil
             baseline.path = nil
@@ -1072,13 +1107,6 @@ final class SpaceVoiceView: UIView {
         line.move(to: CGPoint(x: start, y: mid))
         line.addLine(to: CGPoint(x: start + CGFloat(max(0, count - 1)) * pitch + barWidth, y: mid))
         CATransaction.begin()
-        if animated, let old = wave.path {
-            let move = CABasicAnimation(keyPath: "path")
-            move.fromValue = wave.presentation()?.path ?? old
-            move.duration = 0.12
-            move.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            wave.add(move, forKey: "path")
-        }
         CATransaction.setDisableActions(true)
         wave.path = path
         baseline.path = line
